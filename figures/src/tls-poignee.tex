@@ -1,0 +1,25 @@
+% Poignée de main TLS 1.3 complète, telle que négociée avec Wikipédia :
+% un aller-retour, puis la requête chiffrée.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    msg/.style={arr=#1, line width=1pt},
+    lab/.style={font=\sffamily\footnotesize, text=Dink, fill=white, inner sep=1.5pt, align=center}]
+  \def\G{0}\def\D{110}
+  \node[seqhead=Dblue] (c) at (\G,0) {\stack{laptop}{Client}};
+  \node[seqhead=Dpurple] (s) at (\D,0) {\stack{server}{Serveur}};
+  \draw[seqlife] (c.south) -- (\G,-100);
+  \draw[seqlife] (s.south) -- (\D,-100);
+  \draw[msg=Dblue] (\G,-14) -- node[lab, sloped, above] {ClientHello : SNI, ALPN (h2), part de clé X25519MLKEM768} (\D,-26);
+  \draw[msg=Dpurple] (\D,-28) -- node[lab, sloped, above] {ServerHello : part de clé} (\G,-40);
+  \draw[msg=Dpurple, dash pattern=on 4pt off 2pt] (\D,-35) -- node[lab, sloped, below] {chiffré : certificats, signature, Finished} (\G,-47);
+  \draw[msg=Dblue, dash pattern=on 4pt off 2pt] (\G,-54) -- node[lab, sloped, above] {chiffré : Finished + requête HTTP} (\D,-66);
+  \draw[msg=Dpurple, dash pattern=on 4pt off 2pt] (\D,-68) -- node[lab, sloped, above] {chiffré : réponse} (\G,-80);
+  \draw[accolm] (\G-6,-14) -- node[left=6pt, note] {1 RTT :\\TLS} (\G-6,-47);
+  \draw[accolm] (\G-6,-54) -- node[left=6pt, note] {1 RTT :\\requête} (\G-6,-80);
+  \node[note, anchor=west, align=left] at (\G+3,-50.5) {clé de session calculée des deux côtés};
+  \draw[ligne=Dcloud] (\G+3,-90) -- ++(6,0) node[right, note] {en clair};
+  \draw[ligne=Dcloud, dash pattern=on 4pt off 2pt] (\G+42,-90) -- ++(6,0) node[right, note] {chiffré avec les clés négociées};
+\end{tikzpicture}
+\end{document}

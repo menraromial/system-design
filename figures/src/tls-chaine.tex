@@ -1,0 +1,26 @@
+% Chaîne de certificats réellement servie par www.wikipedia.org le 11 octobre
+% 2026 : chaque certificat est signé par le suivant, jusqu'à une racine du
+% magasin de confiance du client.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, node distance=7mm,
+    c/.style={bloc=#1, minimum width=62mm, text width=58mm, minimum height=13mm, align=left}]
+  \node[c=Pjaune] (f) {\textbf{*.wikipedia.org}\\[-1pt]{\scriptsize émis par Let's Encrypt YE2 · 5 août → 3 nov. 2026 (90 jours) · 41 noms}};
+  \node[c=Pbleu, below=of f] (i) {\textbf{Let's Encrypt YE2} (intermédiaire)\\[-1pt]{\scriptsize émis par ISRG Root YE · sept. 2025 → sept. 2028}};
+  \node[c=Pbleu, below=of i] (y) {\textbf{ISRG Root YE}\\[-1pt]{\scriptsize contresigné par ISRG Root X2 · jusqu'en 2032}};
+  \node[c=Pbleu, below=of y] (x2) {\textbf{ISRG Root X2}\\[-1pt]{\scriptsize contresigné par ISRG Root X1 · jusqu'en 2032}};
+  \node[c=Pvert, below=13mm of x2] (x1) {\textbf{ISRG Root X1} (racine)\\[-1pt]{\scriptsize déjà dans le magasin du client : non envoyée}};
+  \foreach \a/\b in {f/i, i/y, y/x2, x2/x1}
+    \draw[fl=Dcloud] (\a.south) -- node[eti, right] {signé par} (\b.north);
+  \begin{scope}[on background layer]
+    \node[cadred, fit=(f)(x2), inner sep=3mm] (env) {};
+  \end{scope}
+  \node[et=Pbrun, anchor=west, align=left] at ([xshift=2mm]env.east) {envoyés par\\le serveur};
+  \node[bloc=Pfond, right=26mm of x1, text width=36mm, align=center, font=\sffamily\scriptsize] (mag)
+    {magasin de confiance\\du système : 123 racines};
+  \draw[fl=Psapin] (mag) -- (x1);
+  \node[et=Psapin, anchor=north, align=center, text width=60mm] at ([yshift=-3mm]x1.south)
+    {le client vérifie chaque signature et chaque date, de la feuille jusqu'à la racine};
+\end{tikzpicture}
+\end{document}

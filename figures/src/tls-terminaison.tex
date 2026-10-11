@@ -1,0 +1,20 @@
+% Trois façons de placer la fin du chiffrement entre le client et le serveur.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=14mm,
+    b/.style={minimum width=26mm, minimum height=12mm, font=\sffamily\small}]
+  \foreach \y/\titre/\gauche/\droite/\cles in {
+      0/{Terminaison au répartiteur}/{HTTPS}/{HTTP en clair}/{clé au répartiteur},
+      -26/{Rechiffrement}/{HTTPS}/{HTTPS (TLS interne)}/{clés au répartiteur et au serveur},
+      -52/{Passage direct (passthrough)}/{TLS de bout en bout}/{même connexion TLS}/{clé au serveur seul}} {
+    \node[tile] (c) at (0,\y mm) {\dicon[\Large][Dslate]{laptop}\\[1pt]{\small Client}};
+    \node[soft=Dpurple, b] (r) at (58mm,\y mm) {\stack{random}{Répartiteur}};
+    \node[soft=Dblue, b] (s) at (116mm,\y mm) {\stack{server}{Serveur}};
+    \draw[arr=Dblue] (c) -- node[lbl, above=1mm] {\gauche} (r);
+    \draw[arr=Dblue] (r) -- node[lbl, above=1mm] {\droite} (s);
+    \node[note, anchor=west, align=left] at (134mm,\y mm) {\cles};
+    \node[pillo=Dslate, anchor=south west] at (-8mm,\y mm + 9mm) {\titre};
+  }
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,17 @@
+% TLS mutuel entre deux services : une autorité interne émet des
+% certificats de courte durée, chaque service vérifie celui de l'autre.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=12mm,
+    b/.style={minimum width=36mm, minimum height=15mm, font=\sffamily\small}]
+  \node[soft=Dteal, b] (ca) {\stack{certificate}{Autorité interne\\[-1pt]{\scriptsize certificats de 24 h}}};
+  \node[soft=Dblue, b, below left=16mm and 14mm of ca] (cmd) {\stack{shopping-cart}{service-commandes}};
+  \node[soft=Dorange, b, below right=16mm and 14mm of ca] (pay) {\stack{credit-card}{service-paiement}};
+  \draw[darr=Dteal] (ca.south west) -- node[lbl, sloped, above] {certificat signé} (cmd.north);
+  \draw[darr=Dteal] (ca.south east) -- node[lbl, sloped, above] {certificat signé} (pay.north);
+  \draw[biarr=Dslate] (cmd) -- node[lbl, above=1mm] {TLS mutuel} node[lbl, below=1mm, align=center] {chacun présente son certificat\\et vérifie celui de l'autre} (pay);
+  \node[note, below=3mm of cmd, align=center] {clé privée générée sur place\\identité : spiffe://boutique/commandes};
+  \node[note, below=3mm of pay, align=center] {n'accepte que les identités autorisées};
+\end{tikzpicture}
+\end{document}

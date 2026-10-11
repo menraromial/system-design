@@ -1,0 +1,288 @@
+---
+title: TLS et HTTPS
+sidebar_label: 6. TLS et HTTPS
+description: "Ce que TLS garantit, certificats et chaîne de confiance, poignée de main TLS 1.3, coût mesuré, où terminer le chiffrement, TLS mutuel entre services, renouvellement automatique."
+partie: 1
+chapitre: 6
+---
+
+import chaine from '@site/src/figures/tls-chaine.svg';
+import poignee from '@site/src/figures/tls-poignee.svg';
+import terminaison from '@site/src/figures/tls-terminaison.svg';
+import mutuel from '@site/src/figures/tls-mutuel.svg';
+
+Le 6 décembre 2018, à partir de cinq heures du matin, les abonnés de l’opérateur britannique O2 et ceux des opérateurs qui utilisent son réseau ont perdu l’accès aux données mobiles, et l’opérateur japonais SoftBank a connu une panne semblable le même jour ; la presse a estimé à environ 32 millions le nombre de personnes touchées. Ericsson, qui fournissait un équipement du cœur de ces réseaux, a expliqué le lendemain que la cause était un certificat expiré dans deux versions de son logiciel[^ericsson]. Aucune attaque, aucune panne matérielle : une date de fin de validité, atteinte en même temps sur des machines du monde entier.
+
+Les certificats et le chiffrement des échanges relèvent de la sécurité, que la partie 5 traite plus largement. Ce chapitre s’en tient à ce qu’en voit un concepteur sur le chemin d’une requête : ce que TLS (Transport Layer Security) protège, ce qu’il coûte en allers-retours et en processeur, où placer la fin du chiffrement, comment authentifier des services entre eux, et comment éviter que le 6 décembre 2018 se reproduise chez vous. Plusieurs mesures ont été faites pour ce chapitre, sur de vrais sites et sur une infrastructure de certificats montée en local.
+
+## La carte d’identité et le mélange de peinture
+
+:::analogie[Analogie : vérifier une identité, puis convenir d’un secret]
+Un inconnu se présente à votre porte et prétend être le technicien de votre banque. Vous lui demandez une pièce d’identité : vous vérifiez qu’elle porte bien son nom, qu’elle n’est pas périmée, et qu’elle a été émise par une autorité que vous reconnaissez, l’État, dont vous savez reconnaître le tampon. Vous ne connaissez pas cet homme, mais vous faites confiance à celui qui a émis sa carte.
+
+Il faut ensuite convenir d’un code secret alors que quelqu’un écoute sur le palier. L’image classique est celle des peintures : chacun choisit en secret une couleur, la mélange avec une couleur commune connue de tous, et envoie le mélange à l’autre. Chacun ajoute alors sa couleur secrète au mélange reçu, et les deux obtiennent la même teinte finale. L’espion a vu passer la couleur commune et les deux mélanges, mais séparer un mélange en ses composants est trop difficile pour lui.
+
+La pièce d’identité est le certificat, l’État est l’autorité de certification, le tampon est une signature numérique, et le mélange des peintures est l’échange de clés de Diffie-Hellman qui donne aux deux côtés une clé de session que personne d’autre ne connaît.
+
+**Où l’analogie s’arrête.** Une carte d’identité dure dix ou quinze ans ; un certificat de serveur dure aujourd’hui au plus 200 jours, souvent 90, et c’est ce qui fait de son renouvellement un problème d’exploitation permanent. Une autorité compromise peut produire de vraies fausses cartes pour n’importe quel nom, et le client n’a aucun moyen de les distinguer des bonnes : c’est arrivé, comme on le verra. La difficulté de « séparer les peintures » repose sur une hypothèse mathématique, que les ordinateurs quantiques menacent pour les échanges actuels, d’où les échanges hybrides observés plus bas. Enfin, l’analogie ne dit rien du coût : vérifier une carte prend une seconde, alors que les signatures et les échanges de clés coûtent du temps de processeur que l’on mesure en microsecondes et qui se compte par millions chaque jour.
+:::
+
+## Ce que TLS garantit, et ce qu’il ne garantit pas
+
+TLS, dont la version actuelle est décrite par la RFC 8446[^rfc8446], apporte trois garanties à une connexion. La confidentialité : un observateur du réseau ne peut pas lire les données échangées. L’intégrité : il ne peut pas les modifier sans que la modification soit détectée. L’authentification du serveur : le client a la preuve qu’il parle au détenteur du nom qu’il a demandé, et pas à un intermédiaire. L’authentification du client est possible aussi, c’est le TLS mutuel décrit plus bas. HTTPS est simplement HTTP transporté dans une connexion TLS.
+
+Les limites comptent autant pour la conception. TLS ne cache ni les adresses IP ni le nom du site demandé, qui circule en clair au début de la poignée de main (l’extension SNI, server name indication[^rfc6066], qui permet à un serveur d’héberger plusieurs domaines sur une même adresse), sauf si l’extension ECH (Encrypted Client Hello) est utilisée. Il ne cache pas non plus la taille et le rythme des échanges. Il protège les données en transit, pas sur les disques (ch. 55), et il ne protège de rien si le serveur lui-même est compromis.
+
+Les versions 1.0 et 1.1 sont officiellement abandonnées depuis 2021[^rfc8996]. TLS 1.2 reste répandu ; TLS 1.3 a supprimé les mécanismes faibles de ses prédécesseurs et gagné un aller-retour.
+
+## Les certificats et la chaîne de confiance
+
+Un certificat X.509 associe une clé publique à une identité, ici un ou plusieurs noms de domaine, pour une période donnée, et porte la signature d’une autorité de certification (certificate authority, CA). Le client ne connaît pas d’avance la clé du serveur ; il connaît en revanche une liste de quelques dizaines à quelques centaines d’autorités racines, livrée avec le système d’exploitation ou le navigateur. Le magasin de confiance du poste Ubuntu utilisé pour ce chapitre en contenait 123 (`/etc/ssl/certs/ca-certificates.crt`).
+
+Entre le certificat du site et une racine, il y a en général un ou plusieurs certificats intermédiaires : les racines, très précieuses, sont gardées hors ligne et ne signent que des intermédiaires, qui signent à leur tour les certificats des sites. Voici la chaîne réellement servie par `www.wikipedia.org` le 11 octobre 2026, relevée avec `openssl s_client -showcerts` :
+
+<Figure svg={chaine} num="6.1" alt="Chaîne de certificats de www.wikipedia.org : certificat du site émis par Let’s Encrypt YE2, signé par ISRG Root YE, contresigné par ISRG Root X2, contresigné par ISRG Root X1, présente dans le magasin du client.">
+Chaîne de certificats de `www.wikipedia.org`, de la feuille à la racine.
+</Figure>
+
+La chaîne se lit de haut en bas : chaque certificat est signé par celui qui le suit. Le cadre en pointillés entoure ce que le serveur envoie ; la racine, en vert, n’est pas envoyée, parce que le client doit déjà la posséder dans son magasin de confiance. Le certificat du site, en jaune, dure 90 jours et couvre 41 noms (les domaines de Wikipédia et de ses projets frères, avec leurs variantes mobiles) ; les intermédiaires durent plusieurs années.
+
+Le client vérifie, pour chaque maillon, la signature par le maillon suivant et la période de validité, puis contrôle que le nom demandé figure dans la liste des noms du certificat de feuille (l’extension Subject Alternative Name). Une seule erreur et la connexion est refusée.
+
+Ce système fait confiance à toutes les autorités du magasin pour tous les noms. Si une seule est compromise, elle peut signer un certificat valide pour n’importe quel domaine. C’est arrivé en 2011 à l’autorité néerlandaise DigiNotar : des attaquants ont émis de faux certificats, dont un pour `*.google.com`, utilisé pour intercepter des connexions d’internautes en Iran ; DigiNotar a été retirée des magasins de confiance et a fait faillite dans les semaines qui ont suivi[^diginotar]. La parade principale est venue ensuite : la transparence des certificats (Certificate Transparency[^rfc6962]), qui oblige les autorités à publier chaque certificat émis dans des journaux publics vérifiables, que les principaux navigateurs exigent. Le propriétaire d’un domaine peut ainsi surveiller ces journaux et découvrir un certificat émis à son nom à son insu.
+
+La révocation d’un certificat avant son expiration (clé volée, erreur d’émission) existe, par des listes de révocation et par le protocole OCSP, mais elle est notoirement peu fiable : beaucoup de clients ne la vérifient pas, ou ignorent l’échec de la vérification. La réponse de l’industrie a été de raccourcir la durée de vie des certificats, pour qu’un certificat compromis cesse vite d’être valide. Le CA/Browser Forum, qui réunit autorités et éditeurs de navigateurs, a adopté en avril 2025 un calendrier qui limite la validité des certificats publics à 200 jours depuis le 15 mars 2026, puis à 100 jours à partir de 2027 et à 47 jours à partir de 2029[^cabf]. La conséquence pour le concepteur est simple : le renouvellement manuel n’est plus une option.
+
+## La poignée de main TLS 1.3
+
+<Figure svg={poignee} num="6.2" alt="Diagramme de séquence : ClientHello avec part de clé, ServerHello avec part de clé, puis messages chiffrés du serveur (certificats, signature, Finished), puis Finished du client avec la requête chiffrée, et la réponse chiffrée.">
+Poignée de main TLS 1.3 complète, telle que négociée avec Wikipédia.
+</Figure>
+
+Les flèches pleines circulent en clair, les flèches en pointillés sont chiffrées avec les clés que la poignée de main vient d’établir. L’accolade du haut montre qu’il suffit d’un aller-retour pour que le client puisse envoyer sa requête, chiffrée, avec son dernier message de poignée de main. Les libellés reprennent ce qu’a négocié `openssl s_client` avec `www.wikipedia.org`.
+
+Le déroulé est le suivant.
+
+1. Le client envoie un ClientHello : les versions et les suites cryptographiques qu’il accepte, le nom du site (SNI), les protocoles applicatifs qu’il sait parler (ALPN, application-layer protocol negotiation, qui permet de choisir HTTP/2 sans aller-retour de plus), et surtout, dès ce premier message, sa part d’un échange de clés éphémère. TLS 1.3 parie sur l’algorithme que le serveur choisira, ce qui économise l’aller-retour que TLS 1.2 consacrait à le négocier.
+2. Le serveur répond par un ServerHello avec sa propre part. Les deux côtés calculent alors le même secret partagé et en dérivent les clés de session ; tout ce qui suit est chiffré.
+3. Toujours dans la même rafale, le serveur envoie sa chaîne de certificats, une signature de la poignée de main faite avec la clé privée de son certificat (CertificateVerify), qui prouve qu’il détient cette clé, et un message Finished qui authentifie l’ensemble de l’échange.
+4. Le client vérifie la chaîne, la signature et le Finished, puis envoie son propre Finished, suivi aussitôt de la requête HTTP.
+
+Les parts de clés sont éphémères : générées pour cette connexion et oubliées ensuite. Un attaquant qui volerait plus tard la clé privée du certificat ne pourrait donc pas déchiffrer des échanges enregistrés auparavant, propriété appelée confidentialité persistante (forward secrecy). TLS 1.3 a supprimé l’ancien mode de TLS 1.2 où le client chiffrait directement un secret avec la clé RSA du serveur, mode qui n’offrait pas cette garantie.
+
+La session négociée, avec Wikipédia comme avec Google et Cloudflare, utilisait la suite `TLS_AES_128_GCM_SHA256` ou `TLS_AES_256_GCM_SHA384` et une signature ECDSA sur la courbe P-256. Le groupe d’échange de clés négocié, lui, était `X25519MLKEM768` sur les trois sites :
+
+```text
+$ openssl s_client -connect www.wikipedia.org:443 -servername www.wikipedia.org -brief
+Protocol version: TLSv1.3
+Ciphersuite: TLS_AES_128_GCM_SHA256
+Peer certificate: CN=*.wikipedia.org
+Signature type: ecdsa_secp256r1_sha256
+Verification: OK
+Negotiated TLS1.3 group: X25519MLKEM768
+```
+
+C’est un échange hybride : il combine l’échange classique sur courbe elliptique X25519 et ML-KEM, un mécanisme d’encapsulation de clé conçu pour résister aux ordinateurs quantiques et normalisé par le NIST en août 2024 (FIPS 203)[^fips203]. Le secret de session dépend des deux, si bien qu’il faudrait casser les deux pour le retrouver. La raison de se presser est l’attaque « collecter maintenant, déchiffrer plus tard » : un adversaire qui enregistre aujourd’hui du trafic chiffré pourra le déchiffrer le jour où il disposera d’un ordinateur quantique capable de casser X25519, alors que les signatures, elles, n’ont besoin d’être sûres qu’au moment de la connexion.
+
+Un client qui revient vers un serveur déjà rencontré peut reprendre la session avec une clé pré-partagée que le serveur lui a remise lors de la connexion précédente, sans refaire la vérification du certificat ni la signature, et même envoyer sa requête dans le premier message (0-RTT). Le ch. 5 a montré la contrepartie : ces données peuvent être rejouées, et un serveur ne doit les accepter que pour des requêtes sans effet de bord.
+
+## Le coût de TLS, mesuré
+
+Le chiffrement des données elles-mêmes est rapide ; ce qui coûte, ce sont les poignées de main, et dans les poignées de main, les opérations à clé publique. Les mesures suivantes ont été faites avec `openssl speed` (OpenSSL 3.5.5) sur un cœur d’un processeur Intel Core Ultra 7 165H.
+
+| Opération | Par seconde, sur un cœur | Durée d’une opération |
+|---|---|---|
+| Signature RSA-2048 | 1 283 | 779 µs |
+| Vérification RSA-2048 | 42 650 | 23 µs |
+| Signature ECDSA P-256 | 34 622 | 29 µs |
+| Vérification ECDSA P-256 | 10 752 | 93 µs |
+| Échange X25519 | 22 982 | 44 µs |
+| ML-KEM-768, encapsulation | 29 086 | 34 µs |
+| AES-128-GCM, blocs de 16 Ko | 4,3 Go/s | |
+| ChaCha20-Poly1305, blocs de 16 Ko | 1,5 Go/s | |
+
+Deux lectures s’imposent. Une signature RSA-2048, celle que fait le serveur à chaque poignée de main complète avec un certificat RSA, coûte 27 fois plus cher qu’une signature ECDSA P-256 : le choix du type de clé du certificat décide du nombre de poignées de main qu’un serveur peut faire. Et AES-GCM, accéléré par les instructions dédiées des processeurs, chiffre plus de 4 Go par seconde et par cœur : une fois la connexion établie, le chiffrement est presque gratuit.
+
+Pour mesurer des poignées de main entières, le script `outils/experiences/ch06/experience.sh` du dépôt lance un serveur `openssl s_server` et mesure, avec `openssl s_time`, le nombre de connexions réalisées en six secondes, avec une poignée de main complète à chaque fois (`-new`) ou en reprenant la session (`-reuse`). L’outil ne sait reprendre une session qu’en TLS 1.2, d’où cette version pour la mesure ; client et serveur tournent sur la même machine.
+
+```text
+== TLS 1.2, connexions en 6 s de temps réel
+ECDSA-P256 -new      5935 connexions
+ECDSA-P256 -reuse   23057 connexions
+RSA-2048   -new      3211 connexions
+RSA-2048   -reuse   23550 connexions
+```
+
+La reprise de session multiplie le nombre de connexions par 4 avec une clé ECDSA et par 7 avec une clé RSA, parce qu’en TLS 1.2 elle supprime la signature et l’échange de clés (en TLS 1.3, la reprise garde en général un échange de clés et ne supprime que la signature et la vérification du certificat) ; et avec une poignée de main complète, la clé ECDSA permet 1,8 fois plus de connexions que la clé RSA. Ces chiffres comprennent l’ouverture TCP et le travail du client ; le serveur seul ferait mieux.
+
+## Où terminer le chiffrement
+
+Dans une architecture réelle, le client ne parle presque jamais directement au serveur d’application : un répartiteur de charge ou un CDN s’intercale (ch. 13 et 15). Il faut décider où la connexion TLS du client se termine, c’est-à-dire où se trouve la clé privée du certificat public.
+
+<Figure svg={terminaison} num="6.3" alt="Trois architectures : terminaison TLS au répartiteur avec HTTP en clair derrière ; rechiffrement avec TLS de nouveau entre répartiteur et serveur ; passage direct avec TLS de bout en bout jusqu’au serveur.">
+Trois emplacements possibles pour la fin du chiffrement.
+</Figure>
+
+Chaque ligne est une architecture, du client au serveur ; la colonne de droite dit qui détient une clé privée. Sur la première, le répartiteur déchiffre et transmet en clair ; sur la deuxième, il déchiffre puis rechiffre vers le serveur avec un certificat interne ; sur la troisième, il transmet les octets chiffrés sans les lire, en choisissant le serveur d’après le nom en clair de l’extension SNI.
+
+| Option | Avantages | Inconvénients | Quand la choisir |
+|---|---|---|---|
+| Terminaison au répartiteur | un seul endroit où gérer les certificats publics ; le répartiteur lit HTTP et peut router par chemin, compresser, mettre en cache, bloquer des abus (ch. 14) ; serveurs déchargés des poignées de main | trafic en clair dans le réseau interne : quiconque y accède le lit | réseau interne de confiance, données peu sensibles, contrainte de coût |
+| Rechiffrement | mêmes fonctions de niveau HTTP ; trafic interne chiffré | deux poignées de main, certificats internes à émettre et renouveler | cas le plus fréquent aujourd’hui, et exigé par beaucoup de référentiels de conformité |
+| Passage direct | le répartiteur ne voit jamais les données ; chiffrement de bout en bout | le répartiteur ne peut ni lire ni router par chemin ; chaque serveur gère le certificat public et sa clé | données très sensibles, exigence de ne pas confier la clé à un tiers (par exemple au fournisseur de CDN) |
+
+L’hypothèse d’un réseau interne « de confiance » est de plus en plus abandonnée. Elle suppose qu’aucun attaquant ne prendra pied sur une machine interne, et qu’une erreur de configuration n’exposera jamais ce trafic ; les approches dites zero trust partent du principe inverse et chiffrent et authentifient chaque connexion, y compris à l’intérieur.
+
+## Le TLS mutuel entre services
+
+Dans une poignée de main ordinaire, seul le serveur présente un certificat ; le client s’authentifie ensuite au niveau de l’application, par un mot de passe ou un jeton (ch. 54). Entre services d’une même entreprise, on peut faire présenter un certificat au client aussi : c’est le TLS mutuel (mutual TLS, mTLS). Le service appelé sait alors, à partir de la poignée de main, quel service l’appelle, et peut refuser ceux qui n’ont rien à faire là.
+
+<Figure svg={mutuel} num="6.4" alt="Une autorité interne délivre des certificats signés de 24 heures à service-commandes et à service-paiement, qui établissent entre eux une connexion TLS mutuelle.">
+TLS mutuel entre deux services, avec une autorité de certification interne.
+</Figure>
+
+L’autorité interne, en haut, ne délivre que des certificats signés : chaque service génère sa clé privée sur place et ne la transmet jamais. Les deux services présentent chacun leur certificat dans la poignée de main et vérifient celui de l’autre ; l’identité inscrite dans le certificat (ici au format SPIFFE, une norme ouverte pour nommer les services) sert ensuite aux règles d’autorisation.
+
+L’expérience du chapitre monte un tel serveur, qui exige un certificat client signé par l’autorité locale. Sans certificat client, la sortie est instructive :
+
+```text
+== TLS mutuel, sans certificat client
+CONNECTION ESTABLISHED
+alert certificate required
+== TLS mutuel, avec le certificat du service-commandes
+CONNECTION ESTABLISHED
+Protocol version: TLSv1.3
+Verification: OK
+```
+
+Le client croit d’abord la connexion établie : en TLS 1.3, il a terminé sa part de la poignée de main avant que le serveur ait examiné son certificat (absent ici), et ne reçoit l’alerte `certificate required` qu’ensuite. Une application qui considère la connexion comme réussie dès la fin de sa poignée de main découvre l’échec à sa première lecture ; c’est un détail qui rend les erreurs de mTLS déroutantes à diagnostiquer.
+
+Le TLS mutuel à grande échelle se heurte au même problème que les certificats publics, multiplié par le nombre de services : émettre, distribuer et renouveler des certificats, souvent valables seulement quelques heures pour limiter les dégâts d’une clé volée. On ne le fait pas à la main. Les maillages de services (service mesh) comme Istio ou Linkerd placent à côté de chaque service un proxy qui établit les connexions mTLS et renouvelle ses certificats tout seul, sans que le code de l’application change ; le ch. 14 compare cette approche à une passerelle centrale.
+
+## Renouveler sans y penser
+
+Le protocole ACME (Automatic Certificate Management Environment[^rfc8555]), conçu pour Let’s Encrypt et normalisé en 2019, automatise tout le cycle : le serveur prouve à l’autorité qu’il contrôle le domaine (en publiant un jeton sur le site ou dans le DNS), reçoit le certificat, et recommence avant l’expiration. Let’s Encrypt délivre des certificats de 90 jours, et a annoncé en décembre 2025 qu’il passerait à 64 jours par défaut en février 2027, puis à 45 jours en février 2028[^le45]. Les clients ACME courants renouvellent bien avant l’échéance ; certbot, par exemple, le fait par défaut quand il reste moins de 30 jours.
+
+L’automatisation ne dispense pas de surveiller. Un renouvellement peut échouer en silence : un enregistrement DNS supprimé, un pare-feu qui bloque la validation, une limite de débit de l’autorité. La bonne pratique est double : une alerte sur la date d’expiration des certificats réellement servis, mesurée de l’extérieur comme le ferait un client, déclenchée à plusieurs semaines de l’échéance ; et un inventaire de tous les certificats, y compris ceux qu’aucun outil n’a émis automatiquement, comme celui de la panne d’Ericsson, embarqué dans un logiciel.
+
+Voici ce que voit un client face à un certificat expiré, dans l’expérience du chapitre, où un certificat a été émis valable du 1er janvier au 1er avril 2026 :
+
+```text
+== client face au certificat valide
+CONNECTION ESTABLISHED
+Protocol version: TLSv1.3
+Verification: OK
+== client face au certificat expiré
+verify error:num=10:certificate has expired
+```
+
+Il n’y a pas de dégradation progressive : la veille de l’expiration, tout fonctionne ; le lendemain, chaque client qui vérifie le certificat refuse la connexion. Un dernier mécanisme rend le refus plus strict encore pour les navigateurs : l’en-tête HSTS (HTTP Strict Transport Security[^rfc6797]) indique au navigateur de ne jamais accepter ce site autrement qu’en HTTPS valide, et lui retire la possibilité de passer outre une erreur de certificat. C’est une protection contre les attaques qui forcent un passage en HTTP, et une raison de plus pour ne jamais laisser expirer un certificat.
+
+## Ordres de grandeur
+
+:::calcul[Calcul : processeur consacré aux poignées de main]
+Hypothèses : un service reçoit en pointe 5 000 nouvelles connexions TLS par seconde, toutes avec une poignée de main complète ; on ne compte que les opérations à clé publique du serveur, mesurées plus haut.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Coût serveur par poignée de main, certificat RSA-2048 | signature 779 µs + X25519 44 µs + ML-KEM 34 µs | ≈ 0,86 ms |
+| Coût serveur par poignée de main, certificat ECDSA P-256 | signature 29 µs + 44 µs + 34 µs | ≈ 0,11 ms |
+| Cœurs occupés, RSA-2048 | 5 000 × 0,86 ms | ≈ 4,3 cœurs |
+| Cœurs occupés, ECDSA P-256 | 5 000 × 0,11 ms | ≈ 0,5 cœur |
+| Même charge avec 80 % de reprises de session (ECDSA) | 1 000 complètes × 0,11 ms + 4 000 reprises × 0,08 ms (sans signature, avec échange de clés) | ≈ 0,4 cœur |
+| Même charge avec 80 % de reprises (RSA-2048) | 1 000 × 0,86 ms + 4 000 × 0,08 ms | ≈ 1,2 cœur |
+| Chiffrement de 10 Gbit/s de trafic, AES-128-GCM | 1,25 Go/s / 4,3 Go/s par cœur | ≈ 0,3 cœur |
+
+Conclusion : avec des certificats ECDSA, les poignées de main de 5 000 nouvelles connexions par seconde tiennent dans un demi-cœur ; avec RSA-2048, il en faut plus de quatre, uniquement pour signer. Chiffrer 10 Gbit/s coûte moins d’un tiers de cœur. La reprise de session, qui en TLS 1.3 garde un échange de clés pour préserver la confidentialité persistante, fait surtout gagner avec RSA. Le coût de TLS se maîtrise donc par le type de clé, la reprise des sessions et la réutilisation des connexions (ch. 4 et 5), bien plus que par le choix de l’algorithme de chiffrement des données.
+:::
+
+:::calcul[Calcul : allers-retours de TLS sur 80 ms de RTT]
+| Situation | Allers-retours avant la requête | Délai |
+|---|---|---|
+| TCP + TLS 1.2 | 1 + 2 | 240 ms |
+| TCP + TLS 1.3 | 1 + 1 | 160 ms |
+| TCP + TLS 1.3, reprise 0-RTT | 1 + 0 | 80 ms |
+| QUIC (HTTP/3) | 1 | 80 ms |
+| QUIC, reprise 0-RTT | 0 | 0 ms (la requête part avec le premier paquet) |
+:::
+
+Et pour le renouvellement : avec des certificats de 47 jours, une organisation qui gère 2 000 certificats publics en renouvelle en moyenne $2\,000 / 47 \approx 43$ par jour, plus de 15 000 par an. À cette cadence, une procédure manuelle d’un quart d’heure par certificat représenterait plus de dix heures de travail par jour ouvré.
+
+## Exemple réel : l’échange de clés post-quantique déjà en production
+
+Les trois sessions relevées pour ce chapitre, avec Wikipédia, Cloudflare et Google, ont toutes négocié le groupe hybride `X25519MLKEM768`, sans aucun réglage particulier du client : OpenSSL 3.5 le propose en premier, et les trois serveurs l’acceptent. Une technique normalisée par le NIST en août 2024 était donc, deux ans plus tard, utilisée par défaut pour une part importante du trafic web, sans que les utilisateurs ou les développeurs d’applications aient eu quoi que ce soit à faire. C’est l’avantage de placer la cryptographie dans une couche commune, mise à jour par quelques bibliothèques et quelques grands opérateurs : quand l’algorithme change, des milliards de connexions en profitent. Le coût mesuré plus haut est faible (34 µs pour l’encapsulation ML-KEM), mais les messages grossissent : la clé publique ML-KEM-768 envoyée par le client pèse 1 184 octets, et le ClientHello peut ne plus tenir dans un seul paquet.
+
+## Erreurs fréquentes
+
+La première est la plus coûteuse : un certificat renouvelé à la main, avec un rappel dans un agenda. Les certificats raccourcissent, les équipes changent, et le rappel finit par tomber pendant les vacances de la seule personne qui savait le faire. Tout certificat doit être renouvelé par un automate et surveillé de l’extérieur.
+
+Vient ensuite la désactivation de la vérification. Le `verify=False` ajouté « pour débloquer » un appel vers un service interne au certificat autosigné reste souvent en production ; il supprime l’authentification du serveur, et donc toute protection contre un intermédiaire. La correction est de faire confiance à l’autorité interne, en ajoutant son certificat racine au magasin du client.
+
+Une chaîne incomplète produit une panne déroutante : le serveur n’envoie que son certificat, sans l’intermédiaire. Certains navigateurs complètent la chaîne d’eux-mêmes, en allant chercher l’intermédiaire à l’adresse indiquée dans le certificat ou dans un cache ; `curl`, les bibliothèques des langages et beaucoup d’applications mobiles ne le font pas. Le site fonctionne dans le navigateur du développeur et échoue chez une partie des clients.
+
+L’épinglage de certificats (certificate pinning) dans une application mobile, qui n’accepte qu’un certificat ou une clé précise, transforme chaque renouvellement en risque de panne pour toutes les versions de l’application déjà installées. S’il est indispensable, on épingle la clé d’une autorité, ou plusieurs clés, et l’on prévoit la rotation.
+
+L’horloge d’un client compte aussi : un appareil dont la date est fausse voit des certificats « pas encore valides » ou « expirés ». Pour un système embarqué ou un objet connecté, la synchronisation de l’heure (ch. 33) fait partie de la conception TLS.
+
+En entretien, l’erreur habituelle est d’écrire « HTTPS » sur un schéma sans dire où se termine TLS ni qui détient les clés. Une phrase suffit pour montrer qu’on y a pensé : « TLS terminé au répartiteur, rechiffré vers les serveurs, mTLS entre services, certificats émis et renouvelés automatiquement. »
+
+:::piege[Erreur fréquente : des clés RSA de 4 096 bits « pour être plus sûr »]
+Une clé RSA de 4 096 bits coûte nettement plus cher à chaque signature qu’une clé de 2 048 bits, qui coûte déjà 27 fois plus qu’une clé ECDSA P-256 d’après les mesures du chapitre, sans apporter de bénéfice face à la menace quantique, qui touche toutes les tailles de RSA. Pour un certificat de serveur, ECDSA P-256 offre une sécurité suffisante au coût le plus bas ; si des clients anciens l’exigent, un serveur peut servir les deux types de certificats.
+:::
+
+:::entretien
+Sur une question de sécurité du transport, structurez la réponse en quatre points : où TLS se termine et qui détient les clés publiques ; comment les services s’authentifient entre eux (mTLS, identités de services) ; comment les certificats sont émis et renouvelés (ACME, autorité interne, durée de vie courte) ; ce que cela coûte et comment on le réduit (ECDSA, reprise de session, réutilisation des connexions).
+:::
+
+## Exercices
+
+**Question 1.** Avec un RTT de 80 ms, combien de temps s’écoule avant que le serveur reçoive la première requête d’un client, pour une connexion neuve en TLS 1.2, en TLS 1.3, et pour une reprise de session en TLS 1.3 avec 0-RTT ? Quelle requête ne faut-il jamais envoyer en 0-RTT ?
+
+**Question 2.** Un service doit tenir 2 000 nouvelles connexions TLS par seconde en pointe, sans reprise de session. Combien de cœurs faut-il consacrer aux seules signatures avec un certificat RSA-2048, puis avec un certificat ECDSA P-256, d’après les mesures du chapitre ? Que proposez-vous pour réduire encore ce coût ?
+
+**Question 3.** Un site fonctionne dans votre navigateur, mais `curl` et l’application mobile de l’entreprise échouent avec une erreur de vérification. Le certificat n’est pas expiré et le nom est correct. Quelle est la cause la plus probable, et comment la confirmer et la corriger ?
+
+**Exercice de conception.** Une plateforme compte 200 microservices dans deux centres de données, et expose au public 50 noms de domaine derrière des répartiteurs de charge. Elle reçoit en pointe 20 000 nouvelles connexions TLS publiques par seconde. Les données échangées entre services comprennent des données de paiement. Concevez la gestion de TLS : terminaison publique, chiffrement interne, authentification entre services, émission et renouvellement des certificats publics et internes, surveillance, et estimation du processeur nécessaire aux poignées de main publiques.
+
+## Corrigés
+
+**Question 1.** TLS 1.2 : 1 RTT pour TCP et 2 pour TLS, la requête part après 240 ms et arrive au serveur une demi-durée d’aller-retour plus tard, soit 280 ms. TLS 1.3 : 1 + 1 RTT, la requête part après 160 ms et arrive à 200 ms. Reprise en 0-RTT : la requête part avec le premier message TLS, juste après l’ouverture TCP (80 ms), et arrive à 120 ms ; avec QUIC, elle partirait dès le premier paquet et arriverait à 40 ms. Les données 0-RTT peuvent être rejouées par un attaquant qui les a interceptées : il ne faut jamais y placer une requête qui modifie l’état, comme un `POST` de paiement ou de commande, sauf si le serveur sait la rendre idempotente (ch. 38).
+
+**Question 2.** RSA-2048 : $2\,000 \times 779\ \mu\text{s} \approx 1{,}56$ cœur pour les signatures. ECDSA P-256 : $2\,000 \times 29\ \mu\text{s} \approx 0{,}06$ cœur. En comptant aussi l’échange de clés hybride (environ 78 µs), on arrive à environ 1,7 cœur avec RSA et 0,2 avec ECDSA. Pour réduire encore : passer à un certificat ECDSA ; activer la reprise de session par tickets, qui supprime la signature pour les clients qui reviennent ; et surtout faire en sorte que les clients réutilisent leurs connexions (keep-alive, HTTP/2 et HTTP/3, ch. 5), ce qui diminue le nombre de poignées de main lui-même.
+
+**Question 3.** La cause la plus probable est une chaîne incomplète : le serveur n’envoie pas le certificat intermédiaire. Le navigateur le complète, depuis son cache ou en allant le chercher à l’adresse indiquée dans le certificat ; `curl` et les bibliothèques de l’application mobile n’ont que le certificat de feuille et leur magasin de racines, et ne peuvent pas relier les deux. On le confirme avec `openssl s_client -connect site:443 -servername site -showcerts`, qui montre combien de certificats le serveur envoie, et par l’erreur `unable to get local issuer certificate`. La correction consiste à configurer le serveur pour qu’il envoie la chaîne complète (certificat de feuille suivi des intermédiaires, sans la racine), puis à ajouter ce test à la surveillance.
+
+**Exercice de conception.**
+
+*Terminaison publique.* TLS est terminé sur les répartiteurs de charge publics, qui ont besoin de lire HTTP pour router les 50 domaines et appliquer les protections contre les abus. Les certificats publics sont des certificats ECDSA P-256, émis par ACME ; on peut regrouper des noms dans un même certificat (Wikipédia en couvre 41 dans un seul), ou utiliser des certificats génériques (`*.exemple.com`) qui exigent une validation par le DNS, en limitant le nombre de machines qui détiennent ces clés. Les répartiteurs activent la reprise de session et HTTP/2 et HTTP/3.
+
+*Chiffrement interne.* Les données de paiement imposent de chiffrer aussi le trafic interne : les répartiteurs rechiffrent vers les services, et les services se parlent en mTLS. Un maillage de services, ou à défaut une bibliothèque commune, établit les connexions mTLS, avec des identités par service (au format SPIFFE) et des règles d’autorisation : le service de paiement n’accepte que les identités qui ont le droit de l’appeler.
+
+*Certificats internes.* Une autorité interne, dont la racine est gardée hors ligne et dont un intermédiaire signe en ligne, émet des certificats de courte durée (quelques heures à une journée) ; chaque service génère sa clé sur place, demande son certificat au démarrage et le renouvelle automatiquement à mi-vie. Une clé volée cesse ainsi d’être utile en quelques heures, sans avoir besoin de révocation.
+
+*Surveillance.* Une sonde externe vérifie chaque jour, pour chacun des 50 domaines, la date d’expiration et la complétude de la chaîne réellement servie, avec une alerte à 21 jours de l’échéance (avec des certificats de 47 jours, le renouvellement normal se fait bien avant) ; la surveillance des journaux de transparence des certificats signale tout certificat émis pour ces domaines par une autre voie ; les métriques du maillage signalent les échecs de mTLS et les certificats internes proches de l’expiration ; un inventaire recense les certificats hors automate (équipements, logiciels de fournisseurs).
+
+*Processeur.* À 20 000 poignées de main publiques complètes par seconde avec ECDSA, environ $20\,000 \times 0{,}11\ \text{ms} = 2{,}2$ cœurs, répartis sur les répartiteurs. Si 70 % des connexions reprennent une session, il reste 6 000 poignées complètes (environ 0,7 cœur) et 14 000 reprises qui gardent un échange de clés (environ $14\,000 \times 0{,}08\ \text{ms} \approx 1{,}1$ cœur), soit 1,8 cœur : avec ECDSA, la reprise rapporte peu. Avec RSA-2048, il faudrait plus de 17 cœurs pour la même charge sans reprise : le choix de la clé est la décision qui pèse le plus.
+
+:::fiche
+- TLS garantit confidentialité, intégrité et authentification du serveur ; il ne cache ni les adresses, ni le nom du site (SNI, sauf ECH), ni la taille et le rythme des échanges.
+- Chaîne : feuille → intermédiaires → racine du magasin (123 racines sur le poste de mesure) ; le serveur envoie la chaîne sans la racine.
+- Autorité compromise = faux certificats valides (DigiNotar, 2011) ; parade : transparence des certificats.
+- Durée de vie : au plus 200 jours depuis mars 2026, 47 jours en 2029 ; renouvellement automatique (ACME) et surveillance externe obligatoires.
+- TLS 1.3 : 1 RTT, échange de clés éphémère (confidentialité persistante), 0-RTT en reprise mais rejouable ; échange hybride X25519MLKEM768 observé chez Wikipédia, Cloudflare et Google.
+- Coût mesuré : signature RSA-2048 779 µs contre 29 µs pour ECDSA P-256 ; AES-GCM 4,3 Go/s par cœur ; reprise de session : 4 à 7 fois plus de connexions.
+- Terminaison au répartiteur, rechiffrement, ou passage direct : choisir selon qui peut détenir les clés et lire le trafic.
+- mTLS entre services : identités de services, certificats de courte durée, gérés par un maillage ou une bibliothèque commune.
+:::
+
+[^ericsson]: « Here’s what caused yesterday’s O2 and SoftBank outages », TechCrunch, 7 décembre 2018, [techcrunch.com/2018/12/07/heres-what-caused-yesterdays-o2-and-softbank-outages](https://techcrunch.com/2018/12/07/heres-what-caused-yesterdays-o2-and-softbank-outages/).
+[^rfc8446]: RFC 8446, *The Transport Layer Security (TLS) Protocol Version 1.3*, 2018.
+[^rfc6066]: RFC 6066, *Transport Layer Security (TLS) Extensions: Extension Definitions*, 2011, section 3 (Server Name Indication).
+[^rfc8996]: RFC 8996, *Deprecating TLS 1.0 and TLS 1.1*, 2021.
+[^diginotar]: Fox-IT, *DigiNotar Certificate Authority breach « Operation Black Tulip »*, rapport d’enquête remis au gouvernement néerlandais, 2012.
+[^rfc6962]: RFC 6962, *Certificate Transparency*, 2013.
+[^cabf]: CA/Browser Forum, « Ballot SC081v3: Introduce Schedule of Reducing Validity and Data Reuse Periods », adopté le 11 avril 2025, [cabforum.org/2025/04/11/ballot-sc081v3-introduce-schedule-of-reducing-validity-and-data-reuse-periods](https://cabforum.org/2025/04/11/ballot-sc081v3-introduce-schedule-of-reducing-validity-and-data-reuse-periods/).
+[^fips203]: NIST, *FIPS 203: Module-Lattice-Based Key-Encapsulation Mechanism Standard*, août 2024.
+[^rfc8555]: RFC 8555, *Automatic Certificate Management Environment (ACME)*, 2019.
+[^le45]: Matthew McPherrin, « Decreasing Certificate Lifetimes to 45 Days », blog de Let’s Encrypt, 2 décembre 2025, [letsencrypt.org/2025/12/02/from-90-to-45](https://letsencrypt.org/2025/12/02/from-90-to-45).
+[^rfc6797]: RFC 6797, *HTTP Strict Transport Security (HSTS)*, 2012.
