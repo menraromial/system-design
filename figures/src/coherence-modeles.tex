@@ -1,0 +1,37 @@
+% Carte simplifiée des modèles de cohérence (d'après jepsen.io/consistency) :
+% une flèche va d'un modèle à un modèle plus faible qu'il implique ; la couleur
+% dit ce qui reste possible pendant une partition du réseau.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    m/.style={soft=#1, minimum width=34mm, minimum height=9mm, font=\sffamily\small, inner sep=3pt}]
+  \node[m=Dred] (ss) at (40,0) {sérialisabilité stricte};
+  \node[m=Dred] (lin) at (5,-18) {linéarisabilité};
+  \node[m=Dred] (ser) at (75,-18) {sérialisabilité};
+  \node[m=Dred] (seq) at (5,-36) {cohérence séquentielle};
+  \node[m=Damber] (cau) at (5,-54) {cohérence causale};
+  \node[m=Damber] (ryw) at (-40,-76) {lire ses écritures};
+  \node[m=Dgreen] (mr) at (-2,-76) {lectures monotones};
+  \node[m=Dgreen] (mw) at (36,-76) {écritures monotones};
+  \node[m=Dgreen] (wfr) at (74,-76) {écritures après lectures};
+  \foreach \a/\b in {ss/lin, ss/ser, lin/seq, seq/cau} \draw[arr] (\a) -- (\b);
+  \foreach \b in {ryw, mr, mw, wfr} \draw[arr] (cau.south) -- (\b.north);
+  \node[note, anchor=west, align=left] at (ser.east) {transactions sur\\plusieurs objets,\\sans ordre réel};
+  \node[note, anchor=east, align=right] at ([xshift=-2mm]lin.west) {une opération sur un objet,\\dans l'ordre du temps réel};
+  \draw[ligne=Dcloud, dash pattern=on 2pt off 1.5pt] (-58,-66) -- (93,-66);
+  \node[note, anchor=south west, align=left] at (-58,-65) {sous le trait : garanties de session,\\ce que voit un même client};
+  % cohérence à terme, à part
+  \node[m=Dslate, below=12mm of mr, xshift=19mm, minimum width=60mm] (ev) {cohérence à terme : les copies finissent par converger};
+  \node[note, below=1mm of ev] {ne dit rien de ce qu'on lit en attendant};
+  % légende
+  \begin{scope}[shift={(-58,-112)}]
+    \foreach \c/\t [count=\i from 0] in {Dred/{indisponible pour une partie des nœuds pendant une partition},
+        Damber/{disponible si le client reste sur le même nœud},
+        Dgreen/{disponible sur tous les nœuds}} {
+      \node[temoin=\c Bg, draw=\c] at (0,-\i*6) {};
+      \node[note, anchor=west] at (4,-\i*6) {\t};
+    }
+  \end{scope}
+\end{tikzpicture}
+\end{document}

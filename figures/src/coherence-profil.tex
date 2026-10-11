@@ -1,0 +1,28 @@
+% Le problème du chapitre : l'écriture va au primaire, la lecture suivante à
+% une réplique que le flux de réplication n'a pas encore atteinte.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    msg/.style={arr=#1, line width=1pt},
+    lab/.style={font=\sffamily\footnotesize, text=Dink, fill=white, inner sep=1.5pt, align=center}]
+  \def\U{0}\def\P{70}\def\R{125}
+  \node[seqhead=Dblue] (u) at (\U,0) {\stack{laptop}{Navigateur}};
+  \node[seqhead=Dpurple] (p) at (\P,0) {\stack{database}{Primaire}};
+  \node[seqhead=Dteal] (r) at (\R,0) {\stack{database}{Réplique}};
+  \foreach \x in {\U,\P,\R} \draw[seqlife] (\x,-12) -- (\x,-92);
+  % écriture
+  \draw[msg=Dblue] (\U,-16) -- node[lab, sloped, above] {modifier le profil : nom = « Léa Martin »} (\P,-20);
+  \draw[msg=Dpurple, dash pattern=on 4pt off 2pt] (\P,-23) -- node[lab, sloped, below] {OK} (\U,-27);
+  % flux de réplication, lent
+  \draw[msg=Dpurple, line width=1.4pt] (\P,-23) -- node[lab, sloped, above, pos=0.78] {flux de réplication} (\R,-66);
+  % lecture trop tôt
+  \draw[msg=Dblue] (\U,-34) -- node[lab, sloped, above, pos=0.25] {afficher le profil} (\R,-38);
+  \draw[msg=Dred, dash pattern=on 4pt off 2pt] (\R,-41) -- node[lab, sloped, below, pos=0.72, text=Dred] {nom = « Léa » : l'ancienne version} (\U,-45);
+  % lecture après la réplication
+  \draw[msg=Dblue] (\U,-74) -- node[lab, sloped, above, pos=0.25] {afficher le profil} (\R,-78);
+  \draw[msg=Dgreen, dash pattern=on 4pt off 2pt] (\R,-81) -- node[lab, sloped, below, pos=0.72, text=Dgreen] {nom = « Léa Martin »} (\U,-85);
+  % retard de réplication
+  \draw[accolm] (\R+6,-23) -- node[right=6pt, note, align=left] {retard de\\réplication} (\R+6,-66);
+\end{tikzpicture}
+\end{document}

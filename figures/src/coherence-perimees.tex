@@ -1,0 +1,33 @@
+% Mesures de outils/experiences/ch12/replique.py : part des lectures sur la
+% réplique qui renvoient l'ancienne valeur, selon le temps écoulé depuis
+% l'écriture, pour une liaison directe et une liaison retardée de 25 ms.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=2.2mm, y=0.45mm]
+  \draw[ligne] (0,0) -- (53,0);
+  \draw[ligne] (0,0) -- (0,108);
+  \foreach \t in {0,10,...,50} {\draw[ligne] (\t,0) -- (\t,-2); \node[note, below] at (\t,-2) {\t};}
+  \foreach \v in {0,25,50,75,100} {\draw[ligne=Dcloud] (0,\v) -- (-0.5,\v); \node[note, left] at (-0.5,\v) {\v\ \%};}
+  \node[axe, anchor=north] at (26,-12) {temps écoulé entre la fin de l'écriture et la lecture (ms)};
+  \node[axe, rotate=90, anchor=south] at (-6,54) {lectures périmées};
+  % délai de la liaison
+  \draw[ligne=Dcloud, dash pattern=on 3pt off 2pt] (25,0) -- (25,106);
+  \node[note, anchor=south] at (25,106) {délai de la liaison : 25 ms};
+  % liaison retardée de 25 ms
+  \draw[Dblue, line width=1.1pt] (0,100) -- (20,100);
+  \draw[Dblue, line width=1.1pt] (30,0) -- (50,0);
+  \draw[Dblue, line width=0.8pt, dash pattern=on 2pt off 2pt] (20,100) -- (30,0);
+  \node[note, anchor=west, align=left] at (31,60) {pas de mesure\\entre 20 et 30 ms};
+  \foreach \t/\v in {0/100,10/100,20/100,30/0,50/0}
+    \node[circle, fill=Dblue, draw=white, line width=0.6pt, inner sep=1.6pt] at (\t,\v) {};
+  \node[et=Dblue, anchor=south west] at (1,101) {liaison retardée de 25 ms};
+  % liaison directe
+  \draw[Dorange, line width=1.1pt] (0,7) -- (1,0) -- (5,0);
+  \draw[Dorange, line width=1.6pt] (0,1) -- (0,7);
+  \foreach \t/\v in {0/7,1/0,5/0}
+    \node[diamond, fill=Dorange, draw=white, line width=0.6pt, inner sep=1.6pt] at (\t,\v) {};
+  \node[et=Dorange, anchor=west, align=left] at (2,14) {liaison directe : 1 à 7 \%\\à 0 ms selon le passage, 0 dès 1 ms};
+  \draw[ligne=Dorange] (1.9,12) -- (0.4,6);
+\end{tikzpicture}
+\end{document}

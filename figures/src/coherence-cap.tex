@@ -1,0 +1,25 @@
+% Le choix que pose le théorème CAP, pendant une partition seulement.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    b/.style={soft=#1, minimum width=26mm, minimum height=12mm, font=\sffamily\small}]
+  \node[tile] (c1) at (0,0) {\dicon[\Large][Dslate]{user}\\[1pt]{\small client 1}};
+  \node[tile] (c2) at (100,0) {\dicon[\Large][Dslate]{user}\\[1pt]{\small client 2}};
+  \node[b=Dblue] (n1) at (0,-30) {\stack{database}{nœud 1 : x = 2}};
+  \node[b=Dblue] (n2) at (100,-30) {\stack{database}{nœud 2 : x = 1}};
+  \draw[arr=Dblue] (c1) -- node[lbl, left] {écrire x = 2} (n1);
+  \draw[arr=Dblue] (c2) -- node[lbl, right] {lire x} (n2);
+  \draw[ligne=Dred, line width=1.2pt, dash pattern=on 4pt off 3pt] (n1.east) -- (n2.west);
+  \node[circle, fill=white, inner sep=1pt] at (50,-30) {\dicon[\Large][Dred]{bolt}};
+  \node[note, text=Dred, below=1mm] at (50,-34) {partition : les messages\\entre les nœuds sont perdus};
+  % les deux réponses possibles du nœud 2
+  \node[soft=Dpurple, text width=58mm, align=left, font=\sffamily\small, anchor=north] (cp) at (22,-52)
+    {\textbf{Privilégier C} : le nœud 2 refuse ou fait attendre la lecture, faute de pouvoir joindre le nœud 1. Pas de valeur fausse, mais pas de réponse.};
+  \node[soft=Dorange, text width=58mm, align=left, font=\sffamily\small, anchor=north] (ap) at (100,-52)
+    {\textbf{Privilégier A} : le nœud 2 répond x~=~1. Le client a une réponse, mais elle ignore l'écriture du client 1.};
+  \draw[arr=Dslate] (n2.south west) -- (cp.north east);
+  \draw[arr=Dslate] (n2.south) -- (ap.north);
+  \node[note, anchor=north] at (61,-82) {sans partition, rien n'oblige à choisir : les deux nœuds échangent et le nœud 2 peut répondre x = 2};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,982 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 499.12 381.47">
+<defs>
+<g>
+<g id="coherence-modeles-glyph-0-0">
+<path d="M 2.15 0.10 C 3.20 0.10 3.85 -0.43 3.85 -1.32 C 3.85 -2.03 3.46 -2.48 2.43 -2.62 L 2.09 -2.68 C 1.51 -2.78 1.20 -2.95 1.20 -3.40 C 1.20 -3.84 1.51 -4.12 2.10 -4.12 C 2.68 -4.12 3.09 -3.84 3.29 -3.54 L 3.76 -3.98 C 3.39 -4.45 2.90 -4.73 2.15 -4.73 C 1.21 -4.73 0.51 -4.28 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 2 -2.03 L 2.35 -1.98 C 2.96 -1.89 3.17 -1.60 3.17 -1.25 C 3.17 -0.78 2.81 -0.5 2.20 -0.5 C 1.62 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.15 0.10 Z M 2.15 0.10 "/>
+</g>
+<g id="coherence-modeles-glyph-0-1">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 3.51 -6.65 L 2.85 -6.96 L 2.09 -5.45 L 2.56 -5.23 Z M 3.51 -6.65 "/>
+</g>
+<g id="coherence-modeles-glyph-0-2">
+<path d="M 1.48 0 L 1.48 -3.14 C 1.48 -3.57 1.93 -3.90 2.71 -3.90 L 3.14 -3.90 L 3.14 -4.62 L 2.85 -4.62 C 2.10 -4.62 1.68 -4.20 1.51 -3.76 L 1.48 -3.76 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-3">
+<path d="M 1.12 -5.70 C 1.42 -5.70 1.56 -5.85 1.56 -6.10 L 1.56 -6.21 C 1.56 -6.46 1.42 -6.62 1.12 -6.62 C 0.81 -6.62 0.68 -6.46 0.68 -6.21 L 0.68 -6.10 C 0.68 -5.85 0.81 -5.70 1.12 -5.70 Z M 0.76 0 L 1.48 0 L 1.48 -4.62 L 0.76 -4.62 Z M 0.76 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-4">
+<path d="M 4.51 0 L 4.51 -0.62 L 4 -0.62 L 4 -3.17 C 4 -4.14 3.32 -4.73 2.21 -4.73 C 1.39 -4.73 0.82 -4.31 0.57 -3.82 L 1.01 -3.42 C 1.26 -3.84 1.62 -4.10 2.18 -4.10 C 2.92 -4.10 3.28 -3.75 3.28 -3.09 L 3.28 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.29 C 0.39 -0.43 0.96 0.10 1.93 0.10 C 2.59 0.10 3.07 -0.18 3.28 -0.75 L 3.32 -0.75 C 3.37 -0.32 3.59 0 4.12 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.85 1.51 -2.10 2.32 -2.10 L 3.28 -2.10 L 3.28 -1.34 C 3.28 -0.87 2.76 -0.5 2.06 -0.5 Z M 2.06 -0.5 "/>
+</g>
+<g id="coherence-modeles-glyph-0-5">
+<path d="M 2.15 0 L 2.15 -0.62 L 1.48 -0.62 L 1.48 -6.62 L 0.76 -6.62 L 0.76 -0.75 C 0.76 -0.31 1.03 0 1.51 0 Z M 2.15 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-6">
+<path d="M 0.76 0 L 1.48 0 L 1.48 -0.75 L 1.51 -0.75 C 1.79 -0.17 2.23 0.10 2.85 0.10 C 4.01 0.10 4.75 -0.82 4.75 -2.31 C 4.75 -3.78 4.01 -4.73 2.85 -4.73 C 2.23 -4.73 1.75 -4.45 1.51 -3.87 L 1.48 -3.87 L 1.48 -6.62 L 0.76 -6.62 Z M 2.67 -0.53 C 2.01 -0.53 1.48 -0.87 1.48 -1.48 L 1.48 -3.20 C 1.48 -3.70 2.01 -4.07 2.67 -4.07 C 3.46 -4.07 3.96 -3.53 3.96 -2.70 L 3.96 -1.92 C 3.96 -1.09 3.46 -0.53 2.67 -0.53 Z M 2.67 -0.53 "/>
+</g>
+<g id="coherence-modeles-glyph-0-7">
+<path d="M 2.67 0 L 2.67 -0.62 L 1.73 -0.62 L 1.73 -4 L 2.75 -4 L 2.75 -4.62 L 1.73 -4.62 L 1.73 -5.90 L 1.09 -5.90 L 1.09 -5.04 C 1.09 -4.73 1 -4.62 0.68 -4.62 L 0.26 -4.62 L 0.26 -4 L 1.01 -4 L 1.01 -0.76 C 1.01 -0.31 1.29 0 1.78 0 Z M 2.67 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-8">
+<path d="M 2.48 0.10 C 3.35 0.10 3.95 -0.32 4.25 -0.98 L 3.73 -1.32 C 3.48 -0.81 3.06 -0.53 2.48 -0.53 C 1.62 -0.53 1.18 -1.10 1.18 -1.92 L 1.18 -2.70 C 1.18 -3.51 1.62 -4.09 2.48 -4.09 C 3.04 -4.09 3.43 -3.81 3.60 -3.34 L 4.20 -3.64 C 3.93 -4.28 3.39 -4.73 2.48 -4.73 C 1.18 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.82 1.18 0.10 2.48 0.10 Z M 2.48 0.10 "/>
+</g>
+<g id="coherence-modeles-glyph-0-9">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.5 -4.12 "/>
+</g>
+<g id="coherence-modeles-glyph-0-10">
+<path d="M 1.48 0 L 1.48 -3.20 C 1.48 -3.79 2.03 -4.07 2.60 -4.07 C 3.29 -4.07 3.65 -3.65 3.65 -2.84 L 3.65 0 L 4.37 0 L 4.37 -2.96 C 4.37 -4.07 3.76 -4.73 2.81 -4.73 C 2.12 -4.73 1.73 -4.39 1.51 -3.87 L 1.48 -3.87 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-11">
+<path d="M 2.5 0.10 C 3.75 0.10 4.59 -0.84 4.59 -2.31 C 4.59 -3.78 3.75 -4.73 2.5 -4.73 C 1.26 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.98 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.09 2.5 -4.09 C 3.28 -4.09 3.82 -3.60 3.82 -2.64 L 3.82 -1.98 C 3.82 -1 3.28 -0.53 2.5 -0.53 Z M 2.5 -0.53 "/>
+</g>
+<g id="coherence-modeles-glyph-0-12">
+<path d="M 0.76 0 L 1.48 0 L 1.48 -3.20 C 1.48 -3.79 2.03 -4.07 2.60 -4.07 C 3.29 -4.07 3.65 -3.65 3.65 -2.84 L 3.65 0 L 4.37 0 L 4.37 -2.96 C 4.37 -4.07 3.76 -4.73 2.81 -4.73 C 2.12 -4.73 1.73 -4.39 1.51 -3.87 L 1.48 -3.87 L 1.48 -6.62 L 0.76 -6.62 Z M 0.76 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-13">
+<path d="M 3.71 1.79 L 4.43 1.79 L 4.43 -4.62 L 3.71 -4.62 L 3.71 -3.87 L 3.68 -3.87 C 3.43 -4.45 2.96 -4.73 2.32 -4.73 C 1.17 -4.73 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.96 0.10 3.40 -0.17 3.68 -0.75 L 3.71 -0.75 Z M 2.53 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.92 L 1.21 -2.70 C 1.21 -3.53 1.71 -4.07 2.53 -4.07 C 3.17 -4.07 3.71 -3.70 3.71 -3.20 L 3.71 -1.48 C 3.71 -0.87 3.17 -0.53 2.53 -0.53 Z M 2.53 -0.53 "/>
+</g>
+<g id="coherence-modeles-glyph-0-14">
+<path d="M 3.60 0 L 4.32 0 L 4.32 -4.62 L 3.60 -4.62 L 3.60 -1.42 C 3.60 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.43 -0.95 1.43 -1.78 L 1.43 -4.62 L 0.71 -4.62 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.28 0.10 C 3.04 0.10 3.39 -0.31 3.57 -0.75 L 3.60 -0.75 Z M 3.60 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-15">
+<path d="M 1.48 0 L 1.48 -3.20 C 1.48 -3.79 2.01 -4.07 2.57 -4.07 C 3.26 -4.07 3.57 -3.65 3.57 -2.84 L 3.57 0 L 4.28 0 L 4.28 -3.20 C 4.28 -3.79 4.81 -4.07 5.37 -4.07 C 6.06 -4.07 6.39 -3.65 6.39 -2.84 L 6.39 0 L 7.09 0 L 7.09 -2.96 C 7.09 -4.07 6.53 -4.73 5.59 -4.73 C 4.81 -4.73 4.35 -4.28 4.18 -3.78 L 4.17 -3.78 C 3.92 -4.45 3.35 -4.73 2.75 -4.73 C 2.04 -4.73 1.71 -4.34 1.51 -3.87 L 1.48 -3.87 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-16">
+<path d="M 0.76 1.79 L 1.48 1.79 L 1.48 -0.75 L 1.51 -0.75 C 1.79 -0.17 2.23 0.10 2.85 0.10 C 4.01 0.10 4.75 -0.82 4.75 -2.31 C 4.75 -3.78 4.01 -4.73 2.85 -4.73 C 2.23 -4.73 1.75 -4.45 1.51 -3.87 L 1.48 -3.87 L 1.48 -4.62 L 0.76 -4.62 Z M 2.67 -0.53 C 2.01 -0.53 1.48 -0.87 1.48 -1.48 L 1.48 -3.20 C 1.48 -3.70 2.01 -4.07 2.67 -4.07 C 3.46 -4.07 3.96 -3.53 3.96 -2.70 L 3.96 -1.92 C 3.96 -1.09 3.46 -0.53 2.67 -0.53 Z M 2.67 -0.53 "/>
+</g>
+<g id="coherence-modeles-glyph-0-17">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.43 -5.23 L 2.90 -5.45 L 2.14 -6.96 L 1.48 -6.65 Z M 2.43 -5.23 "/>
+</g>
+<g id="coherence-modeles-glyph-0-18">
+<path d="M 4.51 0 L 4.51 -0.62 L 4 -0.62 L 4 -3.17 C 4 -4.14 3.32 -4.73 2.21 -4.73 C 1.39 -4.73 0.82 -4.31 0.57 -3.82 L 1.01 -3.42 C 1.26 -3.84 1.62 -4.10 2.18 -4.10 C 2.92 -4.10 3.28 -3.75 3.28 -3.09 L 3.28 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.29 C 0.39 -0.43 0.96 0.10 1.93 0.10 C 2.59 0.10 3.07 -0.18 3.28 -0.75 L 3.32 -0.75 C 3.37 -0.32 3.59 0 4.12 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.85 1.51 -2.10 2.32 -2.10 L 3.28 -2.10 L 3.28 -1.34 C 3.28 -0.87 2.76 -0.5 2.06 -0.5 Z M 2.18 -5.23 L 2.65 -5.45 L 1.89 -6.96 L 1.25 -6.65 Z M 2.18 -5.23 "/>
+</g>
+<g id="coherence-modeles-glyph-0-19">
+<path d="M 1.31 0.10 C 1.68 0.10 1.85 -0.10 1.85 -0.40 L 1.85 -0.53 C 1.85 -0.82 1.68 -1.04 1.31 -1.04 C 0.93 -1.04 0.76 -0.82 0.76 -0.53 L 0.76 -0.40 C 0.76 -0.10 0.93 0.10 1.31 0.10 Z M 1.31 -3.57 C 1.68 -3.57 1.85 -3.78 1.85 -4.09 L 1.85 -4.20 C 1.85 -4.51 1.68 -4.73 1.31 -4.73 C 0.93 -4.73 0.76 -4.51 0.76 -4.20 L 0.76 -4.09 C 0.76 -3.78 0.93 -3.57 1.31 -3.57 Z M 1.31 -3.57 "/>
+</g>
+<g id="coherence-modeles-glyph-0-20">
+<path d="M 1.01 0 L 1.73 0 L 1.73 -4 L 3.59 -4 L 3.59 0 L 4.31 0 L 4.31 -4.62 L 1.73 -4.62 L 1.73 -6 L 2.71 -6 L 2.71 -6.62 L 2.01 -6.62 C 1.34 -6.62 1.01 -6.18 1.01 -5.54 L 1.01 -4.62 L 0.26 -4.62 L 0.26 -4 L 1.01 -4 Z M 3.95 -5.70 C 4.26 -5.70 4.39 -5.85 4.39 -6.10 L 4.39 -6.21 C 4.39 -6.46 4.26 -6.62 3.95 -6.62 C 3.65 -6.62 3.51 -6.46 3.51 -6.21 L 3.51 -6.10 C 3.51 -5.85 3.65 -5.70 3.95 -5.70 Z M 3.95 -5.70 "/>
+</g>
+<g id="coherence-modeles-glyph-0-21">
+<path d="M 2.60 0 L 4.25 -4.62 L 3.54 -4.62 L 2.73 -2.32 L 2.23 -0.75 L 2.18 -0.75 L 1.68 -2.32 L 0.87 -4.62 L 0.15 -4.62 L 1.78 0 Z M 2.60 0 "/>
+</g>
+<g id="coherence-modeles-glyph-0-22">
+<path d="M 4.65 0.51 C 4.65 -0.25 4.15 -0.71 3.01 -0.71 L 2.03 -0.71 C 1.60 -0.71 1.32 -0.78 1.32 -1.06 C 1.32 -1.35 1.62 -1.5 1.93 -1.57 C 2.06 -1.56 2.23 -1.54 2.37 -1.54 C 3.43 -1.54 4.12 -2.18 4.12 -3.14 C 4.12 -3.62 3.93 -4.03 3.59 -4.32 L 3.59 -4.62 L 4.46 -4.62 L 4.46 -5.25 L 3.78 -5.25 C 3.40 -5.25 3.25 -4.98 3.25 -4.62 L 3.25 -4.54 C 3 -4.67 2.70 -4.73 2.37 -4.73 C 1.32 -4.73 0.64 -4.07 0.64 -3.14 C 0.64 -2.48 0.95 -1.98 1.5 -1.71 L 1.5 -1.68 C 1.03 -1.56 0.70 -1.34 0.70 -0.87 C 0.70 -0.56 0.85 -0.35 1.12 -0.23 L 1.12 -0.14 C 0.65 -0.01 0.39 0.26 0.39 0.76 C 0.39 1.48 0.96 1.89 2.42 1.89 C 3.90 1.89 4.65 1.45 4.65 0.51 Z M 3.98 0.56 C 3.98 1.06 3.51 1.31 2.71 1.31 L 2.06 1.31 C 1.32 1.31 1.06 0.98 1.06 0.57 C 1.06 0.29 1.18 0.09 1.48 -0.04 L 3.03 -0.04 C 3.75 -0.04 3.98 0.20 3.98 0.56 Z M 2.37 -2.10 C 1.76 -2.10 1.39 -2.40 1.39 -3.01 L 1.39 -3.26 C 1.39 -3.87 1.76 -4.15 2.37 -4.15 C 2.98 -4.15 3.37 -3.87 3.37 -3.26 L 3.37 -3.01 C 3.37 -2.40 2.98 -2.10 2.37 -2.10 Z M 2.37 -2.10 "/>
+</g>
+<g id="coherence-modeles-glyph-1-0">
+<path d="M 2.07 0 L 2.07 -0.48 L 1.35 -0.48 L 1.35 -3.10 L 2.14 -3.10 L 2.14 -3.59 L 1.35 -3.59 L 1.35 -4.59 L 0.84 -4.59 L 0.84 -3.92 C 0.84 -3.67 0.78 -3.59 0.53 -3.59 L 0.20 -3.59 L 0.20 -3.10 L 0.79 -3.10 L 0.79 -0.59 C 0.79 -0.25 1 0 1.39 0 Z M 2.07 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-1">
+<path d="M 1.15 0 L 1.15 -2.43 C 1.15 -2.78 1.51 -3.03 2.10 -3.03 L 2.43 -3.03 L 2.43 -3.59 L 2.21 -3.59 C 1.64 -3.59 1.31 -3.28 1.18 -2.93 L 1.15 -2.93 L 1.15 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.15 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-2">
+<path d="M 3.51 0 L 3.51 -0.48 L 3.10 -0.48 L 3.10 -2.46 C 3.10 -3.21 2.59 -3.67 1.73 -3.67 C 1.07 -3.67 0.64 -3.35 0.45 -2.96 L 0.78 -2.65 C 0.98 -2.98 1.26 -3.20 1.70 -3.20 C 2.26 -3.20 2.54 -2.92 2.54 -2.40 L 2.54 -2.06 L 1.84 -2.06 C 0.79 -2.06 0.31 -1.67 0.31 -1 C 0.31 -0.32 0.75 0.07 1.51 0.07 C 2.01 0.07 2.39 -0.14 2.54 -0.57 L 2.57 -0.57 C 2.62 -0.25 2.79 0 3.20 0 Z M 1.60 -0.39 C 1.17 -0.39 0.89 -0.59 0.89 -0.95 L 0.89 -1.09 C 0.89 -1.43 1.17 -1.64 1.81 -1.64 L 2.54 -1.64 L 2.54 -1.04 C 2.54 -0.67 2.15 -0.39 1.60 -0.39 Z M 1.60 -0.39 "/>
+</g>
+<g id="coherence-modeles-glyph-1-3">
+<path d="M 1.15 0 L 1.15 -2.5 C 1.15 -2.95 1.57 -3.17 2.03 -3.17 C 2.56 -3.17 2.84 -2.84 2.84 -2.20 L 2.84 0 L 3.40 0 L 3.40 -2.31 C 3.40 -3.17 2.93 -3.67 2.18 -3.67 C 1.65 -3.67 1.35 -3.42 1.17 -3.01 L 1.15 -3.01 L 1.15 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.15 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-4">
+<path d="M 1.67 0.07 C 2.5 0.07 3 -0.34 3 -1.03 C 3 -1.57 2.70 -1.93 1.90 -2.04 L 1.62 -2.09 C 1.17 -2.15 0.93 -2.29 0.93 -2.64 C 0.93 -2.98 1.17 -3.20 1.64 -3.20 C 2.09 -3.20 2.40 -2.98 2.56 -2.76 L 2.93 -3.09 C 2.64 -3.46 2.26 -3.67 1.67 -3.67 C 0.95 -3.67 0.39 -3.32 0.39 -2.62 C 0.39 -1.95 0.89 -1.67 1.54 -1.57 L 1.84 -1.54 C 2.31 -1.46 2.46 -1.25 2.46 -0.96 C 2.46 -0.60 2.18 -0.39 1.71 -0.39 C 1.26 -0.39 0.92 -0.59 0.64 -0.93 L 0.25 -0.62 C 0.57 -0.18 1.01 0.07 1.67 0.07 Z M 1.67 0.07 "/>
+</g>
+<g id="coherence-modeles-glyph-1-5">
+<path d="M 1.93 0.07 C 2.60 0.07 3.07 -0.25 3.31 -0.76 L 2.90 -1.03 C 2.70 -0.62 2.39 -0.40 1.93 -0.40 C 1.26 -0.40 0.92 -0.85 0.92 -1.48 L 0.92 -2.10 C 0.92 -2.73 1.26 -3.18 1.93 -3.18 C 2.37 -3.18 2.67 -2.96 2.81 -2.59 L 3.28 -2.84 C 3.06 -3.32 2.64 -3.67 1.93 -3.67 C 0.92 -3.67 0.32 -2.95 0.32 -1.79 C 0.32 -0.64 0.92 0.07 1.93 0.07 Z M 1.93 0.07 "/>
+</g>
+<g id="coherence-modeles-glyph-1-6">
+<path d="M 0.87 -4.43 C 1.10 -4.43 1.21 -4.56 1.21 -4.75 L 1.21 -4.84 C 1.21 -5.03 1.10 -5.15 0.87 -5.15 C 0.64 -5.15 0.53 -5.03 0.53 -4.84 L 0.53 -4.75 C 0.53 -4.56 0.64 -4.43 0.87 -4.43 Z M 0.59 0 L 1.15 0 L 1.15 -3.59 L 0.59 -3.59 Z M 0.59 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-7">
+<path d="M 1.95 0.07 C 2.90 0.07 3.57 -0.65 3.57 -1.79 C 3.57 -2.93 2.90 -3.67 1.95 -3.67 C 0.98 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.95 0.07 Z M 1.95 -0.40 C 1.35 -0.40 0.92 -0.78 0.92 -1.54 L 0.92 -2.06 C 0.92 -2.81 1.35 -3.18 1.95 -3.18 C 2.54 -3.18 2.96 -2.81 2.96 -2.06 L 2.96 -1.54 C 2.96 -0.78 2.54 -0.40 1.95 -0.40 Z M 1.95 -0.40 "/>
+</g>
+<g id="coherence-modeles-glyph-1-8">
+<path d="M 2.81 0 L 3.35 0 L 3.35 -3.59 L 2.81 -3.59 L 2.81 -1.10 C 2.81 -0.64 2.37 -0.42 1.93 -0.42 C 1.40 -0.42 1.10 -0.75 1.10 -1.39 L 1.10 -3.59 L 0.56 -3.59 L 0.56 -1.29 C 0.56 -0.42 1.03 0.07 1.76 0.07 C 2.37 0.07 2.64 -0.25 2.78 -0.57 L 2.81 -0.57 Z M 2.81 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-9">
+<path d="M 0.59 1.39 L 1.15 1.39 L 1.15 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.23 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.95 3.12 -3.67 2.23 -3.67 C 1.73 -3.67 1.35 -3.46 1.17 -3.01 L 1.15 -3.01 L 1.15 -3.59 L 0.59 -3.59 Z M 2.07 -0.42 C 1.56 -0.42 1.15 -0.68 1.15 -1.15 L 1.15 -2.48 C 1.15 -2.89 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.75 3.09 -2.10 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="coherence-modeles-glyph-1-10">
+<path d="M 1.67 0 L 1.67 -0.48 L 1.15 -0.48 L 1.15 -5.15 L 0.59 -5.15 L 0.59 -0.57 C 0.59 -0.25 0.79 0 1.18 0 Z M 1.67 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-11">
+<path d="M 1.93 0.07 C 2.62 0.07 3.14 -0.25 3.35 -0.73 L 2.96 -1.03 C 2.78 -0.62 2.43 -0.40 1.98 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.5 -1.65 L 3.5 -1.92 C 3.5 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.21 C 2.51 -3.21 2.90 -2.78 2.90 -2.15 L 2.90 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.34 -3.21 1.93 -3.21 Z M 1.93 -3.21 "/>
+</g>
+<g id="coherence-modeles-glyph-1-12">
+<path d="M 0.59 0 L 1.15 0 L 1.15 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.23 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.95 3.12 -3.67 2.23 -3.67 C 1.73 -3.67 1.35 -3.46 1.17 -3.01 L 1.15 -3.01 L 1.15 -5.15 L 0.59 -5.15 Z M 2.07 -0.42 C 1.56 -0.42 1.15 -0.68 1.15 -1.15 L 1.15 -2.48 C 1.15 -2.89 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.75 3.09 -2.10 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="coherence-modeles-glyph-1-13">
+<path d="M 0.59 0.90 L 0 0.90 L 0 1.39 L 0.37 1.39 C 0.90 1.39 1.15 1.04 1.15 0.56 L 1.15 -3.59 L 0.59 -3.59 Z M 0.87 -4.43 C 1.10 -4.43 1.21 -4.56 1.21 -4.75 L 1.21 -4.84 C 1.21 -5.03 1.10 -5.15 0.87 -5.15 C 0.64 -5.15 0.53 -5.03 0.53 -4.84 L 0.53 -4.75 C 0.53 -4.56 0.64 -4.43 0.87 -4.43 Z M 0.87 -4.43 "/>
+</g>
+<g id="coherence-modeles-glyph-1-14">
+<path d="M 0.95 -0.81 C 0.65 -0.81 0.51 -0.64 0.51 -0.40 L 0.51 -0.31 C 0.51 -0.12 0.60 0.01 0.79 0.06 C 0.71 0.39 0.54 0.64 0.26 0.92 L 0.73 0.92 C 1.14 0.57 1.37 0.06 1.37 -0.31 L 1.37 -0.40 C 1.37 -0.64 1.23 -0.81 0.95 -0.81 Z M 0.95 -0.81 "/>
+</g>
+<g id="coherence-modeles-glyph-1-15">
+<path d="M 2.89 0 L 3.45 0 L 3.45 -5.15 L 2.89 -5.15 L 2.89 -3.01 L 2.85 -3.01 C 2.67 -3.46 2.31 -3.67 1.81 -3.67 C 0.90 -3.67 0.34 -2.95 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.81 0.07 C 2.31 0.07 2.64 -0.14 2.85 -0.57 L 2.89 -0.57 Z M 1.96 -0.42 C 1.34 -0.42 0.95 -0.84 0.95 -1.48 L 0.95 -2.10 C 0.95 -2.75 1.34 -3.17 1.96 -3.17 C 2.46 -3.17 2.89 -2.89 2.89 -2.48 L 2.89 -1.15 C 2.89 -0.68 2.46 -0.42 1.96 -0.42 Z M 1.96 -0.42 "/>
+</g>
+<g id="coherence-modeles-glyph-1-16">
+<path d="M 1.93 0.07 C 2.62 0.07 3.14 -0.25 3.35 -0.73 L 2.96 -1.03 C 2.78 -0.62 2.43 -0.40 1.98 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.5 -1.65 L 3.5 -1.92 C 3.5 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.21 C 2.51 -3.21 2.90 -2.78 2.90 -2.15 L 2.90 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.34 -3.21 1.93 -3.21 Z M 2.73 -5.18 L 2.21 -5.42 L 1.62 -4.25 L 2 -4.07 Z M 2.73 -5.18 "/>
+</g>
+<g id="coherence-modeles-glyph-1-17">
+<path d="M 0.98 -5.21 C 0.68 -5.21 0.56 -5.06 0.56 -4.81 L 0.56 -4.71 C 0.56 -4.53 0.64 -4.39 0.82 -4.34 C 0.75 -4.01 0.57 -3.78 0.31 -3.48 L 0.78 -3.48 C 1.17 -3.82 1.40 -4.34 1.40 -4.71 L 1.40 -4.81 C 1.40 -5.06 1.28 -5.21 0.98 -5.21 Z M 0.98 -5.21 "/>
+</g>
+<g id="coherence-modeles-glyph-1-18">
+<path d="M 1.15 0 L 1.15 -2.5 C 1.15 -2.95 1.56 -3.17 2 -3.17 C 2.53 -3.17 2.78 -2.84 2.78 -2.20 L 2.78 0 L 3.34 0 L 3.34 -2.5 C 3.34 -2.95 3.75 -3.17 4.18 -3.17 C 4.71 -3.17 4.96 -2.84 4.96 -2.20 L 4.96 0 L 5.53 0 L 5.53 -2.31 C 5.53 -3.17 5.09 -3.67 4.35 -3.67 C 3.75 -3.67 3.39 -3.34 3.26 -2.95 L 3.25 -2.95 C 3.04 -3.46 2.62 -3.67 2.14 -3.67 C 1.59 -3.67 1.34 -3.37 1.17 -3.01 L 1.15 -3.01 L 1.15 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.15 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-19">
+<path d="M 1.01 0.07 C 1.31 0.07 1.43 -0.07 1.43 -0.32 L 1.43 -0.40 C 1.43 -0.64 1.31 -0.81 1.01 -0.81 C 0.71 -0.81 0.59 -0.64 0.59 -0.40 L 0.59 -0.32 C 0.59 -0.07 0.71 0.07 1.01 0.07 Z M 1.01 -2.78 C 1.31 -2.78 1.43 -2.95 1.43 -3.18 L 1.43 -3.28 C 1.43 -3.51 1.31 -3.67 1.01 -3.67 C 0.71 -3.67 0.59 -3.51 0.59 -3.28 L 0.59 -3.18 C 0.59 -2.95 0.71 -2.78 1.01 -2.78 Z M 1.01 -2.78 "/>
+</g>
+<g id="coherence-modeles-glyph-1-20">
+<path d="M 3.62 0.39 C 3.62 -0.18 3.23 -0.56 2.34 -0.56 L 1.57 -0.56 C 1.25 -0.56 1.03 -0.60 1.03 -0.82 C 1.03 -1.04 1.26 -1.17 1.5 -1.23 C 1.60 -1.21 1.73 -1.20 1.85 -1.20 C 2.67 -1.20 3.21 -1.70 3.21 -2.43 C 3.21 -2.82 3.06 -3.14 2.79 -3.35 L 2.79 -3.59 L 3.48 -3.59 L 3.48 -4.07 L 2.95 -4.07 C 2.64 -4.07 2.53 -3.87 2.53 -3.60 L 2.53 -3.54 C 2.32 -3.62 2.10 -3.67 1.84 -3.67 C 1.03 -3.67 0.5 -3.17 0.5 -2.43 C 0.5 -1.93 0.75 -1.54 1.17 -1.34 L 1.17 -1.31 C 0.81 -1.21 0.54 -1.04 0.54 -0.68 C 0.54 -0.43 0.67 -0.28 0.87 -0.18 L 0.87 -0.10 C 0.51 0 0.29 0.20 0.29 0.59 C 0.29 1.15 0.76 1.48 1.87 1.48 C 3.03 1.48 3.62 1.14 3.62 0.39 Z M 3.09 0.43 C 3.09 0.82 2.73 1.03 2.12 1.03 L 1.60 1.03 C 1.03 1.03 0.82 0.76 0.82 0.45 C 0.82 0.23 0.92 0.06 1.15 -0.03 L 2.35 -0.03 C 2.90 -0.03 3.09 0.15 3.09 0.43 Z M 1.85 -1.64 C 1.37 -1.64 1.07 -1.87 1.07 -2.34 L 1.07 -2.53 C 1.07 -3.01 1.37 -3.23 1.85 -3.23 C 2.32 -3.23 2.62 -3.01 2.62 -2.53 L 2.62 -2.34 C 2.62 -1.87 2.32 -1.64 1.85 -1.64 Z M 1.85 -1.64 "/>
+</g>
+<g id="coherence-modeles-glyph-1-21">
+<path d="M 2.89 1.39 L 3.45 1.39 L 3.45 -3.59 L 2.89 -3.59 L 2.89 -3.01 L 2.85 -3.01 C 2.67 -3.46 2.31 -3.67 1.81 -3.67 C 0.90 -3.67 0.34 -2.95 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.81 0.07 C 2.31 0.07 2.64 -0.14 2.85 -0.57 L 2.89 -0.57 Z M 1.96 -0.42 C 1.34 -0.42 0.95 -0.84 0.95 -1.48 L 0.95 -2.10 C 0.95 -2.75 1.34 -3.17 1.96 -3.17 C 2.46 -3.17 2.89 -2.89 2.89 -2.48 L 2.89 -1.15 C 2.89 -0.68 2.46 -0.42 1.96 -0.42 Z M 1.96 -0.42 "/>
+</g>
+<g id="coherence-modeles-glyph-1-22">
+<path d="M 2.03 0 L 3.29 -3.59 L 2.76 -3.59 L 2.12 -1.81 L 1.73 -0.57 L 1.70 -0.57 L 1.31 -1.81 L 0.68 -3.59 L 0.12 -3.59 L 1.39 0 Z M 2.03 0 "/>
+</g>
+<g id="coherence-modeles-glyph-1-23">
+<path d="M 1.93 0.07 C 2.62 0.07 3.14 -0.25 3.35 -0.73 L 2.96 -1.03 C 2.78 -0.62 2.43 -0.40 1.98 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.5 -1.65 L 3.5 -1.92 C 3.5 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.21 C 2.51 -3.21 2.90 -2.78 2.90 -2.15 L 2.90 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.34 -3.21 1.93 -3.21 Z M 1.59 -5.32 L 0.82 -4.32 L 1.12 -4.12 L 1.93 -4.93 L 2.76 -4.12 L 3.06 -4.32 L 2.29 -5.32 Z M 1.59 -5.32 "/>
+</g>
+<g id="coherence-modeles-glyph-1-24">
+<path d="M 1.95 -0.40 C 1.35 -0.40 0.92 -0.78 0.92 -1.54 L 0.92 -2.06 C 0.92 -2.81 1.35 -3.18 1.95 -3.18 C 2.54 -3.18 2.96 -2.81 2.96 -2.06 L 2.96 -1.54 C 2.96 -0.78 2.54 -0.40 1.95 -0.40 Z M 3.57 -2.07 L 3.57 -2.12 C 3.57 -2.75 4 -3.21 4.60 -3.21 C 5.17 -3.21 5.56 -2.78 5.56 -2.15 L 5.56 -2.07 Z M 4.64 0.07 C 5.31 0.07 5.79 -0.25 6.03 -0.73 L 5.64 -1.03 C 5.43 -0.62 5.09 -0.40 4.64 -0.40 C 3.96 -0.40 3.57 -0.87 3.57 -1.48 L 3.57 -1.65 L 6.15 -1.65 L 6.15 -1.92 C 6.15 -2.95 5.54 -3.67 4.60 -3.67 C 3.96 -3.67 3.5 -3.35 3.29 -2.87 L 3.26 -2.87 C 3.03 -3.39 2.56 -3.67 1.95 -3.67 C 0.98 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.95 0.07 C 2.54 0.07 3.04 -0.26 3.26 -0.71 L 3.29 -0.71 C 3.5 -0.28 3.95 0.07 4.64 0.07 Z M 4.64 0.07 "/>
+</g>
+</g>
+<clipPath id="coherence-modeles-clip-0">
+<path clip-rule="nonzero" d="M 227 0.07 L 353 0.07 L 353 47 L 227 47 Z M 227 0.07 "/>
+</clipPath>
+</defs>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg)" fill-opacity="1" d="M 335.01 6.53 L 244.76 6.53 C 243.12 6.53 241.78 7.87 241.78 9.51 L 241.78 29.01 C 241.78 30.66 243.12 32.00 244.76 32.00 L 335.01 32.00 C 336.66 32.00 337.99 30.66 337.99 29.01 L 337.99 9.51 C 337.99 7.87 336.66 6.53 335.01 6.53 Z M 335.01 6.53 "/>
+<g clip-path="url(#coherence-modeles-clip-0)">
+<path fill="none" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-miterlimit="10" d="M 158.58 12.75 L 68.18 12.75 C 66.53 12.75 65.19 11.41 65.19 9.76 L 65.19 -9.76 C 65.19 -11.41 66.53 -12.75 68.18 -12.75 L 158.58 -12.75 C 160.23 -12.75 161.57 -11.41 161.57 -9.76 L 161.57 9.76 C 161.57 11.41 160.23 12.75 158.58 12.75 Z M 158.58 12.75 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-0" x="249.33" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="253.69" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="258.61" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="261.89" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="264.13" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="268.91" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="271.34" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="273.58" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="277.94" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-6" x="282.72" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="287.91" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="290.15" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="292.58" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="294.82" y="22.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-1" x="297.93" y="22.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-0" x="304.95" y="22.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-7" x="309.25" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="312.39" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="315.68" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="317.91" y="22.70"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="322.42" y="22.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="325.52" y="22.70"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 59.37 -38.26 L -31.02 -38.26 C -32.67 -38.26 -34.01 -39.60 -34.01 -41.25 L -34.01 -60.79 C -34.01 -62.44 -32.67 -63.77 -31.02 -63.77 L 59.37 -63.77 C 61.02 -63.77 62.36 -62.44 62.36 -60.79 L 62.36 -41.25 C 62.36 -39.60 61.02 -38.26 59.37 -38.26 Z M 59.37 -38.26 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-5" x="163.73" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="166.17" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="168.40" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="173.49" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="178.40" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="183.18" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="186.47" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="188.70" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="193.06" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-6" x="197.84" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="203.03" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="205.27" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="207.71" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="209.94" y="73.63"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-1" x="213.05" y="73.63"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 257.80 -38.26 L 167.39 -38.26 C 165.74 -38.26 164.40 -39.60 164.40 -41.25 L 164.40 -60.79 C 164.40 -62.44 165.74 -63.77 167.39 -63.77 L 257.80 -63.77 C 259.45 -63.77 260.78 -62.44 260.78 -60.79 L 260.78 -41.25 C 260.78 -39.60 259.45 -38.26 257.80 -38.26 Z M 257.80 -38.26 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-0" x="362.17" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="366.53" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="371.44" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="374.73" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="376.97" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="381.75" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="384.18" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="386.42" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="390.78" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-6" x="395.56" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="400.75" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="402.99" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="405.42" y="73.63"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="407.66" y="73.63"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-1" x="410.76" y="73.63"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 61.13 -89.29 L -32.78 -89.29 C -34.43 -89.29 -35.77 -90.63 -35.77 -92.28 L -35.77 -111.81 C -35.77 -113.46 -34.43 -114.80 -32.78 -114.80 L 61.13 -114.80 C 62.78 -114.80 64.11 -113.46 64.11 -111.81 L 64.11 -92.28 C 64.11 -90.63 62.78 -89.29 61.13 -89.29 Z M 61.13 -89.29 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-8" x="143.97" y="123.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="148.42" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-12" x="153.43" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="158.52" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="163.43" y="123.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="166.67" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="171.58" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="176.67" y="123.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="181.12" y="123.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-0" x="188.14" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="192.50" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-13" x="197.42" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="202.61" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="207.69" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="212.61" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="217.69" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="220.83" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="223.07" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="227.98" y="123.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-5" x="230.37" y="123.73"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="232.81" y="123.73"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-amber-bg);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 59.37 -140.31 L -31.02 -140.31 C -32.67 -140.31 -34.01 -141.65 -34.01 -143.30 L -34.01 -162.83 C -34.01 -164.48 -32.67 -165.82 -31.02 -165.82 L 59.37 -165.82 C 61.02 -165.82 62.36 -164.48 62.36 -162.83 L 62.36 -143.30 C 62.36 -141.65 61.02 -140.31 59.37 -140.31 Z M 59.37 -140.31 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-8" x="153.33" y="175.50"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="157.78" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-12" x="162.80" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="167.88" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="172.79" y="175.50"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="176.03" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="180.95" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="186.03" y="175.50"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="190.48" y="175.50"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-8" x="197.51" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="202.01" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="206.79" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="211.87" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="216.23" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-5" x="221.01" y="175.50"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="223.44" y="175.50"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-amber-bg);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M -68.18 -202.67 L -158.58 -202.67 C -160.23 -202.67 -161.57 -204.01 -161.57 -205.66 L -161.57 -225.20 C -161.57 -226.85 -160.23 -228.19 -158.58 -228.19 L -68.18 -228.19 C -66.53 -228.19 -65.19 -226.85 -65.19 -225.20 L -65.19 -205.66 C -65.19 -204.01 -66.53 -202.67 -68.18 -202.67 Z M -68.18 -202.67 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-5" x="30.33" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="32.77" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="35.00" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="38.24" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-0" x="45.27" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="49.63" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="54.54" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-1" x="61.01" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="65.93" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="70.43" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="73.72" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="75.95" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="79.10" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="84.18" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="87.42" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="92.33" y="237.75"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-green-bg);stroke:var(--fig-green)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 39.53 -202.67 L -50.87 -202.67 C -52.52 -202.67 -53.85 -204.01 -53.85 -205.66 L -53.85 -225.20 C -53.85 -226.85 -52.52 -228.19 -50.87 -228.19 L 39.53 -228.19 C 41.18 -228.19 42.51 -226.85 42.51 -225.20 L 42.51 -205.66 C 42.51 -204.01 41.18 -202.67 39.53 -202.67 Z M 39.53 -202.67 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-5" x="130.99" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="133.42" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="138.34" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="142.84" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="145.98" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="151.07" y="237.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="154.31" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="159.22" y="237.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-15" x="165.69" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-11" x="173.51" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="178.52" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-11" x="183.60" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="188.61" y="237.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="191.72" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="196.73" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="201.82" y="237.58"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="206.73" y="237.58"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-green-bg);stroke:var(--fig-green)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 147.24 -202.67 L 56.84 -202.67 C 55.19 -202.67 53.85 -204.01 53.85 -205.66 L 53.85 -225.20 C 53.85 -226.85 55.19 -228.19 56.84 -228.19 L 147.24 -228.19 C 148.90 -228.19 150.23 -226.85 150.23 -225.20 L 150.23 -205.66 C 150.23 -204.01 148.90 -202.67 147.24 -202.67 Z M 147.24 -202.67 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-1" x="236.97" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="241.89" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="246.39" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="249.67" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="251.91" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="255.05" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="260.14" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="263.38" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="268.29" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-15" x="274.76" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-11" x="282.58" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="287.59" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-11" x="292.67" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="297.69" y="237.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="300.79" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="305.80" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="310.89" y="237.75"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="315.80" y="237.75"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-green-bg);stroke:var(--fig-green)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 257.33 -202.67 L 162.19 -202.67 C 160.54 -202.67 159.20 -204.01 159.20 -205.66 L 159.20 -225.20 C 159.20 -226.85 160.54 -228.19 162.19 -228.19 L 257.33 -228.19 C 258.98 -228.19 260.32 -226.85 260.32 -225.20 L 260.32 -205.66 C 260.32 -204.01 258.98 -202.67 257.33 -202.67 Z M 257.33 -202.67 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-1" x="338.61" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="343.52" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="348.02" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="351.31" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="353.55" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="356.69" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="361.77" y="236.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="365.01" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="369.92" y="236.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-4" x="376.40" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-16" x="381.18" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="386.37" y="236.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-17" x="389.61" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="394.52" y="236.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-5" x="400.99" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="403.43" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="408.34" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="412.84" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-14" x="415.99" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="421.07" y="236.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="424.31" y="236.91"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="429.22" y="236.91"/>
+</g>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 87.62 -13.25 L 44.18 -35.58 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.36 L 3.14 0.00 L 1.53 -2.36 Z M 6.39 0.00 " transform="matrix(-0.887754, 0.45637, 0.45637, 0.887754, 223.360494, 53.48143)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 139.15 -13.25 L 182.58 -35.58 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.36 Z M 6.39 0.00 " transform="matrix(0.887754, 0.45637, 0.45637, -0.887754, 356.422487, 53.48143)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.17 -64.27 L 14.17 -84.01 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 -0.00 L 1.53 2.35 L 3.14 -0.00 L 1.53 -2.35 Z M 6.39 -0.00 " transform="matrix(0, 0.99825, 0.99825, 0, 190.851744, 100.268799)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.17 -115.30 L 14.17 -135.03 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.38 -0.00 L 1.53 2.35 L 3.14 -0.00 L 1.53 -2.35 Z M 6.38 -0.00 " transform="matrix(0, 0.99825, 0.99825, 0, 190.851744, 151.203527)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.17 -166.32 L -108.78 -200.88 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.38 0.00 L 1.53 2.35 L 3.14 -0.00 L 1.53 -2.36 Z M 6.38 0.00 " transform="matrix(-0.960965, 0.270097, 0.270097, 0.960965, 70.86979, 219.030082)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.17 -166.32 L -3.35 -197.99 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.38 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.36 Z M 6.38 0.00 " transform="matrix(-0.483353, 0.873389, 0.873389, 0.483353, 174.743253, 214.412687)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.17 -166.32 L 97.62 -200.37 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.35 Z M 6.39 0.00 " transform="matrix(0.92424, 0.377099, 0.377099, -0.92424, 271.498894, 218.211118)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.17 -166.32 L 205.06 -201.31 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 -0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.35 Z M 6.39 -0.00 " transform="matrix(0.981859, 0.179965, 0.179965, -0.981859, 378.586742, 219.719893)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="439.22" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="441.66" y="64.78"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-2" x="444.19" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="447.90" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="451.86" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="455.25" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-5" x="458.97" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="462.47" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="464.91" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="466.65" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="470.55" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="474.50" y="64.78"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="479.54" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="482.93" y="64.78"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="486.88" y="64.78"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-9" x="439.22" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="443.25" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="445.15" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="449.10" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="452.49" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="454.23" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="458.05" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="462.01" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="464.56" y="72.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="469.60" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-12" x="473.50" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-13" x="477.53" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="479.27" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="483.10" y="72.73"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="485.54" y="72.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-14" x="488.89" y="72.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="439.22" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="442.61" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="446.32" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="450.28" y="80.69"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="455.31" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="459.21" y="80.69"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="461.72" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="465.76" y="80.69"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="468.28" y="80.69"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-1" x="473.75" y="80.69"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-16" x="476.27" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="480.09" y="80.69"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="483.91" y="80.69"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-8" x="50.91" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="54.86" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="58.82" y="68.24"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="64.28" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-9" x="68.18" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-16" x="72.22" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="76.04" y="68.24"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-2" x="78.57" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="82.29" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="84.73" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="86.47" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="90.37" y="68.24"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="95.97" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="99.36" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="103.31" y="68.24"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-8" x="107.51" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="111.46" y="68.24"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="117.06" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-12" x="120.96" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-13" x="125.00" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="126.74" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="130.56" y="68.24"/>
+<use xlink:href="#coherence-modeles-glyph-1-14" x="133.00" y="68.24"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="53.40" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="57.44" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="61.16" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="65.11" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-10" x="70.14" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-17" x="71.98" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="73.39" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="77.29" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="79.80" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="83.84" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="86.36" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="91.82" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="95.85" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="101.45" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="103.87" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-18" x="107.70" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-9" x="113.77" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="117.81" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-1" x="122.84" y="76.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-16" x="125.36" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="129.19" y="76.19"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="133.01" y="76.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-dasharray="1.99 1.49" stroke-miterlimit="10" d="M -164.40 -187.08 L 263.62 -187.08 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="14.27" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="17.66" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="21.56" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="25.51" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-10" x="30.54" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="32.44" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="37.90" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="40.35" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-2" x="42.87" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="46.59" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="48.33" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-19" x="52.42" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-20" x="56.64" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-2" x="60.30" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="64.02" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-2" x="66.54" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="70.26" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="74.21" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="76.66" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="78.40" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="82.22" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="87.25" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="91.28" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="96.75" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="100.14" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="103.96" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="107.32" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="110.71" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="112.45" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="116.35" y="192.16"/>
+<use xlink:href="#coherence-modeles-glyph-1-14" x="120.30" y="192.16"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-5" x="14.27" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="17.73" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-21" x="23.19" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="27.23" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="31.18" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-22" x="36.65" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="40.02" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="43.92" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="45.66" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-8" x="49.74" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="53.70" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-18" x="59.30" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-23" x="65.37" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-18" x="69.20" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="75.27" y="200.11"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-5" x="80.74" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="84.24" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="86.13" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="87.87" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="91.70" y="200.11"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="95.65" y="200.11"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 156.42 -263.20 L -60.04 -263.20 C -61.69 -263.20 -63.03 -264.54 -63.03 -266.19 L -63.03 -285.72 C -63.03 -287.37 -61.69 -288.71 -60.04 -288.71 L 156.42 -288.71 C 158.07 -288.71 159.41 -287.37 159.41 -285.72 L 159.41 -266.19 C 159.41 -264.54 158.07 -263.20 156.42 -263.20 Z M 156.42 -263.20 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-8" x="116.76" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="121.21" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-12" x="126.22" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-1" x="131.31" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="136.22" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="139.46" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="144.37" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-8" x="149.46" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="153.91" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-18" x="160.93" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-7" x="167.82" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="170.93" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="175.84" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-15" x="179.13" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="186.94" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-19" x="193.96" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-5" x="199.39" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="201.83" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="206.74" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-8" x="213.21" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="217.67" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-16" x="222.68" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="227.88" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="230.11" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="235.03" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-20" x="241.49" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="246.56" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-3" x="251.65" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-0" x="253.89" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-0" x="258.20" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-9" x="262.56" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="267.47" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-7" x="272.56" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-16" x="277.80" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-4" x="282.99" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="287.77" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-8" x="293.17" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-11" x="297.63" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-10" x="302.64" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-21" x="307.65" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="311.98" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="316.90" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-22" x="319.98" y="297.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-0-9" x="324.65" y="297.28"/>
+<use xlink:href="#coherence-modeles-glyph-0-2" x="329.56" y="297.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-3" x="165.81" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="169.77" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="175.23" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="179.27" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="181.01" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-1" x="185.10" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="187.65" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="189.39" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="193.21" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="198.81" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="202.85" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-5" x="208.31" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="211.77" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-21" x="217.24" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="221.28" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-17" x="225.30" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="226.71" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="230.61" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-10" x="236.21" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="238.10" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="239.84" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="243.93" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="247.75" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-2" x="253.35" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="257.07" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="259.45" y="317.71"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="261.86" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="265.69" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-15" x="269.64" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="273.68" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="277.39" y="317.71"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="281.35" y="317.71"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M -170.78 -321.73 L -158.03 -321.73 L -158.03 -313.23 L -170.78 -313.23 Z M -170.78 -321.73 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-6" x="25.59" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="27.33" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-15" x="31.28" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="35.32" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="37.06" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-9" x="40.45" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="44.49" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="48.39" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="52.34" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-12" x="54.08" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="58.12" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="60.01" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-9" x="65.48" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="69.52" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="73.41" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="77.37" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-8" x="81.57" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="85.52" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="89.47" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-9" x="94.94" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="98.98" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="102.69" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="105.28" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="107.72" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="109.46" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="114.93" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="118.96" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="122.79" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-3" x="127.82" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-24" x="131.77" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="138.25" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-15" x="142.21" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="146.25" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-9" x="151.27" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="155.31" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="159.13" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-15" x="163.09" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="167.12" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="170.84" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="174.80" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-8" x="178.88" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="182.84" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="186.79" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-9" x="192.26" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-2" x="196.29" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="200.01" y="338.07"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="202.59" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="205.04" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="206.78" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="209.22" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="210.96" y="338.07"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="214.86" y="338.07"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-amber-bg);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M -170.78 -338.74 L -158.03 -338.74 L -158.03 -330.23 L -170.78 -330.23 Z M -170.78 -338.74 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="25.59" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="29.62" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="31.37" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-9" x="34.76" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="38.79" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="42.69" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="46.65" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-12" x="48.39" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="52.42" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="54.32" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="59.78" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="63.17" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-10" x="66.56" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="68.45" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-5" x="73.91" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="77.42" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="79.31" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="81.05" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="84.87" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-0" x="88.83" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-1" x="92.91" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="95.43" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="99.26" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="102.60" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-11" x="105.01" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="110.48" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="113.87" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="117.82" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-10" x="122.02" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="123.91" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-18" x="129.38" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-23" x="135.46" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-18" x="139.28" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="145.36" y="355.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-3" x="150.81" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-24" x="154.77" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="161.25" y="355.13"/>
+<use xlink:href="#coherence-modeles-glyph-1-15" x="165.20" y="355.13"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-green-bg);stroke:var(--fig-green)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M -170.78 -355.75 L -158.03 -355.75 L -158.03 -347.24 L -170.78 -347.24 Z M -170.78 -355.75 " transform="matrix(0.99825, 0, 0, -0.99825, 176.703227, 19.270594)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-15" x="25.59" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="29.62" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="31.37" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-9" x="34.76" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-7" x="38.79" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-3" x="42.69" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-6" x="46.65" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-12" x="48.39" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-10" x="52.42" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="54.32" y="372.02"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-4" x="59.78" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="63.17" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-1" x="67.13" y="372.02"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-0" x="71.33" y="372.02"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-7" x="73.74" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="77.64" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="81.59" y="372.02"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-10" x="86.63" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-11" x="88.52" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="92.34" y="372.02"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#coherence-modeles-glyph-1-3" x="97.38" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-24" x="101.33" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-8" x="107.81" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-15" x="111.77" y="372.02"/>
+<use xlink:href="#coherence-modeles-glyph-1-4" x="115.80" y="372.02"/>
+</g>
+</svg>

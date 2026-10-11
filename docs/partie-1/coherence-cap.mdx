@@ -1,0 +1,300 @@
+---
+title: Cohérence, CAP et PACELC
+sidebar_label: 12. Cohérence, CAP et PACELC
+description: "Modèles de cohérence, de la linéarisabilité à la cohérence à terme ; garanties de session ; sérialisabilité et linéarisabilité ; énoncé exact du théorème CAP et ses contresens ; PACELC ; mesures sur un Redis répliqué."
+partie: 1
+chapitre: 12
+---
+
+import profil from '@site/src/figures/coherence-profil.svg';
+import perimees from '@site/src/figures/coherence-perimees.svg';
+import modeles from '@site/src/figures/coherence-modeles.svg';
+import cap from '@site/src/figures/coherence-cap.svg';
+
+Une utilisatrice change son nom dans la page de son profil, clique sur « Enregistrer », voit le message « Modifications enregistrées », puis la page se recharge et affiche l’ancien nom. Elle recommence, et cette fois le nouveau nom apparaît. Le support reçoit un signalement « le bouton Enregistrer ne marche qu’une fois sur deux », et personne n’arrive à le reproduire sur son poste.
+
+Le bouton marche. L’écriture est allée à la base principale, qui l’a enregistrée et confirmée ; la lecture qui a suivi, pour afficher la page, est allée à une copie de la base, une réplique, qui n’avait pas encore reçu la modification. Le service a deux copies de la donnée, et il n’a rien promis sur laquelle des deux versions une lecture renvoie. Ce chapitre donne le vocabulaire de ces promesses, les modèles de cohérence (consistency models), puis les deux résultats qui encadrent ce qu’on peut promettre quand le réseau entre les copies est lent ou coupé : le théorème CAP et sa prolongation, PACELC.
+
+Une expérience a été faite pour ce chapitre, avec le script `outils/experiences/ch12/replique.py` : un Redis principal et deux répliques, en conteneurs sur la machine du cours, reliés par un relais qui retarde la liaison de réplication d’un délai réglable, ou la coupe. On y mesure la part des lectures qui renvoient l’ancienne valeur, le prix d’une écriture qui attend sa réplique, et ce que font les deux côtés pendant une coupure.
+
+## Une écriture, deux copies
+
+La réplication (replication) consiste à garder plusieurs copies d’une même donnée sur des machines différentes. Elle sert à survivre à la panne d’une machine (ch. 11) et à répartir les lectures entre plusieurs serveurs (ch. 10). Le schéma le plus courant a un primaire (primary, ou leader), qui reçoit toutes les écritures, et des répliques (replicas, ou followers), qui reçoivent du primaire le flux des modifications et servent des lectures. Le ch. 24 décrit ce mécanisme en détail ; ce chapitre n’a besoin que d’un fait : dans la plupart des configurations par défaut, la réplication est asynchrone. Le primaire confirme l’écriture au client dès qu’il l’a appliquée lui-même, et envoie la modification aux répliques ensuite. Redis, par exemple, réplique de façon asynchrone par défaut[^redis-repl].
+
+<Figure svg={profil} num="12.1" alt="Chronogramme à trois acteurs : le navigateur envoie la modification au primaire, qui répond OK ; le flux de réplication part vers la réplique et n’y arrive que tard ; entre-temps, le navigateur lit la réplique et reçoit l’ancien nom ; une lecture plus tardive reçoit le nouveau nom.">
+L’écriture va au primaire, la lecture suivante à une réplique qui n’a pas encore reçu la modification.
+</Figure>
+
+Le temps s’écoule de haut en bas. Le trait violet épais est le flux de réplication : il part du primaire juste après l’écriture et n’atteint la réplique que bien plus bas, au bout du retard de réplication (replication lag) indiqué par l’accolade. Toute lecture servie par la réplique pendant cet intervalle, comme la flèche rouge, renvoie l’ancienne version ; la lecture du bas, servie après l’arrivée du flux, renvoie la nouvelle.
+
+Le mot « cohérence » a plusieurs sens en informatique, et il faut écarter les deux autres. Le C de ACID (ch. 18) désigne le respect des contraintes de la base (une clé étrangère pointe vers une ligne qui existe) ; la cohérence de cache d’un processeur concerne les caches d’une même puce. Ici, un modèle de cohérence est un contrat entre un système qui garde plusieurs copies et ses clients : il dit quelles valeurs une lecture a le droit de renvoyer, compte tenu des écritures qui l’ont précédée.
+
+## Les modèles, du plus fort au plus faible
+
+### Linéarisabilité
+
+Un système est linéarisable (linearizable) si chaque opération semble prendre effet en un instant unique, situé entre le moment où le client l’envoie et celui où il reçoit la réponse, et si l’ordre de ces instants respecte le temps réel. Cette définition est due à Maurice Herlihy et Jeannette Wing[^herlihy]. La conséquence pratique est simple : une fois qu’une écriture a été confirmée, toute lecture qui commence après cette confirmation renvoie la valeur écrite ou une valeur plus récente, quel que soit le client et quelle que soit la copie interrogée. Le système se comporte comme s’il n’y avait qu’une seule copie de la donnée.
+
+C’est le modèle qu’attendent intuitivement les développeurs, et c’est celui qu’il faut pour certaines opérations : attribuer le dernier siège d’un avion, garantir qu’un nom d’utilisateur n’est pris qu’une fois, détenir un verrou. Il coûte cher dès qu’il y a plusieurs copies : une lecture ne peut pas se contenter de la copie la plus proche, elle doit s’assurer qu’aucune écriture plus récente n’a été confirmée ailleurs, donc interroger le primaire, ou une majorité des copies (ch. 25 et 35).
+
+La cohérence séquentielle (sequential consistency), définie par Leslie Lamport en 1979[^lamport], affaiblit un peu la linéarisabilité : les opérations semblent toujours s’exécuter dans un ordre total unique, qui respecte l’ordre des opérations de chaque client, mais cet ordre n’est plus tenu de respecter le temps réel entre clients différents.
+
+### Cohérence causale
+
+Deux opérations sont liées par la causalité quand la seconde a pu dépendre de la première : un client lit un message puis y répond, ou écrit deux fois de suite. La cohérence causale (causal consistency) exige que tous les clients voient les opérations liées par la causalité dans le même ordre ; les opérations indépendantes peuvent être vues dans des ordres différents par des clients différents[^jepsen-causal]. Dans un fil de commentaires, personne ne voit la réponse avant la question à laquelle elle répond ; deux commentaires écrits en même temps, sans lien entre eux, peuvent apparaître dans un ordre différent selon le lecteur.
+
+### Les garanties de session
+
+Douglas Terry et ses collègues ont défini en 1994 quatre garanties plus modestes, qui ne portent que sur ce que voit un même client au fil de sa session[^terry] :
+
+- lire ses propres écritures (read your writes) : après avoir écrit une valeur, le client ne lit jamais une version plus ancienne ; c’est exactement la garantie qui manque dans le problème du profil ;
+- lectures monotones (monotonic reads) : après avoir vu une version, le client ne revoit jamais une version plus ancienne ;
+- écritures monotones (monotonic writes) : deux écritures d’un même client sont appliquées partout dans l’ordre où il les a faites ;
+- écritures après lectures (writes follow reads) : une écriture faite après avoir lu une valeur est ordonnée après l’écriture qui a produit cette valeur.
+
+La cohérence causale implique les quatre. Chacune, prise seule, est bien moins chère : on peut l’obtenir en gardant le client sur la même réplique, ou en lui faisant porter une trace de ce qu’il a déjà vu.
+
+### Cohérence à terme
+
+La cohérence à terme (eventual consistency) est la promesse la plus faible. Werner Vogels, directeur technique d’Amazon, la définit ainsi : si aucune nouvelle mise à jour n’est faite sur un objet, toutes les lectures finiront par renvoyer la dernière valeur écrite[^vogels]. La définition ne dit pas quand, ni ce que renvoient les lectures en attendant : une lecture peut renvoyer une valeur ancienne, puis la nouvelle, puis de nouveau l’ancienne si elle tombe sur une autre réplique. C’est une propriété de convergence des copies, pas une garantie sur l’ordre de ce que voit un client.
+
+<Figure svg={modeles} num="12.2" alt="Graphe des modèles : la sérialisabilité stricte implique la linéarisabilité et la sérialisabilité ; la linéarisabilité implique la cohérence séquentielle, qui implique la cohérence causale ; la cohérence causale implique les quatre garanties de session. Les modèles du haut sont en rouge, la causalité et lire ses écritures en jaune, les autres garanties de session en vert. La cohérence à terme est à part.">
+Carte simplifiée des modèles de cohérence, d’après la classification de Jepsen.
+</Figure>
+
+Une flèche va d’un modèle vers un modèle plus faible qu’il implique : un système linéarisable est forcément séquentiel, causal, et respecte les quatre garanties de session. La couleur indique ce qui reste possible pendant une coupure du réseau, selon la classification tenue par Jepsen[^jepsen] : les modèles rouges ne peuvent pas rester disponibles sur tous les nœuds ; les jaunes le peuvent si chaque client reste attaché au même nœud ; les verts le peuvent sur tous les nœuds. La cohérence à terme est à part, parce qu’elle ne contraint pas l’ordre de ce qu’on lit.
+
+## Sérialisabilité et linéarisabilité
+
+Les deux mots se ressemblent et sont souvent confondus, y compris en entretien. Peter Bailis résume la différence en deux phrases[^bailis]. La linéarisabilité est une garantie sur des opérations isolées, chacune portant sur un seul objet, et elle respecte le temps réel. La sérialisabilité (serializability) est une garantie sur des transactions, c’est-à-dire des groupes d’opérations portant sur plusieurs objets : leur exécution doit être équivalente à une exécution l’une après l’autre, dans un certain ordre, mais cet ordre n’a pas à respecter le temps réel.
+
+Un exemple montre ce que cette dernière précision autorise. Une transaction écrit le nouveau nom et se termine. Une seconde plus tard, une transaction de lecture démarre sur une réplique en retard et lit l’ancien nom. Le résultat est sérialisable, puisqu’il équivaut à exécuter la lecture avant l’écriture ; il n’est pas linéarisable, puisque la lecture a commencé après la confirmation de l’écriture. Une base répliquée peut donc offrir le niveau d’isolation `SERIALIZABLE` (ch. 18) et renvoyer quand même l’ancien nom. Le modèle qui combine les deux garanties s’appelle la sérialisabilité stricte (strict serializability) : des transactions, dans un ordre qui respecte le temps réel.
+
+## Ce que renvoie une réplique, mesuré
+
+Le script `replique.py` lance un Redis primaire et deux répliques (Redis 8.8.3). Chaque réplique se connecte au primaire à travers un relais écrit en Python, qui retarde les octets d’un délai réglable dans chaque sens ; un délai de 25 ms correspond à environ 5 000 km de fibre, à 200 km par milliseconde (ch. 4), et l’aller-retour qui en résulte, 50 ms, est proche de la borne physique entre Paris et New York. Le client, lui, parle directement au primaire et aux répliques. Quatre mesures sont faites : (1) écrire une valeur sur le primaire, attendre un certain temps, la lire sur la réplique, 200 fois par réglage ; (2) mesurer la durée d’une écriture seule, puis d’une écriture suivie de `WAIT 1`, qui bloque jusqu’à ce qu’une réplique ait accusé réception[^redis-wait] ; (3) avec une réplique à 5 ms et l’autre à 40 ms, lire deux fois de suite, à 15 ms d’écart, chaque fois sur une réplique tirée au hasard ; (4) couper la liaison sans prévenir personne, comme une vraie panne de réseau, puis la rétablir.
+
+```text
+1. lectures périmées sur la réplique a, sur 200 essais
+délai de la liaison   lecture après   lectures périmées
+          0 ms             0 ms          14 (7.0 %)
+          0 ms             1 ms           0 (0.0 %)
+          0 ms             5 ms           0 (0.0 %)
+         25 ms             0 ms         200 (100.0 %)
+         25 ms            10 ms         200 (100.0 %)
+         25 ms            20 ms         200 (100.0 %)
+         25 ms            30 ms           0 (0.0 %)
+         25 ms            50 ms           0 (0.0 %)
+
+2. durée d'une écriture, 200 écritures
+délai de la liaison   écriture    médiane     99e centile
+          0 ms   SET seul      0.35 ms       0.94 ms
+          0 ms   SET + WAIT    0.59 ms       2.14 ms
+         25 ms   SET seul      0.22 ms       0.36 ms
+         25 ms   SET + WAIT   54.22 ms      55.70 ms
+
+3. lectures monotones, 200 essais, répliques à 5 ms et 40 ms
+retours en arrière : 57
+
+4. partition : plus rien ne passe entre le primaire et les deux répliques
+réglage par défaut : écriture acceptée ; la réplique répond « avant »,
+  et se croit toujours reliée (master_link_status:up)
+min-replicas-to-write 1, max-lag 10 : écritures refusées (NOREPLICAS)
+  10.6 s après la coupure
+liaison rétablie : la réplique a la dernière valeur 15 ms après
+```
+
+<Figure svg={perimees} num="12.3" alt="Courbe de la part de lectures périmées en fonction du temps écoulé depuis l’écriture : avec la liaison retardée de 25 ms, 100 % jusqu’à 20 ms, 0 % à partir de 30 ms ; avec la liaison directe, 1 à 7 % à 0 ms, puis 0 dès 1 ms.">
+Part des lectures sur la réplique qui renvoient l’ancienne valeur, selon le temps écoulé depuis l’écriture.
+</Figure>
+
+L’axe horizontal est le temps écoulé entre la confirmation de l’écriture et la lecture sur la réplique. La courbe bleue (liaison retardée) reste à 100 % tant que ce temps est inférieur au délai de la liaison, puis tombe à 0 : le retard de réplication est ici celui du réseau, quelque part entre 20 et 30 ms d’après les points mesurés, 25 ms par construction. La courbe orange (liaison directe) montre qu’il n’est jamais nul.
+
+Les mesures 1 à 3 ont été faites quatre fois, la mesure 4 deux fois. Les résultats se répètent, à trois exceptions près : la ligne « 0 ms, lecture après 0 ms » a compté 2, 4, 14 puis 8 lectures périmées, soit de 1 à 7 % ; les retours en arrière de la mesure 3 ont varié de 47 à 57 ; le refus d’écriture de la mesure 4 est arrivé après 10,6 puis 11,4 secondes. `WAIT` a coûté de 54,1 à 54,2 ms en médiane à chaque passage.
+
+Chaque mesure éclaire une partie du chapitre. La première montre que le problème du profil ne dépend pas d’une panne : sur une seule machine, sans aucun délai ajouté, une lecture lancée dès la confirmation de l’écriture tombe encore sur l’ancienne valeur dans quelques pour cent des cas, le temps que la modification traverse le relais et soit appliquée par la réplique. Sur un poste de développement où primaire et réplique ne font qu’un, ce cas n’arrive jamais, d’où le signalement impossible à reproduire. La deuxième donne le prix de l’attente : `WAIT 1` sur la liaison à 25 ms coûte 54 ms, soit un aller-retour complet (le primaire demande un accusé de réception, la réplique répond) plus environ 4 ms de traitement, alors que l’écriture seule reste sous la milliseconde. La troisième est une violation des lectures monotones : un client qui lit d’abord la réplique rapide, à jour, puis la réplique lente, voit la nouvelle valeur puis l’ancienne. La quatrième est l’objet de la section sur CAP.
+
+La documentation de Redis précise que `WAIT` ne fait pas de Redis un système fortement cohérent : une écriture accusée par une réplique peut encore être perdue lors d’une bascule[^redis-wait]. Attendre une réplique réduit le risque, sans donner la linéarisabilité.
+
+## Obtenir les garanties de session en pratique
+
+Lire ses propres écritures, la garantie qui manque au profil, s’obtient de plusieurs façons, que les ch. 24 et 25 reprendront avec les mécanismes de réplication. La plus simple consiste à servir depuis le primaire les lectures de ce que l’utilisateur peut avoir modifié lui-même (son propre profil, ses propres réglages), et depuis les répliques tout le reste. Une variante limite cette règle dans le temps : pendant les $T$ secondes qui suivent une écriture, toutes les lectures de cet utilisateur vont au primaire, avec $T$ choisi au-dessus du retard de réplication observé. Une autre fait porter au client une trace de sa dernière écriture, une position dans le flux de réplication ou un numéro de version, et ne laisse une réplique répondre que si elle a atteint cette position ; sinon, la lecture attend ou part vers le primaire. Enfin, l’interface peut afficher directement la valeur renvoyée par la réponse à l’écriture, sans la relire : l’utilisatrice voit son nouveau nom tout de suite, mais seulement sur cette page, et le problème réapparaît à la prochaine page qui relit le profil depuis une réplique.
+
+Les lectures monotones s’obtiennent en attachant chaque utilisateur à une réplique, par exemple en choisissant la réplique d’après un hachage de son identifiant : il peut voir des données anciennes, mais jamais revenir en arrière, tant que sa réplique ne change pas. Si elle tombe en panne et qu’il est envoyé vers une autre, plus en retard, la garantie saute ; la trace de position règle aussi ce cas.
+
+## Le théorème CAP
+
+### L’énoncé exact
+
+Eric Brewer a énoncé la conjecture en 2000, lors d’une conférence invitée au symposium PODC ; Seth Gilbert et Nancy Lynch l’ont démontrée en 2002[^gilbert-lynch]. Le résultat porte sur un objet très simple, un registre qu’on peut lire et écrire, réparti sur plusieurs nœuds d’un réseau où les messages peuvent être perdus. Il dit qu’aucun algorithme ne peut garantir à la fois :
+
+- la cohérence (consistency, le C), au sens de la linéarisabilité, définie plus haut ;
+- la disponibilité (availability, le A), au sens où toute requête reçue par un nœud qui n’est pas en panne obtient une réponse ;
+
+dans toutes les exécutions, y compris celles où le réseau perd des messages entre deux groupes de nœuds, ce qu’on appelle une partition (partition, le P).
+
+La démonstration tient en une figure.
+
+<Figure svg={cap} num="12.4" alt="Deux clients, deux nœuds séparés par une coupure du réseau. Le client 1 écrit x = 2 sur le nœud 1 ; le client 2 lit x sur le nœud 2, qui a encore x = 1. Deux réponses possibles : refuser ou faire attendre la lecture (privilégier C), ou répondre x = 1 (privilégier A).">
+Le choix que pose une partition.
+</Figure>
+
+Le client 1 vient d’écrire x = 2 sur le nœud 1, et le réseau entre les deux nœuds est coupé. Le client 2 demande x au nœud 2, qui n’a pas pu recevoir l’écriture. Le nœud 2 n’a que deux possibilités, représentées dans les deux cadres du bas : refuser ou faire attendre la lecture jusqu’au rétablissement du réseau, et le système n’est plus disponible au sens de CAP ; ou répondre avec la valeur qu’il a, x = 1, et le système n’est plus linéarisable. Aucune troisième voie n’existe, puisque l’information n’a aucun moyen de franchir la coupure.
+
+### Les contresens courants
+
+Le premier contresens est la formule « choisissez deux propriétés parmi trois ». Elle suggère qu’on pourrait renoncer à P et garder C et A. Or la tolérance aux partitions n’est pas une option : dès que des données sont réparties sur plusieurs machines reliées par un réseau, des messages finiront par se perdre, et le système devra faire quelque chose ce jour-là. Brewer lui-même, douze ans après sa conjecture, écrit que la formule « 2 sur 3 » est trompeuse[^brewer] : les partitions sont rares, il n’y a donc aucune raison de renoncer à C ou à A quand il n’y en a pas, et le choix entre les deux peut se faire de nombreuses fois dans un même système, sous-système par sous-système, et même opération par opération. Pendant une partition, chaque opération doit soit être annulée, ce qui réduit la disponibilité, soit être exécutée, au risque d’une incohérence.
+
+Le deuxième contresens est de classer un système « CA ». Un système sur une seule machine n’a pas de partition, mais il n’est pas réparti et le théorème ne le concerne pas ; un système réparti qui se dit « CA » cesse en réalité de répondre (il est CP) ou diverge (il est AP) le jour où le réseau se coupe, et il vaut mieux savoir lequel.
+
+Le troisième est de confondre le A de CAP avec la disponibilité du ch. 11. Le A de CAP est une propriété absolue : chaque nœud encore en marche doit répondre à chaque requête. Un système classé CP, qui laisse la minorité coupée du reste refuser les requêtes, peut parfaitement tenir 99,99 % de disponibilité au sens du ch. 11, puisque les partitions sont rares et que la majorité des clients continue d’être servie. À l’inverse, un système AP n’est pas plus disponible pour autant si ses machines tombent souvent.
+
+Le quatrième est de croire que CAP décrit le fonctionnement normal. Le théorème ne dit rien des moments où le réseau fonctionne, c’est-à-dire presque tout le temps. Pendant ces moments, un autre compromis s’applique : c’est l’objet de PACELC.
+
+### Ce que fait Redis pendant une partition
+
+La mesure 4 du script coupe la liaison entre le primaire et les deux répliques sans fermer les connexions : les octets restent bloqués, comme sur un vrai réseau en panne. Avec ses réglages par défaut, Redis se comporte comme un système AP : le primaire accepte l’écriture, la réplique continue de répondre avec l’ancienne valeur, et elle se croit toujours reliée, puisque rien ne lui a signalé la coupure ; elle ne s’en apercevra qu’au bout du délai `repl-timeout`, 60 secondes par défaut. Ce comportement est réglable : avec `replica-serve-stale-data no`, une réplique dont le lien est tombé refuse de répondre au lieu de servir des données anciennes[^redis-repl].
+
+Côté primaire, les réglages `min-replicas-to-write 1` et `min-replicas-max-lag 10` lui interdisent d’accepter une écriture s’il n’a pas au moins une réplique dont le dernier accusé de réception date de moins de 10 secondes. Les répliques envoient un accusé chaque seconde[^redis-repl] ; après la coupure, le primaire a donc continué d’accepter des écritures pendant 10,6 à 11,4 secondes, puis il les a refusées avec l’erreur `NOREPLICAS`. La documentation de Redis présente ce réglage comme une protection au mieux : il borne la fenêtre pendant laquelle des écritures peuvent être perdues, ici une dizaine de secondes, sans garantir la cohérence. Il montre surtout que le choix entre C et A est un réglage, pris composant par composant, comme l’écrivait Brewer.
+
+## PACELC : le compromis quand tout va bien
+
+Daniel Abadi a proposé en 2012 de compléter CAP par une seconde question[^abadi]. Sa formulation, PACELC, se lit ainsi : s’il y a une partition (P), comment le système arbitre-t-il entre disponibilité et cohérence (A et C) ; sinon (E, pour else), quand il fonctionne normalement, comment arbitre-t-il entre latence (L) et cohérence (C) ?
+
+La seconde moitié est la plus importante en pratique, parce qu’elle s’applique en permanence. Elle découle de la réplication elle-même : pour qu’une lecture sur n’importe quelle copie renvoie la dernière écriture, il faut que l’écriture ait atteint les copies avant d’être confirmée, ou que la lecture aille vérifier auprès du primaire ou d’une majorité de copies. Dans les deux cas, on paie au moins un aller-retour sur le réseau entre copies. La mesure 2 en donne le prix exact pour une liaison à 25 ms : une écriture passe de 0,22 ms à 54 ms quand elle attend sa réplique. Entre Paris et New York, l’aller-retour ne descend pas sous 58 ms (ch. 4).
+
+Abadi classe ainsi plusieurs systèmes, dans leurs réglages par défaut de l’époque[^abadi] : Dynamo, Cassandra et Riak sont PA/EL (ils renoncent à la cohérence pendant une partition, et aussi en temps normal pour gagner en latence) ; VoltDB/H-Store, Megastore, BigTable et HBase sont PC/EC (ils paient la disponibilité et la latence pour rester cohérents) ; MongoDB est classé PA/EC et PNUTS PC/EL. Ces classements datent de 2012 et décrivent des réglages par défaut : la plupart de ces systèmes permettent de déplacer le curseur, requête par requête.
+
+## Compromis
+
+| Modèle | Ce que le client peut lire | Coût en temps normal | Pendant une partition | Usages typiques |
+|---|---|---|---|---|
+| Linéarisabilité | toujours la dernière écriture confirmée | un aller-retour vers le primaire ou une majorité, à chaque lecture ou écriture | une partie des nœuds refuse | unicité d’un nom, dernier siège, verrou, solde à ne pas dépasser |
+| Cohérence causale | jamais une conséquence sans sa cause | suivre les dépendances entre opérations | disponible si le client reste sur son nœud | fils de commentaires, messagerie |
+| Lire ses écritures | au moins ses propres écritures | quelques lectures envoyées au primaire, ou une trace de version | disponible si le client reste sur son nœud | profil, réglages, panier |
+| Lectures monotones | jamais un retour en arrière | attacher le client à une réplique | disponible sur tous les nœuds | fils d’actualité, listes paginées |
+| Cohérence à terme | n’importe quelle version, convergence finale | aucun : la copie la plus proche répond | disponible sur tous les nœuds | compteurs de vues, recommandations, caches |
+
+Le choix se fait par donnée et par opération, rarement pour un système entier : un même service de profils peut servir les noms affichés avec une cohérence à terme, les modifications de l’utilisateur avec lire ses écritures, et la réservation d’un pseudonyme avec la linéarisabilité.
+
+## Ordres de grandeur
+
+:::calcul[Calcul : lire ses écritures en envoyant des lectures au primaire]
+Hypothèses : 50 000 lectures par seconde, 500 modifications de profil par seconde ; le retard de réplication est d’ordinaire de quelques millisecondes, mais peut atteindre quelques secondes en pointe ; on choisit $T = 10$ s. Un utilisateur qui navigue fait en moyenne 2 lectures par seconde, dont 0,2 de son propre profil.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Utilisateurs ayant écrit dans les 10 dernières secondes | 500 × 10 | ≤ 5 000 |
+| Règle 1 : lectures de son propre profil vers le primaire | 5 000 × 0,2 | 1 000 lectures/s, 2 % du total |
+| Règle 2 : toutes les lectures de ces utilisateurs vers le primaire | 5 000 × 2 | 10 000 lectures/s, 20 % du total |
+| Règle 3 : toutes les lectures vers le primaire | | 50 000 lectures/s, les répliques ne servent plus |
+
+Conclusion : la règle 1 donne la garantie qui manquait pour 2 % de charge en plus sur le primaire. La règle 2 couvre aussi les pages qui affichent indirectement le profil (les commentaires de l’utilisatrice, par exemple), pour dix fois plus cher.
+:::
+
+:::calcul[Calcul : le prix de la linéarisabilité entre deux régions]
+Hypothèses : primaire à Paris, réplique à New York ; aller-retour réel de 80 ms entre les deux (la borne physique est de 58 ms, ch. 4) ; une page de profil fait 5 lectures successives ; une modification de profil fait 3 écritures successives.
+
+| Opération, pour un utilisateur à New York | Cohérence à terme (réplique locale) | Linéarisable (via Paris) |
+|---|---|---|
+| Une lecture | < 1 ms | ≥ 80 ms |
+| La page de profil (5 lectures) | < 5 ms | ≥ 400 ms |
+| Une modification (3 écritures successives) | 3 × 80 = 240 ms : chaque écriture va au primaire de Paris | 3 × (80 + 80) = 480 ms si le primaire attend aussi l’accusé de la réplique de New York |
+| Ce que la lecture peut renvoyer | une version en retard d’au moins le trajet Paris-New York, environ 40 ms | la dernière version confirmée |
+
+Conclusion : la linéarisabilité multiplie par cent la latence d’une lecture faite loin du primaire. C’est le « EC » de PACELC, et la raison pour laquelle on la réserve aux opérations qui en ont besoin.
+:::
+
+:::calcul[Calcul : retours en arrière avec des répliques au hasard]
+Hypothèses : $n$ répliques, dont une seule en retard à l’instant de la lecture ; un client fait deux lectures successives, chacune sur une réplique tirée au hasard. Un retour en arrière se produit si la première lecture tombe sur une réplique à jour et la seconde sur la réplique en retard.
+
+| Nombre de répliques | Probabilité | Pour 200 essais |
+|---|---|---|
+| $n = 2$ | $\frac{1}{2} \times \frac{1}{2} = 25\,\%$ | 50 attendus ; 47 à 57 mesurés |
+| $n = 5$ | $\frac{4}{5} \times \frac{1}{5} = 16\,\%$ | 32 |
+| client attaché à une réplique | 0 | 0 |
+
+Conclusion : la mesure correspond au calcul. Attacher chaque client à une réplique supprime les retours en arrière, sans rien coûter en latence.
+:::
+
+## Exemples réels
+
+**Amazon S3 et la lecture après écriture.** Jusqu’en 2020, S3 était cohérent à terme pour les réécritures d’objets existants : une lecture qui suivait l’écriture d’une nouvelle version pouvait renvoyer l’ancienne, et les clients devaient ajouter leur propre mécanisme, voire une base de données à côté, pour les traitements qui relisaient aussitôt ce qu’ils venaient d’écrire. Le 1er décembre 2020, AWS a annoncé qu’après l’écriture réussie d’un nouvel objet ou la réécriture d’un objet existant, toute lecture ultérieure reçoit immédiatement la dernière version, que les listes d’objets reflètent aussi immédiatement les écritures, et que ce changement se fait sans modification des performances ni de la disponibilité, et sans coût supplémentaire[^s3-coherence].
+
+**Deux niveaux de lecture dans DynamoDB.** DynamoDB propose, pour les tables, des lectures cohérentes à terme, par défaut, qui peuvent ne pas refléter une écriture récemment terminée, et des lectures fortement cohérentes, demandées par le paramètre `ConsistentRead`, qui reflètent toutes les écritures réussies antérieures. Les lectures cohérentes à terme coûtent moitié moins cher que les lectures fortement cohérentes, et les index secondaires globaux n’offrent que les premières[^dynamodb]. Le compromis du EL / EC de PACELC y est exposé à chaque requête, et facturé.
+
+## Erreurs fréquentes
+
+La plus fréquente consiste à tester sur un poste où la base n’a qu’une copie, puis à découvrir le problème du profil en production. La mesure du chapitre montre qu’il suffit de quelques dixièmes de milliseconde de retard pour qu’une lecture immédiate tombe sur l’ancienne valeur.
+
+Une autre est de croire que « cohérence à terme » veut dire « cohérent au bout de quelques millisecondes ». La définition ne donne aucun délai : en temps normal le retard se compte en millisecondes, mais pendant une panne, une surcharge ou une resynchronisation complète, il peut durer des minutes, et l’application doit rester correcte.
+
+Le cache est aussi une copie. Tout ce chapitre s’applique à un cache placé devant une base (ch. 16) : sans invalidation, il sert l’ancienne version exactement comme une réplique en retard.
+
+Confondre sérialisabilité et linéarisabilité conduit à croire qu’une base configurée en `SERIALIZABLE` empêche les lectures périmées. Elle garantit l’équivalence avec une exécution en série, pas que la lecture voie la dernière écriture confirmée.
+
+Compter sur `WAIT`, ou sur un réglage équivalent, pour obtenir la cohérence forte est une erreur que la documentation de Redis signale elle-même : attendre l’accusé d’une réplique réduit le risque de perte, sans rendre le système linéarisable.
+
+Enfin, en entretien, déclarer un système « CA », ou répondre « on choisit CP » pour tout le système, montre qu’on récite la formule sans l’avoir comprise.
+
+:::piege[Erreur fréquente : réparer le profil par une pause]
+« Après l’enregistrement, on attend 500 ms avant de recharger la page. » La pause masque le problème tant que le retard de réplication reste inférieur à 500 ms, c’est-à-dire tant que tout va bien, et le laisse revenir le jour où une réplique prend du retard. Elle ralentit aussi chaque enregistrement pour tout le monde. La garantie demande un mécanisme explicite : lectures vers le primaire ou trace de version.
+:::
+
+:::entretien
+Quand on vous demande « cohérence forte ou à terme ? », répondez donnée par donnée : « Le nom affiché dans les commentaires peut être en retard de quelques secondes ; l’utilisateur doit voir ses propres modifications, donc lire ses écritures ; le pseudonyme est unique, donc sa réservation est linéarisable et passe par le primaire. » Citez ensuite le prix : un aller-retour de plus pour les opérations linéarisables, et ce que fait chacune pendant une partition.
+:::
+
+## Exercices
+
+**Question 1.** Pour chacune des fonctions suivantes, quel est le modèle de cohérence le plus faible qui convient ? (a) Après avoir publié un commentaire, l’utilisateur doit le voir quand il recharge la page. (b) Dans une messagerie de groupe, une réponse ne doit jamais apparaître avant le message auquel elle répond. (c) Deux personnes ne doivent jamais obtenir la même place dans un train. (d) Le compteur de vues d’une vidéo.
+
+**Question 2.** Un collègue affirme : « Notre base répliquée est CA, parce qu’il n’y a jamais de partition dans notre centre de données. » Qu’est-ce qui ne va pas dans cette phrase, et quelle question faut-il lui poser à la place ?
+
+**Question 3.** Dans la mesure 2, pourquoi `SET` suivi de `WAIT 1` prend-il 54 ms avec une liaison à 25 ms, alors que `SET` seul reste sous la milliseconde ? Et pourquoi, dans la mesure 1, observe-t-on des lectures périmées alors qu’aucun délai n’est ajouté ?
+
+**Exercice de conception.** Un réseau social a des utilisateurs en Europe et en Amérique du Nord. Sa base de profils a un primaire à Paris et une réplique en Virginie, avec un aller-retour de 80 ms entre les deux. Les exigences sont les suivantes : un utilisateur voit immédiatement ses propres modifications ; les autres peuvent les voir avec quelques secondes de retard ; un pseudonyme ne peut appartenir qu’à un seul compte ; la page de profil doit s’afficher en moins de 200 ms pour un utilisateur américain. Indiquez pour chaque opération (afficher un profil, modifier son profil, choisir un pseudonyme) le modèle de cohérence retenu, où vont ses lectures et ses écritures, sa latence pour un utilisateur américain, et ce qui se passe pour lui si la liaison entre Paris et la Virginie est coupée.
+
+## Corrigés
+
+**Question 1.** (a) Lire ses propres écritures : seul l’auteur a besoin de voir son commentaire tout de suite, les autres peuvent attendre. (b) La cohérence causale : la réponse dépend du message, elles doivent apparaître dans cet ordre pour tout le monde ; deux messages indépendants peuvent, eux, apparaître dans des ordres différents. (c) La linéarisabilité, pour l’opération de réservation : deux réservations simultanées de la même place, servies par deux copies différentes, ne doivent pas réussir toutes les deux, ce qui impose qu’elles soient ordonnées par un point unique (le primaire) ou par une majorité. (d) La cohérence à terme : un compteur en retard de quelques vues ne gêne personne, et il faut qu’il reste rapide et disponible.
+
+**Question 2.** Le système n’a pas le choix de la tolérance aux partitions : un réseau entre machines finira par perdre des messages, que ce soit par une panne de commutateur, une erreur de configuration ou une machine surchargée qui ne répond plus à temps. La phrase ne dit donc rien de ce que fera la base ce jour-là. La question utile est : « Pendant une coupure entre le primaire et une réplique, la réplique continue-t-elle de répondre avec des données éventuellement anciennes, ou refuse-t-elle ? Et le primaire accepte-t-il des écritures qu’aucune réplique n’a reçues ? » La mesure 4 montre que Redis, par défaut, répond oui aux deux : c’est un comportement AP, qu’il faut connaître.
+
+**Question 3.** `WAIT 1` ne rend la main que lorsqu’une réplique a confirmé avoir reçu les écritures précédentes. Le primaire envoie les données et une demande d’accusé de réception, qui mettent 25 ms à arriver ; la réplique répond, et sa réponse met 25 ms à revenir. Cela fait 50 ms, plus environ 4 ms de traitement et de passage dans le relais Python. `SET` seul n’attend rien : le primaire confirme dès qu’il a appliqué l’écriture en mémoire. Sans délai ajouté, la modification doit quand même être envoyée par le primaire, traverser le relais, puis être lue et appliquée par la réplique ; ces étapes prennent une fraction de milliseconde, et une lecture envoyée dès la confirmation de l’écriture arrive parfois avant elles. À partir d’une milliseconde d’attente, plus aucune lecture n’est périmée.
+
+**Exercice de conception.**
+
+*Afficher le profil de quelqu’un d’autre.* Cohérence à terme, lectures sur la réplique de la région de l’utilisateur. Pour un Américain, les 5 lectures de la page restent sous 5 ms côté base. Pendant une coupure, la page continue de s’afficher, avec des données qui vieillissent ; on peut indiquer « mis à jour il y a N minutes » si le retard devient grand.
+
+*Modifier son profil.* Écriture sur le primaire de Paris, puis lire ses écritures : pendant 10 secondes après une modification, les lectures du propre profil de l’utilisateur vont au primaire, ou bien le client conserve la version de sa dernière écriture et la réplique de Virginie ne lui répond que si elle l’a atteinte. Pour un Américain, la modification coûte au moins un aller-retour vers Paris, 80 ms par écriture, soit 240 ms si elle en fait trois de suite : il faut les regrouper en une seule requête, ou en une transaction envoyée d’un bloc, pour revenir à 80 ms. L’affichage de son propre profil pendant les 10 secondes suivantes coûte aussi 80 ms par lecture : la page doit faire ses lectures en parallèle ou en une seule requête pour rester sous 200 ms. Pendant une coupure, un Américain ne peut plus modifier son profil (PC pour les écritures) : il faut un message clair plutôt qu’une erreur générique.
+
+*Choisir un pseudonyme.* Linéarisable : la vérification et la réservation se font en une seule opération sur le primaire, protégée par une contrainte d’unicité de la base (ch. 18). Elle coûte 80 ms pour un Américain, ce qui est acceptable pour une opération rare. Pendant une coupure, elle est impossible depuis l’Amérique, et c’est voulu : accepter deux réservations du même pseudonyme de part et d’autre de la coupure créerait un conflit qu’aucun algorithme ne sait résoudre proprement après coup.
+
+*Bilan PACELC.* Le service est PA/EL pour l’affichage des profils, PC/EC pour les pseudonymes, et entre les deux pour les modifications. Le jour où les écritures américaines deviendront trop lentes ou trop souvent impossibles, il faudra des primaires dans les deux régions et une façon de résoudre les conflits (ch. 25 et 46).
+
+:::fiche
+- Un modèle de cohérence dit quelles valeurs une lecture peut renvoyer quand il existe plusieurs copies ; rien à voir avec le C de ACID.
+- Linéarisabilité : comme une copie unique, dans l’ordre du temps réel ; coûte un aller-retour vers le primaire ou une majorité.
+- Causale : jamais une conséquence sans sa cause. Garanties de session : lire ses écritures, lectures monotones, écritures monotones, écritures après lectures.
+- Cohérence à terme : les copies convergent si les écritures cessent ; aucune promesse de délai ni d’ordre.
+- Sérialisabilité : des transactions équivalentes à une exécution en série, sans contrainte de temps réel ; les deux ensemble, c’est la sérialisabilité stricte.
+- CAP : pendant une partition, un registre réparti ne peut pas être à la fois linéarisable et disponible sur tous les nœuds. P n’est pas un choix ; le choix C ou A se fait par opération, et seulement pendant la partition.
+- PACELC : sans partition, il reste à choisir entre latence et cohérence. Mesuré : écriture 0,22 ms seule, 54 ms en attendant une réplique sur une liaison à 25 ms.
+- Mesuré : même sans délai, 1 à 7 % de lectures périmées juste après l’écriture ; pendant une partition, Redis par défaut accepte les écritures et sert l’ancienne valeur.
+:::
+
+[^redis-repl]: Redis, « Redis replication », documentation, [redis.io/docs/latest/operate/oss_and_stack/management/replication](https://redis.io/docs/latest/operate/oss_and_stack/management/replication/).
+[^herlihy]: Maurice P. Herlihy et Jeannette M. Wing, « Linearizability: A Correctness Condition for Concurrent Objects », *ACM Transactions on Programming Languages and Systems*, vol. 12, n° 3, 1990, p. 463-492, [doi:10.1145/78969.78972](https://doi.org/10.1145/78969.78972).
+[^lamport]: Leslie Lamport, « How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Programs », *IEEE Transactions on Computers*, vol. C-28, n° 9, 1979, p. 690-691, [doi:10.1109/TC.1979.1675439](https://doi.org/10.1109/TC.1979.1675439).
+[^jepsen-causal]: Jepsen, « Causal Consistency », [jepsen.io/consistency/models/causal](https://jepsen.io/consistency/models/causal).
+[^terry]: Douglas B. Terry, Alan J. Demers, Karin Petersen, Mike J. Spreitzer, Marvin M. Theimer et Brent B. Welch, « Session Guarantees for Weakly Consistent Replicated Data », *3rd International Conference on Parallel and Distributed Information Systems (PDIS)*, 1994, p. 140-149, [doi:10.1109/PDIS.1994.331722](https://doi.org/10.1109/PDIS.1994.331722).
+[^vogels]: Werner Vogels, « Eventually Consistent », *Communications of the ACM*, vol. 52, n° 1, 2009, p. 40-44, [doi:10.1145/1435417.1435432](https://doi.org/10.1145/1435417.1435432) ; version en ligne : [allthingsdistributed.com/2008/12/eventually_consistent.html](https://www.allthingsdistributed.com/2008/12/eventually_consistent.html).
+[^jepsen]: Jepsen, « Consistency Models », [jepsen.io/consistency](https://jepsen.io/consistency), et les pages de chaque modèle (par exemple [jepsen.io/consistency/models/linearizable](https://jepsen.io/consistency/models/linearizable), [jepsen.io/consistency/models/read-your-writes](https://jepsen.io/consistency/models/read-your-writes)).
+[^bailis]: Peter Bailis, « Linearizability versus Serializability », 24 septembre 2014, [bailis.org/blog/linearizability-versus-serializability](http://www.bailis.org/blog/linearizability-versus-serializability/).
+[^redis-wait]: Redis, « WAIT », documentation des commandes, [redis.io/docs/latest/commands/wait](https://redis.io/docs/latest/commands/wait/).
+[^gilbert-lynch]: Seth Gilbert et Nancy Lynch, « Brewer’s Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services », *ACM SIGACT News*, vol. 33, n° 2, 2002, p. 51-59, [doi:10.1145/564585.564601](https://doi.org/10.1145/564585.564601).
+[^brewer]: Eric Brewer, « CAP Twelve Years Later: How the "Rules" Have Changed », *Computer*, vol. 45, n° 2, 2012, p. 23-29, [doi:10.1109/MC.2012.37](https://doi.org/10.1109/MC.2012.37) ; reproduit sur [infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed](https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/).
+[^abadi]: Daniel J. Abadi, « Consistency Tradeoffs in Modern Distributed Database System Design: CAP is Only Part of the Story », *Computer*, vol. 45, n° 2, 2012, p. 37-42, [doi:10.1109/MC.2012.33](https://doi.org/10.1109/MC.2012.33).
+[^s3-coherence]: Amazon Web Services, « Amazon S3 now delivers strong read-after-write consistency automatically for all applications », 1er décembre 2020, [aws.amazon.com/about-aws/whats-new/2020/12/amazon-s3-now-delivers-strong-read-after-write-consistency-automatically-for-all-applications](https://aws.amazon.com/about-aws/whats-new/2020/12/amazon-s3-now-delivers-strong-read-after-write-consistency-automatically-for-all-applications/).
+[^dynamodb]: Amazon Web Services, « DynamoDB read consistency », *Amazon DynamoDB Developer Guide*, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html).
