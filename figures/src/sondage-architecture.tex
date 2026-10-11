@@ -1,0 +1,45 @@
+% Service de sondage : la version 1 (un serveur, une base) et la carte des
+% évolutions, chaque brique renvoyant au chapitre qui la traite.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=12mm,
+    b/.style={minimum width=27mm, minimum height=15mm}]
+  % ---- version 1 ----
+  \node[tile] (nav1) {\dicon[\LARGE][Dslate]{laptop}\\[2pt] Navigateur};
+  \node[soft=Dblue, b, below=of nav1] (app1) {\stack{server}{Serveur d'application}};
+  \node[soft=Dteal, b, below=of app1] (db1) {\stack{database}{PostgreSQL}};
+  \draw[arr] (nav1) -- node[lbl, right=1mm] {HTTPS} (app1);
+  \draw[arr] (app1) -- node[lbl, right=1mm] {SQL} (db1);
+  \begin{scope}[on background layer]
+    \node[groupd=Dblue, fit=(nav1)(app1)(db1), inner xsep=6mm] (v1) {};
+  \end{scope}
+  \node[pill=Dblue] at (v1.north) {Version 1};
+
+  % ---- évolutions : couches reliées par un bus ----
+  \begin{scope}[xshift=50mm, yshift=6mm]
+    \foreach \n/\x/\c/\i/\t in {cache/0/Damber/bolt/{Cache\\[-1pt]{\scriptsize ch. 16-17}},
+        dbp/34/Dteal/database/{Principale\\[-1pt]{\scriptsize écritures}},
+        dbr/68/Dteal/copy/{Réplica\\[-1pt]{\scriptsize lectures, ch. 24}},
+        file/102/Dorange/envelope/{File, e-mails\\[-1pt]{\scriptsize ch. 27-28}}}
+      \node[soft=\c, minimum width=28mm, minimum height=17mm, inner xsep=3pt] (\n) at (\x mm,-78mm) {\stack{\i}{\t}};
+    \node[soft=Dblue, b] (appa) at (25mm,-46mm) {\stack{server}{Serveur A}};
+    \node[soft=Dblue, b] (appb) at (77mm,-46mm) {\stack{server}{Serveur B}};
+    \node[soft=Dpurple, b] (lb) at (51mm,-16mm) {\stack{random}{Répartiteur\\[-1pt]{\scriptsize ch. 13}}};
+    \node[tile] (nav2) at (51mm,8mm) {\dicon[\LARGE][Dslate]{laptop}\\[2pt] Navigateur};
+  \end{scope}
+  \draw[arr] (nav2) -- (lb);
+  \draw[arr] (lb.south) -- ++(0,-3.5mm) -| (appa.north);
+  \draw[arr] (lb.south) -- ++(0,-3.5mm) -| (appb.north);
+  \coordinate (bus) at ($(appa.south)!0.5!(dbp.north)$);
+  \draw[line] (appa.south) -- (appa.south |- bus);
+  \draw[line] (appb.south) -- (appb.south |- bus);
+  \draw[line] (cache.north |- bus) -- (file.north |- bus);
+  \foreach \n in {cache, dbp, dbr, file} \draw[arr] (\n.north |- bus) -- (\n.north);
+  \draw[darr] ([yshift=-5mm]dbp.east) -- ([yshift=-5mm]dbr.east -| dbr.west);
+  \begin{scope}[on background layer]
+    \node[groupd=Dslate, fit=(nav2)(lb)(cache)(file), inner sep=7mm] (v2) {};
+  \end{scope}
+  \node[pill=Dslate] at (v2.north) {Évolutions possibles};
+\end{tikzpicture}
+\end{document}

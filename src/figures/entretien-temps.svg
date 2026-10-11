@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 475.67 113.46">
+<defs>
+<g>
+<g id="entretien-temps-glyph-0-0">
+<path d="M 2.07 0.07 C 3.23 0.07 3.75 -0.84 3.75 -2.42 C 3.75 -4 3.23 -4.92 2.07 -4.92 C 0.92 -4.92 0.42 -4 0.42 -2.42 C 0.42 -0.84 0.92 0.07 2.07 0.07 Z M 2.07 -0.42 C 1.32 -0.42 1.03 -1.09 1.03 -2.03 L 1.03 -2.81 C 1.03 -3.75 1.32 -4.42 2.07 -4.42 C 2.84 -4.42 3.14 -3.75 3.14 -2.81 L 3.14 -2.03 C 3.14 -1.09 2.84 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="entretien-temps-glyph-0-1">
+<path d="M 3.45 -4.84 L 0.85 -4.84 L 0.68 -2.17 L 1.17 -2.10 C 1.37 -2.32 1.60 -2.51 2.04 -2.51 C 2.70 -2.51 3.06 -2.15 3.06 -1.51 L 3.06 -1.43 C 3.06 -0.81 2.70 -0.43 2.04 -0.43 C 1.46 -0.43 1.21 -0.68 0.96 -1.07 L 0.53 -0.75 C 0.82 -0.32 1.23 0.07 2.04 0.07 C 3.06 0.07 3.67 -0.57 3.67 -1.51 C 3.67 -2.45 3.06 -3.01 2.23 -3.01 C 1.73 -3.01 1.46 -2.81 1.23 -2.48 L 1.18 -2.48 L 1.32 -4.32 L 3.45 -4.32 Z M 3.45 -4.84 "/>
+</g>
+<g id="entretien-temps-glyph-0-2">
+<path d="M 3.79 0 L 3.79 -0.51 L 2.54 -0.51 L 2.54 -4.84 L 1.64 -4.84 L 0.35 -3.64 L 0.68 -3.28 L 1.92 -4.40 L 1.96 -4.40 L 1.96 -0.51 L 0.60 -0.51 L 0.60 0 Z M 3.79 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-3">
+<path d="M 3.70 -0.51 L 1.15 -0.51 L 2.45 -1.68 C 3.07 -2.23 3.51 -2.76 3.51 -3.51 C 3.51 -4.34 2.96 -4.92 2.03 -4.92 C 1.09 -4.92 0.67 -4.35 0.48 -3.78 L 1 -3.59 C 1.12 -4.04 1.40 -4.40 2 -4.40 C 2.60 -4.40 2.90 -4.03 2.90 -3.5 L 2.90 -3.42 C 2.90 -2.95 2.54 -2.46 2.10 -2.04 L 0.51 -0.59 L 0.51 0 L 3.70 0 Z M 3.70 -0.51 "/>
+</g>
+<g id="entretien-temps-glyph-0-4">
+<path d="M 1.28 -2.78 L 1.28 -2.28 L 1.85 -2.28 C 2.53 -2.28 2.89 -1.95 2.89 -1.39 L 2.89 -1.32 C 2.89 -0.76 2.53 -0.43 1.85 -0.43 C 1.26 -0.43 0.98 -0.68 0.73 -1.07 L 0.29 -0.75 C 0.59 -0.32 1.01 0.07 1.85 0.07 C 2.84 0.07 3.5 -0.5 3.5 -1.32 C 3.5 -2.04 3 -2.43 2.48 -2.54 L 2.48 -2.57 C 3 -2.70 3.40 -3.07 3.40 -3.70 C 3.40 -4.48 2.76 -4.92 1.93 -4.92 C 1.17 -4.92 0.75 -4.51 0.5 -4.14 L 0.92 -3.79 C 1.12 -4.17 1.42 -4.40 1.92 -4.40 C 2.43 -4.40 2.79 -4.15 2.79 -3.64 L 2.79 -3.59 C 2.79 -3.12 2.46 -2.78 1.81 -2.78 Z M 1.28 -2.78 "/>
+</g>
+<g id="entretien-temps-glyph-0-5">
+<path d="M 3.15 0 L 3.15 -0.95 L 3.85 -0.95 L 3.85 -1.43 L 3.15 -1.43 L 3.15 -4.84 L 2.29 -4.84 L 0.26 -1.46 L 0.26 -0.95 L 2.60 -0.95 L 2.60 0 Z M 2.56 -4.39 L 2.60 -4.39 L 2.60 -1.43 L 0.81 -1.43 Z M 2.56 -4.39 "/>
+</g>
+<g id="entretien-temps-glyph-0-6">
+<path d="M 1.14 0 L 1.14 -2.48 C 1.14 -2.93 1.56 -3.15 2 -3.15 C 2.53 -3.15 2.76 -2.84 2.76 -2.20 L 2.76 0 L 3.32 0 L 3.32 -2.48 C 3.32 -2.93 3.71 -3.15 4.15 -3.15 C 4.70 -3.15 4.95 -2.82 4.95 -2.20 L 4.95 0 L 5.5 0 L 5.5 -2.29 C 5.5 -3.15 5.06 -3.65 4.34 -3.65 C 3.71 -3.65 3.37 -3.32 3.25 -2.93 L 3.23 -2.93 C 3.03 -3.45 2.60 -3.65 2.14 -3.65 C 1.57 -3.65 1.32 -3.35 1.17 -3 L 1.14 -3 L 1.14 -3.57 L 0.59 -3.57 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-7">
+<path d="M 0.87 -4.42 C 1.10 -4.42 1.20 -4.54 1.20 -4.73 L 1.20 -4.82 C 1.20 -5.01 1.10 -5.14 0.87 -5.14 C 0.62 -5.14 0.53 -5.01 0.53 -4.82 L 0.53 -4.73 C 0.53 -4.54 0.62 -4.42 0.87 -4.42 Z M 0.59 0 L 1.14 0 L 1.14 -3.57 L 0.59 -3.57 Z M 0.59 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-8">
+<path d="M 1.14 0 L 1.14 -2.48 C 1.14 -2.93 1.57 -3.15 2.01 -3.15 C 2.54 -3.15 2.82 -2.84 2.82 -2.20 L 2.82 0 L 3.39 0 L 3.39 -2.29 C 3.39 -3.15 2.92 -3.65 2.18 -3.65 C 1.65 -3.65 1.34 -3.40 1.17 -3 L 1.14 -3 L 1.14 -3.57 L 0.59 -3.57 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-9">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.34 -0.73 L 2.95 -1.01 C 2.76 -0.62 2.42 -0.40 1.96 -0.40 C 1.29 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.92 2.89 -3.65 1.93 -3.65 C 0.96 -3.65 0.32 -2.92 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.5 -3.20 2.89 -2.78 2.89 -2.14 L 2.89 -2.06 L 0.90 -2.06 L 0.90 -2.10 C 0.90 -2.73 1.32 -3.20 1.93 -3.20 Z M 1.93 -3.20 "/>
+</g>
+<g id="entretien-temps-glyph-0-10">
+<path d="M 0.14 0 L 0.76 0 L 1.76 -1.40 L 1.79 -1.40 L 2.71 0 L 3.37 0 L 2.07 -1.84 L 3.34 -3.57 L 2.71 -3.57 L 1.78 -2.25 L 1.76 -2.25 L 0.85 -3.57 L 0.20 -3.57 L 1.46 -1.79 Z M 0.14 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-11">
+<path d="M 3.60 0.39 C 3.60 -0.18 3.21 -0.56 2.34 -0.56 L 1.57 -0.56 C 1.25 -0.56 1.03 -0.60 1.03 -0.82 C 1.03 -1.04 1.26 -1.17 1.5 -1.23 C 1.60 -1.20 1.73 -1.18 1.84 -1.18 C 2.65 -1.18 3.20 -1.70 3.20 -2.42 C 3.20 -2.81 3.04 -3.12 2.78 -3.34 L 2.78 -3.57 L 3.46 -3.57 L 3.46 -4.06 L 2.93 -4.06 C 2.64 -4.06 2.51 -3.85 2.51 -3.59 L 2.51 -3.53 C 2.32 -3.60 2.09 -3.65 1.84 -3.65 C 1.03 -3.65 0.5 -3.15 0.5 -2.42 C 0.5 -1.92 0.75 -1.53 1.17 -1.32 L 1.17 -1.29 C 0.81 -1.21 0.54 -1.04 0.54 -0.68 C 0.54 -0.43 0.67 -0.28 0.87 -0.18 L 0.87 -0.10 C 0.51 0 0.29 0.20 0.29 0.59 C 0.29 1.15 0.75 1.46 1.87 1.46 C 3.03 1.46 3.60 1.12 3.60 0.39 Z M 3.09 0.43 C 3.09 0.82 2.71 1.01 2.10 1.01 L 1.59 1.01 C 1.03 1.01 0.81 0.76 0.81 0.45 C 0.81 0.23 0.92 0.06 1.15 -0.03 L 2.34 -0.03 C 2.90 -0.03 3.09 0.15 3.09 0.43 Z M 1.84 -1.64 C 1.37 -1.64 1.07 -1.85 1.07 -2.32 L 1.07 -2.53 C 1.07 -3 1.37 -3.21 1.84 -3.21 C 2.31 -3.21 2.60 -3 2.60 -2.53 L 2.60 -2.32 C 2.60 -1.85 2.31 -1.64 1.84 -1.64 Z M 1.84 -1.64 "/>
+</g>
+<g id="entretien-temps-glyph-0-12">
+<path d="M 1.92 0.07 C 2.60 0.07 3.06 -0.25 3.29 -0.76 L 2.89 -1.03 C 2.70 -0.62 2.37 -0.40 1.92 -0.40 C 1.26 -0.40 0.92 -0.85 0.92 -1.48 L 0.92 -2.09 C 0.92 -2.71 1.26 -3.17 1.92 -3.17 C 2.35 -3.17 2.65 -2.95 2.79 -2.59 L 3.26 -2.82 C 3.04 -3.31 2.62 -3.65 1.92 -3.65 C 0.92 -3.65 0.32 -2.93 0.32 -1.79 C 0.32 -0.64 0.92 0.07 1.92 0.07 Z M 1.92 0.07 "/>
+</g>
+<g id="entretien-temps-glyph-0-13">
+<path d="M 1.67 0.07 C 2.48 0.07 2.98 -0.34 2.98 -1.03 C 2.98 -1.57 2.68 -1.92 1.89 -2.04 L 1.60 -2.07 C 1.17 -2.15 0.92 -2.29 0.92 -2.64 C 0.92 -2.96 1.17 -3.18 1.62 -3.18 C 2.09 -3.18 2.39 -2.96 2.54 -2.75 L 2.92 -3.09 C 2.62 -3.45 2.25 -3.65 1.67 -3.65 C 0.93 -3.65 0.39 -3.31 0.39 -2.60 C 0.39 -1.93 0.89 -1.67 1.54 -1.57 L 1.82 -1.53 C 2.29 -1.46 2.45 -1.25 2.45 -0.96 C 2.45 -0.60 2.17 -0.39 1.70 -0.39 C 1.25 -0.39 0.92 -0.59 0.64 -0.93 L 0.25 -0.62 C 0.56 -0.18 1 0.07 1.67 0.07 Z M 1.67 0.07 "/>
+</g>
+<g id="entretien-temps-glyph-0-14">
+<path d="M 2.07 0 L 2.07 -0.48 L 1.34 -0.48 L 1.34 -3.09 L 2.12 -3.09 L 2.12 -3.57 L 1.34 -3.57 L 1.34 -4.57 L 0.84 -4.57 L 0.84 -3.90 C 0.84 -3.65 0.76 -3.57 0.53 -3.57 L 0.20 -3.57 L 0.20 -3.09 L 0.79 -3.09 L 0.79 -0.59 C 0.79 -0.25 1 0 1.37 0 Z M 2.07 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-15">
+<path d="M 3.5 0 L 3.5 -0.48 L 3.09 -0.48 L 3.09 -2.45 C 3.09 -3.21 2.57 -3.65 1.71 -3.65 C 1.07 -3.65 0.64 -3.34 0.45 -2.96 L 0.78 -2.65 C 0.98 -2.96 1.26 -3.18 1.68 -3.18 C 2.26 -3.18 2.54 -2.90 2.54 -2.40 L 2.54 -2.04 L 1.82 -2.04 C 0.79 -2.04 0.31 -1.67 0.31 -1 C 0.31 -0.32 0.75 0.07 1.5 0.07 C 2 0.07 2.39 -0.14 2.54 -0.57 L 2.57 -0.57 C 2.60 -0.25 2.78 0 3.18 0 Z M 1.59 -0.39 C 1.17 -0.39 0.89 -0.59 0.89 -0.93 L 0.89 -1.09 C 0.89 -1.43 1.17 -1.62 1.79 -1.62 L 2.54 -1.62 L 2.54 -1.04 C 2.54 -0.67 2.14 -0.39 1.59 -0.39 Z M 1.59 -0.39 "/>
+</g>
+<g id="entretien-temps-glyph-0-16">
+<path d="M 1.93 0.07 C 2.90 0.07 3.56 -0.65 3.56 -1.79 C 3.56 -2.92 2.90 -3.65 1.93 -3.65 C 0.98 -3.65 0.32 -2.92 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.93 0.07 Z M 1.93 -0.40 C 1.34 -0.40 0.92 -0.78 0.92 -1.53 L 0.92 -2.04 C 0.92 -2.79 1.34 -3.17 1.93 -3.17 C 2.54 -3.17 2.96 -2.79 2.96 -2.04 L 2.96 -1.53 C 2.96 -0.78 2.54 -0.40 1.93 -0.40 Z M 1.93 -0.40 "/>
+</g>
+<g id="entretien-temps-glyph-0-17">
+<path d="M 4.28 0 L 2.59 -4.84 L 1.85 -4.84 L 0.15 0 L 0.75 0 L 1.23 -1.42 L 3.18 -1.42 L 3.67 0 Z M 3.04 -1.93 L 1.37 -1.93 L 2.18 -4.29 L 2.23 -4.29 Z M 3.04 -1.93 "/>
+</g>
+<g id="entretien-temps-glyph-0-18">
+<path d="M 1.23 0 L 1.23 -2.06 L 2.57 -2.06 C 3.43 -2.06 3.92 -2.60 3.92 -3.45 C 3.92 -4.31 3.43 -4.84 2.57 -4.84 L 0.64 -4.84 L 0.64 0 Z M 1.23 -4.32 L 2.57 -4.32 C 3.03 -4.32 3.29 -4.07 3.29 -3.64 L 3.29 -3.28 C 3.29 -2.82 3.03 -2.57 2.57 -2.57 L 1.23 -2.57 Z M 1.23 -4.32 "/>
+</g>
+<g id="entretien-temps-glyph-0-19">
+<path d="M 2.35 0 L 2.35 -0.48 L 1.67 -0.48 L 1.67 -4.35 L 2.35 -4.35 L 2.35 -4.84 L 0.42 -4.84 L 0.42 -4.35 L 1.09 -4.35 L 1.09 -0.48 L 0.42 -0.48 L 0.42 0 Z M 2.35 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-20">
+<path d="M 0.93 -0.81 C 0.65 -0.81 0.51 -0.64 0.51 -0.40 L 0.51 -0.31 C 0.51 -0.12 0.60 0.01 0.79 0.06 C 0.71 0.39 0.54 0.62 0.26 0.92 L 0.73 0.92 C 1.12 0.57 1.35 0.06 1.35 -0.31 L 1.35 -0.40 C 1.35 -0.64 1.23 -0.81 0.93 -0.81 Z M 0.93 -0.81 "/>
+</g>
+<g id="entretien-temps-glyph-0-21">
+<path d="M 2.87 0 L 3.43 0 L 3.43 -5.14 L 2.87 -5.14 L 2.87 -3 L 2.84 -3 C 2.65 -3.45 2.29 -3.65 1.79 -3.65 C 0.90 -3.65 0.34 -2.93 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.79 0.07 C 2.29 0.07 2.64 -0.14 2.84 -0.57 L 2.87 -0.57 Z M 1.95 -0.42 C 1.32 -0.42 0.93 -0.84 0.93 -1.48 L 0.93 -2.09 C 0.93 -2.73 1.32 -3.15 1.95 -3.15 C 2.46 -3.15 2.87 -2.87 2.87 -2.48 L 2.87 -1.14 C 2.87 -0.68 2.46 -0.42 1.95 -0.42 Z M 1.95 -0.42 "/>
+</g>
+<g id="entretien-temps-glyph-0-22">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.34 -0.73 L 2.95 -1.01 C 2.76 -0.62 2.42 -0.40 1.96 -0.40 C 1.29 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.92 2.89 -3.65 1.93 -3.65 C 0.96 -3.65 0.32 -2.92 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.5 -3.20 2.89 -2.78 2.89 -2.14 L 2.89 -2.06 L 0.90 -2.06 L 0.90 -2.10 C 0.90 -2.73 1.32 -3.20 1.93 -3.20 Z M 2.71 -5.15 L 2.21 -5.40 L 1.62 -4.21 L 1.98 -4.06 Z M 2.71 -5.15 "/>
+</g>
+<g id="entretien-temps-glyph-0-23">
+<path d="M 1.14 0 L 1.14 -2.42 C 1.14 -2.76 1.5 -3.03 2.10 -3.03 L 2.42 -3.03 L 2.42 -3.57 L 2.21 -3.57 C 1.62 -3.57 1.29 -3.26 1.17 -2.92 L 1.14 -2.92 L 1.14 -3.57 L 0.59 -3.57 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-24">
+<path d="M 0.59 0 L 1.14 0 L 1.14 -2.48 C 1.14 -2.93 1.57 -3.15 2.01 -3.15 C 2.54 -3.15 2.82 -2.84 2.82 -2.20 L 2.82 0 L 3.39 0 L 3.39 -2.29 C 3.39 -3.15 2.92 -3.65 2.18 -3.65 C 1.65 -3.65 1.34 -3.40 1.17 -3 L 1.14 -3 L 1.14 -5.14 L 0.59 -5.14 Z M 0.59 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-25">
+<path d="M 2.79 0 L 3.34 0 L 3.34 -3.57 L 2.79 -3.57 L 2.79 -1.10 C 2.79 -0.62 2.35 -0.42 1.92 -0.42 C 1.39 -0.42 1.10 -0.75 1.10 -1.37 L 1.10 -3.57 L 0.56 -3.57 L 0.56 -1.28 C 0.56 -0.42 1.03 0.07 1.76 0.07 C 2.35 0.07 2.62 -0.25 2.76 -0.57 L 2.79 -0.57 Z M 2.79 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-26">
+<path d="M 0.59 1.39 L 1.14 1.39 L 1.14 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.21 0.07 C 3.10 0.07 3.67 -0.64 3.67 -1.79 C 3.67 -2.93 3.10 -3.65 2.21 -3.65 C 1.73 -3.65 1.35 -3.45 1.17 -3 L 1.14 -3 L 1.14 -3.57 L 0.59 -3.57 Z M 2.06 -0.42 C 1.56 -0.42 1.14 -0.68 1.14 -1.14 L 1.14 -2.48 C 1.14 -2.87 1.56 -3.15 2.06 -3.15 C 2.68 -3.15 3.07 -2.73 3.07 -2.09 L 3.07 -1.48 C 3.07 -0.84 2.68 -0.42 2.06 -0.42 Z M 2.06 -0.42 "/>
+</g>
+<g id="entretien-temps-glyph-0-27">
+<path d="M 0.78 0 L 1.34 0 L 1.34 -3.09 L 2.10 -3.09 L 2.10 -3.57 L 1.34 -3.57 L 1.34 -4.64 L 2.10 -4.64 L 2.10 -5.14 L 1.56 -5.14 C 1.04 -5.14 0.78 -4.79 0.78 -4.29 L 0.78 -3.57 L 0.20 -3.57 L 0.20 -3.09 L 0.78 -3.09 Z M 0.78 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-28">
+<path d="M 1.67 0 L 1.67 -0.48 L 1.14 -0.48 L 1.14 -5.14 L 0.59 -5.14 L 0.59 -0.57 C 0.59 -0.25 0.79 0 1.17 0 Z M 1.67 0 "/>
+</g>
+<g id="entretien-temps-glyph-0-29">
+<path d="M 1.01 0.07 C 1.29 0.07 1.43 -0.07 1.43 -0.31 L 1.43 -0.40 C 1.43 -0.64 1.29 -0.81 1.01 -0.81 C 0.71 -0.81 0.59 -0.64 0.59 -0.40 L 0.59 -0.31 C 0.59 -0.07 0.71 0.07 1.01 0.07 Z M 1.01 -2.76 C 1.29 -2.76 1.43 -2.93 1.43 -3.17 L 1.43 -3.26 C 1.43 -3.5 1.29 -3.65 1.01 -3.65 C 0.71 -3.65 0.59 -3.5 0.59 -3.26 L 0.59 -3.17 C 0.59 -2.93 0.71 -2.76 1.01 -2.76 Z M 1.01 -2.76 "/>
+</g>
+<g id="entretien-temps-glyph-0-30">
+<path d="M 0.59 0 L 1.14 0 L 1.14 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.21 0.07 C 3.10 0.07 3.67 -0.64 3.67 -1.79 C 3.67 -2.93 3.10 -3.65 2.21 -3.65 C 1.73 -3.65 1.35 -3.45 1.17 -3 L 1.14 -3 L 1.14 -5.14 L 0.59 -5.14 Z M 2.06 -0.42 C 1.56 -0.42 1.14 -0.68 1.14 -1.14 L 1.14 -2.48 C 1.14 -2.87 1.56 -3.15 2.06 -3.15 C 2.68 -3.15 3.07 -2.73 3.07 -2.09 L 3.07 -1.48 C 3.07 -0.84 2.68 -0.42 2.06 -0.42 Z M 2.06 -0.42 "/>
+</g>
+<g id="entretien-temps-glyph-0-31">
+<path d="M 1.14 0 L 1.14 -3.57 L 0.59 -3.57 L 0.59 0 Z M 0.51 -5.31 L -0.25 -4.31 L 0.06 -4.09 L 0.87 -4.90 L 1.67 -4.09 L 1.98 -4.31 L 1.21 -5.31 Z M 0.51 -5.31 "/>
+</g>
+<g id="entretien-temps-glyph-0-32">
+<path d="M 0.98 -5.20 C 0.68 -5.20 0.56 -5.03 0.56 -4.79 L 0.56 -4.70 C 0.56 -4.51 0.64 -4.37 0.82 -4.32 C 0.75 -4 0.57 -3.76 0.31 -3.46 L 0.76 -3.46 C 1.17 -3.81 1.40 -4.32 1.40 -4.70 L 1.40 -4.79 C 1.40 -5.03 1.26 -5.20 0.98 -5.20 Z M 0.98 -5.20 "/>
+</g>
+<g id="entretien-temps-glyph-0-33">
+<path d="M 2.87 1.39 L 3.43 1.39 L 3.43 -3.57 L 2.87 -3.57 L 2.87 -3 L 2.84 -3 C 2.65 -3.45 2.29 -3.65 1.79 -3.65 C 0.90 -3.65 0.34 -2.93 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.79 0.07 C 2.29 0.07 2.64 -0.14 2.84 -0.57 L 2.87 -0.57 Z M 1.95 -0.42 C 1.32 -0.42 0.93 -0.84 0.93 -1.48 L 0.93 -2.09 C 0.93 -2.73 1.32 -3.15 1.95 -3.15 C 2.46 -3.15 2.87 -2.87 2.87 -2.48 L 2.87 -1.14 C 2.87 -0.68 2.46 -0.42 1.95 -0.42 Z M 1.95 -0.42 "/>
+</g>
+<g id="entretien-temps-glyph-1-0">
+<path d="M 0.51 1.39 L 1.40 1.39 L 1.40 -0.60 L 1.42 -0.60 C 1.56 -0.18 1.95 0.07 2.42 0.07 C 3.34 0.07 3.84 -0.60 3.84 -1.81 C 3.84 -3.03 3.34 -3.70 2.42 -3.70 C 1.95 -3.70 1.56 -3.43 1.42 -3.03 L 1.40 -3.03 L 1.40 -3.62 L 0.51 -3.62 Z M 2.14 -0.65 C 1.71 -0.65 1.40 -0.87 1.40 -1.23 L 1.40 -2.39 C 1.40 -2.75 1.71 -2.96 2.14 -2.96 C 2.60 -2.96 2.92 -2.64 2.92 -2.12 L 2.92 -1.5 C 2.92 -0.98 2.60 -0.65 2.14 -0.65 Z M 2.14 -0.65 "/>
+</g>
+<g id="entretien-temps-glyph-1-1">
+<path d="M 1.40 0 L 1.40 -2.21 C 1.40 -2.60 1.71 -2.78 2.31 -2.78 L 2.59 -2.78 L 2.59 -3.62 L 2.39 -3.62 C 1.81 -3.62 1.53 -3.25 1.43 -2.87 L 1.40 -2.87 L 1.40 -3.62 L 0.51 -3.62 L 0.51 0 Z M 1.40 0 "/>
+</g>
+<g id="entretien-temps-glyph-1-2">
+<path d="M 1.95 0.07 C 2.98 0.07 3.64 -0.65 3.64 -1.81 C 3.64 -2.96 2.98 -3.70 1.95 -3.70 C 0.92 -3.70 0.26 -2.96 0.26 -1.81 C 0.26 -0.65 0.92 0.07 1.95 0.07 Z M 1.95 -0.62 C 1.48 -0.62 1.20 -0.92 1.20 -1.48 L 1.20 -2.15 C 1.20 -2.68 1.48 -2.98 1.95 -2.98 C 2.42 -2.98 2.70 -2.68 2.70 -2.15 L 2.70 -1.48 C 2.70 -0.92 2.42 -0.62 1.95 -0.62 Z M 1.95 -0.62 "/>
+</g>
+<g id="entretien-temps-glyph-1-3">
+<path d="M 1.70 0.07 C 2.60 0.07 3.18 -0.40 3.18 -1.10 C 3.18 -1.70 2.81 -2.06 2.01 -2.17 L 1.65 -2.21 C 1.31 -2.28 1.17 -2.39 1.17 -2.62 C 1.17 -2.84 1.34 -3 1.73 -3 C 2.07 -3 2.39 -2.84 2.59 -2.60 L 3.10 -3.14 C 2.76 -3.5 2.40 -3.70 1.70 -3.70 C 0.87 -3.70 0.32 -3.26 0.32 -2.56 C 0.32 -1.90 0.75 -1.56 1.53 -1.46 L 1.89 -1.42 C 2.21 -1.37 2.34 -1.23 2.34 -1.03 C 2.34 -0.78 2.15 -0.62 1.73 -0.62 C 1.32 -0.62 1 -0.81 0.75 -1.10 L 0.20 -0.57 C 0.56 -0.17 1.01 0.07 1.70 0.07 Z M 1.70 0.07 "/>
+</g>
+<g id="entretien-temps-glyph-1-4">
+<path d="M 1.98 0.07 C 2.65 0.07 3.17 -0.17 3.46 -0.57 L 3 -1.10 C 2.78 -0.82 2.51 -0.62 2.07 -0.62 C 1.48 -0.62 1.18 -0.98 1.18 -1.5 L 1.18 -1.59 L 3.59 -1.59 L 3.59 -1.87 C 3.59 -2.87 3.07 -3.70 1.95 -3.70 C 0.89 -3.70 0.26 -2.96 0.26 -1.81 C 0.26 -0.65 0.90 0.07 1.98 0.07 Z M 1.96 -3.03 C 2.42 -3.03 2.67 -2.70 2.67 -2.20 L 2.67 -2.14 L 1.18 -2.14 L 1.18 -2.18 C 1.18 -2.68 1.5 -3.03 1.96 -3.03 Z M 2.93 -5.21 L 2.18 -5.57 L 1.53 -4.28 L 2.06 -4.03 Z M 2.93 -5.21 "/>
+</g>
+<g id="entretien-temps-glyph-1-5">
+<path d="M 1.98 0.07 C 2.65 0.07 3.17 -0.17 3.46 -0.57 L 3 -1.10 C 2.78 -0.82 2.51 -0.62 2.07 -0.62 C 1.48 -0.62 1.18 -0.98 1.18 -1.5 L 1.18 -1.59 L 3.59 -1.59 L 3.59 -1.87 C 3.59 -2.87 3.07 -3.70 1.95 -3.70 C 0.89 -3.70 0.26 -2.96 0.26 -1.81 C 0.26 -0.65 0.90 0.07 1.98 0.07 Z M 1.96 -3.03 C 2.42 -3.03 2.67 -2.70 2.67 -2.20 L 2.67 -2.14 L 1.18 -2.14 L 1.18 -2.18 C 1.18 -2.68 1.5 -3.03 1.96 -3.03 Z M 1.96 -3.03 "/>
+</g>
+<g id="entretien-temps-glyph-1-6">
+<path d="M 2.76 0 L 3.65 0 L 3.65 -5.14 L 2.76 -5.14 L 2.76 -3.03 L 2.71 -3.03 C 2.60 -3.43 2.20 -3.70 1.73 -3.70 C 0.81 -3.70 0.31 -3.03 0.31 -1.81 C 0.31 -0.60 0.81 0.07 1.73 0.07 C 2.20 0.07 2.59 -0.18 2.71 -0.60 L 2.76 -0.60 Z M 2.01 -0.65 C 1.54 -0.65 1.23 -0.98 1.23 -1.5 L 1.23 -2.12 C 1.23 -2.64 1.54 -2.96 2.01 -2.96 C 2.43 -2.96 2.76 -2.75 2.76 -2.39 L 2.76 -1.23 C 2.76 -0.87 2.43 -0.65 2.01 -0.65 Z M 2.01 -0.65 "/>
+</g>
+<g id="entretien-temps-glyph-1-7">
+<path d="M 0.95 -4.15 C 1.31 -4.15 1.48 -4.34 1.48 -4.59 L 1.48 -4.73 C 1.48 -4.98 1.31 -5.17 0.95 -5.17 C 0.59 -5.17 0.43 -4.98 0.43 -4.73 L 0.43 -4.59 C 0.43 -4.34 0.59 -4.15 0.95 -4.15 Z M 0.51 0 L 1.40 0 L 1.40 -3.62 L 0.51 -3.62 Z M 0.51 0 "/>
+</g>
+<g id="entretien-temps-glyph-1-8">
+<path d="M 2.34 0 L 3.56 -3.62 L 2.71 -3.62 L 2.21 -2.06 L 1.85 -0.76 L 1.81 -0.76 L 1.46 -2.06 L 0.95 -3.62 L 0.07 -3.62 L 1.29 0 Z M 2.34 0 "/>
+</g>
+</g>
+</defs>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 15.58 L 395.43 15.58 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 15.58 L 0.00 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-0" x="49.13" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 43.93 15.58 L 43.93 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-1" x="92.86" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 87.87 15.58 L 87.87 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-2" x="134.51" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-0" x="138.67" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 131.81 15.58 L 131.81 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-2" x="178.24" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-1" x="182.40" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 175.75 15.58 L 175.75 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-3" x="221.96" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-0" x="226.13" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 219.68 15.58 L 219.68 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-3" x="265.69" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-1" x="269.86" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 263.62 15.58 L 263.62 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-4" x="309.42" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-0" x="313.59" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 307.56 15.58 L 307.56 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-4" x="353.15" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-1" x="357.32" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 351.49 15.58 L 351.49 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-5" x="396.88" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-0" x="401.05" y="26.19"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-cloud)" stroke-opacity="1" stroke-miterlimit="10" d="M 395.43 15.58 L 395.43 19.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-5" x="440.61" y="26.19"/>
+<use xlink:href="#entretien-temps-glyph-0-1" x="444.78" y="26.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-6" x="455.21" y="26.29"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="461.27" y="26.29"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="463.00" y="26.29"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-1-0" x="10.73" y="49.80"/>
+<use xlink:href="#entretien-temps-glyph-1-1" x="14.90" y="49.80"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-1-2" x="17.59" y="49.80"/>
+<use xlink:href="#entretien-temps-glyph-1-0" x="21.50" y="49.80"/>
+<use xlink:href="#entretien-temps-glyph-1-2" x="25.66" y="49.80"/>
+<use xlink:href="#entretien-temps-glyph-1-3" x="29.57" y="49.80"/>
+<use xlink:href="#entretien-temps-glyph-1-4" x="33.03" y="49.80"/>
+<use xlink:href="#entretien-temps-glyph-1-5" x="36.91" y="49.80"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-jaune);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -8.50 L 0.00 8.50 L 61.51 8.50 L 61.51 -8.50 Z M 0.00 -8.50 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="66.32" y="49.54"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-10" x="70.05" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="73.57" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-11" x="75.30" y="49.54"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="78.93" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="82.74" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-12" x="86.68" y="49.54"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="90.13" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="93.94" y="49.54"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-orange);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 61.51 -8.50 L 61.51 8.50 L 105.44 8.50 L 105.44 -8.50 Z M 61.51 -8.50 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="117.76" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="121.57" y="50.23"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-14" x="124.90" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="127.34" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-6" x="129.07" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-15" x="135.13" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="138.84" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="141.27" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-16" x="143.01" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="146.90" y="50.23"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-bleu);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 105.44 -8.50 L 105.44 8.50 L 158.17 8.50 L 158.17 -8.50 Z M 105.44 -8.50 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-17" x="161.52" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-18" x="165.97" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-19" x="170.18" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-20" x="172.95" y="49.94"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-21" x="176.48" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-16" x="180.51" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="184.39" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="188.33" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-22" x="192.28" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="196.09" y="49.94"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="199.90" y="49.94"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-vert);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 158.17 -8.50 L 158.17 8.50 L 237.26 8.50 L 237.26 -8.50 Z M 158.17 -8.50 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-15" x="229.09" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="232.80" y="50.23"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="235.31" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-24" x="238.80" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="242.75" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="244.48" y="50.23"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="246.89" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-12" x="250.70" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="254.19" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="256.63" y="50.23"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="260.57" y="50.23"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="263.08" y="50.23"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-rose);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 237.26 -8.50 L 237.26 8.50 L 351.49 8.50 L 351.49 -8.50 Z M 237.26 -8.50 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-15" x="313.85" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-26" x="317.55" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-26" x="321.58" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="325.60" y="49.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="328.12" y="49.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-27" x="331.97" y="49.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="334.19" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="338.08" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-21" x="342.02" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="346.04" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="347.78" y="49.58"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-13" x="351.12" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="354.50" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-6" x="358.31" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="364.37" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="368.18" y="49.58"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="372.12" y="49.58"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-lavande);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 351.49 -8.50 L 351.49 8.50 L 395.43 8.50 L 395.43 -8.50 Z M 351.49 -8.50 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-11" x="411.43" y="49.54"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="415.06" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="418.94" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-28" x="422.89" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="424.77" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="428.58" y="49.54"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="431.02" y="49.54"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-1-6" x="20.65" y="78.67"/>
+<use xlink:href="#entretien-temps-glyph-1-4" x="24.81" y="78.67"/>
+<use xlink:href="#entretien-temps-glyph-1-1" x="28.68" y="78.67"/>
+<use xlink:href="#entretien-temps-glyph-1-7" x="31.41" y="78.67"/>
+<use xlink:href="#entretien-temps-glyph-1-8" x="33.33" y="78.67"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-1-5" x="36.91" y="78.67"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-jaune);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -36.84 L 0.00 -19.84 L 17.57 -19.84 L 17.57 -36.84 Z M 0.00 -36.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-vert);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 17.57 -36.84 L 17.57 -19.84 L 272.41 -19.84 L 272.41 -36.84 Z M 17.57 -36.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-15" x="116.40" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="120.11" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="122.62" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-24" x="126.11" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="130.06" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="131.79" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="134.20" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-12" x="138.01" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="141.50" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="143.94" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="147.88" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="150.39" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-29" x="155.84" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="160.05" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="163.94" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-21" x="169.52" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="173.54" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="177.35" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-13" x="180.70" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="184.08" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="185.81" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="189.76" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-14" x="195.20" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="197.61" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="201.50" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="205.44" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="207.85" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="211.66" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-28" x="216.67" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="218.56" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="222.37" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-30" x="227.39" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-16" x="231.41" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-31" x="235.30" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="237.04" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="239.45" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="243.26" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="248.27" y="78.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="251.73" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="255.62" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="259.56" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="263.50" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="267.44" y="78.53"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="271.26" y="78.53"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-orange);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 272.41 -36.84 L 272.41 -19.84 L 342.71 -19.84 L 342.71 -36.84 Z M 272.41 -36.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="334.79" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-24" x="338.29" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="342.23" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-27" x="343.96" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-27" x="346.21" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="348.46" y="78.44"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="350.97" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="354.78" y="78.44"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-14" x="359.80" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-15" x="362.24" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="365.94" y="78.44"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-21" x="368.45" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="372.48" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-27" x="374.21" y="78.44"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="376.46" y="78.44"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-rose);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.59" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 342.71 -36.84 L 342.71 -19.84 L 395.43 -19.84 L 395.43 -36.84 Z M 342.71 -36.84 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-2" x="407.62" y="77.79"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-26" x="413.42" y="77.79"/>
+<use xlink:href="#entretien-temps-glyph-0-16" x="417.45" y="77.79"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="421.33" y="77.79"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="423.07" y="77.79"/>
+<use xlink:href="#entretien-temps-glyph-0-14" x="427.01" y="77.79"/>
+</g>
+<path fill="none" stroke-width="0.69" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 237.26 27.92 C 237.86 29.12 239.25 29.91 241.24 29.91 L 290.39 29.91 C 292.38 29.91 293.78 30.71 294.38 31.90 C 294.97 30.71 296.37 29.91 298.36 29.91 L 347.51 29.91 C 349.50 29.91 350.90 29.12 351.49 27.92 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="303.64" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-32" x="307.20" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="308.61" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="312.42" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-14" x="315.75" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-7" x="319.82" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-12" x="321.56" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="325.05" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-33" x="328.42" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="332.45" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-32" x="336.46" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="337.87" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="341.76" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-13" x="347.34" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="350.72" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-21" x="356.16" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="360.19" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="361.93" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-14" x="365.26" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="367.69" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="369.43" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-11" x="373.37" y="12.64"/>
+</g>
+<g style="fill:var(--fig-green)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-25" x="377.01" y="12.64"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="380.95" y="12.64"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-dasharray="1.99 1.49" stroke-miterlimit="10" d="M 272.41 -41.10 L 272.41 -49.60 " transform="matrix(0.995272, 0, 0, -0.995272, 51.217042, 47.707365)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-28" x="258.33" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-15" x="260.22" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="265.56" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-16" x="269.01" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="272.90" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-12" x="276.84" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="280.29" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-26" x="284.10" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-14" x="288.08" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="290.52" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-16" x="292.26" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="296.14" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-8" x="301.72" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="305.66" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-23" x="311.11" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="313.63" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-26" x="317.44" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-16" x="321.46" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-13" x="325.35" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-9" x="328.73" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-13" x="334.18" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="337.56" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="341.50" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-15" x="345.69" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="349.39" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-12" x="353.33" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-25" x="356.83" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-8" x="360.77" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-12" x="366.35" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-24" x="369.84" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-7" x="373.78" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-27" x="375.52" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-27" x="377.77" y="104.09"/>
+<use xlink:href="#entretien-temps-glyph-0-23" x="380.02" y="104.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#entretien-temps-glyph-0-9" x="382.53" y="104.09"/>
+</g>
+</svg>

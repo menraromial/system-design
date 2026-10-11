@@ -1,0 +1,406 @@
+---
+title: La démarche de conception
+sidebar_label: 1. La démarche de conception
+description: Les huit étapes de la conception d'un système, appliquées à un service de sondage, en entretien et en équipe.
+partie: 0
+chapitre: 1
+---
+
+import etapes from '@site/src/figures/demarche-etapes.svg';
+import temps from '@site/src/figures/entretien-temps.svg';
+import architecture from '@site/src/figures/sondage-architecture.svg';
+import modele from '@site/src/figures/sondage-modele.svg';
+
+« Concevez un service de sondage, du genre de ceux qu’on utilise pour fixer la date d’un dîner. » La consigne tient en une phrase, et c’est voulu : en entretien comme dans une équipe, personne ne vous donnera le cahier des charges complet. Le premier réflexe de beaucoup de développeurs est d’ouvrir un éditeur, ou un tableau blanc, et de dessiner des boîtes. Ce chapitre montre ce qu’on fait à la place : une suite de huit étapes qui transforme une phrase floue en une architecture dont chaque élément a une raison d’être.
+
+Le service de sondage sert d’exemple d’un bout à l’autre. Il est volontairement simple, un serveur et une base de données suffisent à le faire fonctionner, ce qui permet de voir la méthode sans être distrait par des techniques que le cours n’a pas encore présentées. La partie 6 appliquera la même démarche à des systèmes beaucoup plus gros.
+
+## L’architecte avant les plans
+
+:::analogie[Analogie : la maison]
+Un architecte à qui l’on demande « une maison » ne dessine pas l’escalier en premier. Il demande combien de personnes y vivront, si quelqu’un travaille à domicile, quel est le budget, quelle est la forme du terrain, quelles règles d’urbanisme s’appliquent. Il en tire un programme chiffré (quatre chambres, 140 m², un bureau isolé du bruit), puis un plan de masse où chaque pièce n’est qu’un rectangle. Il ne détaille ensuite que ce qui est délicat sur ce projet : la charpente s’il y a une grande portée, l’isolation phonique du bureau. Enfin il vérifie que l’ensemble respecte les normes et tient sur le terrain, et il anticipe l’extension que la famille voudra peut-être dans dix ans.
+
+Les étapes de la conception d’un système suivent le même ordre : questions, chiffres, plan grossier, détails choisis, vérification, évolutions.
+
+**Où l’analogie s’arrête.** Une maison est construite une fois, puis habitée. Un logiciel est reconstruit pendant qu’on s’en sert : on conçoit la prochaine version et la façon d’y passer sans coupure, et l’état final n’existe jamais. La charge d’une maison est bornée par le nombre de ses occupants, alors que le trafic d’un service peut être multiplié par cent en une heure parce qu’un lien a circulé. Enfin une maison ne tombe pas « à moitié » : un système fait de plusieurs machines peut avoir une machine morte, une lente et une qui répond des données périmées, en même temps (on y consacre le ch. 32).
+:::
+
+## Les huit étapes
+
+<Figure svg={etapes} num="1.1" alt="Huit étapes en serpentin : exigences, estimation, API, modèle de données, architecture haut niveau, approfondissement, goulets et pannes, évolutions, avec deux flèches de retour en arrière.">
+Les huit étapes de la démarche et les deux retours en arrière les plus fréquents.
+</Figure>
+
+La figure se lit en serpentin : la rangée du haut (étapes 1 à 4) sert à comprendre le problème et à le cadrer, celle du bas (5 à 8) à concevoir puis à éprouver la conception. Les couleurs regroupent les étapes de même nature : la même teinte bleue pour l’API et le modèle de données, qui décrivent tous deux ce que le système expose et conserve. Les flèches en pointillés rappellent que la démarche n’est pas linéaire : un chiffre peut obliger à réduire le périmètre, une faiblesse découverte à l’étape 7 peut renvoyer à l’étape 5.
+
+### Étape 1 : les exigences
+
+Une exigence fonctionnelle dit ce que le système fait, du point de vue de quelqu’un qui l’utilise. Elle se formule avec un verbe d’action : « un participant vote ». Une exigence non fonctionnelle dit comment le système doit se comporter pendant qu’il le fait : à quelle vitesse, avec quelle disponibilité, sans perdre quoi. La norme ISO/IEC 25010 range ces qualités en familles (efficacité de performance, fiabilité, sécurité, maintenabilité, entre autres)[^iso] ; en conception de systèmes, on raisonne surtout sur une poignée d’entre elles, qu’il faut chiffrer.
+
+Pour le service de sondage, voici ce qu’on peut obtenir en dix minutes de questions. Côté fonctionnel :
+
+- un créateur crée un sondage (titre, description facultative, une liste de dates ou d’options) et reçoit un lien à partager ;
+- un participant ouvre le lien, saisit son nom et répond « oui », « non » ou « si besoin » à chaque option, sans créer de compte ;
+- un participant peut modifier son vote ;
+- tout le monde voit les réponses et le décompte par option ;
+- le créateur peut clôturer ou supprimer son sondage ; un sondage expire après une date choisie.
+
+Ce qui est hors périmètre compte autant. On décide ici qu’il n’y a ni comptes utilisateurs, ni commentaires, ni notifications par e-mail, ni application mobile native. Le dire à voix haute, en entretien, évite qu’on vous reproche plus tard de ne pas avoir traité la connexion par mot de passe.
+
+Côté non fonctionnel, chaque qualité reçoit un chiffre ou une règle vérifiable :
+
+- le service est disponible 99,9 % du temps, ce qui autorise au plus 0,001 × 8 760 h = 8,76 h d’indisponibilité par an, soit 8 h 46 min (le calcul des « neuf » est l’objet du ch. 11) ;
+- la page d’un sondage s’affiche en moins de 300 ms pour 99 % des requêtes, mesurées au serveur : c’est une exigence de latence, et les percentiles sont expliqués au ch. 9 ;
+- un vote dont on a confirmé l’enregistrement n’est jamais perdu, même si le serveur tombe une seconde après : c’est la durabilité ;
+- un participant qui vient de voter voit son propre vote dans la page qu’on lui renvoie, alors que les autres peuvent voir le décompte avec quelques secondes de retard (le ch. 12 donne un nom précis à chacune de ces garanties de cohérence) ;
+- un même navigateur ne peut pas voter mille fois par seconde, sans qu’on exige pour autant la garantie d’une élection, puisqu’il n’y a pas de comptes ;
+- le service tient les volumes calculés à l’étape 2.
+
+Vous remarquerez que « le système doit être rapide » ou « le système doit être scalable » ne figurent pas dans la liste. Ce ne sont pas des exigences, faute de chiffre : on ne peut ni les vérifier ni s’en servir pour choisir entre deux conceptions. La scalabilité (scalability) se traduit en exigence par une charge à tenir et une croissance attendue, ce qui est précisément le travail de l’étape suivante.
+
+Les questions à poser pour arriver là sont presque toujours les mêmes : qui utilise le service et depuis quels appareils ; combien d’utilisateurs, combien d’actions par jour, avec quel rapport entre lectures et écritures ; quelles fonctions sont indispensables pour la première version ; ce qui est grave (perdre un vote, afficher un décompte en retard, être indisponible une heure) et ce qui ne l’est pas ; dans quelles régions du monde sont les utilisateurs ; combien de temps on garde les données.
+
+:::entretien
+L’examinateur laisse souvent la consigne volontairement vague pour voir si vous posez ces questions. S’il vous répond « à vous de choisir », choisissez, annoncez votre hypothèse et notez-la au tableau : « je pars sur 200 000 sondages créés par jour, on ajustera si besoin ». Une hypothèse explicite vaut mieux qu’une question restée sans réponse.
+:::
+
+### Étape 2 : l’estimation de charge
+
+L’estimation transforme les exigences en ordres de grandeur : requêtes par seconde, volume stocké, bande passante. La précision importe peu : on veut savoir si l’on parle de dix requêtes par seconde ou de cent mille, de quelques gigaoctets ou de plusieurs pétaoctets, parce que les architectures qui conviennent ne sont pas les mêmes. Le ch. 2 est consacré à la technique ; voici son application au sondage.
+
+:::calcul[Calcul : charge du service de sondage]
+Hypothèses (choisies et annoncées) : 200 000 sondages créés par jour, 15 participations par sondage, 40 affichages de la page par sondage (chaque participant l’ouvre avant et après avoir voté, le créateur la consulte souvent, d’autres curieux passent), pointe égale à 5 fois la moyenne parce que l’activité se concentre en journée.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Créations par jour | hypothèse | 200 000 |
+| Votes par jour | 200 000 × 15 | 3 000 000 |
+| Écritures par jour | 200 000 + 3 000 000 | 3 200 000 |
+| Écritures par seconde, moyenne | 3 200 000 / 86 400 | ≈ 37 |
+| Écritures par seconde, pointe | 37 × 5 | ≈ 185 |
+| Affichages par jour | 200 000 × 40 | 8 000 000 |
+| Lectures par seconde, moyenne | 8 000 000 / 86 400 | ≈ 93 |
+| Lectures par seconde, pointe | 93 × 5 | ≈ 465 |
+| Taille d’un sondage | 1 Ko (texte, dates) + 10 choix × 100 o | ≈ 2 Ko |
+| Taille d’une participation | nom 50 o + 10 réponses × 10 o + 50 o d’en-tête | ≈ 200 o |
+| Données par sondage | 2 Ko + 15 × 200 o | ≈ 5 Ko |
+| Données par jour | 200 000 × 5 Ko | ≈ 1 Go |
+| Données sur 5 ans | 1 Go × 365 × 5 | ≈ 1,8 To |
+| Avec les index (× 2, ordre de grandeur) | 1,8 To × 2 | ≈ 3,6 To |
+| Sortie réseau par jour | 8 000 000 × 50 Ko par page | 400 Go |
+| Débit sortant moyen | 400 Go / 86 400 s ≈ 4,6 Mo/s | ≈ 37 Mbit/s |
+| Débit sortant en pointe | 37 × 5 | ≈ 185 Mbit/s |
+
+Conclusion : quelques centaines de requêtes par seconde en pointe, quelques téraoctets en cinq ans, moins de 200 Mbit/s. C’est une charge que tiennent une seule machine d’application et une seule base de données correctement dimensionnées. Les raisons d’ajouter des machines viendront d’ailleurs : de l’exigence de disponibilité, puisqu’une machine unique s’arrête quand elle tombe en panne ou quand on la met à jour, et du cas d’un sondage qui devient viral, traité à l’étape 7.
+:::
+
+Le rapport entre lectures et écritures (environ 2,5 lectures par écriture ici) est l’un des chiffres les plus utiles de toute l’estimation. Un service où l’on lit cent fois plus qu’on n’écrit appelle des caches et des copies en lecture ; un service où l’on écrit autant qu’on lit, comme celui-ci, profite moins d’un cache et demande plutôt une base qui encaisse bien les écritures.
+
+### Étape 3 : l’API
+
+L’API (interface de programmation) fixe le contrat entre les clients et le système : quelles opérations existent, ce qu’elles reçoivent, ce qu’elles renvoient. On la dérive directement des exigences fonctionnelles, à raison d’une ou deux opérations par verbe. Le choix du style (REST, GraphQL, gRPC) attend le ch. 7 ; sous forme de requêtes HTTP, l’API du sondage peut s’écrire ainsi :
+
+```http
+POST   /sondages
+       corps : titre, description, choix[], expire_le
+       réponse : id, jeton_admin, url
+
+GET    /sondages/{id}
+       réponse : le sondage, ses choix, les participations et le décompte
+
+POST   /sondages/{id}/participations
+       corps : nom, reponses { choix_id: oui | non | si_besoin }
+       réponse : participation_id, jeton
+
+PUT    /sondages/{id}/participations/{participation_id}
+       en-tête : le jeton reçu à la création de la participation
+       corps : nom, reponses
+
+DELETE /sondages/{id}
+       en-tête : jeton_admin
+```
+
+Deux détails méritent qu’on s’y arrête, parce qu’ils viennent des exigences et non d’une habitude. Il n’y a pas de comptes, donc le droit de modifier un vote ou de supprimer un sondage ne peut pas venir d’une connexion : il vient d’un jeton secret (une longue chaîne aléatoire) remis au moment de la création, que le navigateur garde et renvoie. Et le décompte est renvoyé avec la page du sondage plutôt que par un appel séparé, parce que les deux sont toujours affichés ensemble : un aller-retour de moins pour chaque affichage.
+
+Une question doit aussi se poser dès ce stade : que se passe-t-il si le navigateur envoie deux fois le même `POST /participations`, parce que la réponse s’est perdue et que l’utilisateur a cliqué à nouveau ? Avec cette API, deux participations identiques apparaissent. Le ch. 38 traite ce problème en général ; pour l’instant, il suffit de l’avoir remarqué et noté.
+
+### Étape 4 : le modèle de données
+
+Le modèle de données dit quelles informations on conserve et comment elles sont reliées. On part des noms qui apparaissent dans les exigences (sondage, choix, participant, réponse) et des façons dont on va lire ces données, c’est-à-dire des requêtes les plus fréquentes.
+
+<Figure svg={modele} num="1.2" alt="Quatre tables : sondage, choix, participation, reponse, avec leurs colonnes et des relations un à plusieurs.">
+Modèle de données du service de sondage.
+</Figure>
+
+Chaque boîte est une table : son nom en tête, puis ses colonnes avec leur type, PK marquant la clé primaire et FK une clé étrangère. Un trait relie deux tables liées, et les nombres à ses extrémités se lisent « un sondage a de zéro à plusieurs choix ». La table `reponse` est au croisement des deux branches : une ligne par participant et par choix.
+
+En SQL, le même modèle s’écrit :
+
+```sql
+CREATE TABLE sondage (
+  id           char(10)    PRIMARY KEY,   -- identifiant public, aléatoire
+  titre        text        NOT NULL,
+  description  text,
+  jeton_admin  char(32)    NOT NULL,      -- secret remis au créateur
+  cree_le      timestamptz NOT NULL DEFAULT now(),
+  expire_le    timestamptz
+);
+
+CREATE TABLE choix (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  sondage_id  char(10) NOT NULL REFERENCES sondage(id) ON DELETE CASCADE,
+  libelle     text     NOT NULL,
+  position    smallint NOT NULL
+);
+
+CREATE TABLE participation (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  sondage_id  char(10)    NOT NULL REFERENCES sondage(id) ON DELETE CASCADE,
+  nom         text        NOT NULL,
+  jeton       char(32)    NOT NULL,     -- permet de modifier ce vote
+  cree_le     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE reponse (
+  participation_id bigint   NOT NULL REFERENCES participation(id) ON DELETE CASCADE,
+  choix_id         bigint   NOT NULL REFERENCES choix(id) ON DELETE CASCADE,
+  valeur           smallint NOT NULL,   -- 0 non, 1 oui, 2 si besoin
+  PRIMARY KEY (participation_id, choix_id)
+);
+
+CREATE INDEX ON choix (sondage_id);
+CREATE INDEX ON participation (sondage_id);
+```
+
+La requête la plus fréquente est l’affichage d’un sondage : 93 fois par seconde en moyenne d’après l’étape 2. Elle lit le sondage par son identifiant, puis ses choix et ses participations par `sondage_id`, d’où les deux index (leur fonctionnement interne est l’objet du ch. 19). On aurait pu ranger toutes les réponses d’un participant dans une seule colonne de texte, du genre `"oui,non,oui"`. La table `reponse` coûte une jointure de plus, mais elle permet de compter les « oui » d’un choix par une requête SQL ordinaire et de supprimer un choix sans réécrire toutes les participations.
+
+### Étape 5 : l’architecture haut niveau
+
+L’architecture haut niveau place les grands composants et les flux entre eux, sans entrer dans leur réglage. Pour le sondage, l’estimation a montré qu’une seule machine de chaque sorte suffit en charge ; la première version est donc la plus simple possible.
+
+<Figure svg={architecture} num="1.3" alt="À gauche, version 1 : navigateur, serveur d’application, base PostgreSQL. À droite, les évolutions : répartiteur, deux serveurs, cache, base principale, réplica, file pour les e-mails.">
+La version 1 du service et la carte des évolutions possibles, chaque brique renvoyant au chapitre qui la traite.
+</Figure>
+
+Lisez d’abord le cadre de gauche, de haut en bas : le navigateur parle au serveur d’application en HTTPS, le serveur parle à la base en SQL, et c’est tout. Le cadre de droite rassemble les briques qu’on ajoutera le jour où un besoin précis apparaîtra, chacune avec le chapitre où elle est expliquée ; il ne s’agit pas de les construire tout de suite. Le bus horizontal indique que chaque serveur peut joindre chacune des briques du bas.
+
+Le serveur d’application reçoit les requêtes, vérifie les jetons, exécute les requêtes SQL et construit les réponses. Un choix d’architecture est déjà fait, discrètement : ce serveur ne garde rien en mémoire d’une requête à l’autre, tout ce qui doit durer est en base. Un serveur de ce genre est dit sans état (stateless) ; c’est ce qui permettra d’en mettre deux côte à côte le jour venu, comme l’explique le ch. 10. La base est PostgreSQL parce que les données sont fortement reliées (des réponses qui appartiennent à des participations qui appartiennent à des sondages), que le volume tient sur une machine et que l’on veut qu’un vote confirmé soit écrit sur disque. Le ch. 23 donnera une grille pour faire ce choix de façon plus méthodique.
+
+### Étape 6 : l’approfondissement
+
+On ne peut pas tout détailler, ni en quarante-cinq minutes ni dans un document de conception. On choisit un ou deux points là où le risque est le plus grand, soit parce qu’une erreur coûterait cher, soit parce que la solution naïve ne tient pas. Pour le sondage, trois candidats se présentent ; en entretien, on en traiterait deux.
+
+#### L’identifiant du sondage
+
+Un identifiant séquentiel (1, 2, 3...) est le plus simple à produire, mais il est devinable : en essayant `/sondages/1`, `/sondages/2` et ainsi de suite, n’importe qui lirait tous les sondages, y compris ceux qu’on n’a partagés qu’avec ses amis. On tire donc 10 caractères au hasard parmi les 62 lettres et chiffres (minuscules, majuscules, chiffres), ce qui donne 62¹⁰ ≈ 8,4 × 10¹⁷ identifiants possibles. Deux sondages peuvent-ils recevoir le même ? Sur 5 ans, on crée 200 000 × 365 × 5 ≈ 3,65 × 10⁸ sondages. Pour n tirages parmi N valeurs, le nombre moyen de paires en collision vaut environ n² / 2N (c’est le paradoxe des anniversaires, repris au ch. 31) : (3,65 × 10⁸)² / (2 × 8,4 × 10¹⁷) ≈ 1,33 × 10¹⁷ / 1,68 × 10¹⁸ ≈ 0,08. Une collision en cinq ans est donc peu probable sans être impossible. La clé primaire de la table `sondage` refuse un doublon ; le serveur n’a qu’à tirer un autre identifiant dans ce cas, ce qui n’arrivera presque jamais.
+
+#### Le décompte des réponses
+
+Trois façons de l’obtenir s’offrent à nous, et le bon choix dépend de la taille des sondages.
+
+| Option | Principe | Avantages | Inconvénients | Quand la choisir |
+|---|---|---|---|---|
+| Compter à la lecture | une requête `count(*) ... GROUP BY choix_id` à chaque affichage | toujours exact, aucun code de mise à jour | coût proportionnel au nombre de réponses, payé à chaque affichage | sondages de quelques dizaines de participants : le cas courant ici |
+| Compteur tenu à l’écriture | une colonne `nb_oui` par choix, incrémentée dans la même transaction que le vote | lecture immédiate, coût constant | chaque vote modifie les mêmes lignes ; sur un sondage très actif, les votes se mettent en file pour y écrire (ch. 18) ; modification d’un vote à gérer (décrémenter puis incrémenter) | sondages très consultés, votes modérés |
+| Décompte en cache | le résultat du comptage gardé quelques secondes en mémoire (ch. 16) | une base presque déchargée des lectures | décompte en retard de quelques secondes, une brique de plus à exploiter | sondage viral : des milliers d’affichages par seconde |
+
+Pour la version 1, on compte à la lecture : 15 participations et 10 choix font 150 lignes de `reponse` à parcourir, ce qu’une base fait en une fraction de milliseconde grâce à l’index. L’étape 7 montrera quand cette option cesse de convenir.
+
+#### La modification d’un vote
+
+Le jeton de participation est stocké par le navigateur. Si le participant change de navigateur, il ne peut plus modifier son vote ; c’est un compromis assumé de l’absence de comptes, et il faut le dire plutôt que de prétendre l’avoir résolu.
+
+### Étape 7 : les goulets d’étranglement et les pannes
+
+On relit maintenant l’architecture avec une seule question en tête : qu’est-ce qui casse en premier, et que se passe-t-il alors ? Un goulet d’étranglement (bottleneck) est le composant qui sature le premier quand la charge monte ; un point unique de défaillance (single point of failure, SPOF) est un composant dont la panne arrête tout le service.
+
+Dans la version 1, les deux SPOF sont évidents : le serveur d’application et la base. Si le serveur tombe, plus rien ne répond ; si la base tombe ou si son disque meurt, on perd en plus les données écrites depuis la dernière sauvegarde. Avec une machine unique, l’objectif de 99,9 % est déjà difficile à tenir, puisqu’une seule mise à jour du système qui prend vingt minutes par mois consomme 4 heures sur les 8 h 46 autorisées par an. La réponse à ces deux SPOF, ce sont respectivement un second serveur derrière un répartiteur (ch. 13) et une copie de la base prête à prendre le relais (ch. 24), plus des sauvegardes testées (ch. 53).
+
+Le goulet, lui, apparaît dans un scénario que les moyennes de l’étape 2 cachent : un sondage partagé par un média. Supposons 1 000 000 d’affichages en une heure et 200 000 votes.
+
+:::calcul[Calcul : un sondage viral]
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Affichages par seconde sur ce sondage | 1 000 000 / 3 600 | ≈ 278 |
+| Votes par seconde sur ce sondage | 200 000 / 3 600 | ≈ 56 |
+| Lignes `reponse` en fin d’heure | 200 000 participations × 10 choix | 2 000 000 |
+| Lignes parcourues par affichage (comptage à la lecture) | jusqu’à 2 000 000 | 2 × 10⁶ |
+| Lignes parcourues par seconde | 278 × 2 000 000 | ≈ 5,6 × 10⁸ |
+
+Une base qui parcourrait cent millions de lignes par seconde, ce qui est déjà beaucoup pour une seule machine (le ch. 9 donne les débits de référence), resterait 5 à 6 fois trop lente, et ce sondage n’est pas le seul à servir. L’option « compter à la lecture » s’effondre sur lui, alors qu’elle convient parfaitement aux 199 999 autres.
+:::
+
+La réponse découle du tableau de l’étape 6 : pour un sondage qui dépasse un seuil de participations, on garde le décompte en cache quelques secondes, ce que l’exigence de cohérence autorise (les autres participants peuvent voir le décompte en retard). Ce raisonnement est typique de l’étape 7 : un cas rare se traite là où il apparaît, sans changer toute l’architecture. Le problème plus général d’une donnée unique que tout le monde lit en même temps porte un nom, la clé chaude (hot key), et le ch. 17 lui est consacré.
+
+### Étape 8 : les évolutions
+
+La dernière étape répond à la question : que faudra-t-il changer si le service grossit ou si les exigences changent ? Il s’agit de vérifier que la conception ne les empêche pas ; on ne les construit qu’au moment où un chiffre l’exige. La carte de droite de la figure 1.3 en donne les principales : un répartiteur et plusieurs serveurs quand un seul ne suffit plus ou pour survivre à la panne de l’un d’eux, un cache pour les décomptes populaires, une copie de la base pour les lectures et la reprise, une file de messages si l’on ajoute l’envoi d’un e-mail au créateur à chaque vote (le vote ne doit pas attendre que l’e-mail parte, ch. 27). Si le nombre de sondages était multiplié par cent, le volume (360 To avec les index sur cinq ans) ne tiendrait plus sur une seule base : il faudrait répartir les sondages entre plusieurs bases selon leur identifiant (ch. 26). Rien dans le modèle de données n’empêche ce découpage, puisque toutes les tables se rattachent à un sondage : c’est exactement le genre de vérification que cette étape demande.
+
+## Ordres de grandeur
+
+Les chiffres du sondage paraissent petits, et c’est une bonne nouvelle. Pour situer ce qu’une infrastructure modeste peut absorber, le cas le mieux documenté est celui de Stack Overflow, dont l’architecture de 2016 a été décrite en détail par Nick Craver, alors ingénieur chez Stack Overflow[^craver].
+
+:::calcul[Calcul : Stack Overflow en 2016]
+Chiffres publiés pour une journée : 209 420 973 requêtes HTTP reçues par les répartiteurs, 504 816 843 requêtes SQL issues de ces requêtes HTTP, 1,24 To de trafic HTTP sortant. Infrastructure : 11 serveurs web, 4 serveurs SQL Server (deux grappes), 2 serveurs Redis, 3 serveurs Elasticsearch, 4 répartiteurs HAProxy.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Requêtes HTTP par seconde, moyenne | 209 420 973 / 86 400 | ≈ 2 424 |
+| Requêtes HTTP par serveur web, moyenne | 2 424 / 11 | ≈ 220 |
+| Requêtes SQL par seconde, moyenne | 504 816 843 / 86 400 | ≈ 5 843 |
+| Requêtes SQL par requête HTTP | 504 816 843 / 209 420 973 | ≈ 2,4 |
+| Débit sortant moyen | 1,24 × 10¹² o × 8 / 86 400 s | ≈ 115 Mbit/s |
+| Pointe du sondage comparée à cette moyenne | 2 424 / (465 + 185) | ≈ 3,7 fois moins |
+:::
+
+L’article précise que l’ensemble du réseau de questions-réponses peut fonctionner sur un seul serveur web, ce que l’équipe a vérifié involontairement plusieurs fois. On en déduit que les onze machines donnent une large marge et permettent d’en perdre ou d’en mettre à jour sans interruption. Gardez ce repère en tête : un site qui servait plus de 200 millions de requêtes par jour tenait sur une vingtaine de serveurs principaux, et le service de sondage, dont même la pointe reste près de quatre fois inférieure à ce trafic moyen, n’a aucune raison de commencer par une architecture distribuée.
+
+Pour l’entretien lui-même, les ordres de grandeur sont des durées. Alex Xu, dans son livre de préparation aux entretiens, propose pour un entretien de 45 minutes quatre étapes : comprendre le problème et fixer le périmètre (3 à 10 minutes), proposer une conception haut niveau et la faire valider (10 à 15 minutes), approfondir (10 à 25 minutes), conclure (3 à 5 minutes)[^xu]. La figure 1.4 répartit nos huit étapes dans le même cadre.
+
+<Figure svg={temps} num="1.4" alt="Deux barres de 45 minutes : la répartition proposée, puis une dérive fréquente où l’architecture occupe presque tout le temps et les chiffres arrivent tard.">
+Répartition des 45 minutes d’un entretien : la proposition du cours et une dérive fréquente.
+</Figure>
+
+La barre du haut est la répartition proposée : sept minutes de questions, cinq de calcul, six pour l’API et les données, neuf pour l’architecture, et treize pour l’approfondissement, que l’accolade désigne comme le moment où un candidat se distingue d’un autre. La barre du bas montre ce qui arrive souvent : deux minutes de questions, une demi-heure à dessiner toutes les briques connues, des chiffres qui arrivent quand la conception est déjà figée, et le temps d’approfondir un seul point. Le trait rouge marque le moment où l’on découvre que rien de ce qui a été dessiné ne reposait sur un chiffre.
+
+## En entretien et dans une équipe
+
+Les huit étapes sont les mêmes, mais leur forme change. En entretien, tout se passe à voix haute, en dialogue, sur un tableau ; l’examinateur joue le rôle du client et des collègues à la fois. Ce qui est évalué se voit bien quand on compare deux candidats qui aboutissent à la même architecture : l’un a posé des questions, chiffré la charge, expliqué pourquoi il n’a pas mis de cache dans la version 1 et montré, sur un point, qu’il savait aller dans le détail ; l’autre a dessiné les mêmes boîtes sans dire pourquoi. Le premier a montré une démarche, le second un souvenir.
+
+Dans une équipe, la démarche aboutit à un document. Chez Google, d’après la description qu’en a donnée Malte Ubl, un document de conception (design doc) comprend le contexte et le périmètre, les objectifs et ce qui n’en est pas (non-goals), la conception elle-même centrée sur les compromis, les alternatives écartées et les raisons de les écarter, et les questions transverses comme la sécurité, la confidentialité ou l’observabilité ; il compte 10 à 20 pages pour un gros projet, 1 à 3 pour un petit, et ne s’impose pas quand la solution ne fait pas débat[^ubl]. À une échelle plus fine, une décision isolée (« on garde PostgreSQL plutôt que de passer à une base clé-valeur ») peut être consignée dans un enregistrement de décision d’architecture (architecture decision record, ADR), format proposé par Michael Nygard en 2011 : un titre, le contexte, la décision, son statut (proposée, acceptée, dépréciée, remplacée) et ses conséquences, positives comme négatives, en une ou deux pages[^nygard]. Amazon pousse encore plus loin le principe des exigences d’abord : la méthode décrite par Colin Bryar et Bill Carr fait rédiger le communiqué de presse et la foire aux questions d’un produit avant de commencer à le construire[^bryar].
+
+| | Entretien | Situation réelle |
+|---|---|---|
+| Durée | 45 à 60 minutes | de quelques jours à quelques semaines |
+| Exigences | obtenues par questions, souvent fixées par hypothèse | négociées avec les utilisateurs et le produit, écrites |
+| Chiffres | ordres de grandeur au tableau | mesures du système existant, tests de charge, prévisions |
+| Approfondissement | un ou deux points, choisis avec l’examinateur | tous les points risqués, souvent prototypés |
+| Trace | le tableau, effacé ensuite | design doc, ADR, relus par les pairs |
+| Ce qui compte | la démarche et la justification des choix | la décision, sa mise en œuvre et la possibilité de revenir dessus |
+| Piège principal | dessiner sans chiffrer | concevoir pour une échelle qu’on n’atteindra jamais |
+
+## Erreurs fréquentes
+
+La première erreur, et de loin la plus courante, consiste à dessiner avant d’avoir demandé. On se retrouve à concevoir un service mondial avec une base répliquée sur trois continents pour un outil interne de deux cents utilisateurs, ou l’inverse. Dix minutes de questions valent mieux que trente minutes de boîtes.
+
+La deuxième est d’écrire des exigences qui n’en sont pas. « Rapide », « scalable », « hautement disponible » sans chiffre ne permettent aucun choix. Une variante consiste à formuler une solution comme une exigence : « il faut Redis » ou « il faut Kafka » répond à une question que personne n’a posée.
+
+Troisième erreur : faire le calcul et ne pas en tirer de conclusion. L’estimation n’a de valeur que par la phrase qui la suit (« donc une seule base suffit », « donc il faudra partitionner »). Un tableau de chiffres sans conséquence est du temps perdu, en entretien encore plus qu’ailleurs.
+
+Quatrième erreur : empiler les briques à la mode. Un cache, une file de messages, des microservices, un CDN, dès la première version et sans besoin identifié. Chaque brique est une source de pannes et une charge d’exploitation ; l’examinateur vous demandera pourquoi elle est là, et « c’est ce qu’on fait d’habitude » n’est pas une réponse.
+
+Cinquième erreur : approfondir au hasard, ou là où l’on est à l’aise plutôt que là où est le risque. Détailler le format des journaux d’un service de paiement en laissant de côté la question de ne jamais débiter deux fois un client, c’est passer à côté du sujet.
+
+Sixième erreur : oublier les pannes. Une conception qui ne dit pas ce qui se passe quand chaque composant tombe n’est pas finie, et c’est à l’étape 7 que se révèlent les SPOF : la bâcler faute de temps en fin d’entretien revient à rendre une copie inachevée.
+
+Dernière erreur, propre à l’entretien : le monologue. Le candidat qui parle vingt minutes sans regarder l’examinateur rate les indices qu’on lui donne (« et si le trafic était dix fois plus grand ? ») et ne laisse pas l’examinateur l’orienter vers les points qu’il veut évaluer.
+
+:::piege[Erreur fréquente : la conception pour une échelle imaginaire]
+« Et si on avait cent millions d’utilisateurs ? » La question est légitime à l’étape 8. Elle ne doit pas dicter la version 1. Concevoir d’emblée pour cent fois la charge prévue coûte en complexité, en délais et en argent, alors qu’une conception simple, qui ne ferme pas la porte aux évolutions, se fait évoluer le jour où les chiffres l’exigent.
+:::
+
+## Exercices
+
+**Question 1.** Classez chacun des énoncés suivants en exigence fonctionnelle, exigence non fonctionnelle, ou ni l’un ni l’autre, et justifiez.
+
+1. Un participant peut modifier son vote.
+2. Les résultats s’affichent en moins de 300 ms pour 99 % des requêtes.
+3. Les décomptes sont stockés dans Redis.
+4. Aucun vote confirmé ne doit être perdu.
+5. Le créateur reçoit un e-mail quand dix personnes ont voté.
+6. Le service tient 500 lectures par seconde en pointe.
+7. Les sondages expirés sont supprimés 90 jours après leur date d’expiration.
+8. Le service doit être scalable.
+
+**Question 2.** Reprenez le calcul de l’étape 2 en supposant 20 millions de sondages créés par jour au lieu de 200 000, toutes les autres hypothèses étant inchangées. Quelles conclusions de l’étape 2 changent, et quelles étapes de la démarche faut-il revisiter ?
+
+**Question 3.** Un collègue propose des identifiants de 8 caractères au lieu de 10, « pour des liens plus courts ». Estimez le nombre moyen de collisions sur cinq ans avec les hypothèses du chapitre. La proposition est-elle acceptable, et à quelle condition ?
+
+**Exercice de conception.** Une chaîne de 400 salles de sport veut un service de réservation de cours collectifs pour ses 2 millions de membres. Chaque salle propose 12 cours par jour, de 25 places chacun. Les réservations d’un cours ouvrent sept jours à l’avance, à 8 h précises, et les cours populaires sont complets en quelques minutes. Un membre peut annuler jusqu’à deux heures avant le cours. Appliquez les huit étapes : exigences, estimation chiffrée, API, modèle de données, architecture haut niveau, deux approfondissements, goulets et pannes, évolutions.
+
+## Corrigés
+
+**Question 1.**
+
+1. Fonctionnelle : c’est une action que le système permet à un utilisateur.
+2. Non fonctionnelle : elle porte sur la latence, avec un chiffre et un percentile, donc vérifiable.
+3. Ni l’un ni l’autre : c’est une solution technique. L’exigence cachée derrière est sans doute une exigence de latence ou de charge, qu’il faut retrouver et chiffrer ; Redis n’est qu’une façon parmi d’autres d’y répondre.
+4. Non fonctionnelle : c’est une exigence de durabilité. Elle a des conséquences fortes, par exemple attendre que le vote soit écrit sur disque avant de répondre.
+5. Fonctionnelle : c’est un comportement visible du système. Elle aura aussi une conséquence d’architecture (une file de messages pour ne pas faire attendre le vote), mais l’énoncé lui-même décrit ce que fait le système.
+6. Non fonctionnelle : c’est une exigence de charge, chiffrée.
+7. Fonctionnelle, avec une composante non fonctionnelle : la suppression est un comportement du système, la durée de rétention répond souvent à une contrainte légale ou de coût. Le classement importe moins que le fait qu’elle soit écrite et chiffrée.
+8. Ni l’un ni l’autre en l’état : sans chiffre de charge ou de croissance, l’énoncé ne permet aucune vérification. Reformulée (« le service tient une croissance de 50 % par an pendant trois ans sans refonte »), elle devient une exigence non fonctionnelle.
+
+**Question 2.** Toutes les grandeurs sont multipliées par 100.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Écritures par seconde, moyenne | 37 × 100 | ≈ 3 700 |
+| Écritures par seconde, pointe | 185 × 100 | ≈ 18 500 |
+| Lectures par seconde, pointe | 465 × 100 | ≈ 46 500 |
+| Données sur 5 ans avec index | 3,6 To × 100 | ≈ 360 To |
+| Débit sortant en pointe | 185 Mbit/s × 100 | ≈ 18,5 Gbit/s |
+
+La conclusion « une machine de chaque sorte suffit » tombe. Quelques dizaines de milliers de requêtes par seconde demandent plusieurs serveurs d’application derrière un répartiteur ; 360 To ne tiennent pas sur une seule base, il faut partitionner les sondages entre plusieurs bases ; 18,5 Gbit/s de sortie justifient de servir les ressources statiques (scripts, feuilles de style) depuis un réseau de diffusion de contenu (CDN, ch. 15). Les étapes à revisiter sont l’étape 5 (l’architecture change de nature), l’étape 6 (le découpage entre bases devient le point à approfondir : quelle clé, que faire d’un sondage énorme) et l’étape 7 (davantage de composants, donc davantage de pannes possibles). Les étapes 3 et 4 changent peu, ce qui est un bon signe : une API et un modèle de données bien pensés survivent à un changement d’échelle.
+
+**Question 3.** Avec 8 caractères, N = 62⁸ ≈ 2,18 × 10¹⁴. Le nombre de sondages sur cinq ans ne change pas : n ≈ 3,65 × 10⁸. Le nombre moyen de paires en collision vaut n² / 2N ≈ 1,33 × 10¹⁷ / 4,37 × 10¹⁴ ≈ 305. Il y aura donc des centaines de collisions, et non une poignée. La proposition reste acceptable à une condition : que la création vérifie l’unicité, ce que fait déjà la clé primaire, et qu’elle tire un nouvel identifiant en cas de refus. Trois cents nouveaux tirages en cinq ans, sur 365 millions de créations, ne coûtent rien. Ce qu’il ne faut pas faire, c’est supposer qu’un identifiant aléatoire est unique sans le vérifier : avec 8 caractères, cette supposition est prise en défaut plus d’une fois par semaine en moyenne (305 collisions sur 260 semaines). On peut aussi noter que 62⁸ reste grand devant le nombre de sondages existants, de sorte qu’un identifiant tiré au hasard par un curieux tombe sur un sondage réel avec une probabilité d’environ 3,65 × 10⁸ / 2,18 × 10¹⁴ ≈ 1,7 × 10⁻⁶ : le caractère non devinable est préservé.
+
+**Exercice de conception.**
+
+*Étape 1, exigences.* Fonctionnelles : un membre consulte les cours d’une salle sur sept jours avec les places restantes ; il réserve une place dans un cours ouvert ; il annule jusqu’à deux heures avant ; il voit ses réservations ; la salle consulte la liste des inscrits d’un cours. Hors périmètre pour la version 1 : liste d’attente, paiement, notifications. Non fonctionnelles : jamais plus de 25 réservations pour un cours de 25 places (c’est l’exigence la plus importante, une survente se voit le jour même dans la salle) ; une réservation confirmée n’est jamais perdue ; réponse en moins de 500 ms pour 99 % des requêtes, y compris à 8 h ; disponibilité de 99,9 %, avec une attention particulière aux quelques minutes qui suivent 8 h ; les places restantes affichées peuvent être en retard de quelques secondes, la réservation elle-même doit être exacte.
+
+*Étape 2, estimation.*
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Places offertes par jour | 400 salles × 12 cours × 25 places | 120 000 |
+| Réservations par jour (90 % de remplissage) | 120 000 × 0,9 | 108 000 |
+| Annulations par jour (15 %, hypothèse) | 108 000 × 0,15 | ≈ 16 000 |
+| Écritures par jour | 108 000 + 16 000 | ≈ 124 000 |
+| Écritures par seconde, moyenne | 124 000 / 86 400 | ≈ 1,4 |
+| Réservations dans les 5 minutes après 8 h (40 %, hypothèse) | 108 000 × 0,4 / 300 s | ≈ 144 par seconde |
+| Consultations autour de 8 h (10 rafraîchissements par réservation, hypothèse) | 43 200 × 10 / 300 s | ≈ 1 440 par seconde |
+| Rapport entre la pointe et la moyenne des écritures | 144 / 1,4 | ≈ 100 |
+| Stockage sur 5 ans | 124 000 × 100 o × 365 × 5 | ≈ 23 Go |
+
+Conclusion : le volume est minuscule et la moyenne aussi. Tout se joue dans les cinq minutes qui suivent 8 h, avec un rapport de 100 entre la pointe et la moyenne. C’est la pointe qui dimensionne la conception, pas la moyenne.
+
+*Étape 3, API.* `GET /salles/{id}/cours?du=...&au=...` renvoie les cours et les places restantes ; `POST /cours/{id}/reservations` réserve une place pour le membre connecté (réponse 201 avec la réservation, ou 409 si le cours est complet) ; `DELETE /reservations/{id}` annule ; `GET /membres/moi/reservations` liste les réservations du membre.
+
+*Étape 4, modèle de données.* Une table `cours` (id, salle_id, debut, capacite, reservees), une table `reservation` (id, cours_id, membre_id, creee_le, annulee_le) avec une contrainte d’unicité sur (cours_id, membre_id) pour les réservations non annulées, afin qu’un membre ne réserve pas deux fois le même cours. Index sur `cours (salle_id, debut)` pour l’affichage du planning, et sur `reservation (membre_id)` pour « mes réservations ».
+
+*Étape 5, architecture.* Comme pour le sondage : des serveurs d’application sans état, une base PostgreSQL. Ici, on met dès la version 1 deux serveurs derrière un répartiteur, parce que la disponibilité à 8 h est critique et qu’un seul serveur arrêté à ce moment-là ferait rater leurs cours à des milliers de membres.
+
+*Étape 6, approfondissements.* Premier point, ne jamais dépasser la capacité. Lire le nombre de places restantes, puis écrire la réservation si le nombre est positif, laisse passer deux réservations simultanées pour la dernière place : chacune lit « 1 place », chacune écrit. On fait donc la vérification et la mise à jour en une seule instruction, que la base exécute sans qu’une autre ne s’intercale sur la même ligne :
+
+```sql
+UPDATE cours
+   SET reservees = reservees + 1
+ WHERE id = $1 AND reservees < capacite;
+-- 0 ligne modifiée : le cours est complet, on répond 409
+```
+
+L’insertion dans `reservation` se fait dans la même transaction, pour que les deux réussissent ou échouent ensemble. Le ch. 18 explique pourquoi cette instruction est sûre et ce que coûtent les autres façons de faire. Deuxième point, tenir la pointe de 8 h. Les consultations (1 440 par seconde) sont dix fois plus nombreuses que les réservations ; elles peuvent tolérer quelques secondes de retard, on sert donc le planning et les places restantes depuis un cache rafraîchi chaque seconde (ch. 16), et seule la réservation touche la base. Une mesure côté produit est souvent plus efficace qu’une mesure technique : ouvrir les réservations à des minutes différentes selon les salles (8 h 00 pour les unes, 8 h 05 pour les autres) divise la pointe par le nombre de créneaux. Enfin, une limitation du nombre de requêtes par membre (ch. 30) empêche un script de rafraîchissement automatique de monopoliser le service.
+
+*Étape 7, goulets et pannes.* Le goulet est la ligne d’un cours très demandé : 200 membres qui essaient de réserver la même séance en même temps se mettent en file sur la même ligne de la table `cours`. Chacune de ces mises à jour est très courte, ce qui reste supportable pour 25 places, mais c’est le point à surveiller ; la billetterie du ch. 73 traite le cas où des dizaines de milliers de personnes visent les mêmes places. Les SPOF sont la base et le répartiteur : copie de la base prête à prendre le relais (ch. 24), répartiteur redondant (ch. 13). Une panne de la base à 8 h 01 est le pire scénario ; il faut au moins afficher un message clair plutôt qu’une erreur générique, et savoir combien de temps la bascule prend.
+
+*Étape 8, évolutions.* La liste d’attente (quand une place se libère, le premier en attente la reçoit et un message part) demandera une file de messages (ch. 27). L’ouverture de la chaîne à d’autres pays posera la question des fuseaux horaires (« 8 h » de quelle heure ?) et peut-être de plusieurs régions (ch. 46). Le modèle de données n’empêche aucune de ces évolutions.
+
+:::fiche
+- Huit étapes : exigences, estimation, API, modèle de données, architecture haut niveau, approfondissement, goulets et pannes, évolutions.
+- Une exigence non fonctionnelle porte un chiffre ou une règle vérifiable ; « rapide » ou « scalable » n’en sont pas.
+- Annoncer ce qui est hors périmètre ; poser ses hypothèses à voix haute quand on ne vous répond pas.
+- L’estimation sert à conclure : une phrase de conséquence après chaque calcul.
+- Le rapport lectures/écritures et le rapport pointe/moyenne orientent l’architecture plus que les moyennes.
+- Version 1 : la plus simple qui respecte les exigences ; la carte des évolutions dit ce qu’on ajoutera et quand.
+- Approfondir là où le risque est le plus grand ; traiter un cas rare à l’endroit où il apparaît.
+- Chercher les SPOF et le premier goulet ; dire ce qui se passe quand chaque composant tombe.
+- Entretien : environ 45 minutes, un tiers au moins pour l’approfondissement, en dialogue. En équipe : design doc et ADR.
+:::
+
+[^iso]: ISO/IEC 25010:2011, *Systems and software engineering, Systems and software Quality Requirements and Evaluation (SQuaRE), System and software quality models*, révisée en 2023. Le modèle de qualité du produit y compte, dans la version de 2011, huit caractéristiques : adéquation fonctionnelle, efficacité de performance, compatibilité, utilisabilité, fiabilité, sécurité, maintenabilité, portabilité.
+[^xu]: Alex Xu, *System Design Interview: An Insider’s Guide*, 2e édition, 2020, chapitre 3, « A Framework for System Design Interviews ».
+[^craver]: Nick Craver, « Stack Overflow: The Architecture, 2016 Edition », 17 février 2016, [nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition](https://nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition/). Les chiffres de trafic y sont ceux d’une journée ; la phrase sur le serveur unique y figure à propos des serveurs web.
+[^ubl]: Malte Ubl, « Design Docs at Google », 6 juillet 2020, [industrialempathy.com/posts/design-docs-at-google](https://www.industrialempathy.com/posts/design-docs-at-google/).
+[^nygard]: Michael Nygard, « Documenting Architecture Decisions », 15 novembre 2011, [cognitect.com/blog/2011/11/15/documenting-architecture-decisions](https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions).
+[^bryar]: Colin Bryar et Bill Carr, *Working Backwards: Insights, Stories, and Secrets from Inside Amazon*, St. Martin’s Press, 2021.

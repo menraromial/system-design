@@ -1,0 +1,42 @@
+# nom TikZ	hex clair	variable CSS	hex sombre
+# Encre, traits, fond (le noir et le blanc de TikZ sont ramenés à --fig-ink et --fig-paper)
+Dink	1B2430	--fig-ink	E3E9F1
+Dslate	4A5868	--fig-slate	A3B3C5
+DslateBg	E9ECF0	--fig-slate-bg	1D2C3F
+DslateZ	F5F6F8	--fig-slate-z	17263A
+Dcloud	6E7A89	--fig-cloud	8E9BAB
+DcloudBg	F2F2EE	--fig-cloud-bg	223144
+# Teintes : accent et fond de boîte (Bg) ; DslateZ = fond des zones
+Dblue	1F5A96	--fig-blue	7DB2E8
+DblueBg	DDE9F6	--fig-blue-bg	173250
+Dteal	0F7470	--fig-teal	5FC2BA
+DtealBg	DFF1EF	--fig-teal-bg	113836
+Dgreen	2F7D3B	--fig-green	7CC287
+DgreenBg	E3F2E5	--fig-green-bg	173B23
+Damber	B07318	--fig-amber	E8B65A
+DamberBg	FAEED6	--fig-amber-bg	3B2F14
+Dorange	C4521A	--fig-orange	F28E58
+DorangeBg	FAE6D9	--fig-orange-bg	42251A
+Dred	B3261E	--fig-red	EE6B61
+DredBg	F8E1DF	--fig-red-bg	451E1E
+Dpurple	6243A6	--fig-purple	AE97E8
+DpurpleBg	ECE6F8	--fig-purple-bg	2D2449
+Dindigo	3A4BA8	--fig-indigo	909FEC
+DindigoBg	E5E6F9	--fig-indigo-bg	202A52
+Dsky	1A7FB0	--fig-sky	6EC5EE
+DskyBg	DCF0FA	--fig-sky-bg	12384B
+Dpink	AE3A70	--fig-pink	E886B7
+DpinkBg	F7E2EC	--fig-pink-bg	421E33
+# Pastels du registre papier (un pastel par fonction)
+Pjaune	F2EFC2	--fig-p-jaune	38361B
+Pbleu	CCE4F4	--fig-p-bleu	1C3C55
+Porange	FADDC0	--fig-p-orange	49331C
+Prose	F6D6D3	--fig-p-rose	4C2628
+Pvert	D2EACF	--fig-p-vert	203F25
+Plavande	DADCF2	--fig-p-lavande	2B2E4F
+Pviolet	D0C9EC	--fig-p-violet	352B57
+Pbanque	9CC2E6	--fig-p-banque	2F5D88
+Pmauve	F0D6E3	--fig-p-mauve	47273C
+Psauge	DEECD6	--fig-p-sauge	27382B
+Psable	F5E4CA	--fig-p-sable	40311F
+Pbrun	9C541D	--fig-p-brun	E0985E

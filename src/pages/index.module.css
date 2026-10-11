@@ -1,0 +1,127 @@
+/* Accueil : une feuille de calque quadrillée, le titre dans un cadre de plan,
+   puis le plan complet du cours (les chapitres à venir sont grisés). */
+.calque {
+  background-color: var(--sd-papier);
+  background-image:
+    linear-gradient(var(--sd-quadrillage) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sd-quadrillage) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border-bottom: 1px solid var(--sd-filet);
+  padding: 4.5rem 1.5rem 4rem;
+}
+.cadre {
+  max-width: 54rem;
+  margin: 0 auto;
+  border: 1.5px solid var(--sd-filet-fort);
+  outline: 1px solid var(--sd-filet-fort);
+  outline-offset: 5px;
+  background: var(--sd-planche);
+  padding: 2.4rem 2.6rem 2.2rem;
+}
+.surtitre {
+  font-family: var(--sd-police-titre);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  color: var(--sd-prusse);
+  margin-bottom: 0.6rem;
+}
+.titre {
+  font-size: clamp(2.1rem, 4.6vw, 3.3rem);
+  line-height: 1.06;
+  margin-bottom: 1.2rem;
+}
+.chapeau {
+  font-size: 1.12rem;
+  max-width: 42rem;
+  color: var(--sd-encre-2);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.3rem;
+  margin-top: 1.6rem;
+  font-family: var(--sd-police-ui);
+}
+.bouton {
+  background: var(--sd-prusse);
+  color: var(--sd-planche);
+  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.bouton:hover {
+  color: var(--sd-planche);
+  text-decoration: none;
+  filter: brightness(1.08);
+}
+.lien {
+  font-size: 0.95rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.principal {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 4rem;
+}
+.plan {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: 2rem 2.4rem;
+}
+.partie {
+  border-top: 3px double var(--sd-filet-fort);
+  padding-top: 0.8rem;
+}
+.entetePartie {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+.entetePartie h2 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+.numPartie {
+  font-family: var(--sd-police-titre);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sd-encre-2);
+}
+.resume {
+  font-size: 0.95rem;
+  color: var(--sd-encre-2);
+  margin: 0.4rem 0 0.8rem;
+}
+.chapitres {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: var(--sd-police-ui);
+  font-size: 0.88rem;
+}
+.chapitres li {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.22rem 0;
+  border-bottom: 1px solid var(--sd-filet);
+}
+.numChapitre {
+  font-family: var(--sd-police-code);
+  font-size: 0.8rem;
+  color: var(--sd-prusse);
+  min-width: 1.6rem;
+}
+.aVenir {
+  color: var(--sd-encre-2);
+  opacity: 0.6;
+}
+.aVenir .numChapitre {
+  color: var(--sd-encre-2);
+}

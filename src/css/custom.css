@@ -1,0 +1,454 @@
+/*
+ * Design du cours « System design » : le calque et le cyanotype.
+ *
+ * En clair, la page est une feuille de calque crème, l'encre est bleu de
+ * Prusse, les figures sont posées sur des planches blanches quadrillées.
+ * En sombre, la page devient un tirage cyanotype : fond bleu nuit, traits
+ * clairs. Un vermillon de correction signale les erreurs fréquentes.
+ *
+ * Titres : IBM Plex Sans Condensed. Texte courant : Source Serif 4.
+ * Interface, tableaux, légendes : IBM Plex Sans. Code : IBM Plex Mono.
+ */
+@import '@fontsource-variable/source-serif-4/opsz.css';
+@import '@fontsource-variable/source-serif-4/opsz-italic.css';
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/400-italic.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans-condensed/500.css';
+@import '@fontsource/ibm-plex-sans-condensed/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+:root {
+  --sd-papier: #f8f6f1;
+  --sd-planche: #ffffff;
+  --sd-encre: #1b2430;
+  --sd-encre-2: #4a5868;
+  --sd-filet: #d8d3c6;
+  --sd-filet-fort: #1b2430;
+  --sd-prusse: #1f5a96;
+  --sd-prusse-doux: #e4eef8;
+  --sd-vermillon: #c4521a;
+  --sd-vermillon-doux: #fbebe1;
+  --sd-ambre: #a86d14;
+  --sd-ambre-doux: #f8efdc;
+  --sd-violet: #6243a6;
+  --sd-violet-doux: #eee8f8;
+  --sd-vert: #2f7d3b;
+  --sd-quadrillage: rgba(31, 90, 150, 0.07);
+  --sd-code-ligne: #efece4;
+
+  --sd-police-titre: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+  --sd-police-texte: 'Source Serif 4 Variable', Georgia, serif;
+  --sd-police-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --sd-police-code: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* fond des figures : figures/svgpost.py y ramène le blanc de TikZ */
+  --fig-paper: var(--sd-planche);
+  --fig-ink: #1b2430;
+
+  --ifm-color-primary: #1f5a96;
+  --ifm-color-primary-dark: #1b5187;
+  --ifm-color-primary-darker: #1a4d80;
+  --ifm-color-primary-darkest: #153f69;
+  --ifm-color-primary-light: #2363a5;
+  --ifm-color-primary-lighter: #2567ac;
+  --ifm-color-primary-lightest: #2b75c3;
+
+  --ifm-background-color: var(--sd-papier);
+  --ifm-background-surface-color: var(--sd-papier);
+  --ifm-font-color-base: var(--sd-encre);
+  --ifm-heading-color: var(--sd-encre);
+  --ifm-font-family-base: var(--sd-police-texte);
+  --ifm-heading-font-family: var(--sd-police-titre);
+  --ifm-font-family-monospace: var(--sd-police-code);
+  --ifm-font-size-base: 112.5%;
+  --ifm-line-height-base: 1.68;
+  --ifm-heading-font-weight: 600;
+  --ifm-code-font-size: 86%;
+  --ifm-toc-border-color: var(--sd-filet);
+  --ifm-hr-background-color: var(--sd-filet);
+  --ifm-table-border-color: var(--sd-filet);
+  --ifm-navbar-background-color: var(--sd-papier);
+  --ifm-navbar-shadow: none;
+  --ifm-footer-background-color: var(--sd-papier);
+  --ifm-menu-color: var(--sd-encre-2);
+  --ifm-menu-color-background-active: var(--sd-prusse-doux);
+  --ifm-color-emphasis-300: var(--sd-filet);
+  --docusaurus-highlighted-code-line-bg: rgba(31, 90, 150, 0.1);
+}
+
+[data-theme='dark'] {
+  --sd-papier: #0d1826;
+  --sd-planche: #122033;
+  --sd-encre: #e3e9f1;
+  --sd-encre-2: #a3b3c5;
+  --sd-filet: #263a52;
+  --sd-filet-fort: #a3b3c5;
+  --sd-prusse: #7db2e8;
+  --sd-prusse-doux: #173250;
+  --sd-vermillon: #f28e58;
+  --sd-vermillon-doux: #33201a;
+  --sd-ambre: #e8b65a;
+  --sd-ambre-doux: #2d2617;
+  --sd-violet: #ae97e8;
+  --sd-violet-doux: #241f3b;
+  --sd-vert: #7cc287;
+  --sd-quadrillage: rgba(125, 178, 232, 0.07);
+  --sd-code-ligne: #16263b;
+
+  --fig-ink: #e3e9f1;
+
+  --ifm-color-primary: #7db2e8;
+  --ifm-color-primary-dark: #63a3e4;
+  --ifm-color-primary-darker: #569be2;
+  --ifm-color-primary-darkest: #2f84da;
+  --ifm-color-primary-light: #97c1ec;
+  --ifm-color-primary-lighter: #a4c9ee;
+  --ifm-color-primary-lightest: #cbe0f5;
+  --docusaurus-highlighted-code-line-bg: rgba(125, 178, 232, 0.12);
+}
+
+body {
+  background: var(--sd-papier);
+  font-optical-sizing: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Barre de navigation : filet double, comme le cadre d'un plan        */
+/* ------------------------------------------------------------------ */
+.navbar {
+  border-bottom: 3px double var(--sd-filet-fort);
+  font-family: var(--sd-police-ui);
+}
+.navbar__title {
+  font-family: var(--sd-police-titre);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 1.02rem;
+}
+.navbar__link {
+  font-size: 0.95rem;
+}
+.navbar__logo {
+  height: 1.7rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Barre latérale et table des matières : police d'interface            */
+/* ------------------------------------------------------------------ */
+.theme-doc-sidebar-container,
+.table-of-contents,
+.pagination-nav,
+.theme-doc-footer,
+.footer {
+  font-family: var(--sd-police-ui);
+}
+.theme-doc-sidebar-container {
+  border-right-color: var(--sd-filet) !important;
+}
+.menu {
+  font-size: 0.9rem;
+}
+.menu__list-item-collapsible > .menu__link--sublist,
+.menu__link--sublist-caret {
+  font-family: var(--sd-police-titre);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--sd-encre);
+}
+.menu__link--active:not(.menu__link--sublist) {
+  border-left: 3px solid var(--sd-prusse);
+  border-radius: 0;
+  font-weight: 600;
+}
+.table-of-contents {
+  font-size: 0.82rem;
+}
+.table-of-contents__link--active {
+  color: var(--sd-prusse);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ */
+/* Cartouche de chapitre                                                */
+/* ------------------------------------------------------------------ */
+.cartouche {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid var(--sd-filet-fort);
+  font-family: var(--sd-police-titre);
+  margin-bottom: 1.6rem;
+  max-width: 34rem;
+}
+.cartouche__partie {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--sd-encre);
+}
+.cartouche__etiquette {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sd-encre-2);
+  border-right: 1px solid var(--sd-filet);
+  padding-right: 0.8rem;
+}
+.cartouche__chapitre {
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 0.9rem;
+  border-left: 1.5px solid var(--sd-filet-fort);
+  font-family: var(--sd-police-code);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--sd-papier);
+  background: var(--sd-prusse);
+}
+
+/* ------------------------------------------------------------------ */
+/* Texte                                                                */
+/* ------------------------------------------------------------------ */
+.markdown h1 {
+  font-size: 2.5rem;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.4rem;
+}
+.markdown h2 {
+  font-size: 1.65rem;
+  margin-top: 3rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--sd-filet);
+}
+.markdown h3 {
+  font-size: 1.25rem;
+  margin-top: 2rem;
+}
+.markdown h4 {
+  font-family: var(--sd-police-ui);
+  font-size: 1rem;
+}
+.markdown a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+.markdown blockquote {
+  border-left: 3px solid var(--sd-prusse);
+  color: var(--sd-encre-2);
+  font-style: italic;
+}
+.markdown :not(pre) > code {
+  background: var(--sd-code-ligne);
+  border: 0;
+  padding: 0.08em 0.3em;
+}
+.markdown hr {
+  height: 1px;
+}
+
+/* Tableaux de compromis : filets horizontaux seuls, en-tête souligné */
+.markdown table {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sd-police-ui);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.markdown table thead tr {
+  border-bottom: 2px solid var(--sd-filet-fort);
+}
+.markdown table tr,
+.markdown table tr:nth-child(2n) {
+  background: transparent;
+  border-top: 0;
+  border-bottom: 1px solid var(--sd-filet);
+}
+.markdown table th,
+.markdown table td {
+  border: 0;
+  padding: 0.5rem 0.7rem;
+  vertical-align: top;
+}
+.markdown table th {
+  text-align: left;
+  font-weight: 600;
+}
+
+/* Notes de bas de page (sources) */
+.markdown .footnotes {
+  font-family: var(--sd-police-ui);
+  font-size: 0.82rem;
+  color: var(--sd-encre-2);
+}
+.markdown .footnotes h2 {
+  font-size: 1.1rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Encadrés                                                             */
+/* ------------------------------------------------------------------ */
+.theme-admonition {
+  --sd-adm: var(--sd-prusse);
+  --sd-adm-fond: transparent;
+  background: var(--sd-adm-fond);
+  border: 0;
+  border-left: 4px solid var(--sd-adm);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--sd-encre);
+  padding: 0.85rem 1.15rem;
+}
+.theme-admonition [class*='admonitionIcon'] {
+  display: none;
+}
+.theme-admonition [class*='admonitionHeading'] {
+  font-family: var(--sd-police-titre);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sd-adm);
+  margin-bottom: 0.35rem;
+}
+.theme-admonition a {
+  color: var(--ifm-color-primary);
+}
+.theme-admonition-note,
+.theme-admonition-info { --sd-adm: var(--sd-prusse); --sd-adm-fond: var(--sd-prusse-doux); }
+.theme-admonition-tip { --sd-adm: var(--sd-vert); }
+.theme-admonition-warning,
+.theme-admonition-danger { --sd-adm: var(--sd-vermillon); --sd-adm-fond: var(--sd-vermillon-doux); }
+
+/* Analogie : l'image et sa limite, en italique de texte */
+.theme-admonition-analogie {
+  --sd-adm: var(--sd-ambre);
+  --sd-adm-fond: var(--sd-ambre-doux);
+}
+
+/* Erreur fréquente : vermillon de correction */
+.theme-admonition-piege {
+  --sd-adm: var(--sd-vermillon);
+  --sd-adm-fond: var(--sd-vermillon-doux);
+}
+
+/* En entretien */
+.theme-admonition-entretien {
+  --sd-adm: var(--sd-violet);
+  --sd-adm-fond: var(--sd-violet-doux);
+}
+
+/* Calcul d'estimation : une feuille quadrillée */
+.theme-admonition-calcul {
+  --sd-adm: var(--sd-prusse);
+  border: 1px solid var(--sd-filet);
+  border-left: 4px solid var(--sd-prusse);
+  background-color: var(--sd-planche);
+  background-image:
+    linear-gradient(var(--sd-quadrillage) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sd-quadrillage) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.theme-admonition-calcul table {
+  font-size: 0.84rem;
+  margin-bottom: 0.4rem;
+}
+/* la grandeur en police d'interface, le calcul et le résultat en chasse fixe */
+.theme-admonition-calcul table td:not(:first-child) {
+  font-family: var(--sd-police-code);
+  font-size: 0.8rem;
+}
+.theme-admonition-calcul table td:last-child,
+.theme-admonition-calcul table th:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Fiche de révision : encadré au trait double */
+.theme-admonition-fiche {
+  --sd-adm: var(--sd-encre);
+  border: 3px double var(--sd-filet-fort);
+  background: var(--sd-planche);
+  margin-top: 2.5rem;
+  padding: 1rem 1.3rem;
+}
+.theme-admonition-fiche [class*='admonitionHeading'] {
+  font-size: 0.95rem;
+}
+.theme-admonition-fiche ul {
+  font-size: 0.95rem;
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Figures : planche blanche quadrillée, légende en police d'interface  */
+/* ------------------------------------------------------------------ */
+.figure {
+  margin: 2.2rem 0;
+}
+.figure__planche {
+  background-color: var(--sd-planche);
+  background-image:
+    linear-gradient(var(--sd-quadrillage) 1px, transparent 1px),
+    linear-gradient(90deg, var(--sd-quadrillage) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 1px solid var(--sd-filet);
+  padding: 1.4rem 1.2rem;
+  text-align: center;
+}
+.figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.figure figcaption {
+  font-family: var(--sd-police-ui);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--sd-encre-2);
+  padding: 0.55rem 0.2rem 0;
+}
+.figure__num {
+  font-family: var(--sd-police-titre);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sd-encre);
+  margin-right: 0.6rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Code                                                                 */
+/* ------------------------------------------------------------------ */
+.theme-code-block {
+  border: 1px solid var(--sd-filet);
+  border-radius: 0;
+  box-shadow: none;
+}
+.prism-code {
+  font-size: 0.84rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pied de page et pagination                                           */
+/* ------------------------------------------------------------------ */
+.footer {
+  border-top: 3px double var(--sd-filet-fort);
+  color: var(--sd-encre-2);
+  font-size: 0.85rem;
+  padding: 1.4rem;
+}
+.pagination-nav__link {
+  border-radius: 0;
+  border-color: var(--sd-filet);
+}

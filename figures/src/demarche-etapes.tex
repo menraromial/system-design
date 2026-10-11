@@ -1,0 +1,34 @@
+% Les huit étapes de la démarche, en serpentin, avec les deux retours en arrière
+% les plus fréquents (registre papier : un pastel par famille d'étapes).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, node distance=9mm,
+    etape/.style={bloc=#1, minimum width=34mm, minimum height=13mm, text width=31mm}]
+  % rangée du haut, de gauche à droite
+  \node[etape=Pjaune] (e1) {Exigences\\[-1pt]{\scriptsize fonctionnelles et non fonctionnelles}};
+  \node[etape=Porange, right=of e1] (e2) {Estimation\\[-1pt]{\scriptsize de la charge}};
+  \node[etape=Pbleu, right=of e2] (e3) {API};
+  \node[etape=Pbleu, right=of e3] (e4) {Modèle\\[-1pt]{\scriptsize de données}};
+  % rangée du bas, de droite à gauche
+  \node[etape=Pvert, below=15mm of e4] (e5) {Architecture\\[-1pt]{\scriptsize haut niveau}};
+  \node[etape=Prose, left=of e5] (e6) {Approfondissement\\[-1pt]{\scriptsize d'un ou deux points}};
+  \node[etape=Prose, left=of e6] (e7) {Goulets et pannes};
+  \node[etape=Plavande, left=of e7] (e8) {Évolutions};
+  % numéros
+  \foreach \i in {1,...,8} {\node[numn] at (e\i.north west) {\i};}
+  % enchaînement
+  \draw[fl] (e1) -- (e2);
+  \draw[fl] (e2) -- (e3);
+  \draw[fl] (e3) -- (e4);
+  \draw[fl] (e4) -- (e5);
+  \draw[fl] (e5) -- (e6);
+  \draw[fl] (e6) -- (e7);
+  \draw[fl] (e7) -- (e8);
+  % retours en arrière
+  \draw[fld=Pbrun] (e2.north) to[out=135, in=45]
+    node[etb, above, midway] {les chiffres font revoir le périmètre} (e1.north);
+  \draw[fld=Pbrun] (e7.south) to[out=-35, in=-145]
+    node[etb, below, midway] {une faiblesse oblige à redessiner} (e5.south);
+\end{tikzpicture}
+\end{document}

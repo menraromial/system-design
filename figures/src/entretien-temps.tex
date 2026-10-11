@@ -1,0 +1,37 @@
+% Répartition des 45 minutes d'un entretien : la proposition du cours, puis ce
+% qui se passe souvent quand on se lance directement dans les boîtes.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+% tranche à l'échelle de l'axe (la macro \tranche de papier.sty suppose 1 cm par unité)
+\newcommand{\tr}[5]{%
+  \draw[draw=Dink, line width=0.6pt, fill=#4] (#2,#1-0.3) rectangle (#3,#1+0.3);
+  \node[font=\sffamily\scriptsize, text=Dink] at ({(#2+#3)/2},#1) {#5};}
+\begin{tikzpicture}[papier, x=3.1mm]
+  % axe des minutes
+  \draw[ligne=Dcloud] (0,0.55) -- (45,0.55);
+  \foreach \m in {0,5,...,45} {
+    \draw[ligne=Dcloud] (\m,0.55) -- (\m,0.7);
+    \node[note, above] at (\m,0.7) {\m};
+  }
+  \node[note, anchor=west] at (46,0.85) {min};
+  % rangée 1 : proposition
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries] at (-1,0) {proposée};
+  \tr{0}{0}{7}{Pjaune}{exigences}
+  \tr{0}{7}{12}{Porange}{estimation}
+  \tr{0}{12}{18}{Pbleu}{API, données}
+  \tr{0}{18}{27}{Pvert}{architecture}
+  \tr{0}{27}{40}{Prose}{approfondissement}
+  \tr{0}{40}{45}{Plavande}{goulets}
+  % rangée 2 : dérive fréquente
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries] at (-1,-1) {dérive};
+  \tr{-1}{0}{2}{Pjaune}{}
+  \tr{-1}{2}{31}{Pvert}{architecture : on dessine toutes les boîtes connues}
+  \tr{-1}{31}{39}{Porange}{chiffres tardifs}
+  \tr{-1}{39}{45}{Prose}{1 point}
+  % repères
+  \draw[accol] (27,0.95) -- (40,0.95) node[midway, above=5pt, et=Psapin] {c'est ici qu'on se distingue};
+  \draw[ligne=Pbrique, dash pattern=on 2pt off 1.5pt] (31,-1.45) -- (31,-1.75)
+    node[below, et=Pbrique] {la conception ne repose sur aucun chiffre};
+\end{tikzpicture}
+\end{document}

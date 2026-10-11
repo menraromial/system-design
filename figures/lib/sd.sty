@@ -1,0 +1,122 @@
+%% =====================================================================
+%%  sd.sty : figures du cours de system design
+%%
+%%  Charge les deux registres de diagramme/ (installés dans ~/texmf) :
+%%    - diagramme.sty : architectures à icônes (soft, solid, group, pill, arr,
+%%      lbl, num, séquences, UML, graphes) ;
+%%    - papier.sty    : mécanismes, pipelines, chronogrammes (bloc, enclos,
+%%      cadre, fl, et, numn, tranche, temoin).
+%%  puis ramène toutes leurs couleurs à la palette de figures/palette.tsv.
+%%
+%%  Pourquoi : svgpost.py remplace chaque couleur par une variable CSS pour
+%%  que la figure suive le thème clair ou sombre. Les mélanges xcolor
+%%  (Dblue!7, Pencre!55, black!8) produisent des teintes hors palette ; ils
+%%  sont donc remplacés ici par les fonds nommés (DblueBg...). Une teinte
+%%  oubliée fait échouer svgpost.py : rien ne passe en dur.
+%%
+%%  Non repris (à adapter avant usage) : \grille et \panneau de papier.sty,
+%%  les styles « Google » (gpill, gcarte, gphase, zone).
+%% =====================================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{sd}[2026/10/11 Figures du cours de system design]
+
+\RequirePackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\setmainfont{IBMPlexSans}[Extension=.otf, UprightFont=*-Regular,
+  BoldFont=*-SemiBold, ItalicFont=*-Italic, BoldItalicFont=*-SemiBoldItalic]
+\setsansfont{IBMPlexSans}[Extension=.otf, UprightFont=*-Regular,
+  BoldFont=*-SemiBold, ItalicFont=*-Italic, BoldItalicFont=*-SemiBoldItalic]
+\setmonofont{IBMPlexMono}[Extension=.otf, UprightFont=*-Regular,
+  BoldFont=*-SemiBold, Scale=0.92]
+\newfontfamily\condensee{IBMPlexSansCondensed}[Extension=.otf,
+  UprightFont=*-Regular, BoldFont=*-SemiBold]
+
+\RequirePackage[nofonts]{diagramme}
+\RequirePackage[nofonts]{papier}
+
+% ---- palette ------------------------------------------------------------
+\input{sd-couleurs.tex}
+% alias : un seul nom de couleur par variable CSS
+\colorlet{Pencre}{Dink}
+\colorlet{Pgris}{Dcloud}
+\colorlet{Pfond}{DslateBg}
+\colorlet{Pciel}{DskyBg}
+\colorlet{Pbrique}{Dred}
+\colorlet{Pmarine}{Dblue}
+\colorlet{Psapin}{Dgreen}
+\colorlet{Qvert}{Dgreen}
+\colorlet{Qjaune}{Damber}
+\colorlet{Qrouge}{Dred}
+\colorlet{Qorange}{Dorange}
+\colorlet{Qbrun}{Pbrun}
+\colorlet{Qviolet}{Dpurple}
+\colorlet{Qmagenta}{Dpink}
+\colorlet{Qbleu}{Dblue}
+\colorlet{Qgris}{Dcloud}
+\color{Dink}
+
+% ---- diagramme.sty sans mélanges ni ombres ------------------------------
+\tikzset{
+  ombre/.style={},
+  solid/.style={draw=#1, fill=#1, text=white, line width=0.8pt,
+    rounded corners=3pt, font=\sffamily\bfseries, align=center,
+    inner sep=6pt, minimum height=10mm, minimum width=22mm},
+  soft/.style={draw=#1, fill=#1Bg, text=Dink, line width=1pt,
+    rounded corners=3pt, font=\sffamily, align=center,
+    inner sep=6pt, minimum height=10mm, minimum width=22mm},
+  group/.style={draw=#1, fill=DslateZ, rounded corners=6pt, line width=0.9pt,
+    inner sep=6.5mm},
+  groupd/.style={group=#1, dash pattern=on 4pt off 3pt},
+  pillo/.style={fill=white, draw=#1, line width=1pt, text=#1,
+    font=\sffamily\bfseries\small, rounded corners=3pt,
+    inner xsep=9pt, inner ysep=3pt},
+  lblc/.style={lbl, text=#1},
+  seqlife/.style={draw=#1, line width=0.7pt, dash pattern=on 2.5pt off 2.5pt},
+  seqact/.style={draw=#1, fill=#1Bg, line width=0.7pt},
+  umlclass/.style={rectangle split, rectangle split parts=3, draw=#1, line width=1pt,
+    rounded corners=2pt, rectangle split part fill={#1Bg, white, white},
+    align=left, rectangle split part align={center, left, left}, text=Dink,
+    font=\sffamily\scriptsize, inner sep=5pt, minimum width=34mm},
+  umlclassb/.style={rectangle split, rectangle split parts=2, draw=#1, line width=1pt,
+    rounded corners=2pt, rectangle split part fill={#1Bg, white},
+    align=left, rectangle split part align={center, left}, text=Dink,
+    font=\sffamily\scriptsize, inner sep=5pt, minimum width=32mm},
+  vtx/.style={circle, draw=#1, line width=1pt, fill=#1Bg, text=Dink,
+    font=\sffamily\small, minimum size=9mm, inner sep=1pt},
+  vtxhi/.style={circle, draw=#1, line width=1.1pt, fill=#1, text=white,
+    font=\sffamily\bfseries\small, minimum size=9mm, inner sep=1pt},
+}
+\renewcommand{\umltitle}[2][Dteal]{{\bfseries\color{#1}#2}}
+
+% ---- papier.sty sans mélanges --------------------------------------------
+\tikzset{
+  pile/.style={
+    general shadow={shadow xshift=2.4mm, shadow yshift=2.4mm, fill=#1,
+      draw=Dcloud, line width=0.6pt},
+    general shadow={shadow xshift=1.2mm, shadow yshift=1.2mm, fill=#1,
+      draw=Dcloud, line width=0.6pt}},
+  pile4/.style={
+    general shadow={shadow xshift=4.2mm, shadow yshift=4.2mm, fill=#1, draw=Dcloud, line width=0.5pt},
+    general shadow={shadow xshift=2.8mm, shadow yshift=2.8mm, fill=#1, draw=Dcloud, line width=0.5pt},
+    general shadow={shadow xshift=1.4mm, shadow yshift=1.4mm, fill=#1, draw=Dcloud, line width=0.5pt}},
+  cadred/.style={draw=Dink, line width=0.8pt, rounded corners=6pt,
+    dash pattern=on 3pt off 2pt, inner sep=3mm},
+  enclos/.style={draw=Dcloud, fill=#1, line width=0.7pt, rounded corners=4pt,
+    inner sep=2.5mm},
+  vecteur/.style={draw=#1, line width=4.5pt, -{Triangle[length=5mm, width=9mm]}},
+  vecteur/.default=Dcloud,
+  tranche/.style={draw=Dink, line width=0.6pt, fill=#1, outer sep=0pt,
+    inner sep=1pt, minimum height=6mm, font=\sffamily\scriptsize, align=center},
+  temoin/.style={draw=Dink, line width=0.5pt, fill=#1, minimum width=4.5mm,
+    minimum height=3mm, inner sep=0pt},
+}
+
+% ---- ajouts propres au cours ---------------------------------------------
+\tikzset{
+  % texte secondaire (annotations, unités)
+  note/.style={font=\sffamily\scriptsize, text=Dslate, align=center, inner sep=1.5pt},
+  % étiquette d'axe ou de colonne en condensé
+  axe/.style={font=\condensee\small, text=Dslate, inner sep=1.5pt},
+}
+
+\endinput

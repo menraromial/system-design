@@ -1,0 +1,40 @@
+% Modèle de données du service de sondage : quatre tables, clés étrangères
+% et cardinalités.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\newcommand{\col}[2]{\texttt{#1}\hfill{\color{Dslate}\texttt{#2}}\\}
+\begin{document}
+\begin{tikzpicture}[table/.style={umlclassb=#1, minimum width=58mm, text width=52mm,
+    font=\sffamily\footnotesize}]
+  \node[table=Dblue, anchor=north west] (s) at (0,0) {\umltitle[Dblue]{sondage}
+    \nodepart{second}
+    \col{id}{char(10) PK}
+    \col{titre}{text}
+    \col{description}{text}
+    \col{jeton\_admin}{char(32)}
+    \col{cree\_le}{timestamptz}
+    \col{expire\_le}{timestamptz}};
+  \node[table=Dteal, anchor=north west] (c) at (96mm,0) {\umltitle[Dteal]{choix}
+    \nodepart{second}
+    \col{id}{bigint PK}
+    \col{sondage\_id}{FK sondage}
+    \col{libelle}{text}
+    \col{position}{smallint}};
+  \node[table=Damber, anchor=north west] (p) at ([yshift=-14mm]s.south west) {\umltitle[Damber]{participation}
+    \nodepart{second}
+    \col{id}{bigint PK}
+    \col{sondage\_id}{FK sondage}
+    \col{nom}{text}
+    \col{jeton}{char(32)}
+    \col{cree\_le}{timestamptz}};
+  \node[table=Dpurple, anchor=north west] (r) at (p.north west -| c.west) {\umltitle[Dpurple]{reponse}
+    \nodepart{second}
+    \col{participation\_id}{PK, FK}
+    \col{choix\_id}{PK, FK}
+    \col{valeur}{smallint}};
+  \draw[assoc] (s.east |- c.text) -- node[mult, pos=0.08, above] {1} node[mult, pos=0.92, above] {0..*} (c.west |- c.text);
+  \draw[assoc] (s.south) -- node[mult, pos=0.15, right] {1} node[mult, pos=0.85, right] {0..*} (s.south |- p.north);
+  \draw[assoc] (p.east |- r.text) -- node[mult, pos=0.08, above] {1} node[mult, pos=0.92, above] {0..*} (r.west |- r.text);
+  \draw[assoc] (c.south) -- node[mult, pos=0.15, right] {1} node[mult, pos=0.85, right] {0..*} (c.south |- r.north);
+\end{tikzpicture}
+\end{document}

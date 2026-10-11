@@ -1,0 +1,20 @@
+# Dépendances (réinstallées par `npm ci`)
+node_modules/
+
+# Sorties de build Docusaurus (générées par la CI, jamais versionnées)
+build/
+.docusaurus/
+.cache-loader/
+
+# Build intermédiaire LaTeX des figures (les SVG de src/figures, eux, sont versionnés)
+figures/build/
+
+# Journaux et environnement local
+npm-debug.log*
+.env.local
+
+# Éditeurs / OS
+.vscode/
+.idea/
+.DS_Store
+__pycache__/
