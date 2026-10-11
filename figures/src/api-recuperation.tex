@@ -1,0 +1,39 @@
+% Un écran mobile qui affiche un client, ses trois dernières commandes et le
+% nom des produits : trois appels REST en série, ou une requête GraphQL.
+% Schéma illustratif : aucune taille n'y est mesurée.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=6mm,
+    q/.style={soft=#1, minimum width=58mm, text width=55mm, align=left, minimum height=9mm,
+      font=\ttfamily\scriptsize}]
+  % REST
+  \node[tile] (m1) at (0,0) {\dicon[\LARGE][Dslate]{mobile-alt}\\[1pt]{\small Application}};
+  \node[q=Dblue, anchor=west] (r1) at (18mm,9mm) {GET /clients/42\\{\sffamily\tiny le client complet, dont 1 champ sert à l'écran}};
+  \node[q=Dblue, below=of r1] (r2) {GET /clients/42/commandes?limite=3\\{\sffamily\tiny commandes complètes : lignes, adresses, paiements}};
+  \node[q=Dblue, below=of r2] (r3) {GET /produits?ids=17,23,88,91\\{\sffamily\tiny fiches produits complètes, pour leurs seuls noms}};
+  \foreach \i in {1,2,3} \draw[arr=Dblue] (m1.east) -- (r\i.west);
+  \node[num=Dblue] at (r1.north west) {1};
+  \node[num=Dblue] at (r2.north west) {2};
+  \node[num=Dblue] at (r3.north west) {3};
+  \begin{scope}[on background layer]
+    \node[groupd=Dblue, fit=(m1)(r1)(r3), inner sep=5mm] (g1) {};
+  \end{scope}
+  \node[pill=Dblue] at (g1.north) {REST : 3 allers-retours en série};
+  % GraphQL
+  \node[tile] (m2) at (105mm,0) {\dicon[\LARGE][Dslate]{mobile-alt}\\[1pt]{\small Application}};
+  \node[soft=Dpurple, anchor=west, minimum width=54mm, text width=51mm, align=left, font=\ttfamily\scriptsize]
+    (g) at (123mm,0) {POST /graphql\\[2pt]
+      client(id: 42) \{\\
+      \ \ nom\\
+      \ \ commandes(premieres: 3) \{\\
+      \ \ \ \ date total\\
+      \ \ \ \ produits \{ nom \} \} \}\\[2pt]
+      {\sffamily\tiny la réponse ne contient que les champs demandés}};
+  \draw[arr=Dpurple] (m2) -- (g);
+  \begin{scope}[on background layer]
+    \node[groupd=Dpurple, fit=(m2)(g), inner sep=5mm] (g2) {};
+  \end{scope}
+  \node[pill=Dpurple] at (g2.north) {GraphQL : 1 aller-retour};
+\end{tikzpicture}
+\end{document}

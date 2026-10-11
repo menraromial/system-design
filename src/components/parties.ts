@@ -23,7 +23,7 @@ export const PARTIES: Partie[] = [
       {num: 4, titre: 'Transport : TCP et UDP', doc: 'partie-1/transport'},
       {num: 5, titre: 'HTTP/1.1, HTTP/2, HTTP/3 et QUIC', doc: 'partie-1/http'},
       {num: 6, titre: 'TLS et HTTPS', doc: 'partie-1/tls'},
-      {num: 7, titre: 'Styles d’API : REST, GraphQL, gRPC'},
+      {num: 7, titre: 'Styles d’API : REST, GraphQL, gRPC', doc: 'partie-1/styles-api'},
       {num: 8, titre: 'Pousser des données vers le client'},
       {num: 9, titre: 'Latence, débit et chiffres à connaître'},
       {num: 10, titre: 'Passer à l’échelle : vertical, horizontal, sans état'},

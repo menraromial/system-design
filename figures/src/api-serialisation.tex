@@ -1,0 +1,16 @@
+% Taille mesurée d'une même commande (5 lignes) selon le format.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=0.18mm, y=8mm]
+  \foreach \i/\nom/\brut/\gz/\c in {0/JSON/565/284/Pjaune, 1/MessagePack/455/288/Porange,
+      2/Protobuf/195/206/Pbleu, 3/Avro/161/178/Pvert} {
+    \node[leg, anchor=east, font=\sffamily\small] at (-6,-\i) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i+0.05) rectangle (\brut,-\i+0.38);
+    \node[note, anchor=west] at (\brut+4,-\i+0.215) {\brut\ o};
+    \draw[draw=Dink, line width=0.5pt, fill=white, dash pattern=on 2pt off 1pt] (0,-\i-0.05) rectangle (\gz,-\i-0.33);
+    \node[note, anchor=west] at (\gz+4,-\i-0.19) {\gz\ o compressé (gzip)};
+  }
+  \draw[ligne] (0,0.6) -- (0,-3.6);
+\end{tikzpicture}
+\end{document}

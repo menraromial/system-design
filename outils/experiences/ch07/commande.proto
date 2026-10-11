@@ -1,0 +1,20 @@
+// Message de l'expérience du chapitre 7 : une commande et ses lignes.
+syntax = "proto3";
+package boutique;
+
+message Ligne {
+  int64 produit_id = 1;
+  string libelle = 2;
+  int32 quantite = 3;
+  int64 prix_centimes = 4;
+}
+
+message Commande {
+  int64 id = 1;
+  int64 client_id = 2;
+  int64 cree_le_ms = 3;        // horodatage Unix en millisecondes
+  string statut = 4;
+  repeated Ligne lignes = 5;
+  string ville = 6;
+  string code_postal = 7;
+}

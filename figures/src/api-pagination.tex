@@ -1,0 +1,25 @@
+% Temps mesuré pour obtenir une page de 20 lignes dans une table SQLite d'un
+% million de lignes, selon la position de la page (échelle logarithmique).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=0.125mm, y=12mm]
+  % y = log10(ms) + 2  (0,01 ms -> 0, 10 ms -> 3)
+  \draw[ligne] (0,0) -- (1040,0);
+  \draw[ligne] (0,0) -- (0,3.3);
+  \foreach \p/\l in {0/0, 250/250\,000, 500/500\,000, 750/750\,000, 1000/1\,000\,000}
+    {\draw[ligne] (\p,0) -- (\p,-0.08); \node[note, below] at (\p,-0.08) {\l};}
+  \foreach \v/\l in {0/0{,}01, 1/0{,}1, 2/1, 3/10}
+    {\draw[ligne=Dcloud] (0,\v) -- (-8,\v); \node[note, left] at (-8,\v) {\l\,ms};}
+  \node[axe, anchor=north] at (520,-0.55) {position de la page (lignes sautées)};
+  \node[axe, rotate=90, anchor=south] at (-95,1.6) {temps pour une page (échelle log.)};
+  % OFFSET mesuré : 0 -> 0,012 ; 10k -> 0,104 ; 100k -> 0,975 ; 500k -> 4,845 ; 990k -> 9,561
+  \draw[Dred, line width=1.2pt] (0,0.079) -- (10,1.017) -- (100,1.989) -- (500,2.685) -- (990,2.981);
+  \foreach \x/\y in {0/0.079, 10/1.017, 100/1.989, 500/2.685, 990/2.981} \fill[Dred] (\x,\y) circle (0.7mm);
+  \node[etb=Dred, anchor=south east] at (985,3.02) {OFFSET : 9,6 ms};
+  % curseur mesuré : 0,009 à 0,010 ms
+  \draw[Dgreen, line width=1.2pt] (0,0) -- (10,-0.046) -- (100,0) -- (500,0) -- (990,0);
+  \foreach \x/\y in {0/0, 10/-0.046, 100/0, 500/0, 990/0} \fill[Dgreen] (\x,\y) circle (0.7mm);
+  \node[etb=Dgreen, anchor=south east] at (985,0.06) {curseur : 0,010 ms};
+\end{tikzpicture}
+\end{document}

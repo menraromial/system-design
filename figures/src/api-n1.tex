@@ -1,0 +1,21 @@
+% Requêtes SQL émises pour une requête GraphQL (100 auteurs et leurs livres),
+% avec 0,5 ms de latence par requête : mesures du chapitre.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1.9mm, y=10mm]
+  \draw[ligne=Dcloud] (0,0.7) -- (70,0.7);
+  \foreach \t in {0,10,...,70} {\draw[ligne=Dcloud] (\t,0.7) -- (\t,0.8); \node[note, above] at (\t,0.8) {\t\,ms};}
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.5,0) {un chargement\\par auteur};
+  \draw[draw=Dink, line width=0.4pt, fill=Pbleu] (0,-0.25) rectangle (0.5,0.25);
+  \foreach \k in {1,...,100} \draw[draw=Dink, line width=0.2pt, fill=Prose] ({0.5+(\k-1)*0.5},-0.25) rectangle ({0.5+\k*0.5},0.25);
+  \node[et=Pbrique, anchor=west] at (51,0) {101 requêtes, 66,2 ms mesurés};
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.5,-1.2) {chargement\\groupé};
+  \draw[draw=Dink, line width=0.4pt, fill=Pbleu] (0,-1.45) rectangle (0.5,-0.95);
+  \draw[draw=Dink, line width=0.4pt, fill=Pvert] (0.5,-1.45) rectangle (1,-0.95);
+  \node[et=Psapin, anchor=west] at (2,-1.2) {2 requêtes (auteurs, puis livres WHERE auteur\_id IN (...)), 10,9 ms mesurés};
+  \entree{(0,-2.2)}{temoin=Pbleu}{SELECT ... FROM auteur}
+  \entree{(22,-2.2)}{temoin=Prose}{une requête de livres par auteur}
+  \entree{(48,-2.2)}{temoin=Pvert}{une requête pour tous les livres}
+\end{tikzpicture}
+\end{document}
