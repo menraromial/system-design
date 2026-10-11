@@ -37,3 +37,11 @@ Après chaque chapitre : `python3 outils/typo.py docs/.../chapitre.mdx` (espaces
 apostrophes), ajout du chapitre à `sidebars.ts` et de son identifiant dans
 `src/components/parties.ts` (le lien s'active sur l'accueil), puis `npm run build`.
 `outils/capture.mjs` prend une capture d'une page servie en local, en clair ou en sombre.
+
+## Formules
+
+Les formules s'écrivent en LaTeX et sont rendues par KaTeX (`remark-math` et `rehype-katex`,
+feuille et polices embarquées) : `$...$` dans le texte, un bloc `$$` seul sur sa ligne pour une
+formule centrée. Dans une formule, la virgule décimale s'écrit `{,}` et l'espace des milliers
+`\,` (`86\,400`). `outils/exposants.py` convertit les puissances écrites en exposants Unicode
+dans la prose ; `outils/typo.py` ne touche pas aux formules.

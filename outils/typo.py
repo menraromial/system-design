@@ -5,8 +5,8 @@
   entre un nombre et son unité (300 ms, 8 h 01) ;
 - espace fine insécable avant « ; », « ? », « ! » ;
 - apostrophe typographique (’) entre deux lettres.
-Le front matter, les lignes d'import, les blocs de code et le code en ligne
-ne sont pas touchés.
+Le front matter, les lignes d'import, les blocs de code, le code en ligne et
+les formules ($...$ et blocs $$) ne sont pas touchés.
 
 Usage : python3 outils/typo.py docs/partie-0/demarche.mdx [...]
 """
@@ -31,8 +31,8 @@ def corriger_texte(t):
 
 
 def corriger_ligne(ligne):
-    morceaux = re.split(r"(`[^`]*`|\]\([^)]*\))", ligne)
-    return "".join(m if m.startswith("`") or m.startswith("](") else corriger_texte(m)
+    morceaux = re.split(r"(`[^`]*`|\]\([^)]*\)|\$\$[^$]+\$\$|\$[^$]+\$)", ligne)
+    return "".join(m if m[:1] in "`$" or m.startswith("](") else corriger_texte(m)
                    for m in morceaux)
 
 
@@ -49,7 +49,7 @@ def corriger(chemin):
                 front = 2
             sortie.append(ligne)
             continue
-        if ligne.lstrip().startswith("```"):
+        if ligne.lstrip().startswith("```") or ligne.strip() == "$$":
             dans_code = not dans_code
             sortie.append(ligne)
             continue

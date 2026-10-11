@@ -18,6 +18,9 @@
 @import '@fontsource/ibm-plex-sans-condensed/600.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/600.css';
+/* formules : feuille et polices de KaTeX embarquées dans le site (même
+   version que celle de rehype-katex) */
+@import 'katex/dist/katex.min.css';
 
 :root {
   --sd-papier: #f8f6f1;
@@ -451,4 +454,20 @@ body {
 .pagination-nav__link {
   border-radius: 0;
   border-color: var(--sd-filet);
+}
+
+/* ------------------------------------------------------------------ */
+/* Formules (KaTeX)                                                     */
+/* ------------------------------------------------------------------ */
+.katex {
+  font-size: 1.08em;
+}
+.katex-display {
+  margin: 1.2rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.2rem 0;
+}
+.markdown table .katex {
+  font-size: 1em;
 }

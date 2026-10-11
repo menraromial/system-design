@@ -1,6 +1,8 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 const config: Config = {
   title: 'System design',
@@ -40,6 +42,9 @@ const config: Config = {
           routeBasePath: 'cours',
           sidebarPath: './sidebars.ts',
           breadcrumbs: false,
+          // formules en LaTeX : $...$ dans le texte, $$...$$ en bloc (KaTeX)
+          remarkPlugins: [remarkMath],
+          rehypePlugins: [rehypeKatex],
           admonitions: {
             keywords: ['analogie', 'calcul', 'piege', 'entretien', 'fiche'],
             extendDefaults: true,
