@@ -1,0 +1,22 @@
+% Débit et latence médiane mesurés avec 1, 2 et 4 serveurs derrière Caddy
+% (outils/experiences/ch10/echelle.sh), 64 connexions.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=24mm, y=0.026mm]
+  \draw[ligne] (0.4,0) -- (4.6,0);
+  \draw[ligne] (0.4,0) -- (0.4,2200);
+  \foreach \n in {1,2,4} {\draw[ligne] (\n,0) -- (\n,-60); \node[note, below] at (\n,-60) {\n};}
+  \foreach \v in {500,1000,1500,2000} {\draw[ligne=Dcloud] (0.4,\v) -- (0.36,\v); \node[note, left] at (0.36,\v) {\v};}
+  \node[axe, anchor=north] at (2.5,-280) {serveurs d'application};
+  \node[axe, rotate=90, anchor=south] at (0.05,1100) {requêtes par seconde};
+  % idéal
+  \draw[ligne=Dcloud, dash pattern=on 3pt off 2pt] (1,484) -- (4,1936);
+  \node[note, anchor=south east] at (3.3,1500) {linéaire parfait};
+  % mesures
+  \foreach \n/\d/\l in {1/477/{477 req/s, p50 132 ms}, 2/967/{967 req/s, p50 66 ms}, 4/1936/{1\,936 req/s, p50 33 ms}} {
+    \draw[draw=Dink, line width=0.5pt, fill=Pbleu] (\n-0.18,0) rectangle (\n+0.18,\d);
+    \node[et, anchor=south] at (\n,\d+40) {\l};
+  }
+\end{tikzpicture}
+\end{document}

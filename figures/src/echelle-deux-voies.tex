@@ -1,0 +1,31 @@
+% Passer à l'échelle verticalement (une machine plus grosse) ou
+% horizontalement (plus de machines identiques derrière un répartiteur).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=8mm]
+  % vertical
+  \node[soft=Dblue, minimum width=16mm, minimum height=12mm, font=\sffamily\scriptsize] (v1) {\stack[\normalsize]{server}{4 cœurs}};
+  \node[soft=Dblue, minimum width=26mm, minimum height=20mm, right=10mm of v1, font=\sffamily\small] (v2) {\stack{server}{32 cœurs}};
+  \node[soft=Dblue, minimum width=38mm, minimum height=30mm, right=10mm of v2] (v3) {\stack[\LARGE]{server}{128 cœurs}};
+  \draw[arr] (v1) -- (v2);
+  \draw[arr] (v2) -- (v3);
+  \begin{scope}[on background layer]
+    \node[groupd=Dblue, fit=(v1)(v3), inner sep=6mm] (gv) {};
+  \end{scope}
+  \node[pill=Dblue] at (gv.north) {Vertical : une machine plus grosse};
+  \node[note, below=2mm of gv.south, align=center] {aucun changement de code ; plafond matériel, une seule machine à perdre};
+  % horizontal
+  \node[soft=Dpurple, minimum width=26mm, minimum height=12mm, right=26mm of v3] (lb) {\stack{random}{Répartiteur}};
+  \foreach \i/\d in {1/-21, 2/-7, 3/7, 4/21}
+    \node[soft=Dblue, minimum width=16mm, minimum height=12mm, font=\sffamily\scriptsize, right=14mm of lb, yshift=\d mm] (h\i) {\stack[\normalsize]{server}{4 cœurs}};
+  \foreach \i in {1,...,4} \draw[arr] (lb.east) -- (h\i.west);
+  \node[soft=Dteal, minimum width=22mm, minimum height=12mm, right=12mm of h2, yshift=7mm] (etat) {\stack{database}{État partagé}};
+  \foreach \i in {1,...,4} \draw[darr=Dteal] (h\i.east) -- (etat.west);
+  \begin{scope}[on background layer]
+    \node[groupd=Dpurple, fit=(lb)(h1)(h4)(etat), inner sep=6mm] (gh) {};
+  \end{scope}
+  \node[pill=Dpurple] at (gh.north) {Horizontal : plus de machines identiques};
+  \node[note, below=2mm of gh.south, align=center] {survit à la perte d'une machine ; exige des serveurs sans état};
+\end{tikzpicture}
+\end{document}

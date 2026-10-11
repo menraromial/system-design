@@ -1,0 +1,28 @@
+% Accélération mesurée sur 1 à 6 cœurs (outils/experiences/ch10/amdahl.py) :
+% travail parallèle, 10 % séquentiel (et prévision d'Amdahl), verrou partagé.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=14mm, y=11mm]
+  \draw[ligne] (0.8,0) -- (6.4,0);
+  \draw[ligne] (0.8,0) -- (0.8,6.3);
+  \foreach \p in {1,...,6} {\draw[ligne] (\p,0) -- (\p,-0.08); \node[note, below] at (\p,-0.08) {\p};}
+  \foreach \v in {1,...,6} {\draw[ligne=Dcloud] (0.8,\v) -- (0.74,\v); \node[note, left] at (0.74,\v) {×\v};}
+  \node[axe, anchor=north] at (3.6,-0.55) {cœurs};
+  \node[axe, rotate=90, anchor=south] at (0.25,3.1) {accélération};
+  \draw[ligne=Dcloud, dash pattern=on 3pt off 2pt] (1,1) -- (6,6) node[note, anchor=south east, pos=0.86] {idéal};
+  % Amdahl 10 %
+  \draw[Dslate, line width=0.8pt, dash pattern=on 1.5pt off 1.5pt, domain=1:6, samples=40, smooth] plot (\x,{1/(0.1+0.9/\x)});
+  \node[et=Dslate, anchor=west] at (6.05,4.0) {Amdahl, 10 \%};
+  % mesures
+  \draw[Dblue, line width=1.1pt] (1,1) -- (2,2.02) -- (3,3.05) -- (4,3.94) -- (5,4.76) -- (6,5.63);
+  \node[etb=Dblue, anchor=west] at (6.05,5.63) {parallèle : ×5,63};
+  \draw[Dorange, line width=1.1pt] (1,1) -- (2,1.77) -- (3,2.34) -- (4,2.79) -- (5,3.20) -- (6,3.53);
+  \node[etb=Dorange, anchor=west] at (6.05,3.45) {10 \% séquentiel : ×3,53};
+  \draw[Dred, line width=1.1pt] (1,1) -- (2,1.97) -- (3,2.95) -- (4,3.73) -- (5,4.38) -- (6,4.14);
+  \node[etb=Dred, anchor=west] at (6.05,4.6) {verrou partagé : ×4,14};
+  \foreach \p/\a/\b/\c in {1/1/1/1, 2/2.02/1.77/1.97, 3/3.05/2.34/2.95, 4/3.94/2.79/3.73, 5/4.76/3.20/4.38, 6/5.63/3.53/4.14} {
+    \fill[Dblue] (\p,\a) circle (0.6mm); \fill[Dorange] (\p,\b) circle (0.6mm); \fill[Dred] (\p,\c) circle (0.6mm);
+  }
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,33 @@
+% Trois façons de placer les sessions quand il y a deux serveurs, et ce qui
+% arrive quand le serveur A tombe (résultats de outils/experiences/ch10/sessions.py).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=8mm,
+    b/.style={minimum width=22mm, minimum height=11mm, font=\sffamily\small}]
+  \foreach \k/\x/\titre/\res/\c in {
+      1/0/{En mémoire, round-robin}/{5 requêtes sur 10 refusées,\\puis toutes après la panne}/Dred,
+      2/62/{En mémoire, sessions collantes}/{aucune refusée avant la panne,\\toutes après : session perdue}/Dorange,
+      3/124/{Magasin partagé (Redis)}/{aucune refusée,\\même après la panne}/Dgreen} {
+    \node[tile] (c\k) at (\x mm,0) {\dicon[\Large][Dslate]{user}\\[1pt]{\small client}};
+    \node[soft=Dpurple, b, below=7mm of c\k] (lb\k) {\stack{random}{Répartiteur}};
+    \node[soft=Dblue, b, below left=9mm and -6mm of lb\k] (a\k) {\stack{server}{A}};
+    \node[soft=Dblue, b, below right=9mm and -6mm of lb\k] (z\k) {\stack{server}{B}};
+    \draw[arr] (c\k) -- (lb\k);
+    \draw[arr] (lb\k.south) -- (a\k.north);
+    \draw[arr] (lb\k.south) -- (z\k.north);
+    \node[pillo=Dslate, anchor=south] at ([yshift=4mm]c\k.north) {\titre};
+    \node[et=\c, anchor=north, align=center] at ([yshift=-47mm]lb\k.south) {\res};
+  }
+  % session dans A (cas 1 et 2)
+  \foreach \k in {1,2} \node[bloc=Pjaune, minimum width=0pt, minimum height=0pt, font=\sffamily\scriptsize, anchor=north] at ([yshift=-1mm]a\k.south) {session};
+  % cas 2 : lien collant
+  \draw[ligne=Dorange, line width=1.6pt] (lb2.south) -- (a2.north);
+  \node[note, anchor=east] at (lb2.west) {cookie : « A »};
+  % cas 3 : magasin partagé
+  \node[soft=Dteal, b, below=24mm of lb3, minimum width=22mm] (r3) {\stack{database}{Redis}};
+  \node[bloc=Pjaune, minimum width=0pt, minimum height=0pt, font=\sffamily\scriptsize, anchor=north] at ([yshift=-1mm]r3.south) {session};
+  \draw[darr=Dteal] (a3.south) -- (r3.west);
+  \draw[darr=Dteal] (z3.south) -- (r3.east);
+\end{tikzpicture}
+\end{document}

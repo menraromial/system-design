@@ -1,0 +1,258 @@
+---
+title: "Passer à l’échelle : vertical, horizontal, sans état"
+sidebar_label: 10. Passer à l’échelle
+description: "Scalabilité verticale et horizontale, services sans état, où mettre les sessions, sessions collantes, loi d'Amdahl et contention ; trois expériences mesurées avec Caddy, Redis et des processus épinglés."
+partie: 1
+chapitre: 10
+---
+
+import deuxVoies from '@site/src/figures/echelle-deux-voies.svg';
+import mesure from '@site/src/figures/echelle-mesure.svg';
+import sessions from '@site/src/figures/echelle-sessions.svg';
+import amdahl from '@site/src/figures/echelle-amdahl.svg';
+
+Un site marchand tient sans difficulté 500 requêtes par seconde aux heures de pointe d’une journée ordinaire. Le premier jour des soldes, le trafic est multiplié par dix dès l’ouverture, et le serveur unique qui suffisait jusque-là sature : la file d’attente du ch. 9 se forme, la latence s’envole, les paniers se vident. Deux réponses sont possibles. On peut acheter une machine plus grosse, ou mettre plusieurs machines côte à côte. Ce chapitre montre ce que coûte chacune, pourquoi la seconde exige que les serveurs ne gardent rien en mémoire d’une requête à l’autre, et jusqu’où ajouter des machines fait vraiment gagner.
+
+Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier `outils/experiences/ch10/` : le débit d’un service quand on passe de 1 à 4 serveurs derrière un répartiteur Caddy, le sort des sessions d’un utilisateur selon l’endroit où elles sont rangées quand un serveur tombe, et l’accélération réelle d’un calcul réparti sur 1 à 6 cœurs, avec une partie séquentielle ou un verrou partagé.
+
+## Deux façons de grandir
+
+La scalabilité (scalability) est la capacité d’un système à tenir une charge plus forte quand on lui ajoute des ressources. On l’obtient de deux façons.
+
+<Figure svg={deuxVoies} num="10.1" alt="À gauche, une machine qui passe de 4 à 32 puis 128 cœurs. À droite, un répartiteur devant quatre machines de 4 cœurs, qui partagent un état commun.">
+Passer à l’échelle verticalement ou horizontalement.
+</Figure>
+
+À gauche, la scalabilité verticale (scale up) : on remplace la machine par une plus puissante, avec plus de cœurs, de mémoire ou de disques plus rapides. À droite, la scalabilité horizontale (scale out) : on ajoute des machines identiques derrière un répartiteur de charge (ch. 13), et ce qui doit être partagé entre elles, en vert, est rangé à l’extérieur de chacune.
+
+### La machine plus grosse
+
+La scalabilité verticale ne demande aucun changement de code : le programme qui tournait sur 4 cœurs tourne sur 128, avec plus de mémoire pour ses caches et des disques plus rapides. C’est souvent la meilleure première réponse, surtout pour une base de données, dont la répartition sur plusieurs machines est difficile (ch. 24 à 26). Les machines actuelles vont très loin : la plus grande instance proposée par AWS, la `u7in-32tb.224xlarge`, compte 896 processeurs virtuels et 32 Tio de mémoire[^u7i]. Stack Overflow, au ch. 1, faisait tourner ses bases sur des serveurs de 384 et 768 Go de mémoire.
+
+Elle a quatre limites. Il y a un plafond, au-delà duquel aucune machine n’existe. Le prix suit à peu près la taille chez un fournisseur de cloud, à l’intérieur d’une même famille d’instances : doubler les processeurs double la facture, sans remise. Changer de taille impose souvent un arrêt, ou au moins une bascule. Et surtout, une machine unique reste un point unique de défaillance (ch. 11) : quand elle tombe, tout s’arrête, quelle que soit sa puissance.
+
+Il faut ajouter une limite plus sournoise : une machine deux fois plus grosse ne rend pas un programme deux fois plus rapide si ce programme ne sait pas utiliser les cœurs supplémentaires, ce que la loi d’Amdahl, plus bas, permet de chiffrer.
+
+### Plus de machines
+
+La scalabilité horizontale ajoute des machines identiques et répartit les requêtes entre elles. Elle n’a pas de plafond matériel, elle permet de perdre une machine sans interruption (il suffit d’en avoir une de plus que nécessaire, la règle N + 1 du ch. 2), et elle permet d’ajouter ou de retirer des machines selon la charge du moment (ch. 51). Elle a un prérequis : n’importe quelle machine doit pouvoir traiter n’importe quelle requête, ce qui suppose qu’aucune ne garde pour elle une information dont les autres auraient besoin.
+
+Le script `echelle.sh` mesure ce que donne cette approche dans le cas le plus favorable. Le service est un petit serveur Python (aiohttp) qui fait environ 2 ms de calcul par requête ; on en lance 1, 2 puis 4 exemplaires, chacun épinglé sur son propre cœur de performance, derrière Caddy configuré en répartiteur tournant (round-robin), et l’outil de charge `wrk` envoie des requêtes sur 64 connexions pendant 10 secondes, depuis d’autres cœurs :
+
+```text
+64 connexions, 10 s par mesure, environ 2 ms de calcul par requête
+1 serveur, sans répartiteur        484 req/s   p50 132.01ms   p99 132.98ms
+1 serveur(s) derrière Caddy        477 req/s   p50 132.48ms   p99 144.83ms
+2 serveur(s) derrière Caddy        967 req/s   p50  65.71ms   p99  75.50ms
+4 serveur(s) derrière Caddy       1936 req/s   p50  32.89ms   p99  39.37ms
+```
+
+<Figure svg={mesure} num="10.2" alt="Barres du débit mesuré : 477 requêtes par seconde avec un serveur, 967 avec deux, 1 936 avec quatre, sur la droite du passage à l’échelle linéaire.">
+Débit et latence médiane mesurés avec 1, 2 et 4 serveurs derrière Caddy.
+</Figure>
+
+Chaque barre est le débit mesuré, et le pointillé la droite qu’on obtiendrait si chaque serveur ajouté apportait exactement autant que le premier. Les barres sont sur la droite : doubler le nombre de serveurs double le débit. La latence médiane, notée au-dessus de chaque barre, est divisée par deux à chaque doublement, parce que les 64 requêtes en cours se partagent entre plus de serveurs.
+
+Trois remarques sur ces chiffres. Le répartiteur ne coûte presque rien ici : 477 requêtes par seconde avec Caddy contre 484 sans. La latence se retrouve par la loi de Little du ch. 9 : avec 64 requêtes toujours en cours et 484 terminées par seconde, chacune passe en moyenne $64 / 484 \approx 132$ ms dans le système, exactement la médiane mesurée, puisque chaque serveur est saturé et que toutes les requêtes font la queue. Et le cas est volontairement idéal : chaque requête ne dépend que du calcul de son serveur, sans base de données ni état partagé. Dans un vrai service, c’est cet état partagé qui décide jusqu’où le passage à l’échelle reste linéaire.
+
+## Rendre un service sans état
+
+Un service est dit sans état (stateless) quand il ne garde, entre deux requêtes, aucune information propre à un client ou à une session : tout ce qui doit durer est rangé ailleurs, et chaque requête apporte ou retrouve ce dont elle a besoin. Le manifeste « The Twelve-Factor App », qui résume des pratiques de déploiement d’applications web, le formule ainsi : les processus sont sans état et ne partagent rien, et toute donnée qui doit persister est confiée à un service de stockage externe[^12f].
+
+L’état se cache à plusieurs endroits dans une application qui n’a pas été pensée pour plusieurs serveurs : les sessions des utilisateurs connectés gardées dans la mémoire du processus ; les fichiers téléversés écrits sur le disque local ; les caches en mémoire, qui divergent d’un serveur à l’autre ; les tâches planifiées, que chaque serveur exécute de son côté ; les connexions persistantes (WebSocket, SSE, ch. 8), attachées à un serveur précis. Pour chacune, il faut décider où la ranger.
+
+### Où mettre les sessions : l’expérience
+
+Le script `sessions.py` fait tourner deux exemplaires du même serveur derrière Caddy. Un utilisateur se connecte, puis demande vingt fois son profil ; après la dixième demande, le serveur qui a ouvert sa session est arrêté, comme le serait une machine qui tombe ou qu’on redéploie. Trois configurations sont essayées : sessions dans la mémoire de chaque serveur avec une répartition tournante, sessions en mémoire avec des sessions collantes (sticky sessions, où le répartiteur pose un cookie pour renvoyer toujours le même client vers le même serveur), et sessions dans un Redis partagé par les deux serveurs. Ce Redis tourne dans un conteneur Docker sur la même machine.
+
+```text
+mémoire, round-robin : session ouverte par 9102
+  401 avant la panne : 5/10, après : 10/10
+  serveurs vus : 1 2 1 2 1 2 1 2 1 2 1 1 1 1 1 1 1 1 1 1
+  lecture de session sur 9101 : médiane 1.8 µs sur 1015 lectures
+mémoire, sessions collantes : session ouverte par 9102
+  401 avant la panne : 0/10, après : 10/10
+  serveurs vus : 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 1 1
+  lecture de session sur 9101 : médiane 2.0 µs sur 1010 lectures
+Redis partagé, round-robin : session ouverte par 9102
+  401 avant la panne : 0/10, après : 0/10
+  serveurs vus : 1 2 1 2 1 2 1 2 1 2 1 1 1 1 1 1 1 1 1 1
+  lecture de session sur 9101 : médiane 560.7 µs sur 1015 lectures
+```
+
+<Figure svg={sessions} num="10.3" alt="Trois architectures à deux serveurs A et B : session dans la mémoire de A avec répartition tournante, session dans la mémoire de A avec un lien collant, session dans un Redis partagé.">
+Trois façons de placer la session d’un utilisateur, et ce que l’expérience a mesuré.
+</Figure>
+
+Chaque colonne est une configuration ; l’étiquette jaune montre où se trouve la session, et le texte du bas résume ce qu’a vu l’utilisateur. Dans la colonne du milieu, le trait orange épais est le lien collant que le cookie du répartiteur impose entre le client et le serveur qui a ouvert sa session, noté A sur le schéma (dans la sortie ci-dessus, c’est le serveur 9102).
+
+La première configuration échoue d’emblée : une requête sur deux arrive sur le serveur qui ne connaît pas la session, et l’utilisateur est renvoyé à la page de connexion une fois sur deux (5 réponses 401 sur 10 avant la panne). La deuxième corrige ce défaut tant que tout va bien (aucune 401), mais quand le serveur A s’arrête, le répartiteur envoie l’utilisateur vers B, qui n’a jamais vu sa session : déconnecté. La troisième résiste à la panne : B lit la session dans Redis, et l’utilisateur ne remarque rien.
+
+La dernière ligne de chaque configuration donne le prix. Lire une session dans la mémoire du processus coûte 1,6 à 2 µs ; la lire dans Redis coûte une médiane de 310 µs lors d’un premier passage et de 561 µs lors du passage reproduit ci-dessus : un aller-retour réseau plus le travail de la bibliothèque, avec une variabilité notable. Cette valeur comprend la traversée de la redirection de port de Docker et une boucle Python, et un Redis joint directement sur un réseau de centre de données répondrait plus vite ; l’ordre de grandeur reste celui d’un aller-retour réseau, des centaines de fois plus qu’une lecture en mémoire. Pour une requête web de quelques dizaines de millisecondes, c’est un coût acceptable ; pour une boucle qui lit la session mille fois par requête, non.
+
+### Les sessions collantes
+
+Les sessions collantes ne sont pas toujours une faute, mais il faut savoir ce qu’elles coûtent. Elles se règlent en une ligne de configuration du répartiteur, et elles améliorent l’efficacité des caches locaux, puisque le même client revient au même serveur. En revanche, la panne ou le redéploiement d’un serveur déconnecte tous ses clients, comme l’expérience l’a montré ; la charge se répartit mal, parce qu’un serveur garde ses clients même quand ils deviennent très actifs ; et ajouter des serveurs ne soulage pas tout de suite ceux qui sont déjà chargés, dont les clients restent attachés. Le manifeste Twelve-Factor les qualifie de « violation » de ses principes[^12f]. Elles restent utiles comme optimisation (pour réchauffer un cache local, ou pour les connexions WebSocket, qui sont attachées à un serveur par nature), à condition que leur perte ne casse rien.
+
+### Où ranger chaque type d’état
+
+| Emplacement | Avantages | Inconvénients | Quand le choisir |
+|---|---|---|---|
+| Mémoire du processus | le plus rapide (environ 2 µs mesurées) | perdu à chaque redémarrage, invisible des autres serveurs | caches recalculables, données en lecture seule |
+| Côté client, jeton signé (cookie, JWT, ch. 54) | aucun stockage serveur, aucun aller-retour | taille limitée, révocation difficile, le client voit le contenu (sauf chiffrement) | identité et droits de courte durée |
+| Magasin clé-valeur partagé (Redis, Memcached) | rapide (quelques centaines de µs mesurées), partagé, expiration automatique | un composant de plus à rendre disponible ; Memcached ne garantit pas la persistance | sessions, paniers, limites de débit (ch. 30) |
+| Base de données | durable, transactionnelle | plus lente, et vite le goulet si tout y passe | données métier, paniers à conserver |
+| Stockage objet (ch. 29) | durable, sans limite pratique de taille | latence plus élevée, accès par objet entier | fichiers téléversés, exports |
+
+Les autres formes d’état se traitent de la même façon. Les fichiers téléversés vont dans un stockage objet, jamais sur le disque d’un serveur. Une tâche planifiée qui ne doit s’exécuter qu’une fois (l’envoi du récapitulatif quotidien, la purge des paniers abandonnés) ne peut pas être lancée par chaque serveur : on la confie à un ordonnanceur unique, ou à un seul serveur désigné par une élection de leader (ch. 36, ch. 79).
+
+## Jusqu’où ajouter des ressources fait gagner
+
+### La loi d’Amdahl
+
+En 1967, Gene Amdahl a fait remarquer que si une fraction $s$ d’un travail ne peut s’exécuter que sur un seul processeur, l’accélération obtenue avec $P$ processeurs ne peut pas dépasser[^amdahl]
+
+$$
+A(P) = \frac{1}{s + \dfrac{1 - s}{P}} \qquad \text{et donc} \qquad A(P) < \frac{1}{s}.
+$$
+
+Avec 10 % de travail séquentiel, l’accélération ne dépasse jamais 10, même avec mille processeurs ; avec 6 processeurs, elle vaut au plus $1 / (0{,}1 + 0{,}9/6) = 4$.
+
+### La contention et la cohérence
+
+La loi d’Amdahl suppose que la partie parallèle se parallélise parfaitement. En pratique, les processus se disputent des ressources communes (un verrou, une ligne de base de données, une file) : c’est la contention. Et ils doivent parfois se mettre d’accord ou échanger des données pour rester cohérents, un coût qui croît avec le nombre de participants. Neil Gunther a ajouté ces deux effets dans sa loi universelle de scalabilité (universal scalability law, USL)[^gunther] :
+
+$$
+C(N) = \frac{N}{1 + \alpha (N - 1) + \beta N (N - 1)},
+$$
+
+où $\alpha$ mesure la contention et $\beta$ le coût de cohérence. Avec $\beta > 0$, la capacité passe par un maximum puis décroît : ajouter des ressources au-delà d’un certain point fait perdre du débit.
+
+### Ce que donnent de vrais cœurs
+
+Le script `amdahl.py` répartit un même calcul (environ 3,3 s sur un cœur) entre 1 à 6 processus, chacun épinglé sur un cœur de performance différent, dans trois variantes : tout le travail parallèle ; 10 % du travail fait seul avant la partie parallèle ; et chaque petit morceau de travail (environ 1 ms) terminé par une section critique de 0,2 ms environ, protégée par un verrou commun à tous les processus.
+
+```text
+cœurs        parallèle        10 % séquentiel Amdahl 10 %       verrou partagé
+    1    3.32 s ×1.00       3.27 s ×1.00    × 1.00        3.82 s ×1.00
+    2    1.65 s ×2.02       1.84 s ×1.77    × 1.82        1.94 s ×1.97
+    3    1.09 s ×3.05       1.40 s ×2.34    × 2.50        1.29 s ×2.95
+    4    0.84 s ×3.94       1.17 s ×2.79    × 3.08        1.03 s ×3.73
+    5    0.70 s ×4.76       1.02 s ×3.20    × 3.57        0.87 s ×4.38
+    6    0.59 s ×5.63       0.93 s ×3.53    × 4.00        0.92 s ×4.14
+```
+
+<Figure svg={amdahl} num="10.4" alt="Courbes d’accélération sur 1 à 6 cœurs : presque idéale pour le travail parallèle (×5,63), sous la prévision d’Amdahl pour 10 % de séquentiel (×3,53), et en baisse au-delà de 5 cœurs avec un verrou partagé (×4,14).">
+Accélération mesurée selon le nombre de cœurs, dans les trois variantes.
+</Figure>
+
+La diagonale en pointillés est l’accélération idéale, la courbe en pointillés serrés la prévision d’Amdahl pour 10 % de séquentiel. Le calcul entièrement parallèle suit presque la diagonale (×5,63 sur 6 cœurs, le reste venant du lancement des processus et d’une fréquence d’horloge un peu plus basse quand plusieurs cœurs travaillent). La variante à 10 % de séquentiel reste sous la courbe d’Amdahl (×3,53 contre ×4,00), pour les mêmes raisons. La variante au verrou partagé monte presque comme la parallèle, puis plafonne et redescend : ×4,38 sur 5 cœurs, ×4,14 sur 6.
+
+Le verrou explique ce sommet. Chaque morceau de travail passe environ 0,2 ms sur 1,2 sous le verrou, que les processus ne peuvent prendre qu’un à la fois : le verrou peut donc servir au plus $1 / 0{,}2\ \text{ms} = 5\,000$ morceaux par seconde, et $P$ processus en demandent $P / 1{,}2\ \text{ms}$. Les deux s’égalent pour $P = 6$ : à 6 cœurs, le verrou est occupé en permanence, les processus attendent leur tour, et le temps perdu à se passer le verrou d’un cœur à l’autre fait baisser le débit. C’est la forme que prédit la loi de Gunther, et c’est ce qui arrive à un service qu’on multiplie alors que toutes ses requêtes passent par une même ligne de base de données ou un même compteur : le goulet n’est plus dans les serveurs mais dans la ressource qu’ils partagent.
+
+## Ordres de grandeur
+
+:::calcul[Calcul : tenir le premier jour des soldes]
+Hypothèses : pointe ordinaire de 500 requêtes par seconde ; trafic multiplié par 10 à l’ouverture des soldes ; un serveur d’application tient 480 requêtes par seconde à saturation (mesure de l’expérience pour 2 ms de calcul par requête) ; on le charge au plus à 70 % pour tenir la latence (ch. 9) ; chaque requête fait 3 requêtes en base et lit sa session une fois.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Pointe des soldes | 500 × 10 | 5 000 req/s |
+| Capacité utile d’un serveur | 480 × 0,7 | ≈ 340 req/s |
+| Serveurs d’application | $\lceil 5\,000 / 340 \rceil + 1$ | 16 |
+| Requêtes en base | 5 000 × 3 | 15 000 par seconde |
+| Lectures de session | 5 000 × 1 | 5 000 par seconde |
+| Mémoire des sessions (1 million de sessions actives de 1 Ko) | $10^6 \times 1$ Ko | ≈ 1 Go |
+| Connexions vers la base (pool de 20 par serveur) | 16 × 20 | 320 |
+
+Conclusion : la couche applicative passe de 2 à 16 serveurs sans difficulté, puisqu’elle est sans état et que son passage à l’échelle est linéaire. Le problème se déplace vers ce qu’ils partagent : 15 000 requêtes par seconde et 320 connexions sur une même base, qu’on soulage par un cache (ch. 16), par des copies en lecture (ch. 24) ou par une machine plus grosse ; 5 000 lectures de session par seconde et 1 Go de données restent faciles pour un seul Redis, qu’il faut toutefois rendre disponible (ch. 11).
+:::
+
+:::calcul[Calcul : le plafond d’Amdahl]
+| Fraction séquentielle $s$ | Accélération sur 16 cœurs | Plafond $1/s$ |
+|---|---|---|
+| 1 % | $1 / (0{,}01 + 0{,}99/16) \approx 13{,}9$ | 100 |
+| 5 % | $1 / (0{,}05 + 0{,}95/16) \approx 9{,}1$ | 20 |
+| 10 % | $1 / (0{,}1 + 0{,}9/16) = 6{,}4$ | 10 |
+| 25 % | $1 / (0{,}25 + 0{,}75/16) \approx 3{,}4$ | 4 |
+
+Conclusion : passer de 4 à 16 cœurs un programme dont 10 % du travail est séquentiel ne le rend que 2,1 fois plus rapide ($6{,}4 / 3{,}1$, puisque $A(4) = 1/(0{,}1 + 0{,}9/4) \approx 3{,}1$), alors que la machine coûte quatre fois plus. Avant d’acheter des cœurs, on mesure la part séquentielle.
+:::
+
+## Exemple réel : la base unique de Let’s Encrypt
+
+Let’s Encrypt, l’autorité de certification gratuite déjà rencontrée au ch. 6, a fait le choix explicite de la scalabilité verticale pour sa base de données. Dans un billet de janvier 2021, Josh Aas et James Renken expliquent que l’autorité tourne sur une seule base MariaDB, pour limiter la complexité, avec des copies actives à côté, et décrivent le remplacement de ses serveurs fin 2020 : de deux processeurs Intel Xeon à 24 cœurs en tout, 1 To de mémoire et des SSD SATA, à deux processeurs AMD EPYC à 64 cœurs, 2 To de mémoire et 24 SSD NVMe. Le temps de réponse moyen des requêtes est passé d’environ 0,45 ms à 0,15 ms, la latence de leur API d’environ 90 ms à 9 ms, et l’occupation des processeurs de plus de 90 % à environ 25 %[^le-db]. Une machine plus grosse, et aucune ligne de code de répartition à écrire : pour une base au cœur d’un service critique, c’était la décision la plus simple, et elle se justifie tant qu’une machine suffit.
+
+## Erreurs fréquentes
+
+La plus répandue est de croire qu’ajouter des serveurs d’application règle tout. Quand la base, le cache ou un verrou partagé est le goulet, multiplier les serveurs qui l’interrogent ne fait qu’augmenter la contention, comme le montre la courbe du verrou.
+
+Vient ensuite l’état caché : sessions en mémoire, fichiers sur le disque local, caches locaux qui divergent. Tout fonctionne avec un serveur ; avec deux, les utilisateurs sont déconnectés une fois sur deux, les fichiers téléversés disparaissent selon le serveur qui répond, et les prix affichés diffèrent d’une page à l’autre.
+
+Les sessions collantes utilisées comme solution plutôt que comme optimisation transforment chaque redéploiement en vague de déconnexions, et déséquilibrent la charge.
+
+Les tâches planifiées exécutées par chaque exemplaire du service en est une autre : avec 16 serveurs, le courriel du récapitulatif quotidien part 16 fois.
+
+Multiplier les serveurs sans recalculer les pools de connexions fait dépasser la limite de la base : 16 serveurs avec chacun un pool de 50 connexions font 800 connexions, au-delà de ce que la base accepte (ch. 4 et 19).
+
+Enfin, supposer un passage à l’échelle linéaire sans l’avoir mesuré. Un test de charge avec 1, 2 et 4 instances, comme celui du chapitre, révèle tout de suite si le débit suit.
+
+:::piege[Erreur fréquente : redimensionner verticalement en urgence]
+Passer à une machine plus grosse le jour où la charge sature demande un arrêt ou une bascule au pire moment, et ne protège pas contre la panne de cette machine. La scalabilité verticale se planifie à froid, avec une marge, et on la combine avec au moins une copie prête à prendre le relais.
+:::
+
+:::entretien
+À l’étape 5 de la démarche (ch. 1), dites explicitement que les serveurs d’application sont sans état et où va l’état (sessions dans Redis, fichiers dans un stockage objet, données en base). C’est ce qui justifie qu’on puisse en mettre autant qu’il en faut derrière le répartiteur. Puis désignez le prochain goulet, qui est presque toujours la base, et dites comment vous le traiterez : machine plus grosse d’abord, copies en lecture, cache, puis partitionnement.
+:::
+
+## Exercices
+
+**Question 1.** Un service tient 300 requêtes par seconde par serveur à saturation. On vise une charge d’au plus 65 % par serveur, et la pointe attendue est de 7 000 requêtes par seconde. Combien de serveurs faut-il, en comptant de quoi en perdre un ? Si chaque serveur a un pool de 25 connexions vers la base, combien de connexions la base doit-elle accepter ?
+
+**Question 2.** Un traitement nocturne prend 8 heures sur un serveur de 8 cœurs. Le profilage montre que 15 % du temps est passé dans une étape séquentielle. On propose de passer à 32 cœurs. Quelle durée prévoit la loi d’Amdahl ? Que faudrait-il changer pour descendre sous les 2 heures ?
+
+**Question 3.** Une équipe active les sessions collantes sur son répartiteur pour régler des déconnexions aléatoires. Un mois plus tard, elle constate qu’à chaque déploiement, des milliers d’utilisateurs sont déconnectés, et que deux serveurs sur dix sont deux fois plus chargés que les autres. Expliquez les deux phénomènes et proposez une correction.
+
+**Exercice de conception.** Une application de billetterie, aujourd’hui sur un seul serveur, doit tenir l’ouverture des ventes d’un festival : 200 000 personnes se connectent dans les dix minutes qui suivent l’ouverture, chacune fait en moyenne 30 requêtes, et la plupart des requêtes coûtent 4 ms de calcul. L’application garde en mémoire les sessions et les paniers, écrit les billets PDF générés sur son disque local, et un fil interne libère toutes les minutes les places réservées depuis plus de 10 minutes sans paiement. Rendez l’application sans état, dites où va chaque élément d’état, estimez le nombre de serveurs nécessaires, et désignez le prochain goulet.
+
+## Corrigés
+
+**Question 1.** Capacité utile par serveur : $300 \times 0{,}65 = 195$ requêtes par seconde. Serveurs : $\lceil 7\,000 / 195 \rceil + 1 = 36 + 1 = 37$. Connexions : $37 \times 25 = 925$, ce qui dépasse probablement la limite d’une base comme PostgreSQL (100 connexions par défaut, ch. 4) et sa capacité raisonnable : il faut réduire le pool de chaque serveur, en le dimensionnant par la loi de Little à partir des requêtes en base réellement en cours, ou placer un concentrateur de connexions devant la base (ch. 19).
+
+**Question 2.** Sur 8 cœurs, la durée se décompose en une partie séquentielle et une partie parallèle. Exprimons tout en temps sur un seul cœur : si $T_1$ est la durée sur un cœur, $8 = T_1 (0{,}15 + 0{,}85/8) = T_1 \times 0{,}256$, donc $T_1 \approx 31{,}2$ heures. Sur 32 cœurs : $31{,}2 \times (0{,}15 + 0{,}85/32) = 31{,}2 \times 0{,}177 \approx 5{,}5$ heures. Quadrupler les cœurs ne gagne que 2,5 heures. Même avec une infinité de cœurs, la durée ne descendrait pas sous $31{,}2 \times 0{,}15 \approx 4{,}7$ heures, la partie séquentielle seule. Pour descendre sous 2 heures, il faut s’attaquer à l’étape séquentielle : la paralléliser (la découper par lots indépendants), la rendre plus rapide, ou la sortir du traitement nocturne.
+
+**Question 3.** Les déconnexions aléatoires venaient sans doute de sessions gardées en mémoire de chaque serveur : selon le serveur qui répondait, la session était connue ou non. Les sessions collantes ont masqué ce défaut sans le corriger. À chaque déploiement, chaque serveur redémarré perd les sessions qu’il gardait en mémoire, et tous ses clients, renvoyés vers un autre serveur, sont déconnectés. Le déséquilibre vient de ce que les clients restent attachés à leur serveur : un serveur qui a hérité de clients très actifs, ou de nombreux clients au moment d’un pic, les garde, et les serveurs ajoutés ensuite ne reçoivent que les nouveaux clients. La correction est de rendre les serveurs sans état en rangeant les sessions dans un magasin partagé comme Redis, puis de revenir à une répartition non collante.
+
+**Exercice de conception.**
+
+*Où va l’état.* Sessions et paniers dans Redis, avec une expiration (30 minutes pour les sessions ; les paniers suivent la durée de réservation des places). Les places elles-mêmes et leur état (libre, réservée jusqu’à telle heure, vendue) sont en base de données, qui est la source de vérité pour éviter de vendre deux fois la même place (ch. 18 et 73). Les billets PDF sont écrits dans un stockage objet, et le lien de téléchargement pointe vers lui. Le fil interne qui libère les places expirées ne peut plus tourner sur chaque serveur : on le remplace par une tâche planifiée unique (ch. 79), ou mieux, on supprime la tâche en stockant pour chaque réservation son heure d’expiration, une place réservée dont l’heure est dépassée étant considérée comme libre par la requête qui cherche des places.
+
+*Dimensionnement.*
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Requêtes pendant les 10 minutes | 200 000 × 30 | 6 000 000 |
+| Débit moyen sur ces 10 minutes | $6 \times 10^6 / 600$ s | 10 000 req/s |
+| Pointe dans la fenêtre (facteur 2, hypothèse) | 10 000 × 2 | 20 000 req/s |
+| Capacité d’un serveur à 4 ms par requête et par cœur, 8 cœurs, 70 % | $8 / 0{,}004 \times 0{,}7$ | 1 400 req/s |
+| Serveurs d’application | $\lceil 20\,000 / 1\,400 \rceil + 1$ | 16 |
+| Lectures de session et de panier | 20 000 × 2 | 40 000 par seconde dans Redis |
+
+*Prochain goulet.* La base de données qui détient l’état des places : 200 000 personnes visent quelques dizaines de milliers de places, souvent les mêmes, et chaque réservation est une écriture sur une ligne que d’autres veulent aussi. C’est la contention de la figure 10.4, sur une ligne de base au lieu d’un verrou. Les solutions (file d’attente virtuelle à l’entrée pour limiter le nombre de personnes qui choisissent en même temps, réservation par décrément conditionnel, partitionnement des places par zone) sont l’objet du ch. 73 ; ce chapitre-ci a rendu la couche applicative capable de suivre, et c’est déjà la condition pour que la question se pose.
+
+:::fiche
+- Vertical : machine plus grosse, aucun changement de code, mais plafond (896 vCPU et 32 Tio pour la plus grande instance AWS), coût, arrêt pour changer, point unique de défaillance.
+- Horizontal : machines identiques derrière un répartiteur ; pas de plafond, survit à une panne ; exige des serveurs sans état.
+- Mesuré : 477, 967 puis 1 936 req/s avec 1, 2 et 4 serveurs derrière Caddy ; latence conforme à la loi de Little (64 / 484 ≈ 132 ms).
+- Sans état : sessions dans Redis, fichiers en stockage objet, données en base, tâches planifiées uniques.
+- Mesuré : sessions en mémoire, 1 requête sur 2 refusée en round-robin ; sessions collantes, perdues à la panne ; Redis partagé, aucune perte, lecture à 310-560 µs contre 2 µs en mémoire.
+- Amdahl : $A(P) = 1/(s + (1-s)/P)$, plafond $1/s$ ; mesuré : ×3,53 sur 6 cœurs avec 10 % séquentiel (prévision ×4).
+- Contention (loi de Gunther) : au-delà d’un seuil, ajouter des ressources fait baisser le débit ; mesuré : verrou partagé, ×4,38 à 5 cœurs puis ×4,14 à 6.
+- Le goulet se déplace vers l’état partagé : base, cache, verrou.
+:::
+
+[^u7i]: Amazon Web Services, « Amazon EC2 High Memory U7i Instances », [aws.amazon.com/ec2/instance-types/u7i](https://aws.amazon.com/ec2/instance-types/u7i/).
+[^12f]: Adam Wiggins et al., « The Twelve-Factor App », section VI « Processes », [12factor.net/processes](https://12factor.net/processes).
+[^amdahl]: Gene M. Amdahl, « Validity of the single processor approach to achieving large scale computing capabilities », *AFIPS Spring Joint Computer Conference*, 1967.
+[^gunther]: Neil J. Gunther, *Guerrilla Capacity Planning*, Springer, 2007.
+[^le-db]: Josh Aas et James Renken, « The Next Gen Database Servers Powering Let’s Encrypt », blog de Let’s Encrypt, 21 janvier 2021, [letsencrypt.org/2021/01/21/next-gen-database-servers](https://letsencrypt.org/2021/01/21/next-gen-database-servers).
