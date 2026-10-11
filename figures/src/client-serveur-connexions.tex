@@ -1,0 +1,36 @@
+% Un serveur qui écoute sur le port 443 et trois connexions ouvertes,
+% chacune identifiée par son quintuplet. Adresses réservées à la
+% documentation (RFC 5737).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=6mm,
+    cx/.style={soft=Dteal, minimum width=34mm, minimum height=8mm, font=\sffamily\small},
+    cl/.style={soft=Dblue, minimum width=34mm, minimum height=15mm, font=\sffamily\small}]
+  % clients
+  \node[cl] (a) at (0,0) {\stack{laptop}{Client A\\[-1pt]{\scriptsize 203.0.113.7}}};
+  \node[cl, below=16mm of a] (b) {\stack{mobile-alt}{Client B\\[-1pt]{\scriptsize 192.0.2.44}}};
+  % serveur
+  \node[soft=Dpurple, minimum width=34mm, minimum height=9mm, font=\sffamily\small] (ecoute) at (85mm,8mm)
+    {socket d'écoute {\ttfamily :443}};
+  \node[cx, below=7mm of ecoute] (c1) {connexion 1};
+  \node[cx, below=of c1] (c2) {connexion 2};
+  \node[cx, below=of c2] (c3) {connexion 3};
+  \begin{scope}[on background layer]
+    \node[groupd=Dpurple, fit=(ecoute)(c3), inner sep=5mm] (srv) {};
+  \end{scope}
+  \node[pill=Dpurple] at (srv.north) {Serveur 198.51.100.10};
+  % flux
+  \draw[darr=Dpurple] (ecoute.south) -- node[lbl, right=1mm] {\ttfamily accept()} (c1.north);
+  \draw[arr=Dblue] (a.east) ++(0,2mm) -- node[lbl, pos=0.35] {port source 51514} (c1.west);
+  \draw[arr=Dblue] (a.east) ++(0,-2mm) -- node[lbl, pos=0.35] {port source 51515} (c2.west);
+  \draw[arr=Dblue] (b.east) -- node[lbl, pos=0.35] {port source 40002} (c3.west);
+  % quintuplets
+  \node[bloc=white, anchor=north west, text width=128mm, align=left, font=\ttfamily\scriptsize,
+        inner sep=5pt] (q) at ([yshift=-8mm]b.south west)
+    {\textsf{\bfseries quintuplet (protocole, IP source, port source, IP destination, port destination)}\\[2pt]
+     connexion 1 : (TCP, 203.0.113.7, 51514, 198.51.100.10, 443)\\
+     connexion 2 : (TCP, 203.0.113.7, 51515, 198.51.100.10, 443)\\
+     connexion 3 : (TCP, 192.0.2.44,  40002, 198.51.100.10, 443)};
+\end{tikzpicture}
+\end{document}

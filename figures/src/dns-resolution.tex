@@ -1,0 +1,24 @@
+% Résolution de www.example.com par un résolveur récursif dont le cache est
+% vide : trois références successives, puis la réponse et sa mise en cache.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm]
+  \node[seqhead=Dblue] (p) at (0,0) {\stack{laptop}{Poste}};
+  \node[seqhead=Dpurple] (r) at (36,0) {\stack{search}{Résolveur\\[-2pt]récursif}};
+  \node[seqhead=Dslate] (a) at (72,0) {\stack{globe}{Racine}};
+  \node[seqhead=Dteal] (t) at (108,0) {\stack{sitemap}{TLD .com}};
+  \node[seqhead=Dorange] (z) at (144,0) {\stack{server}{Autorité\\[-2pt]example.com}};
+  \seqlife{-92}{p,r,a,t,z}
+  \seqmsg[Dblue]{p}{r}{-14}{1}{www.example.com A ?}
+  \seqmsg[Dpurple]{r}{a}{-24}{2}{www.example.com A ?}
+  \seqret[Dslate]{a}{r}{-32}{voir com : a.gtld-servers.net...}
+  \seqmsg[Dpurple]{r}{t}{-42}{3}{www.example.com A ?}
+  \seqret[Dteal]{t}{r}{-50}{voir example.com : *.ns.cloudflare.com}
+  \seqmsg[Dpurple]{r}{z}{-60}{4}{www.example.com A ?}
+  \seqret[Dorange]{z}{r}{-68}{A 104.20.23.154, TTL 300}
+  \seqret[Dpurple]{r}{p}{-80}{A 104.20.23.154}
+  \node[seqnote, anchor=west] at (40,-88) {mise en cache des trois réponses, chacune pour son TTL};
+  \node[seqnote, anchor=east] at (-2,-80) {cache du\\système};
+\end{tikzpicture}
+\end{document}

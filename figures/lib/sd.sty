@@ -114,6 +114,26 @@
     minimum height=3mm, inner sep=0pt},
 }
 
+% ---- diagrammes de séquence : libellés plus grands --------------------------
+% (les figures sont affichées à la largeur de la colonne : le \scriptsize de
+% diagramme.sty y devient illisible)
+\tikzset{
+  seqnote/.style={soft=Damber, font=\sffamily\footnotesize, align=center,
+    inner sep=4pt, minimum width=0pt, minimum height=0pt},
+}
+\RenewDocumentCommand{\seqmsg}{O{Dslate} m m m m m}{%
+  \draw[arr=#1] (#2 |- 0,#4) -- (#3 |- 0,#4)
+    node[midway, above=1.6pt, font=\sffamily\footnotesize, text=Dink]{#6};
+  \edef\seqnum{#5}\ifx\seqnum\empty\else\node[num=#1] at (#2 |- 0,#4) {#5};\fi}
+\RenewDocumentCommand{\seqret}{O{Dslate} m m m m}{%
+  \draw[darr=#1, line width=0.9pt] (#2 |- 0,#4) -- (#3 |- 0,#4)
+    node[midway, above=1.6pt, font=\sffamily\footnotesize, text=Dslate, fill=white,
+      inner sep=1pt]{#5};}
+\RenewDocumentCommand{\seqself}{O{Dslate} m m m}{%
+  \draw[arr=#1] (#2 |- 0,#3) -- ++(0.7,0) -- ++(0,-0.42) -- (#2 |- 0,{#3-0.42});
+  \node[anchor=west, font=\sffamily\footnotesize, text=Dink]
+    at ($(#2 |- 0,#3)+(1.0,-0.21)$) {#4};}
+
 % ---- ajouts propres au cours ---------------------------------------------
 \tikzset{
   % texte secondaire (annotations, unités)

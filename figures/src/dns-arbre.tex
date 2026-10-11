@@ -1,0 +1,30 @@
+% L'espace de noms du DNS : un arbre, découpé en zones déléguées.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier,
+    n/.style={bloc=#1, minimum width=24mm, minimum height=7mm},
+    level distance=17mm]
+  \node[n=Plavande] (racine) at (0,0) {. (racine)};
+  \node[n=Pbleu] (com) at (-45mm,-17mm) {com};
+  \node[n=Pbleu] (fr) at (0,-17mm) {fr};
+  \node[n=Pbleu] (org) at (45mm,-17mm) {org};
+  \node[n=Pvert] (ex) at (-45mm,-34mm) {example.com};
+  \node[n=Pvert] (wp) at (45mm,-34mm) {wikipedia.org};
+  \node[n=Pjaune] (www) at (-62mm,-51mm) {www.example.com};
+  \node[n=Pjaune] (api) at (-28mm,-51mm) {api.example.com};
+  \node[n=Pjaune] (wfr) at (45mm,-51mm) {fr.wikipedia.org};
+  \foreach \a/\b in {racine/com, racine/fr, racine/org, com/ex, org/wp, ex/www, ex/api, wp/wfr}
+    \draw[ligne] (\a.south) -- (\b.north);
+  % zones déléguées
+  \begin{scope}[on background layer]
+    \node[cadred, fit=(racine), inner sep=2.5mm] (zr) {};
+    \node[cadred, fit=(com), inner sep=2.5mm] (zc) {};
+    \node[cadred, fit=(ex)(www)(api), inner sep=2.5mm] (ze) {};
+  \end{scope}
+  \node[et=Pbrun, anchor=west] at (zr.east) {zone racine : 13 identités de serveurs};
+  \node[et=Pbrun, anchor=east] at (zc.west) {zone com};
+  \node[et=Pbrun, anchor=north] at (ze.south) {zone example.com : un seul jeu de serveurs};
+  \node[eti, anchor=west] at ($(com.south)!0.5!(ex.north)$) {\hspace{2mm}délégation (enregistrements NS)};
+\end{tikzpicture}
+\end{document}

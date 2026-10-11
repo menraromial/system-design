@@ -12,6 +12,13 @@ const sidebars: SidebarsConfig = {
       link: {type: 'doc', id: 'partie-0/index'},
       items: ['partie-0/demarche', 'partie-0/estimation'],
     },
+    {
+      type: 'category',
+      label: 'Partie 1 · Fondamentaux',
+      collapsed: false,
+      link: {type: 'doc', id: 'partie-1/index'},
+      items: ['partie-1/client-serveur-dns'],
+    },
   ],
 };
 

@@ -19,7 +19,7 @@ export const PARTIES: Partie[] = [
     titre: 'Fondamentaux',
     resume: 'Le réseau, les protocoles, les styles d’API, la latence, la scalabilité, la disponibilité et la cohérence.',
     chapitres: [
-      {num: 3, titre: 'Client-serveur et DNS'},
+      {num: 3, titre: 'Client-serveur et DNS', doc: 'partie-1/client-serveur-dns'},
       {num: 4, titre: 'Transport : TCP et UDP'},
       {num: 5, titre: 'HTTP/1.1, HTTP/2, HTTP/3 et QUIC'},
       {num: 6, titre: 'TLS et HTTPS'},
