@@ -1,0 +1,23 @@
+% Mesures du chapitre : 65 s, une mise à jour toutes les 10 s.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier]
+  % octets reçus (échelle : 1 mm pour 160 o)
+  \node[titrec, anchor=west] at (0,0.9) {octets reçus en 65 s};
+  \foreach \i/\nom/\v/\c in {0/{polling (1 s)}/13754/Prose, 1/{long polling}/1270/Porange, 2/SSE/668/Pbleu, 3/WebSocket/534/Pvert} {
+    \node[leg, anchor=east, font=\sffamily\small] at (-0.15,-\i*0.6) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i*0.6-0.2) rectangle (\v/1600,-\i*0.6+0.2);
+    \node[note, anchor=west] at (\v/1600+0.1,-\i*0.6) {\v\ o};
+  }
+  % délai moyen (échelle : 1 cm pour 100 ms)
+  \begin{scope}[yshift=-3.6cm]
+    \node[titrec, anchor=west] at (0,0.9) {délai moyen de livraison};
+    \foreach \i/\nom/\v/\l/\c in {0/{polling (1 s)}/8.029/{803 ms}/Prose, 1/{long polling}/0.008/{0,8 ms}/Porange, 2/SSE/0.007/{0,7 ms}/Pbleu, 3/WebSocket/0.007/{0,7 ms}/Pvert} {
+      \node[leg, anchor=east, font=\sffamily\small] at (-0.15,-\i*0.6) {\nom};
+      \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i*0.6-0.2) rectangle (\v*1.05+0.02,-\i*0.6+0.2);
+      \node[note, anchor=west] at (\v*1.05+0.12,-\i*0.6) {\l};
+    }
+  \end{scope}
+\end{tikzpicture}
+\end{document}

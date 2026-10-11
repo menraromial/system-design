@@ -1,0 +1,22 @@
+% Mise à niveau d'une connexion HTTP en WebSocket, puis échanges de trames.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    msg/.style={arr=#1, line width=1pt},
+    lab/.style={font=\sffamily\footnotesize, text=Dink, fill=white, inner sep=1.5pt, align=center}]
+  \def\G{0}\def\D{100}
+  \node[seqhead=Dblue] (c) at (\G,0) {\stack{laptop}{Navigateur}};
+  \node[seqhead=Dpurple] (s) at (\D,0) {\stack{server}{Serveur}};
+  \draw[seqlife] (c.south) -- (\G,-92);
+  \draw[seqlife] (s.south) -- (\D,-92);
+  \draw[msg=Dblue] (\G,-14) -- node[lab, sloped, above] {GET /ws, Upgrade: websocket, Sec-WebSocket-Key} (\D,-22);
+  \draw[msg=Dpurple] (\D,-24) -- node[lab, sloped, above] {101 Switching Protocols, Sec-WebSocket-Accept} (\G,-32);
+  \node[note, anchor=west] at (\G+3,-37) {la connexion TCP ne parle plus HTTP};
+  \draw[msg=Dpurple, dash pattern=on 4pt off 2pt] (\D,-42) -- node[lab, sloped, above] {trame texte : mise à jour} (\G,-50);
+  \draw[msg=Dblue, dash pattern=on 4pt off 2pt] (\G,-52) -- node[lab, sloped, above] {trame texte (masquée) : message du client} (\D,-60);
+  \draw[msg=Dpurple, dash pattern=on 4pt off 2pt] (\D,-66) -- node[lab, sloped, above] {ping, toutes les 25 s} (\G,-74);
+  \draw[msg=Dblue, dash pattern=on 4pt off 2pt] (\G,-74) -- node[lab, sloped, above] {pong} (\D,-82);
+  \node[note, anchor=west, align=left] at (\D+4,-78) {le battement garde la connexion\\vivante à travers les répartiteurs\\et détecte un client disparu};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,23 @@
+% Architecture pour tenir un million de connexions ouvertes : des serveurs de
+% connexions sans logique métier, un bus de publication, un registre.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=10mm,
+    b/.style={minimum width=30mm, minimum height=14mm, font=\sffamily\small}]
+  \node[tile] (cl) {\dicon[\LARGE][Dslate]{users}\\[1pt]{\small 1 million de clients}};
+  \node[soft=Dpurple, b, right=12mm of cl] (lb) {\stack{random}{Répartiteur\\[-1pt]{\scriptsize délai d'inactivité > battement}}};
+  \node[soft=Dblue, b, right=14mm of lb, yshift=14mm] (g1) {\stack{plug}{Connexions 1\\[-1pt]{\scriptsize 50 000 sockets}}};
+  \node[soft=Dblue, b, below=4mm of g1] (g2) {\stack{plug}{Connexions 2}};
+  \node[soft=Dblue, b, below=4mm of g2] (g3) {\stack{plug}{Connexions 20}};
+  \node[soft=Dorange, b, right=16mm of g2] (bus) {\stack{stream}{Bus de publication\\[-1pt]{\scriptsize ch. 27}}};
+  \node[soft=Dteal, b, above=8mm of bus] (reg) {\stack{address-book}{Registre\\[-1pt]{\scriptsize client → serveur}}};
+  \node[soft=Dgreen, b, right=16mm of bus] (svc) {\stack{cogs}{Services métier}};
+  \draw[arr] (cl) -- (lb);
+  \foreach \g in {g1,g2,g3} \draw[arr] (lb.east) -- (\g.west);
+  \foreach \g in {g1,g2,g3} \draw[darr=Dorange] (bus.west) -- (\g.east);
+  \draw[arr=Dgreen] (svc) -- node[lbl, above] {publie} (bus);
+  \draw[darr=Dteal] (g1.east) to[out=20, in=180] node[lbl, above, pos=0.6] {s'enregistre} (reg.west);
+  \node[note, below=3mm of g3, align=center] {aucune logique métier :\\tenir les sockets et relayer};
+\end{tikzpicture}
+\end{document}

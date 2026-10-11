@@ -1,0 +1,56 @@
+% Quatre façons de recevoir deux événements (E1 à 2,3 s et E2 à 6,7 s) :
+% requêtes et réponses le long du temps.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=14mm, y=11mm,
+    rq/.style={draw=Dblue, line width=0.9pt, -{Latex[length=1.6mm]}},
+    rep/.style={draw=Dpurple, line width=0.9pt, -{Latex[length=1.6mm]}},
+    vide/.style={draw=Dcloud, line width=0.6pt, -{Latex[length=1.4mm]}}]
+  \draw[ligne=Dcloud] (0,0.9) -- (8.2,0.9);
+  \foreach \t in {0,...,8} {\draw[ligne=Dcloud] (\t,0.9) -- (\t,1.0); \node[note, above] at (\t,1.0) {\t\,s};}
+  % événements
+  \foreach \t/\n in {2.3/E1, 6.7/E2} {
+    \draw[ligne=Dred, dash pattern=on 2pt off 1.5pt] (\t,0.8) -- (\t,-4.6);
+    \node[etb=Dred, fill=white] at (\t,0.62) {\n};
+  }
+  % lignes
+  \foreach \y/\l in {0/{polling (1 s)}, -1.4/{long polling}, -2.8/{SSE}, -4.2/{WebSocket}}
+    {\node[leg, anchor=east, font=\sffamily\scriptsize\bfseries] at (-0.15,\y) {\l};
+     \draw[ligne=Dcloud] (0,\y) -- (8.2,\y);}
+  % polling : une requête par seconde, réponse immédiate
+  \foreach \t in {0,...,8} {
+    \draw[rq] (\t,0) -- (\t+0.08,0.32);
+    \draw[vide] (\t+0.1,0.32) -- (\t+0.18,0);
+  }
+  \foreach \t in {3,7} \draw[rep, line width=1.4pt] (\t+0.1,0.32) -- (\t+0.18,0);
+  \node[note, anchor=north] at (3.1,-0.08) {E1 vu à 3 s};
+  \node[note, anchor=north] at (7.1,-0.08) {E2 vu à 7 s};
+  % long polling : requête retenue jusqu'à l'événement
+  \draw[rq] (0,-1.4) -- (0.08,-1.08);
+  \draw[draw=Dblue, line width=0.6pt, dash pattern=on 1.5pt off 1.5pt] (0.1,-1.08) -- (2.3,-1.08);
+  \draw[rep] (2.3,-1.08) -- (2.38,-1.4);
+  \draw[rq] (2.4,-1.4) -- (2.48,-1.08);
+  \draw[draw=Dblue, line width=0.6pt, dash pattern=on 1.5pt off 1.5pt] (2.5,-1.08) -- (6.7,-1.08);
+  \draw[rep] (6.7,-1.08) -- (6.78,-1.4);
+  \draw[rq] (6.8,-1.4) -- (6.88,-1.08);
+  \draw[draw=Dblue, line width=0.6pt, dash pattern=on 1.5pt off 1.5pt] (6.9,-1.08) -- (8.2,-1.08);
+  \node[note, anchor=north] at (4.6,-1.48) {une requête en attente à tout moment, relancée après chaque réponse};
+  % SSE : une requête, réponse ouverte, événements poussés
+  \draw[rq] (0,-2.8) -- (0.08,-2.48);
+  \draw[draw=Dpurple, line width=2.2pt, opacity=0.25] (0.1,-2.62) -- (8.2,-2.62);
+  \foreach \t in {2.3,6.7} \draw[rep] (\t,-2.48) -- (\t+0.08,-2.8);
+  \node[note, anchor=north] at (4.6,-2.88) {une réponse HTTP qui ne se termine pas ; le serveur y écrit chaque événement};
+  % WebSocket : mise à niveau puis trames dans les deux sens
+  \draw[rq] (0,-4.2) -- (0.08,-3.88);
+  \draw[rep] (0.12,-3.88) -- (0.2,-4.2);
+  \node[note, anchor=south] at (0.55,-3.86) {101};
+  \foreach \t in {2.3,6.7} \draw[rep] (\t,-3.88) -- (\t+0.08,-4.2);
+  \draw[rq] (4.1,-4.2) -- (4.18,-3.88);
+  \node[note, anchor=north] at (4.6,-4.28) {après la mise à niveau, des trames dans les deux sens, à tout moment};
+  % légende
+  \draw[rq] (0,-5.3) -- (0.3,-5.3); \node[leg] at (0.32,-5.3) {client vers serveur};
+  \draw[rep] (2.6,-5.3) -- (2.9,-5.3); \node[leg] at (2.92,-5.3) {serveur vers client, avec un événement};
+  \draw[vide] (6.9,-5.3) -- (7.2,-5.3); \node[leg] at (7.22,-5.3) {réponse vide};
+\end{tikzpicture}
+\end{document}

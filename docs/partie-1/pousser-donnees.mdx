@@ -1,0 +1,265 @@
+---
+title: Pousser des données vers le client
+sidebar_label: 8. Pousser des données
+description: "Polling, long polling, Server-Sent Events, WebSocket et webhooks : délai, trafic et mémoire mesurés, connexions persistantes, battements, reconnexion, sécurité des webhooks."
+partie: 1
+chapitre: 8
+---
+
+import modes from '@site/src/figures/push-modes.svg';
+import mesures from '@site/src/figures/push-mesures.svg';
+import websocket from '@site/src/figures/push-websocket.svg';
+import architecture from '@site/src/figures/push-architecture.svg';
+import webhook from '@site/src/figures/push-webhook.svg';
+
+Un tableau de bord affiche un chiffre qui change de temps en temps : le cours d’une action, le nombre de commandes du jour, le score d’un match. La première idée est de demander au serveur, chaque seconde, la dernière valeur. Avec un million de navigateurs ouverts, cela fait un million de requêtes par seconde, et presque toutes reçoivent la même réponse que la seconde précédente. HTTP, tel que le ch. 5 l’a décrit, ne laisse parler le serveur que lorsqu’on l’interroge ; ce chapitre décrit les cinq façons de contourner cette règle quand c’est le serveur qui a quelque chose à dire, et ce que chacune coûte.
+
+Trois mesures ont été faites pour ce chapitre avec un petit serveur Python qui publie une mise à jour toutes les dix secondes : le nombre de requêtes et d’octets échangés et le délai de livraison pour quatre clients différents, puis la mémoire qu’occupent 10 000 connexions ouvertes et inactives.
+
+## La boîte aux lettres et le téléphone
+
+:::analogie[Analogie : attendre une lettre importante]
+Vous attendez une lettre. Vous pouvez descendre à la boîte toutes les cinq minutes : c’est le polling, et la plupart du temps la boîte est vide. Vous pouvez attendre devant la boîte jusqu’au passage du facteur, qui vous remet la lettre en main propre, puis vous recommencez à attendre : c’est le long polling. Vous pouvez demander à la poste de sonner chez vous à chaque nouvelle lettre : c’est un abonnement, à sens unique, le Server-Sent Events. Vous pouvez garder une ligne téléphonique ouverte en permanence avec le bureau de poste, où chacun parle quand il veut : c’est le WebSocket. Et si vous êtes une entreprise, vous donnez votre adresse à vos fournisseurs, qui vous écrivent quand ils ont du nouveau : c’est le webhook.
+
+**Où l’analogie s’arrête.** Une ligne téléphonique ouverte ne coûte presque rien au bureau de poste qui n’en a qu’une ; un serveur qui en garde un million doit en payer la mémoire et la surveillance, et c’est la principale contrainte de conception de ce chapitre. Une ligne peut aussi être coupée sans que personne raccroche : un répartiteur de charge ou un routeur domestique oublie une connexion silencieuse au bout de quelques dizaines de secondes, et aucune des deux extrémités n’en est prévenue. Quand on rappelle, il faut savoir quelles lettres sont arrivées pendant la coupure, ce que le téléphone ne dit pas. Enfin, le facteur ne peut pas sonner chez quelqu’un qui n’a pas d’adresse : un navigateur ou un téléphone, derrière un NAT (ch. 3), ne peut recevoir aucune connexion entrante, et c’est toujours lui qui doit ouvrir le canal.
+:::
+
+## Quatre mécanismes côté navigateur, un entre serveurs
+
+<Figure svg={modes} num="8.1" alt="Quatre lignes du temps sur 8 secondes, avec deux événements E1 et E2 : polling avec une requête par seconde, long polling avec une requête en attente, SSE avec une réponse ouverte, WebSocket avec des trames dans les deux sens.">
+Comment chacun des quatre mécanismes livre deux événements survenus à 2,3 s et 6,7 s.
+</Figure>
+
+Le temps court de gauche à droite et les deux traits rouges marquent les événements. Les flèches bleues vont du client au serveur, les violettes du serveur au client ; les grises sont des réponses vides. En polling, le client ne voit E1 qu’à sa requête suivante, 0,7 s plus tard. Les trois autres mécanismes le reçoivent dès qu’il se produit, mais de façons différentes : une requête en attente qu’on relance, une réponse qui ne se termine jamais, ou une connexion qui ne parle plus HTTP.
+
+### Polling
+
+Le client interroge le serveur à intervalle fixe, et le serveur répond aussitôt avec l’état courant. C’est le plus simple : n’importe quel client HTTP le fait, chaque requête est indépendante, les répartiteurs et les caches du ch. 5 fonctionnent normalement, et une réponse `304 Not Modified` avec un ETag réduit le coût d’une réponse inchangée. Deux grandeurs le caractérisent. Si les événements arrivent à des instants sans rapport avec les requêtes, le délai avant de voir un événement est uniformément réparti entre 0 et l’intervalle $T$ :
+
+$$
+\text{délai moyen} = \frac{T}{2}, \qquad \text{délai maximal} = T,
+$$
+
+et la charge du serveur vaut le nombre de clients divisé par $T$, que quelque chose ait changé ou non.
+
+### Long polling
+
+Le client envoie une requête que le serveur ne termine pas tout de suite : il la garde en attente jusqu’à ce qu’un événement arrive, ou jusqu’à un délai maximal (souvent 20 à 60 secondes), puis répond ; le client relance aussitôt une nouvelle requête[^rfc6202]. L’événement est livré presque instantanément, et le nombre de requêtes tombe à environ une par événement, plus une par expiration du délai. Le serveur doit en revanche garder une requête ouverte par client, et une subtilité apparaît : entre la réponse et la requête suivante, un événement peut survenir. Le client doit donc dire, à chaque requête, ce qu’il a déjà vu (dans l’expérience du chapitre, un paramètre `apres=N` portant le dernier numéro de version reçu), pour que le serveur lui renvoie aussitôt ce qu’il a manqué.
+
+### Server-Sent Events
+
+Avec les Server-Sent Events (SSE), définis par la norme HTML du WHATWG et utilisables dans un navigateur par l’objet `EventSource`[^sse], le client envoie une seule requête et le serveur ne termine jamais la réponse : il y écrit un message à chaque événement, au format texte `text/event-stream`.
+
+```text
+retry: 3000
+
+id: 41
+data: {"version":41,"valeur":287}
+
+: battement
+
+id: 42
+data: {"version":42,"valeur":294}
+```
+
+Chaque message se termine par une ligne vide. Le champ `id` numérote les messages ; si la connexion se coupe, le navigateur se reconnecte tout seul après le délai indiqué par `retry` (en millisecondes) et envoie le dernier identifiant reçu dans l’en-tête `Last-Event-ID`, ce qui permet au serveur de renvoyer les messages manqués. Une ligne qui commence par deux-points est un commentaire, que le client ignore : le serveur s’en sert comme battement pour que la connexion ne paraisse jamais inactive.
+
+SSE a trois limites. Il ne va que dans un sens : le client qui veut envoyer quelque chose fait une requête HTTP ordinaire à côté. Il ne transporte que du texte. Et en HTTP/1.1, chaque flux occupe une des six connexions que le navigateur s’autorise par domaine (ch. 5), si bien que six onglets ouverts sur le même site bloquent tout le reste ; en HTTP/2, les flux sont multiplexés sur une connexion et cette limite disparaît[^mdn-sse]. Il faut aussi s’assurer qu’aucun proxy ne met la réponse en tampon avant de la transmettre, ce qui retarderait chaque événement jusqu’à remplir le tampon.
+
+### WebSocket
+
+Le protocole WebSocket, décrit par la RFC 6455[^rfc6455], commence par une requête HTTP qui demande à changer de protocole, puis transforme la connexion TCP en un canal bidirectionnel de messages.
+
+<Figure svg={websocket} num="8.2" alt="Diagramme de séquence : requête HTTP de mise à niveau, réponse 101, puis trames du serveur et du client, et un échange ping-pong.">
+Mise à niveau d’une connexion HTTP en WebSocket, puis échanges de trames.
+</Figure>
+
+Les deux premiers messages sont encore du HTTP : le navigateur demande une mise à niveau (`Upgrade: websocket`) avec une clé aléatoire, le serveur accepte par un code `101 Switching Protocols` et une valeur dérivée de cette clé, qui prouve qu’il comprend le protocole. À partir de là, la connexion transporte des trames, à l’initiative de l’un ou de l’autre, en pointillés sur la figure. Le ping et le pong du bas sont le battement que le serveur envoie régulièrement.
+
+Une trame a un en-tête de 2 à 14 octets, porte du texte ou du binaire, et les trames du client vers le serveur sont masquées par une clé aléatoire, une précaution que la RFC impose pour qu’un proxy intermédiaire mal conçu ne puisse pas être trompé par un contenu qui ressemblerait à une requête HTTP. Le protocole fournit les trames de contrôle ping, pong et fermeture, mais rien d’autre : pas de numérotation des messages, pas de reprise après une coupure, pas d’accusé de réception. Tout cela est à la charge de l’application. WebSocket fonctionne aussi au-dessus de HTTP/2 et de HTTP/3, comme un flux parmi d’autres d’une connexion multiplexée[^rfc8441].
+
+### Webhooks
+
+Les quatre mécanismes précédents servent quand le client est un navigateur ou une application, qui ne peut pas recevoir de connexion. Entre deux serveurs, la solution est plus simple : celui qui reçoit expose une adresse HTTPS, et celui qui a un événement à signaler y envoie une requête `POST`. C’est le webhook : la plateforme de paiement prévient votre service qu’un paiement a abouti, l’hébergeur de code prévient votre outil d’intégration continue qu’un commit a été poussé.
+
+<Figure svg={webhook} num="8.3" alt="Le fournisseur envoie un POST signé au récepteur, qui répond 200 rapidement, place l’événement dans une file ; un traitement idempotent consulte la liste des événements déjà traités.">
+Recevoir un webhook : vérifier, accuser vite, traiter plus tard, une seule fois.
+</Figure>
+
+Le chemin se lit de gauche à droite. Le récepteur fait le minimum pendant la requête du fournisseur : vérifier la signature, enregistrer l’événement dans une file (ch. 27), répondre `200`. Le traitement réel se fait ensuite, en consultant la liste des événements déjà traités pour ne pas en traiter un deux fois.
+
+Trois propriétés des webhooks dictent cette organisation. N’importe qui peut envoyer une requête à l’adresse du récepteur : le fournisseur signe donc chaque message avec un secret partagé, par un HMAC (une empreinte calculée avec une clé) du corps de la requête, et le récepteur recalcule l’empreinte avant d’accepter quoi que ce soit. Le fournisseur considère qu’une livraison a échoué s’il ne reçoit pas de réponse rapide, et il relance : un récepteur qui fait tout le traitement pendant la requête finit par recevoir deux fois les mêmes événements. Et les relances, comme les livraisons parallèles, ne respectent pas l’ordre d’émission.
+
+```python
+import hashlib
+import hmac
+import time
+
+def verifier(corps: bytes, horodatage: str, signature: str, secret: bytes,
+             tolerance_s: int = 300) -> bool:
+    """Signature de la forme HMAC-SHA256(secret, "horodatage.corps"), en hexadécimal."""
+    if abs(time.time() - int(horodatage)) > tolerance_s:
+        return False  # message trop ancien : rejeu possible
+    attendu = hmac.new(secret, horodatage.encode() + b"." + corps, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(attendu, signature)  # comparaison en temps constant
+```
+
+L’horodatage est inclus dans ce qui est signé, si bien qu’un attaquant qui intercepte un message valide ne peut pas en changer la date pour le rejouer plus tard. La comparaison se fait en temps constant (`hmac.compare_digest`), parce qu’une comparaison ordinaire, qui s’arrête au premier caractère différent, laisse mesurer combien de caractères sont justes. La signature porte sur le corps brut de la requête, tel qu’il a été reçu : un corps relu puis réécrit par une bibliothèque JSON n’a plus forcément les mêmes octets.
+
+## Tenir des milliers de connexions ouvertes
+
+SSE et WebSocket gardent une connexion par client, souvent pendant des heures. Pour savoir ce que cela coûte, le script `outils/experiences/ch08/memoire.py` du dépôt démarre un serveur neuf (aiohttp, en Python), y ouvre 10 000 connexions qui ne font rien, et compare la mémoire résidente du serveur avant et après, ainsi que la mémoire des tampons TCP du noyau :
+
+```text
+serveur neuf au repos : 42 Mio
+WebSocket  10000 connexions ouvertes en 3.2 s ; serveur : 42 → 203 Mio,
+  soit 16.5 Kio par connexion ; tampons TCP du noyau : 6 → 8 Mio
+serveur neuf au repos : 42 Mio
+SSE        10000 connexions ouvertes en 6.5 s ; serveur : 42 → 151 Mio,
+  soit 11.2 Kio par connexion ; tampons TCP du noyau : 8 → 8 Mio
+```
+
+Deux passages ont donné les mêmes valeurs à 0,1 Kio près. Une connexion inactive coûte ici 16,5 Kio dans le serveur en WebSocket et 11,2 Kio en SSE : les objets Python qui représentent la requête, la tâche qui l’attend, les tampons de la bibliothèque. Les tampons du noyau, eux, ne bougent presque pas, parce qu’une connexion inactive n’a rien en attente d’envoi ou de lecture. Un serveur écrit dans un langage plus économe fait beaucoup mieux : en janvier 2012, l’équipe de WhatsApp annonçait avoir dépassé 2 millions de connexions TCP simultanées sur un seul serveur, sous Erlang et FreeBSD, avec 24 cœurs et 103 Go de mémoire, dont 27 Go encore libres pendant la mesure[^whatsapp], soit de l’ordre de quelques dizaines de kilooctets par connexion au plus, système compris. Retenez l’ordre de grandeur, quelques kilooctets à quelques dizaines de kilooctets par connexion inactive, et le fait qu’il dépend surtout de la bibliothèque.
+
+La mémoire n’est qu’une partie du problème. Les connexions persistantes changent l’architecture.
+
+<Figure svg={architecture} num="8.4" alt="Un million de clients passent par un répartiteur vers vingt serveurs de connexions ; des services métier publient sur un bus, qui relaie vers les serveurs de connexions ; un registre associe chaque client à son serveur.">
+Une architecture pour tenir un million de connexions ouvertes.
+</Figure>
+
+Les clients, à gauche, sont répartis sur des serveurs de connexions, en bleu, qui ne font que garder les sockets ouvertes et relayer les messages. Les services métier, à droite, ne parlent jamais directement aux clients : ils publient leurs événements sur un bus, qui les distribue aux serveurs de connexions concernés. Le registre dit sur quel serveur se trouve chaque client, pour qu’un message destiné à une personne précise n’ait pas à être envoyé partout.
+
+Séparer les connexions de la logique métier a plusieurs raisons. On déploie souvent la logique métier, et chaque redémarrage d’un serveur de connexions coupe des dizaines de milliers de clients, qui se reconnectent tous en même temps ; on veut donc que ces serveurs changent rarement. Un serveur qui garde des connexions doit les vider proprement avant de s’arrêter (on parle de drainage, ch. 13), en prévenant les clients de se reconnecter ailleurs, avec un délai aléatoire pour ne pas tous revenir dans la même seconde (ch. 38). Et chaque équipement entre le client et le serveur a un délai d’inactivité : le répartiteur d’application d’AWS ferme par défaut une connexion silencieuse au bout de 60 secondes[^alb], d’où le battement toutes les 25 secondes de l’expérience, qui garde la connexion active et permet aussi de détecter les clients disparus sans fermeture.
+
+## Ordres de grandeur, mesurés
+
+Le script `outils/experiences/ch08/trafic.py` fait tourner, pendant 65 secondes, quatre clients du même serveur, qui publie une mise à jour toutes les 10 secondes : un client qui interroge chaque seconde, un en long polling, un en SSE, un en WebSocket. Les clients parlent HTTP directement sur des sockets, ce qui permet de compter exactement les octets échangés au niveau de l’application, en-têtes HTTP compris ; ils envoient des en-têtes modestes (un `User-Agent`, un `Accept`, une langue), bien plus courts que ceux d’un vrai navigateur avec ses cookies.
+
+```text
+65 s, une mise à jour toutes les 10 s ; délais en ms
+client         requêtes  envoyés   reçus reçues  moyen    max
+polling (1 s)        65    10205   13754      6  802.9 1003.7
+long polling          7     1183    1270      6    0.8    1.2
+SSE                   1      184     668      6    0.7    0.9
+WebSocket             1      280     534      6    0.7    1.0
+```
+
+<Figure svg={mesures} num="8.5" alt="Deux graphiques en barres : octets reçus en 65 secondes, 13 725 pour le polling contre 532 à 1 268 pour les autres ; délai moyen de livraison, 794 ms pour le polling contre moins d’une milliseconde pour les autres.">
+Octets reçus et délai moyen de livraison, mesurés sur 65 secondes.
+</Figure>
+
+Les deux graphiques racontent la même chose de deux façons. Le polling envoie 65 requêtes pour 6 mises à jour, reçoit 26 fois plus d’octets que le WebSocket, et livre chaque événement avec plusieurs centaines de millisecondes de retard. Les trois autres livrent en moins d’une milliseconde, client et serveur étant sur la même machine. Le délai moyen du polling, 803 ms, est plus élevé que la moyenne théorique de 500 ms : sur seulement 6 événements, le décalage entre l’horloge des requêtes et celle des publications est presque le même à chaque fois, et il se trouvait ici défavorable. Sur un grand nombre de clients aux horloges indépendantes, la moyenne tendrait vers $T/2$.
+
+:::calcul[Calcul : le tableau de bord d’un million de navigateurs]
+Hypothèses : 1 000 000 de navigateurs ; la valeur affichée change toutes les 10 secondes ; tailles mesurées dans l’expérience (requête de polling 157 octets, réponse 212 octets) ; mémoire mesurée pour une connexion SSE inactive, 11,2 Kio.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Requêtes, polling chaque seconde | $10^6 / 1$ s | 1 000 000 par seconde |
+| Débit, polling chaque seconde | $10^6 \times (157 + 212)$ o × 8 | ≈ 2,9 Gbit/s |
+| Part des réponses inutiles | 9 réponses sur 10 n’apportent rien de neuf | 90 % |
+| Délai moyen, polling chaque seconde | $T / 2$ | 500 ms |
+| Messages poussés en SSE | $10^6$ clients / 10 s | 100 000 par seconde |
+| Débit en SSE (message de 100 o environ) | $10^5 \times 100$ o × 8 | ≈ 80 Mbit/s |
+| Mémoire des connexions SSE, bibliothèque Python | $10^6 \times 11{,}2$ Kio | ≈ 11 Gio, répartis sur les serveurs de connexions |
+| Serveurs de connexions à 50 000 clients chacun | $10^6 / 50\,000$, + marge | 20 à 25 |
+
+Conclusion : le polling chaque seconde coûte un million de requêtes par seconde pour un dixième d’informations utiles. SSE divise le trafic par plus de 30 et livre chaque mise à jour sans attendre ; son coût se déplace vers la mémoire et le nombre de connexions ouvertes, qui dimensionnent alors les serveurs. Si 500 ms de délai sont acceptables, un polling toutes les 10 secondes avec des réponses 304 serait aussi une option honnête : 100 000 requêtes par seconde, presque toutes sans corps, et une architecture sans connexions persistantes.
+:::
+
+## Choisir un mécanisme
+
+| Mécanisme | Avantages | Inconvénients | Quand le choisir |
+|---|---|---|---|
+| Polling | le plus simple, sans état, compatible avec tous les intermédiaires et caches | délai moyen $T/2$ ; charge proportionnelle au nombre de clients, même sans changement | mises à jour rares, délai de quelques secondes acceptable, très grand nombre de clients occasionnels |
+| Long polling | quasi instantané, fonctionne partout où HTTP passe | une requête en attente par client ; relance après chaque événement ; gestion des événements survenus entre deux requêtes | environnements qui bloquent SSE et WebSocket ; solution de repli |
+| SSE | simple, en HTTP standard, reconnexion et reprise prévues par la norme (`Last-Event-ID`) | serveur vers client seulement ; texte ; limite de six connexions en HTTP/1.1 | notifications, flux d’actualité, scores, avancement d’une tâche, réponses d’un modèle de langage mot à mot |
+| WebSocket | bidirectionnel, faible surcoût par message, binaire possible | ni reprise ni accusés fournis ; connexions longues à gérer derrière les répartiteurs ; plus d’outillage à écrire | messagerie, édition collaborative, jeux, échanges fréquents dans les deux sens |
+| Webhook | pas de connexion permanente ; le récepteur n’est appelé que lorsqu’il y a quelque chose | le récepteur doit être joignable, vérifier les signatures, dédoublonner et supporter le désordre | entre serveurs, pour des événements d’un service tiers |
+
+Les applications mobiles ont un sixième canal, les notifications système des plateformes (APNs pour Apple, FCM pour Google), qui atteignent l’appareil même quand l’application est fermée ; le ch. 62 les traite avec les systèmes de notifications.
+
+## Exemples réels : les règles de livraison de Stripe et de GitHub
+
+Deux grandes plateformes documentent précisément ce qu’elles garantissent, et ce qu’elles ne garantissent pas, à ceux qui reçoivent leurs webhooks. Stripe relance une livraison échouée pendant trois jours au maximum, avec un délai qui augmente à chaque tentative ; elle prévient que le même événement peut être livré plusieurs fois et qu’elle ne garantit pas l’ordre des événements, et recommande donc d’enregistrer les identifiants des événements déjà traités. Chaque message porte un en-tête `Stripe-Signature` qui contient un horodatage signé avec le corps, et les bibliothèques de Stripe refusent par défaut un message dont l’horodatage s’écarte de plus de cinq minutes de l’heure courante, pour empêcher les rejeux[^stripe-webhooks]. GitHub, de son côté, exige une réponse en 2xx dans les 10 secondes, faute de quoi il considère la livraison comme échouée, et ne relance pas automatiquement les livraisons échouées : c’est au récepteur de les redemander par l’API[^github-webhooks]. Deux politiques opposées, donc, et la même conclusion pour le concepteur : répondre vite, traiter de façon asynchrone et idempotente, et ne jamais compter sur l’ordre d’arrivée.
+
+## Erreurs fréquentes
+
+Le polling trop fréquent vient en premier : on règle l’intervalle à une seconde « pour que ce soit réactif », sans calculer qu’il multiplie la charge par le nombre de clients. Le calcul $N / T$ doit précéder le choix de $T$.
+
+L’oubli du battement donne une panne déroutante : les connexions SSE ou WebSocket se coupent au bout d’une minute pile, à cause du délai d’inactivité d’un répartiteur, et les clients se reconnectent sans cesse. Le battement doit être plus fréquent que le plus court délai d’inactivité du chemin.
+
+La tempête de reconnexions est le corollaire. Après un déploiement ou une coupure réseau, tous les clients se reconnectent dans la même seconde et saturent le service qu’ils viennent de quitter. Un délai aléatoire avant chaque reconnexion, qui croît après chaque échec (ch. 38), étale la vague.
+
+Beaucoup d’applications oublient aussi les messages manqués pendant une coupure : à la reconnexion, le client reprend le flux là où il est, et ce qui a été publié pendant la coupure est perdu. SSE prévoit `Last-Event-ID` ; avec WebSocket, il faut construire soi-même un numéro de séquence et une demande de rattrapage.
+
+Choisir WebSocket par défaut pour tout est une erreur fréquente : pour un flux qui ne va que du serveur vers le client, SSE suffit, reste du HTTP standard et apporte la reconnexion. À l’inverse, mettre la logique métier dans les serveurs qui tiennent les connexions oblige à les redémarrer à chaque déploiement, avec la tempête de reconnexions qui suit.
+
+Pour les webhooks, les erreurs classiques sont de ne pas vérifier la signature, de la comparer avec `==`, de faire tout le traitement avant de répondre, de traiter deux fois un événement relancé, et de supposer que les événements arrivent dans l’ordre.
+
+:::piege[Erreur fréquente : un webhook traité pendant la requête]
+Un récepteur qui, à la réception d’un événement de paiement, met à jour la commande, envoie un e-mail et appelle le service de livraison avant de répondre, finit par dépasser le délai du fournisseur un jour de forte charge. Le fournisseur relance, l’événement est traité une deuxième fois, le client reçoit deux e-mails et la livraison est demandée deux fois. Accuser réception d’abord, traiter ensuite, et dédoublonner par l’identifiant de l’événement.
+:::
+
+:::entretien
+Dès qu’un énoncé contient « en temps réel », dites ce que cela signifie en chiffres : quel délai est acceptable, combien de clients sont connectés en même temps, à quelle fréquence l’information change. Le choix entre polling, SSE et WebSocket en découle, et le nombre de connexions simultanées devient une donnée de dimensionnement, au même titre que le débit (ch. 2). Mentionnez le battement, la reconnexion avec délai aléatoire et la reprise des messages manqués.
+:::
+
+## Exercices
+
+**Question 1.** 200 000 clients surveillent une valeur qui change en moyenne une fois par minute. Comparez, pour un polling toutes les 5 secondes et pour SSE, le nombre de requêtes ou de messages par seconde reçus par le serveur, le délai moyen avant de voir un changement, et la part des réponses de polling qui n’apportent rien.
+
+**Question 2.** Une application de discussion en WebSocket fonctionne parfaitement en développement. En production, derrière un répartiteur d’application dont la configuration n’a pas été modifiée, les utilisateurs inactifs voient la connexion se couper au bout d’une minute environ. Expliquez la cause et deux corrections.
+
+**Question 3.** Votre service reçoit, d’une plateforme de paiement, l’événement « paiement remboursé » avant l’événement « paiement réussi » du même paiement, puis reçoit une deuxième fois « paiement réussi ». Que doit faire votre récepteur pour que l’état final de la commande soit juste ?
+
+**Exercice de conception.** Une application de résultats sportifs veut afficher les buts d’un match en direct à 2 millions de supporters connectés en même temps, avec moins de deux secondes entre le but et l’affichage. En dehors des buts, le score ne change pas ; un match compte en moyenne 3 buts, et le service publie en plus une statistique (possession, tirs) toutes les 30 secondes. Choisissez le mécanisme, dessinez l’architecture, estimez le nombre de serveurs de connexions et le débit sortant au moment d’un but, et dites comment éviter qu’un déploiement en plein match ne provoque une panne.
+
+## Corrigés
+
+**Question 1.** Polling toutes les 5 secondes : $200\,000 / 5 = 40\,000$ requêtes par seconde. Délai moyen : $T/2 = 2{,}5$ s. La valeur change une fois par minute, soit une fois toutes les 12 requêtes d’un client : 11 réponses sur 12, environ 92 %, n’apportent rien (une réponse `304` en réduit le coût mais pas le nombre). SSE : les clients reçoivent un message par changement, soit $200\,000 / 60 \approx 3\,300$ messages par seconde en moyenne, plus les battements, avec un délai de l’ordre d’une demi-durée d’aller-retour réseau. Le prix est de garder 200 000 connexions ouvertes, soit quelques gigaoctets de mémoire répartis sur plusieurs serveurs avec une bibliothèque comme celle de l’expérience (200 000 × 11,2 Kio ≈ 2,1 Gio).
+
+**Question 2.** Le répartiteur ferme les connexions qui n’ont transporté aucune donnée pendant son délai d’inactivité, 60 secondes par défaut pour le répartiteur d’application d’AWS. En développement, il n’y a pas de répartiteur, d’où la différence. Première correction : faire envoyer par le serveur (ou le client) un ping toutes les 20 à 30 secondes, ce qui maintient la connexion active et détecte au passage les clients disparus. Deuxième correction, complémentaire : relever le délai d’inactivité du répartiteur, sans compter dessus seul, puisque d’autres équipements sur le chemin (NAT d’opérateur, proxy d’entreprise) ont leurs propres délais. Dans tous les cas, le client doit se reconnecter automatiquement, avec un délai aléatoire, et reprendre là où il en était.
+
+**Question 3.** Le récepteur ne doit dépendre ni de l’ordre ni de l’unicité des livraisons. Il enregistre l’identifiant de chaque événement traité et ignore le deuxième « paiement réussi », qui porte le même identifiant que le premier. Pour l’ordre, deux approches : dériver l’état de la commande d’une machine à états qui refuse les transitions impossibles et sait qu’un remboursement est un état final (« remboursé » ne peut pas redevenir « payé »), ou, plus sûr, considérer chaque événement comme un simple signal et relire l’état actuel du paiement auprès de l’API du fournisseur avant de mettre à jour la commande. Dans les deux cas, l’état final est « remboursé ».
+
+**Exercice de conception.**
+
+*Mécanisme.* SSE : le flux ne va que du serveur vers les supporters, les messages sont petits et rares, et la reconnexion automatique avec `Last-Event-ID` est exactement ce qu’il faut pour ne rater aucun but. Servi en HTTP/2 pour éviter la limite de six connexions. Les applications mobiles peuvent utiliser le même flux tant qu’elles sont ouvertes, et les notifications système pour prévenir d’un but quand elles sont fermées.
+
+*Architecture.* Celle de la figure 8.4 : un répartiteur, des serveurs de connexions sans logique métier, un bus de publication par match, et le service de saisie des scores qui publie sur ce bus. Chaque serveur de connexions s’abonne aux matchs que suivent ses clients et diffuse chaque événement à ses abonnés. Chaque événement porte un numéro de séquence par match, utilisé comme `id` SSE ; les serveurs gardent en mémoire les derniers événements de chaque match pour répondre aux reconnexions.
+
+*Dimensionnement.*
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Serveurs de connexions à 50 000 clients | $2 \times 10^6 / 50\,000$, + 25 % de marge pour perdre ou redémarrer des serveurs | 40, arrondi à 50 |
+| Messages à envoyer pour un but | un par supporter | $2 \times 10^6$ |
+| Débit sortant si le but est livré en 1 s (message de 300 o avec en-têtes de trame) | $2 \times 10^6 \times 300$ o × 8 / 1 s | ≈ 4,8 Gbit/s pendant une seconde |
+| Par serveur de connexions | 4,8 Gbit/s / 50 | ≈ 96 Mbit/s |
+| Statistiques toutes les 30 s | $2 \times 10^6 / 30$ | ≈ 67 000 messages/s en continu |
+
+Le délai de deux secondes est tenu si chaque serveur peut écrire 40 000 messages en moins d’une seconde, ce qui est à mesurer avec la bibliothèque choisie ; c’est la boucle d’envoi, plus que la mémoire, qui risque de limiter.
+
+*Déploiements.* Les serveurs de connexions ne contiennent pas de logique métier et ne sont presque jamais redéployés pendant un match ; on gèle leurs déploiements les jours de grands matchs. Quand il faut en arrêter un, on le vide progressivement : il cesse d’accepter de nouveaux clients, demande aux siens de se reconnecter par petits lots, chacun avec un délai aléatoire, et ne s’arrête qu’une fois vide. Grâce à `Last-Event-ID`, un client reconnecté ailleurs reçoit les événements qu’il a manqués. Si une coupure générale survient, la reconnexion des 2 millions de clients étalée sur 60 secondes représente environ 33 000 nouvelles connexions par seconde, avec leur poignée de main TLS (ch. 6) : c’est la charge à prévoir pour le répartiteur et les serveurs de connexions.
+
+:::fiche
+- Polling : délai moyen $T/2$, charge $N/T$ qu’il y ait du nouveau ou non ; simple, cacheable, sans état.
+- Long polling : requête retenue jusqu’à l’événement ; le client dit ce qu’il a déjà vu pour ne rien manquer entre deux requêtes.
+- SSE : une réponse HTTP qui ne se termine pas ; serveur vers client ; reconnexion et `Last-Event-ID` prévus ; HTTP/2 pour éviter la limite de six connexions.
+- WebSocket : mise à niveau HTTP puis trames bidirectionnelles ; ni reprise ni accusés fournis.
+- Webhooks entre serveurs : signature HMAC avec horodatage, comparaison en temps constant, réponse rapide, traitement asynchrone et idempotent, ordre non garanti.
+- Mesuré sur 65 s : polling 65 requêtes et 803 ms de délai moyen ; SSE et WebSocket une requête et moins d’1 ms.
+- Mémoire mesurée par connexion inactive (Python) : 16,5 Kio en WebSocket, 11,2 Kio en SSE ; WhatsApp : plus de 2 millions de connexions par serveur en 2012.
+- Battement plus fréquent que le plus court délai d’inactivité (60 s par défaut sur l’ALB d’AWS) ; reconnexion avec délai aléatoire ; serveurs de connexions sans logique métier.
+:::
+
+[^rfc6202]: RFC 6202, *Known Issues and Best Practices for the Use of Long Polling and Streaming in Bidirectional HTTP*, 2011.
+[^sse]: WHATWG, *HTML Living Standard*, section « Server-sent events », [html.spec.whatwg.org/multipage/server-sent-events.html](https://html.spec.whatwg.org/multipage/server-sent-events.html).
+[^mdn-sse]: MDN Web Docs, « Using server-sent events », [developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events).
+[^rfc6455]: RFC 6455, *The WebSocket Protocol*, 2011 ; le masquage des trames du client est justifié en section 10.3.
+[^rfc8441]: RFC 8441, *Bootstrapping WebSockets with HTTP/2*, 2018 ; RFC 9220, *Bootstrapping WebSockets with HTTP/3*, 2022.
+[^whatsapp]: WhatsApp, « 1 million is so 2011 », 6 janvier 2012, [blog.whatsapp.com/1-million-is-so-2011](https://blog.whatsapp.com/1-million-is-so-2011).
+[^alb]: Amazon Web Services, *Elastic Load Balancing, Application Load Balancers*, « Edit attributes for your Application Load Balancer », section « Connection idle timeout », [docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-load-balancer-attributes.html](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-load-balancer-attributes.html).
+[^stripe-webhooks]: Stripe, « Recevez les événements Stripe dans votre endpoint de webhook », [docs.stripe.com/webhooks](https://docs.stripe.com/webhooks).
+[^github-webhooks]: GitHub Docs, « Handling failed webhook deliveries » et « Troubleshooting webhooks », [docs.github.com/en/webhooks](https://docs.github.com/en/webhooks).

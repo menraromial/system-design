@@ -1,0 +1,20 @@
+% Réception d'un webhook : vérifier, répondre vite, traiter plus tard, une seule fois.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[node distance=12mm,
+    b/.style={minimum width=30mm, minimum height=14mm, font=\sffamily\small}]
+  \node[soft=Dslate, b] (four) {\stack{building}{Fournisseur\\[-1pt]{\scriptsize paiement, dépôt de code}}};
+  \node[soft=Dpurple, b, right=30mm of four] (rec) {\stack{door-open}{Récepteur\\[-1pt]{\scriptsize vérifie et accuse}}};
+  \node[soft=Dorange, b, right=16mm of rec] (file) {\stack{stream}{File\\[-1pt]{\scriptsize ch. 27}}};
+  \node[soft=Dgreen, b, right=16mm of file] (w) {\stack{cogs}{Traitement\\[-1pt]{\scriptsize idempotent}}};
+  \node[soft=Dteal, b, below=10mm of w] (vus) {\stack{database}{Événements déjà traités}};
+  \draw[arr] ([yshift=3mm]four.east) -- node[lbl, above=1mm] {POST signé (HMAC)} ([yshift=3mm]rec.west);
+  \draw[darr=Dpurple] ([yshift=-3mm]rec.west) -- node[lbl, below=1mm] {200 en moins d'1 s} ([yshift=-3mm]four.east);
+  \draw[arr] (rec) -- (file);
+  \draw[arr] (file) -- (w);
+  \draw[biarr=Dteal] (w) -- node[lbl, right=1mm] {identifiant d'événement} (vus);
+  \node[note, below=3mm of four, align=center] {relance avec délai croissant\\si pas de 2xx};
+  \node[note, below=3mm of rec, align=center] {signature et horodatage\\vérifiés avant tout};
+\end{tikzpicture}
+\end{document}

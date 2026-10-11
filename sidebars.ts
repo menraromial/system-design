@@ -17,7 +17,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 1 · Fondamentaux',
       collapsed: false,
       link: {type: 'doc', id: 'partie-1/index'},
-      items: ['partie-1/client-serveur-dns', 'partie-1/transport', 'partie-1/http', 'partie-1/tls', 'partie-1/styles-api'],
+      items: ['partie-1/client-serveur-dns', 'partie-1/transport', 'partie-1/http', 'partie-1/tls', 'partie-1/styles-api', 'partie-1/pousser-donnees'],
     },
   ],
 };
