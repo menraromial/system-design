@@ -18,3 +18,6 @@ npm-debug.log*
 .idea/
 .DS_Store
 __pycache__/
+
+# Fichiers générés par outils/experiences/ch05/mesurer.sh
+outils/experiences/ch05/site/

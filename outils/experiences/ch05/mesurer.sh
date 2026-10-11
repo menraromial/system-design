@@ -5,6 +5,11 @@
 set -euo pipefail
 export LC_NUMERIC=C
 cd "$(dirname "$0")"
+# cent fichiers de 1 Ko (texte aléatoire), créés au premier lancement
+if [ ! -d site ]; then
+  mkdir site
+  for i in $(seq -w 1 100); do head -c 1024 /dev/urandom | base64 -w 76 > "site/f$i.txt"; done
+fi
 TMP=$(mktemp -d)
 caddy run --config Caddyfile --adapter caddyfile > "$TMP/caddy.log" 2>&1 &
 CADDY=$!
