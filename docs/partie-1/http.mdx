@@ -1,0 +1,338 @@
+---
+title: HTTP/1.1, HTTP/2, HTTP/3 et QUIC
+sidebar_label: 5. HTTP/1.1, HTTP/2, HTTP/3
+description: "Requêtes, méthodes, codes et en-têtes ; HTTP/1.1 et ses six connexions ; HTTP/2, multiplexage et HPACK ; HTTP/3 et QUIC ; le cache HTTP. Mesures réelles à l'appui."
+partie: 1
+chapitre: 5
+---
+
+import piles from '@site/src/figures/http-piles.svg';
+import multiplexage from '@site/src/figures/http-multiplexage.svg';
+import hol from '@site/src/figures/http-hol.svg';
+import ouverture from '@site/src/figures/http-ouverture.svg';
+import cache from '@site/src/figures/http-cache.svg';
+
+Cent fichiers de 1 Ko, servis par le même serveur, à travers un réseau où chaque aller-retour coûte 50 ms. En HTTP/1.1, sur une seule connexion, le téléchargement prend 5,35 secondes. Avec six transferts en parallèle, 1,04 seconde. En HTTP/2, sur une seule connexion, 0,14 seconde. Le serveur, le réseau et les fichiers sont les mêmes dans les trois cas ; seule change la façon dont les requêtes se partagent les allers-retours. Ces trois chiffres ont été mesurés pour ce chapitre, et l’expérience est décrite plus bas.
+
+HTTP est le protocole de presque tout ce qu’on conçoit dans ce cours : les pages web, les API, les appels entre services, la vidéo à la demande. Ce chapitre en décrit les éléments qui comptent pour la conception (méthodes, codes, en-têtes, cache), puis les trois versions en usage, chacune née des limites de la précédente.
+
+## Le guichet, les tickets et le tapis roulant
+
+:::analogie[Analogie : un guichet de retrait de colis]
+Avec HTTP/1.1, le guichet sert un client à la fois : vous posez une question, vous attendez la réponse complète, puis vous posez la suivante. Pour aller plus vite, vous faites la queue à six guichets en même temps, ce qui encombre la salle. Avec HTTP/2, il n’y a plus qu’un guichet, mais vous remettez toutes vos demandes d’un coup, chacune avec un numéro de ticket, et l’employé vous rend les colis au fur et à mesure qu’ils sont prêts, en piles entremêlées que vous triez grâce aux tickets. L’employé vous connaît, en plus : vous n’avez pas à redonner votre nom et votre adresse à chaque demande, seulement ce qui change.
+
+Mais les colis arrivent tous par le même tapis roulant. Si l’un d’eux tombe, le tapis s’arrête jusqu’à ce qu’on le remplace, et tous les autres colis attendent derrière lui, même ceux qui ne vous concernent pas. HTTP/3 remplace ce tapis unique par un tapis par ticket : un colis tombé ne retient que les colis de son ticket.
+
+**Où l’analogie s’arrête.** Le tapis roulant n’est pas un choix d’architecture du bureau de poste, c’est TCP lui-même, que HTTP/2 ne pouvait pas changer parce qu’il vit dans le noyau des systèmes d’exploitation : il a fallu construire un nouveau transport, QUIC, au-dessus d’UDP. L’analogie oublie aussi l’arrivée au guichet : avant toute demande, il faut ouvrir la connexion et la chiffrer, ce qui coûte un, deux ou trois allers-retours selon la version, et cela compte souvent plus que le traitement des demandes. Enfin, le meilleur colis est celui qu’on n’a pas besoin d’aller chercher : HTTP décrit précisément quand une copie déjà reçue peut resservir, et ce cache n’a pas d’équivalent au guichet.
+:::
+
+## HTTP : des requêtes et des réponses
+
+HTTP (Hypertext Transfer Protocol) suit le modèle client-serveur du ch. 3 : le client envoie une requête, le serveur renvoie une réponse. Sa sémantique, commune aux trois versions, est décrite par la RFC 9110[^rfc9110] ; chaque version ne change que la façon de transporter les messages. En HTTP/1.1, un message est du texte : une ligne de départ, des en-têtes (headers) sous la forme `Nom: valeur`, une ligne vide, puis un corps éventuel.
+
+```http
+GET / HTTP/1.1
+Host: www.wikipedia.org
+Accept: text/html
+Accept-Encoding: gzip, br
+If-None-Match: W/"1dd55-65d54a13c8d00"
+
+HTTP/1.1 304 Not Modified
+Cache-Control: s-maxage=86400, must-revalidate, max-age=3600
+ETag: W/"1dd55-65d54a13c8d00"
+```
+
+Cet échange reprend une requête réellement envoyée à la page d’accueil de Wikipédia pendant la rédaction (traduite ici en HTTP/1.1, le dialogue réel ayant eu lieu en HTTP/2). La requête nomme une méthode et une ressource ; la réponse donne un code d’état et des en-têtes, ici sans corps parce que le client possède déjà la bonne version (on y revient avec le cache).
+
+### Les méthodes
+
+La méthode dit ce que le client veut faire de la ressource. Deux propriétés définies par la RFC 9110 ont des conséquences directes sur la conception. Une méthode sûre (safe) ne modifie rien côté serveur, si bien qu’un cache ou un robot peut l’envoyer sans risque. Une méthode idempotente (idempotent) produit le même effet qu’on l’envoie une ou plusieurs fois, si bien qu’un client ou un proxy peut la rejouer après une erreur réseau sans craindre de dupliquer l’opération (le ch. 38 généralise cette idée).
+
+| Méthode | Usage | Sûre | Idempotente |
+|---|---|---|---|
+| GET | lire une ressource | oui | oui |
+| HEAD | lire les en-têtes seulement | oui | oui |
+| OPTIONS | demander ce que le serveur accepte | oui | oui |
+| PUT | créer ou remplacer une ressource à une adresse donnée | non | oui |
+| DELETE | supprimer | non | oui |
+| POST | soumettre des données, créer une ressource dont le serveur choisit l’adresse | non | non |
+| PATCH | modifier partiellement[^rfc5789] | non | non |
+
+L’idempotence est une promesse que l’implémentation du serveur doit tenir. Un `DELETE` qui renvoie 404 la deuxième fois reste idempotent, puisque l’état du serveur est le même après un ou deux appels ; un `PUT` dont le code incrémente un compteur ne l’est pas, quoi qu’en dise la norme.
+
+### Les codes d’état
+
+Le code tient en trois chiffres, et le premier donne la classe : 1xx information, 2xx succès, 3xx redirection, 4xx erreur du client, 5xx erreur du serveur. Une poignée de codes reviennent constamment en conception.
+
+| Code | Sens | Ce que le client devrait faire |
+|---|---|---|
+| 200 OK, 201 Created, 204 No Content | succès, ressource créée, succès sans corps | continuer |
+| 301 Moved Permanently, 308 Permanent Redirect | la ressource a changé d’adresse pour de bon | suivre et mémoriser (les navigateurs gardent la redirection en cache) |
+| 302 Found, 307 Temporary Redirect | redirection temporaire | suivre, sans mémoriser |
+| 304 Not Modified | la copie du client est encore valable | réutiliser sa copie |
+| 400, 401, 403, 404 | requête invalide, non authentifiée, interdite, ressource absente | corriger, ne pas réessayer tel quel |
+| 409 Conflict | conflit avec l’état de la ressource | relire l’état, puis décider |
+| 429 Too Many Requests | trop de requêtes (ch. 30) | attendre la durée indiquée par `Retry-After` |
+| 500 Internal Server Error | erreur du serveur | réessayer seulement si la requête est idempotente |
+| 502 Bad Gateway, 504 Gateway Timeout | un intermédiaire n’a pas obtenu de réponse valide du serveur | réessayer avec prudence (ch. 38) |
+| 503 Service Unavailable | serveur surchargé ou en maintenance | attendre, `Retry-After` si présent |
+
+La distinction entre 4xx et 5xx guide les nouvelles tentatives : une erreur du client se reproduira à l’identique, une erreur du serveur peut disparaître. Renvoyer 200 avec un message d’erreur dans le corps casse cette logique pour tous les intermédiaires (caches, répartiteurs, métriques) qui ne lisent que le code.
+
+### Les en-têtes qui comptent pour la conception
+
+`Host` désigne le site visé, ce qui permet à une seule adresse IP de servir des milliers de domaines. `Content-Length` donne la taille du corps ; quand le serveur ne la connaît pas à l’avance, HTTP/1.1 envoie le corps en morceaux (`Transfer-Encoding: chunked`). `Accept-Encoding` et `Content-Encoding` négocient la compression (gzip, Brotli, Zstandard) : un document texte comme du HTML ou du JSON, très répétitif, se compresse bien, et c’est l’optimisation de bande passante la moins chère à mettre en place. `Cookie` et `Authorization` portent l’identité du client (ch. 54). Les en-têtes de cache sont traités plus bas.
+
+## HTTP/1.1 : une requête à la fois
+
+HTTP/1.1 garde la connexion TCP ouverte entre deux requêtes par défaut (le keep-alive du ch. 4), mais une connexion ne porte qu’un échange à la fois : le client doit recevoir la réponse complète avant d’envoyer la requête suivante. La norme prévoyait d’envoyer plusieurs requêtes d’avance (pipelining), mais les navigateurs ne l’activent pas, à cause de proxys défaillants et du blocage en tête de file que cela crée[^mdn]. Pour charger plusieurs ressources en même temps, un navigateur ouvre donc plusieurs connexions vers le même site, aujourd’hui six en général[^mdn]. Certains sites répartissaient leurs ressources sur plusieurs noms de domaine (`img1.example`, `img2.example`) pour en obtenir davantage, technique appelée domain sharding, désormais déconseillée.
+
+<Figure svg={multiplexage} num="5.1" alt="Douze requêtes : en série sur une connexion HTTP/1.1, 12 allers-retours ; sur six connexions HTTP/1.1, 2 allers-retours ; multiplexées sur une connexion HTTP/2, 1 aller-retour.">
+Douze petites requêtes selon la façon de les faire passer.
+</Figure>
+
+L’axe horizontal compte les allers-retours ; chaque case est une requête et sa réponse. En haut, une seule connexion HTTP/1.1 traite les requêtes l’une après l’autre : 12 RTT. Au milieu, six connexions en traitent six à la fois : 2 RTT, au prix de six ouvertures de connexion (ch. 4). En bas, HTTP/2 envoie les douze requêtes d’un coup sur une seule connexion et reçoit les réponses entrelacées : 1 RTT, si les réponses sont petites.
+
+## HTTP/2 : des flux multiplexés sur une connexion
+
+HTTP/2, normalisé en 2015 à partir du protocole SPDY de Google et révisé par la RFC 9113[^rfc9113], garde la sémantique de HTTP mais remplace le texte par des trames (frames) binaires. Chaque échange requête-réponse devient un flux (stream) numéroté ; les trames de flux différents s’entrelacent sur la même connexion, et le destinataire les trie par numéro. Une seule connexion TCP suffit pour toutes les requêtes d’un client vers un site, ce qui économise des ouvertures et laisse la fenêtre de congestion grandir (ch. 4).
+
+<Figure svg={piles} num="5.2" alt="Trois piles : HTTP/1.1 sur TLS sur TCP sur IP ; HTTP/2 sur TLS sur TCP sur IP ; HTTP/3 sur QUIC sur UDP sur IP.">
+Les piles de protocoles des trois versions de HTTP.
+</Figure>
+
+Chaque colonne est une pile, de l’application (en haut) au réseau (en bas), avec l’année de la première norme. HTTP/1.1 et HTTP/2 reposent sur la même base, TLS sur TCP ; HTTP/2 ne change que la couche du haut. HTTP/3 remplace TLS et TCP par QUIC, qui intègre le chiffrement et tourne au-dessus d’UDP, dans l’application et non dans le noyau.
+
+HTTP/2 compresse aussi les en-têtes, par l’algorithme HPACK[^rfc7541]. Les en-têtes d’une suite de requêtes se ressemblent beaucoup : même `User-Agent`, mêmes cookies, mêmes `Accept`. HPACK remplace les plus courants par un index dans une table statique de 61 entrées, mémorise les autres dans une table dynamique propre à la connexion, et code les chaînes restantes par un code de Huffman. Une valeur déjà envoyée sur la connexion ne coûte plus qu’un ou deux octets.
+
+Le multiplexage a un prix. Toutes les trames passent par le même flux d’octets TCP, ordonné : un paquet perdu bloque tous les flux de la connexion jusqu’à sa retransmission (le blocage en tête de file du ch. 4), alors qu’avec six connexions HTTP/1.1, une perte n’en bloquait qu’une sur six. Sur un réseau qui perd beaucoup de paquets, HTTP/2 peut donc faire moins bien que HTTP/1.1.
+
+<Figure svg={hol} num="5.3" alt="Six trames de trois flux A, B, C. Sur TCP, la perte d’une trame B bloque toutes les trames suivantes. Sur QUIC, seule la trame B suivante attend, A et C sont remises.">
+Effet d’un paquet perdu sur les flux d’une connexion HTTP/2 et d’une connexion HTTP/3.
+</Figure>
+
+Chaque case est une trame, et sa lettre le flux auquel elle appartient. Sur la ligne du haut, la perte d’une trame du flux B retient toutes les trames qui la suivent, quel que soit leur flux, parce que TCP ne livre rien après un trou. Sur la ligne du bas, QUIC sait à quel flux appartient chaque donnée : seule la trame B suivante attend la retransmission, A et C sont livrées dès leur arrivée.
+
+## HTTP/3 et QUIC
+
+QUIC, conçu chez Google au début des années 2010 puis normalisé par l’IETF en 2021[^rfc9000], est un transport complet construit au-dessus d’UDP : fiabilité, contrôle de congestion, flux multiplexés indépendants, et chiffrement TLS 1.3 intégré[^rfc9001]. HTTP/3[^rfc9114] est la projection de HTTP sur QUIC, avec QPACK[^rfc9204], une variante de HPACK adaptée à des flux qui peuvent arriver dans le désordre. Trois propriétés de QUIC intéressent le concepteur.
+
+La première est l’ouverture rapide. QUIC négocie le transport et le chiffrement dans le même échange : une connexion neuve coûte un seul aller-retour avant la première requête, au lieu de deux pour TCP suivi de TLS 1.3 et trois avec TLS 1.2. Un client qui a déjà parlé au serveur peut même envoyer sa requête dans le premier paquet (0-RTT). Ces données 0-RTT peuvent être rejouées par un attaquant qui les intercepte, si bien qu’un serveur ne doit les accepter que pour des requêtes sans danger à rejouer, typiquement des `GET`[^rfc8446].
+
+<Figure svg={ouverture} num="5.4" alt="Allers-retours avant la première réponse : 4 avec HTTP/1.1 et TLS 1.2, 3 avec HTTP/2 et TLS 1.3, 2 avec HTTP/3, 1 avec HTTP/3 en reprise 0-RTT.">
+Allers-retours avant le premier octet de réponse, sur une connexion neuve, sans compter le DNS.
+</Figure>
+
+Chaque ligne est une combinaison de versions, chaque case un aller-retour. L’ouverture TCP (orange) et la négociation TLS (violet) précèdent la requête (bleu) ; QUIC fond les deux premières en une seule (vert). La dernière ligne suppose un client qui revient vers un serveur déjà connu : sa requête part avec le premier paquet, au prix du risque de rejeu.
+
+La deuxième propriété est l’indépendance des flux, que montre la figure 5.3 : une perte ne retarde que le flux concerné. La troisième est la migration de connexion. Une connexion TCP est identifiée par son quintuplet (ch. 3) ; quand un téléphone passe du Wi-Fi au réseau mobile, son adresse change et toutes ses connexions TCP sont perdues. Une connexion QUIC est identifiée par des identifiants de connexion choisis par les deux extrémités, et survit au changement d’adresse.
+
+Un client ne sait pas d’avance qu’un serveur parle HTTP/3. Il le découvre par l’en-tête `Alt-Svc` d’une réponse HTTP/2[^rfc7838], ou par un enregistrement DNS de type HTTPS[^rfc9460], puis tente QUIC en gardant TCP en secours, parce que certains réseaux d’entreprise bloquent UDP. Une requête vers Google pendant la rédaction de ce chapitre renvoyait par exemple :
+
+```text
+$ curl -sI --http2 https://www.google.com/ | grep -i alt-svc
+alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+```
+
+Le serveur annonce HTTP/3 (`h3`) sur le port 443 pour une durée de 2 592 000 secondes, soit 30 jours.
+
+QUIC a aussi des coûts. Il tourne dans l’application, en espace utilisateur, et chiffre presque tout son en-tête : il consomme plus de processeur que TCP, dont une grande partie du travail est faite par le noyau et les cartes réseau, et il est plus difficile à observer pour les équipements du réseau.
+
+| | HTTP/1.1 | HTTP/2 | HTTP/3 |
+|---|---|---|---|
+| Transport | TCP | TCP | QUIC sur UDP |
+| Requêtes simultanées par connexion | une | de nombreux flux | de nombreux flux indépendants |
+| En-têtes | texte | HPACK | QPACK |
+| Ouverture avec TLS 1.3 | 2 RTT | 2 RTT | 1 RTT, 0 en reprise |
+| Perte d’un paquet | bloque une connexion | bloque tous les flux | bloque un flux |
+| Changement d’adresse du client | connexions perdues | connexions perdues | la connexion survit |
+| Avantages | simple, lisible, universel | une connexion, en-têtes compressés | latence sur réseaux mobiles et lointains |
+| Inconvénients | six connexions, pas de multiplexage | blocage TCP sur réseaux à pertes | coût processeur, UDP parfois bloqué |
+| Quand le choisir | appels simples entre services, outils | défaut côté navigateur et entre services (gRPC, ch. 7) | applications grand public, clients mobiles |
+
+## Le cache HTTP
+
+La requête la plus rapide est celle qu’on n’envoie pas. HTTP décrit, par la RFC 9111[^rfc9111], quand une réponse peut être gardée et resservie, par le navigateur ou par un cache partagé (un proxy, un CDN, ch. 15). Deux mécanismes se combinent.
+
+La fraîcheur dit combien de temps une copie peut resservir sans rien demander au serveur. L’en-tête `Cache-Control: max-age=3600` la rend fraîche pendant une heure ; `s-maxage` fixe une durée différente pour les caches partagés ; l’en-tête `Age` indique depuis combien de secondes la copie servie est en cache.
+
+La validation permet de vérifier, une fois la copie périmée, qu’elle est encore bonne sans la retélécharger. Le serveur joint à la réponse un identifiant de version, l'`ETag`, ou une date de modification (`Last-Modified`). Le client renvoie cet identifiant dans une requête conditionnelle (`If-None-Match`) ; si la ressource n’a pas changé, le serveur répond `304 Not Modified`, sans corps.
+
+<Figure svg={cache} num="5.5" alt="Organigramme : une requête GET ; si aucune copie, requête complète ; si copie fraîche, servie du cache ; sinon requête conditionnelle, qui renvoie 304 si la ressource n’a pas changé, 200 avec la nouvelle version sinon.">
+Ce que fait un cache HTTP d’une requête GET.
+</Figure>
+
+Le chemin se lit de haut en bas. La sortie verte de droite au milieu, la copie fraîche servie sans échange, est la plus rapide ; celle du bas à droite, le 304, coûte un aller-retour mais presque aucun octet ; les sorties orange coûtent un téléchargement complet.
+
+Les en-têtes que renvoyait Wikipédia pour sa page d’accueil, relevés pour ce chapitre, montrent les deux mécanismes à l’œuvre :
+
+```text
+cache-control: s-maxage=86400, must-revalidate, max-age=3600
+etag: W/"1dd55-65d54a13c8d00"
+age: 69099
+```
+
+Les navigateurs peuvent garder la page une heure, les caches de Wikipédia une journée ; `must-revalidate` interdit de servir une copie périmée sans l’avoir validée ; et la copie servie était en cache depuis 69 099 secondes, un peu plus de 19 heures. Une requête renvoyant cet ETag dans `If-None-Match` a reçu une réponse 304 avec un corps de 0 octet, contre 122 197 octets pour la même requête sans en-tête conditionnel.
+
+| Directive | Effet | Usage typique |
+|---|---|---|
+| `max-age=N` | fraîche pendant N secondes | toute ressource cacheable |
+| `s-maxage=N` | durée propre aux caches partagés | page servie par un CDN, plus longtemps qu’au navigateur |
+| `public` / `private` | cacheable par tous / seulement par le navigateur | `private` pour tout ce qui dépend de l’utilisateur |
+| `no-cache` | gardée, mais revalidée à chaque usage | page qui doit toujours être à jour, mais grosse |
+| `no-store` | jamais écrite dans un cache | données sensibles (relevé bancaire) |
+| `must-revalidate` | pas de copie périmée servie sans validation | contenu dont l’exactitude compte |
+| `stale-while-revalidate=N`[^rfc5861] | sert la copie périmée pendant N s en revalidant en arrière-plan | cacher la latence de la revalidation (ch. 17) |
+| `immutable`[^rfc8246] | la ressource ne changera jamais à cette adresse | fichiers dont le nom contient une empreinte (`app.3f9a2c.js`) |
+
+Le schéma classique pour les ressources statiques d’un site en découle : chaque fichier reçoit un nom qui contient une empreinte de son contenu, est servi avec `max-age=31536000, immutable` (un an), et c’est la page HTML, peu cacheable, qui change de référence quand le fichier change. L’en-tête `Vary` complète le tout : il dit au cache sur quels en-têtes de la requête la réponse dépend (`Vary: Accept-Encoding`), pour qu’il ne serve pas une version compressée en Brotli à un client qui ne sait pas la lire.
+
+## Ordres de grandeur, mesurés
+
+L’expérience d’ouverture se trouve dans `outils/experiences/ch05/` du dépôt du cours. Un serveur Caddy sert en HTTPS cent fichiers de 1 Ko ; un relais écrit en Python retarde de 25 ms chaque bloc de données dans chaque sens, ce qui ajoute 50 ms à chaque aller-retour applicatif (la poignée de main TCP entre le client et le relais, locale, n’est pas retardée) ; `curl` télécharge les cent fichiers de quatre façons. Deux passages successifs ont donné exactement les mêmes chiffres :
+
+```text
+100 fichiers de 1 Ko, aller-retour simulé de 50 ms
+HTTP/1.1, une connexion, en série           5.35 s     1 connexion(s)
+HTTP/1.1, 6 connexions en parallèle         1.04 s    11 connexion(s)
+HTTP/2, une connexion, en série             5.35 s     1 connexion(s)
+HTTP/2, une connexion, multiplexée          0.14 s     1 connexion(s)
+```
+
+:::calcul[Calcul : lire les chiffres de l’expérience]
+| Cas | Allers-retours attendus | Calcul | Prévu | Mesuré |
+|---|---|---|---|---|
+| Une connexion, en série | 100 requêtes + TLS | $(100 + 1) \times 50$ ms | ≈ 5,05 s | 5,35 s |
+| Six transferts en parallèle | $\lceil 100 / 6 \rceil = 17$ requêtes par connexion + TLS | $(17 + 1) \times 50$ ms | ≈ 0,90 s | 1,04 s |
+| HTTP/2 multiplexé | 1 pour TLS + 1 pour les 100 requêtes | $2 \times 50$ ms | ≈ 0,10 s | 0,14 s |
+
+Les écarts viennent du traitement de chaque requête et du relais lui-même. HTTP/2 en série est aussi lent que HTTP/1.1 en série : c’est le multiplexage qui fait gagner du temps, et changer de version sans en profiter n’apporte rien. `curl` a ouvert 11 connexions au total pour ses six transferts simultanés, en remplaçant certaines en cours de route.
+:::
+
+La compression des en-têtes se mesure aussi. Le script `hpack_taille.py` du même dossier encode dix requêtes semblables à celles d’un navigateur (un `User-Agent` complet, des `Accept`, un cookie de session) avec la bibliothèque `hpack`, qui implémente la RFC 7541 :
+
+```text
+requête  1 : HTTP/1.1  544 o, HPACK  341 o
+requête  2 : HTTP/1.1  544 o, HPACK   26 o
+requête 10 : HTTP/1.1  544 o, HPACK   26 o
+10 requêtes : HTTP/1.1 5440 o, HPACK 575 o, soit 11 %
+```
+
+La première requête gagne un tiers grâce à la table statique et au codage de Huffman ; les suivantes ne transmettent plus que le chemin, qui change, et des index vers la table dynamique. Pour une page de 80 ressources, cela représente $80 \times 544 \approx 43$ Ko d’en-têtes en HTTP/1.1 contre $341 + 79 \times 26 \approx 2{,}4$ Ko en HTTP/2 ; or une connexion neuve n’envoie qu’environ 14 Ko pendant son premier aller-retour (ch. 4), si bien que les 43 Ko de requêtes coûtent à eux seuls plusieurs allers-retours.
+
+Ces mesures se transposent à un client mobile. Prenons un RTT de 100 ms, courant sur un réseau mobile, et une page qui demande 60 ressources après le document HTML.
+
+:::calcul[Calcul : une page de 60 ressources sur mobile]
+Hypothèses : RTT de 100 ms, connexion neuve, ressources petites (un aller-retour chacune), DNS déjà en cache.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Premier octet du HTML, HTTP/1.1 et TLS 1.2 | 4 RTT | 400 ms |
+| Premier octet du HTML, HTTP/2 et TLS 1.3 | 3 RTT | 300 ms |
+| Premier octet du HTML, HTTP/3 | 2 RTT | 200 ms |
+| 60 ressources en HTTP/1.1, 6 connexions | $60 / 6 = 10$ RTT, plus l’ouverture de 5 connexions de plus en parallèle (3 RTT avec TLS 1.2) | 1 300 ms |
+| 60 ressources en HTTP/2 ou HTTP/3 | 1 RTT si la fenêtre suffit, 2 ou 3 sinon | 100 à 300 ms |
+| Total, HTTP/1.1 et TLS 1.2 | 400 + 1 300 | ≈ 1,7 s |
+| Total, HTTP/3 | 200 + 100 à 300 | ≈ 0,3 à 0,5 s |
+
+Conclusion : à 100 ms de RTT, le nombre d’allers-retours décide presque tout, et passer de HTTP/1.1 à HTTP/3 divise par trois à cinq le temps de chargement de ce modèle de page, sans toucher au serveur d’application. Le calcul ignore le débit : pour des ressources volumineuses, le démarrage lent (ch. 4) ajoute des allers-retours.
+:::
+
+## Exemples réels
+
+**QUIC chez Google.** L’article de l’équipe de Google présenté à SIGCOMM en 2017 rapporte les effets mesurés de QUIC en production : la latence des réponses de Google Search diminuait de 8,0 % sur ordinateur et de 3,6 % sur mobile, et le taux de réapprovisionnement des lectures YouTube (les moments où la vidéo s’arrête pour charger) de 18,0 % sur ordinateur et de 15,3 % sur mobile. QUIC représentait alors plus de 30 % du trafic sortant de Google en octets, soit selon les auteurs environ 7 % du trafic d’Internet[^quic-sigcomm]. Ces gains peuvent paraître modestes en pourcentage ; à l’échelle de Google Search, chaque point de latence compte, et c’est précisément le genre de résultat que permet un transport qui supprime un aller-retour et le blocage en tête de file.
+
+**L’attaque HTTP/2 Rapid Reset.** Le multiplexage a aussi ouvert une faille. Le 10 octobre 2023, Google, Cloudflare et Amazon ont révélé ensemble une attaque, enregistrée sous le numéro CVE-2023-44487, qui avait atteint à partir d’août 2023 des records de 398 millions de requêtes par seconde chez Google, 201 millions chez Cloudflare et 155 millions chez Amazon[^rapid-reset]. Le principe : HTTP/2 limite le nombre de flux ouverts en même temps sur une connexion, mais un client peut annuler un flux aussitôt après l’avoir ouvert (une trame RST_STREAM), et le flux annulé ne compte plus dans la limite. L’attaquant ouvre et annule des flux en rafale ; le serveur, lui, a déjà commencé à traiter chaque requête. La leçon dépasse HTTP/2 : toute limite de concurrence doit compter le travail réellement engagé côté serveur, pas seulement ce que le client déclare ouvert.
+
+## Erreurs fréquentes
+
+La confusion la plus répandue concerne `no-cache`, qui n’interdit pas le cache : il impose de revalider la copie à chaque usage. C’est `no-store` qui interdit d’écrire la réponse dans un cache. Une page de relevé bancaire servie en `no-cache` reste sur le disque du navigateur.
+
+Plus grave : mettre en cache dans un cache partagé une réponse qui dépend de l’utilisateur. Une page « Mon compte » servie avec `Cache-Control: public, max-age=60` par un CDN peut être resservie au visiteur suivant, avec les données du premier. Tout ce qui dépend d’un cookie ou d’un en-tête `Authorization` doit être `private`, ou varier explicitement (`Vary`) et être conçu en connaissance de cause.
+
+Les nouvelles tentatives aveugles sont une autre source d’incidents : réessayer un `POST` après une erreur réseau peut créer deux commandes, et accepter des données 0-RTT pour une requête qui modifie l’état ouvre la porte au rejeu. Seules les requêtes idempotentes, ou rendues idempotentes par une clé (ch. 38), se rejouent sans risque.
+
+Certaines optimisations de l’ère HTTP/1.1 deviennent nuisibles en HTTP/2 : le domain sharding multiplie les connexions alors qu’une seule suffit, et les grandes images composites (sprites) ou la concaténation de tous les scripts en un fichier empêchent de mettre en cache séparément ce qui change et ce qui ne change pas.
+
+Il ne faut pas non plus supposer que HTTP/3 est toujours disponible. Un réseau qui bloque UDP fait revenir le client à HTTP/2 sur TCP, et le service doit rester correct dans ce cas ; on le vérifie en mesurant la part réelle de chaque version dans les journaux.
+
+En entretien, le piège est de citer les versions sans compter. « HTTP/2 est plus rapide » ne dit rien ; « HTTP/2 évite six ouvertures de connexion et fait passer 60 requêtes en un aller-retour au lieu de dix » est un argument.
+
+:::piege[Erreur fréquente : renvoyer 200 pour une erreur]
+Une API qui répond `200 OK` avec `{"erreur": "introuvable"}` dans le corps trompe tous les intermédiaires : le CDN met l’erreur en cache, le répartiteur de charge la compte comme un succès, les tableaux de bord de disponibilité (ch. 11 et 50) restent au vert, et le client ne peut pas décider s’il doit réessayer. Le code d’état est le seul champ que tout le monde lit.
+:::
+
+:::entretien
+Pour une question sur la latence perçue d’une application mobile, déroulez le compte des allers-retours : DNS (souvent en cache), ouverture de connexion (1 avec QUIC, 2 avec TCP et TLS 1.3), requêtes en série. Proposez ensuite ce qui en supprime : HTTP/3 pour l’ouverture et les réseaux à pertes, multiplexage pour les requêtes parallèles, cache avec ETag pour ne pas retélécharger ce qui n’a pas changé, CDN pour réduire le RTT lui-même (ch. 15).
+:::
+
+## Exercices
+
+**Question 1.** Une application mobile, à 120 ms de RTT de son serveur, charge au démarrage une configuration, puis le profil de l’utilisateur (qui dépend de la configuration), puis, en parallèle, 20 vignettes. Comptez le temps avant d’avoir tout affiché sur une connexion neuve, en HTTP/1.1 avec TLS 1.2 et six connexions au plus, puis en HTTP/3. On néglige le DNS, le temps de traitement et le débit.
+
+**Question 2.** Proposez un en-tête `Cache-Control` pour chacune de ces réponses, en justifiant : un fichier JavaScript nommé `app.3f9a2c.js` ; la page HTML d’accueil d’un journal en ligne, mise à jour toutes les quelques minutes ; la réponse JSON de `/api/moi/panier` ; un relevé de compte bancaire au format PDF.
+
+**Question 3.** Sur un réseau qui perd 2 % des paquets, un chargement de page est plus lent en HTTP/2 qu’en HTTP/1.1 avec six connexions. Expliquez pourquoi, et dites ce qui corrige le problème.
+
+**Exercice de conception.** Une application de livraison de repas vise un pays où la plupart des clients utilisent un réseau mobile à 150 ms de RTT, avec 3 % de pertes et des passages fréquents entre Wi-Fi et réseau mobile. L’écran d’accueil appelle trois API en série (session, adresse, restaurants proches) puis charge 40 images de restaurants. Le catalogue des restaurants change quelques fois par heure ; les images changent rarement ; la session et l’adresse sont propres à chaque client. Choisissez les versions de HTTP côté application et côté serveur, la politique de cache de chaque type de réponse, estimez le temps d’affichage de l’écran d’accueil avant et après vos choix, et dites ce qu’il faut prévoir si UDP est bloqué.
+
+## Corrigés
+
+**Question 1.** En HTTP/1.1 avec TLS 1.2, la première connexion coûte 3 RTT d’ouverture (1 pour TCP, 2 pour TLS 1.2), puis la configuration 1 RTT et le profil 1 RTT : 5 RTT. Les vignettes demandent jusqu’à six connexions ; si le client n’ouvre les cinq connexions supplémentaires qu’au moment de demander les vignettes, elles coûtent 3 RTT d’ouverture en parallèle, puis $\lceil 20 / 6 \rceil = 4$ vagues de requêtes à 1 RTT chacune : 7 RTT. Total : 12 RTT, soit 1,44 s. En HTTP/3 : 1 RTT d’ouverture, 1 pour la configuration, 1 pour le profil, 1 pour les 20 vignettes multiplexées : 4 RTT, soit 0,48 s. Le facteur 3 vient pour moitié de l’ouverture et pour moitié du multiplexage.
+
+**Question 2.**
+
+1. `app.3f9a2c.js` : `Cache-Control: public, max-age=31536000, immutable`. Le nom contient une empreinte du contenu ; un nouveau contenu aura un nouveau nom, donc cette adresse ne changera jamais, et la copie peut être gardée un an partout.
+2. Page d’accueil du journal : `Cache-Control: public, max-age=60, s-maxage=60, stale-while-revalidate=30`, avec un ETag. Une minute de retard est acceptable pour un journal ; le CDN absorbe l’essentiel des requêtes, et `stale-while-revalidate` évite que des milliers de lecteurs attendent la revalidation au moment où la copie expire.
+3. `/api/moi/panier` : `Cache-Control: private, no-cache` avec un ETag. La réponse dépend de l’utilisateur, aucun cache partagé ne doit la garder ; le navigateur peut la garder mais doit la revalider, et une réponse 304 évite de retransférer un panier inchangé.
+4. Relevé bancaire : `Cache-Control: no-store`. La donnée est sensible ; elle ne doit être écrite dans aucun cache, pas même sur le disque du navigateur.
+
+**Question 3.** Avec 2 % de pertes, une page de quelques centaines de paquets en perd presque sûrement plusieurs. En HTTP/2, toutes les ressources passent par une seule connexion TCP : chaque perte bloque la livraison de toutes les ressources en cours pendant au moins un RTT (blocage en tête de file), et divise par deux la fenêtre de congestion de l’unique connexion, qui porte tout le trafic. Avec six connexions HTTP/1.1, une perte ne bloque qu’une connexion sur six et ne réduit que sa fenêtre ; les cinq autres continuent. HTTP/3 corrige le problème : QUIC livre chaque flux indépendamment, si bien qu’une perte ne retarde que la ressource concernée, tout en gardant une seule connexion et ses avantages.
+
+**Exercice de conception.**
+
+*Versions.* Côté application, un client HTTP qui sait faire HTTP/3 et revient à HTTP/2 si QUIC échoue. Côté serveur, HTTP/3 et HTTP/2 sur le point d’entrée public (souvent le CDN ou le répartiteur de charge, ch. 13 et 15), annoncés par `Alt-Svc` et par un enregistrement DNS HTTPS pour que le client tente HTTP/3 dès la première connexion. HTTP/3 répond à chaque caractéristique du réseau : 1 RTT d’ouverture au lieu de 2, indépendance des flux face aux 3 % de pertes, migration de connexion lors des passages entre Wi-Fi et mobile, qui coupent sinon toutes les connexions TCP. Entre le point d’entrée et les serveurs d’application, dans le centre de données, HTTP/1.1 ou HTTP/2 suffit : le RTT y est inférieur à la milliseconde.
+
+*Cache.* Images : URL contenant une empreinte, `public, max-age=31536000, immutable`, servies par un CDN ; après la première visite, elles ne coûtent plus rien. Catalogue des restaurants proches : `public, max-age=60, stale-while-revalidate=300`, mis en cache par le CDN par zone géographique (la clé de cache inclut la zone, pas l’adresse exacte), avec un ETag. Session et adresse : `private, no-cache` avec ETag, revalidées à chaque ouverture, ce qui coûte un aller-retour mais pas de transfert si rien n’a changé. Une meilleure solution consiste à fusionner les deux appels de session et d’adresse en un seul, et à lancer la requête du catalogue en parallèle dès que la zone est connue.
+
+*Estimation.*
+
+| Étape | Avant (HTTP/1.1 + TLS 1.2, tout en série) | Après (HTTP/3, appels fusionnés, cache) |
+|---|---|---|
+| Ouverture | 3 RTT | 1 RTT (0 en reprise) |
+| Session, adresse, restaurants | 3 RTT | 2 RTT (session+adresse, puis catalogue), ou 1 si le catalogue est en cache local frais |
+| 40 images | 3 RTT d’ouverture des connexions supplémentaires + $\lceil 40/6 \rceil = 7$ RTT | 1 RTT au premier lancement, 0 ensuite (cache) |
+| Total | 16 RTT ≈ 2,4 s, plus les retransmissions bloquantes | 4 RTT ≈ 0,6 s au premier lancement, 2 à 3 RTT ensuite |
+
+Avec 3 % de pertes, la version d’avant subit en plus des blocages d’un RTT sur ses connexions ; l’écart réel est probablement plus grand que celui du tableau.
+
+*Si UDP est bloqué.* Le client revient à HTTP/2 sur TCP avec TLS 1.3 : 2 RTT d’ouverture au lieu de 1, et le retour du blocage en tête de file. Le cache et la fusion des appels gardent leur effet. Il faut surveiller dans les journaux du point d’entrée la part de connexions HTTP/3 par réseau mobile, pour repérer les opérateurs qui bloquent UDP, et vérifier que le client ne perd pas de temps à attendre QUIC avant de basculer (les bibliothèques lancent les deux tentatives en parallèle ou basculent après un court délai).
+
+:::fiche
+- Sémantique commune (RFC 9110) : méthodes sûres (GET, HEAD) et idempotentes (+ PUT, DELETE) ; POST et PATCH ne se rejouent pas sans précaution.
+- Codes : 4xx = erreur du client, ne pas réessayer tel quel ; 5xx et 429 = réessayer avec prudence ; jamais 200 pour une erreur.
+- HTTP/1.1 : une requête à la fois par connexion, six connexions par site dans les navigateurs.
+- HTTP/2 : flux multiplexés sur une connexion TCP, HPACK (mesuré : 544 o puis 26 o par requête) ; une perte bloque tous les flux.
+- HTTP/3 : QUIC sur UDP, 1 RTT d’ouverture (0 en reprise, rejouable), flux indépendants, migration de connexion ; découvert par Alt-Svc ou DNS HTTPS ; repli sur TCP.
+- Mesuré à 50 ms de RTT, 100 fichiers : 5,35 s en série, 1,04 s sur six connexions, 0,14 s multiplexé.
+- Cache : fraîcheur (`max-age`, `s-maxage`) puis validation (ETag, 304 sans corps) ; `no-cache` revalide, `no-store` interdit ; `private` pour tout ce qui dépend de l’utilisateur.
+- Fichiers statiques : nom à empreinte + `max-age=31536000, immutable`.
+:::
+
+[^rfc9110]: RFC 9110, *HTTP Semantics*, 2022 ; la définition des méthodes sûres et idempotentes est en section 9.2.
+[^rfc5789]: RFC 5789, *PATCH Method for HTTP*, 2010.
+[^mdn]: MDN Web Docs, « Connection management in HTTP/1.x », [developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Connection_management_in_HTTP_1.x](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Connection_management_in_HTTP_1.x).
+[^rfc9113]: RFC 9113, *HTTP/2*, 2022, qui remplace la RFC 7540 de 2015.
+[^rfc7541]: RFC 7541, *HPACK: Header Compression for HTTP/2*, 2015 ; la table statique est en annexe A.
+[^rfc9000]: RFC 9000, *QUIC: A UDP-Based Multiplexed and Secure Transport*, 2021.
+[^rfc9001]: RFC 9001, *Using TLS to Secure QUIC*, 2021.
+[^rfc9114]: RFC 9114, *HTTP/3*, 2022.
+[^rfc9204]: RFC 9204, *QPACK: Field Compression for HTTP/3*, 2022.
+[^rfc8446]: RFC 8446, *The Transport Layer Security (TLS) Protocol Version 1.3*, 2018 ; les risques de rejeu des données 0-RTT sont décrits en section 8.
+[^rfc7838]: RFC 7838, *HTTP Alternative Services*, 2016.
+[^rfc9460]: RFC 9460, *Service Binding and Parameter Specification via the DNS (SVCB and HTTPS Resource Records)*, 2023.
+[^rfc9111]: RFC 9111, *HTTP Caching*, 2022.
+[^rfc5861]: RFC 5861, *HTTP Cache-Control Extensions for Stale Content*, 2010.
+[^rfc8246]: RFC 8246, *HTTP Immutable Responses*, 2017.
+[^quic-sigcomm]: Adam Langley et al., « The QUIC Transport Protocol: Design and Internet-Scale Deployment », ACM SIGCOMM 2017, [doi.org/10.1145/3098822.3098842](https://doi.org/10.1145/3098822.3098842).
+[^rapid-reset]: Lucas Pardue et Julien Desgats, « HTTP/2 Rapid Reset: deconstructing the record-breaking attack », blog de Cloudflare, 10 octobre 2023, [blog.cloudflare.com/technical-breakdown-http2-rapid-reset-ddos-attack](https://blog.cloudflare.com/technical-breakdown-http2-rapid-reset-ddos-attack/) ; avis de la CISA du même jour sur CVE-2023-44487.

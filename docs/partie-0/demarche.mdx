@@ -76,20 +76,20 @@ Hypothèses (choisies et annoncées) : 200 000 sondages créés par jour, 15 
 | Créations par jour | hypothèse | 200 000 |
 | Votes par jour | 200 000 × 15 | 3 000 000 |
 | Écritures par jour | 200 000 + 3 000 000 | 3 200 000 |
-| Écritures par seconde, moyenne | 3 200 000 / 86 400 | ≈ 37 |
-| Écritures par seconde, pointe | 37 × 5 | ≈ 185 |
+| Écritures par seconde, moyenne | 3 200 000 / 86 400 | ≈ 37 |
+| Écritures par seconde, pointe | 37 × 5 | ≈ 185 |
 | Affichages par jour | 200 000 × 40 | 8 000 000 |
-| Lectures par seconde, moyenne | 8 000 000 / 86 400 | ≈ 93 |
-| Lectures par seconde, pointe | 93 × 5 | ≈ 465 |
-| Taille d’un sondage | 1 Ko (texte, dates) + 10 choix × 100 o | ≈ 2 Ko |
-| Taille d’une participation | nom 50 o + 10 réponses × 10 o + 50 o d’en-tête | ≈ 200 o |
-| Données par sondage | 2 Ko + 15 × 200 o | ≈ 5 Ko |
-| Données par jour | 200 000 × 5 Ko | ≈ 1 Go |
-| Données sur 5 ans | 1 Go × 365 × 5 | ≈ 1,8 To |
-| Avec les index (× 2, ordre de grandeur) | 1,8 To × 2 | ≈ 3,6 To |
+| Lectures par seconde, moyenne | 8 000 000 / 86 400 | ≈ 93 |
+| Lectures par seconde, pointe | 93 × 5 | ≈ 465 |
+| Taille d’un sondage | 1 Ko (texte, dates) + 10 choix × 100 o | ≈ 2 Ko |
+| Taille d’une participation | nom 50 o + 10 réponses × 10 o + 50 o d’en-tête | ≈ 200 o |
+| Données par sondage | 2 Ko + 15 × 200 o | ≈ 5 Ko |
+| Données par jour | 200 000 × 5 Ko | ≈ 1 Go |
+| Données sur 5 ans | 1 Go × 365 × 5 | ≈ 1,8 To |
+| Avec les index (× 2, ordre de grandeur) | 1,8 To × 2 | ≈ 3,6 To |
 | Sortie réseau par jour | 8 000 000 × 50 Ko par page | 400 Go |
-| Débit sortant moyen | 400 Go / 86 400 s ≈ 4,6 Mo/s | ≈ 37 Mbit/s |
-| Débit sortant en pointe | 37 × 5 | ≈ 185 Mbit/s |
+| Débit sortant moyen | 400 Go / 86 400 s ≈ 4,6 Mo/s | ≈ 37 Mbit/s |
+| Débit sortant en pointe | 37 × 5 | ≈ 185 Mbit/s |
 
 Conclusion : quelques centaines de requêtes par seconde en pointe, quelques téraoctets en cinq ans, moins de 200 Mbit/s. C’est une charge que tiennent une seule machine d’application et une seule base de données correctement dimensionnées. Les raisons d’ajouter des machines viendront d’ailleurs : de l’exigence de disponibilité, puisqu’une machine unique s’arrête quand elle tombe en panne ou quand on la met à jour, et du cas d’un sondage qui devient viral, traité à l’étape 7.
 :::
@@ -227,11 +227,11 @@ Le goulet, lui, apparaît dans un scénario que les moyennes de l’étape 2 cac
 :::calcul[Calcul : un sondage viral]
 | Grandeur | Calcul | Résultat |
 |---|---|---|
-| Affichages par seconde sur ce sondage | 1 000 000 / 3 600 | ≈ 278 |
-| Votes par seconde sur ce sondage | 200 000 / 3 600 | ≈ 56 |
+| Affichages par seconde sur ce sondage | 1 000 000 / 3 600 | ≈ 278 |
+| Votes par seconde sur ce sondage | 200 000 / 3 600 | ≈ 56 |
 | Lignes `reponse` en fin d’heure | 200 000 participations × 10 choix | 2 000 000 |
 | Lignes parcourues par affichage (comptage à la lecture) | jusqu’à 2 000 000 | 2 × 10⁶ |
-| Lignes parcourues par seconde | 278 × 2 000 000 | ≈ 5,6 × 10⁸ |
+| Lignes parcourues par seconde | 278 × 2 000 000 | ≈ 5,6 × 10⁸ |
 
 Une base qui parcourrait cent millions de lignes par seconde, ce qui est déjà beaucoup pour une seule machine (le ch. 9 donne les débits de référence), resterait 5 à 6 fois trop lente, et ce sondage n’est pas le seul à servir. L’option « compter à la lecture » s’effondre sur lui, alors qu’elle convient parfaitement aux 199 999 autres.
 :::
@@ -251,12 +251,12 @@ Chiffres publiés pour une journée : 209 420 973 requêtes HTTP reçues pa
 
 | Grandeur | Calcul | Résultat |
 |---|---|---|
-| Requêtes HTTP par seconde, moyenne | 209 420 973 / 86 400 | ≈ 2 424 |
-| Requêtes HTTP par serveur web, moyenne | 2 424 / 11 | ≈ 220 |
-| Requêtes SQL par seconde, moyenne | 504 816 843 / 86 400 | ≈ 5 843 |
-| Requêtes SQL par requête HTTP | 504 816 843 / 209 420 973 | ≈ 2,4 |
-| Débit sortant moyen | 1,24 × 10¹² o × 8 / 86 400 s | ≈ 115 Mbit/s |
-| Pointe du sondage comparée à cette moyenne | 2 424 / (465 + 185) | ≈ 3,7 fois moins |
+| Requêtes HTTP par seconde, moyenne | 209 420 973 / 86 400 | ≈ 2 424 |
+| Requêtes HTTP par serveur web, moyenne | 2 424 / 11 | ≈ 220 |
+| Requêtes SQL par seconde, moyenne | 504 816 843 / 86 400 | ≈ 5 843 |
+| Requêtes SQL par requête HTTP | 504 816 843 / 209 420 973 | ≈ 2,4 |
+| Débit sortant moyen | 1,24 × 10¹² o × 8 / 86 400 s | ≈ 115 Mbit/s |
+| Pointe du sondage comparée à cette moyenne | 2 424 / (465 + 185) | ≈ 3,7 fois moins |
 :::
 
 L’article précise que l’ensemble du réseau de questions-réponses peut fonctionner sur un seul serveur web, ce que l’équipe a vérifié involontairement plusieurs fois. On en déduit que les onze machines donnent une large marge et permettent d’en perdre ou d’en mettre à jour sans interruption. Gardez ce repère en tête : un site qui servait plus de 200 millions de requêtes par jour tenait sur une vingtaine de serveurs principaux, et le service de sondage, dont même la pointe reste près de quatre fois inférieure à ce trafic moyen, n’a aucune raison de commencer par une architecture distribuée.
@@ -341,11 +341,11 @@ Dernière erreur, propre à l’entretien : le monologue. Le candidat qui parle
 
 | Grandeur | Calcul | Résultat |
 |---|---|---|
-| Écritures par seconde, moyenne | 37 × 100 | ≈ 3 700 |
-| Écritures par seconde, pointe | 185 × 100 | ≈ 18 500 |
-| Lectures par seconde, pointe | 465 × 100 | ≈ 46 500 |
-| Données sur 5 ans avec index | 3,6 To × 100 | ≈ 360 To |
-| Débit sortant en pointe | 185 Mbit/s × 100 | ≈ 18,5 Gbit/s |
+| Écritures par seconde, moyenne | 37 × 100 | ≈ 3 700 |
+| Écritures par seconde, pointe | 185 × 100 | ≈ 18 500 |
+| Lectures par seconde, pointe | 465 × 100 | ≈ 46 500 |
+| Données sur 5 ans avec index | 3,6 To × 100 | ≈ 360 To |
+| Débit sortant en pointe | 185 Mbit/s × 100 | ≈ 18,5 Gbit/s |
 
 La conclusion « une machine de chaque sorte suffit » tombe. Quelques dizaines de milliers de requêtes par seconde demandent plusieurs serveurs d’application derrière un répartiteur ; 360 To ne tiennent pas sur une seule base, il faut partitionner les sondages entre plusieurs bases ; 18,5 Gbit/s de sortie justifient de servir les ressources statiques (scripts, feuilles de style) depuis un réseau de diffusion de contenu (CDN, ch. 15). Les étapes à revisiter sont l’étape 5 (l’architecture change de nature), l’étape 6 (le découpage entre bases devient le point à approfondir : quelle clé, que faire d’un sondage énorme) et l’étape 7 (davantage de composants, donc davantage de pannes possibles). Les étapes 3 et 4 changent peu, ce qui est un bon signe : une API et un modèle de données bien pensés survivent à un changement d’échelle.
 
@@ -361,13 +361,13 @@ La conclusion « une machine de chaque sorte suffit » tombe. Quelques dizaine
 |---|---|---|
 | Places offertes par jour | 400 salles × 12 cours × 25 places | 120 000 |
 | Réservations par jour (90 % de remplissage) | 120 000 × 0,9 | 108 000 |
-| Annulations par jour (15 %, hypothèse) | 108 000 × 0,15 | ≈ 16 000 |
-| Écritures par jour | 108 000 + 16 000 | ≈ 124 000 |
-| Écritures par seconde, moyenne | 124 000 / 86 400 | ≈ 1,4 |
-| Réservations dans les 5 minutes après 8 h (40 %, hypothèse) | 108 000 × 0,4 / 300 s | ≈ 144 par seconde |
-| Consultations autour de 8 h (10 rafraîchissements par réservation, hypothèse) | 43 200 × 10 / 300 s | ≈ 1 440 par seconde |
-| Rapport entre la pointe et la moyenne des écritures | 144 / 1,4 | ≈ 100 |
-| Stockage sur 5 ans | 124 000 × 100 o × 365 × 5 | ≈ 23 Go |
+| Annulations par jour (15 %, hypothèse) | 108 000 × 0,15 | ≈ 16 000 |
+| Écritures par jour | 108 000 + 16 000 | ≈ 124 000 |
+| Écritures par seconde, moyenne | 124 000 / 86 400 | ≈ 1,4 |
+| Réservations dans les 5 minutes après 8 h (40 %, hypothèse) | 108 000 × 0,4 / 300 s | ≈ 144 par seconde |
+| Consultations autour de 8 h (10 rafraîchissements par réservation, hypothèse) | 43 200 × 10 / 300 s | ≈ 1 440 par seconde |
+| Rapport entre la pointe et la moyenne des écritures | 144 / 1,4 | ≈ 100 |
+| Stockage sur 5 ans | 124 000 × 100 o × 365 × 5 | ≈ 23 Go |
 
 Conclusion : le volume est minuscule et la moyenne aussi. Tout se joue dans les cinq minutes qui suivent 8 h, avec un rapport de 100 entre la pointe et la moyenne. C’est la pointe qui dimensionne la conception, pas la moyenne.
 

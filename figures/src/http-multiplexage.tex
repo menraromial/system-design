@@ -1,0 +1,34 @@
+% Douze petites requêtes : en série sur une connexion HTTP/1.1, sur six
+% connexions HTTP/1.1, puis multiplexées sur une connexion HTTP/2.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\newcommand{\bt}[4]{% y, début, fin, n°
+  \draw[draw=Dink, line width=0.5pt, fill=#4] (#2,#1-0.28) rectangle (#3,#1+0.28);}
+\begin{document}
+\begin{tikzpicture}[papier, x=11mm, y=6.5mm]
+  % axe
+  \draw[ligne=Dcloud] (0,1.2) -- (12.2,1.2);
+  \foreach \t in {0,...,12} {\draw[ligne=Dcloud] (\t,1.2) -- (\t,1.32); \node[note, above] at (\t,1.32) {\t};}
+  \node[note, anchor=west] at (12.3,1.45) {RTT};
+  % série
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.2,0) {HTTP/1.1\\une connexion};
+  \foreach \k in {0,...,11} {\bt{0}{\k}{\k+1}{Pbleu}\node[font=\sffamily\tiny] at (\k+0.5,0) {\the\numexpr\k+1\relax};}
+  % six connexions
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.2,-3.5) {HTTP/1.1\\six connexions};
+  \foreach \c in {0,...,5} {
+    \foreach \k in {0,1} {
+      \pgfmathtruncatemacro{\n}{\c + 6*\k + 1}
+      \bt{-1.6-\c*0.75}{\k}{\k+1}{Porange}\node[font=\sffamily\tiny] at (\k+0.5,-1.6-\c*0.75) {\n};
+    }
+  }
+  % HTTP/2
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.2,-6.6) {HTTP/2\\une connexion};
+  \draw[draw=Dink, line width=0.5pt, fill=Pvert] (0,-6.6-0.28) rectangle (1,-6.6+0.28);
+  \foreach \k in {0,...,11} \draw[Dink, line width=0.3pt] ({\k/12},-6.6-0.28) -- ({\k/12},-6.6+0.28);
+  \node[et=Psapin, anchor=west] at (1.15,-6.6) {12 flux entrelacés sur une seule connexion};
+  % repères de fin
+  \draw[ligne=Pbrique, dash pattern=on 2pt off 1.5pt] (12,0.35) -- (12,-7.3) node[below, et=Pbrique] {12 RTT};
+  \draw[ligne=Pbrun, dash pattern=on 2pt off 1.5pt] (2,-1.3) -- (2,-7.3) node[below, et=Pbrun] {2 RTT};
+  \draw[ligne=Psapin, dash pattern=on 2pt off 1.5pt] (1,-6.3) -- (1,-7.3) node[below, et=Psapin] {1 RTT};
+\end{tikzpicture}
+\end{document}

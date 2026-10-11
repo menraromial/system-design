@@ -1,0 +1,24 @@
+% Un paquet perdu : en HTTP/2, il bloque tous les flux de la connexion TCP ;
+% en HTTP/3, seulement le flux auquel il appartient.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1mm, y=1mm,
+    p/.style={boite=#1, minimum width=10mm, minimum height=7mm, font=\sffamily\small}]
+  \node[leg, anchor=east, font=\sffamily\small\bfseries, align=right] at (-8,0) {HTTP/2 sur TCP};
+  \foreach \i/\f/\c in {0/A/Pbleu, 1/B/Porange, 2/C/Pvert, 3/A/Pbleu, 4/B/Porange, 5/C/Pvert} {
+    \node[p=\c] (h\i) at (\i*12,0) {\f};
+  }
+  \node[p=white, draw=Dred, dash pattern=on 2pt off 1.5pt, text=Dred] at (12,0) {B};
+  \node[et=Dred, anchor=north] at (12,-4.5) {perdu};
+  \draw[accol] (24-5,4.5) -- node[above=3pt, et=Pbrun] {arrivés, bloqués : le flux TCP est ordonné} (60+5,4.5);
+  \node[leg, anchor=east, font=\sffamily\small\bfseries, align=right] at (-8,-20) {HTTP/3 sur QUIC};
+  \foreach \i/\f/\c in {0/A/Pbleu, 1/B/Porange, 2/C/Pvert, 3/A/Pbleu, 4/B/Porange, 5/C/Pvert} {
+    \node[p=\c] (q\i) at (\i*12,-20) {\f};
+  }
+  \node[p=white, draw=Dred, dash pattern=on 2pt off 1.5pt, text=Dred] at (12,-20) {B};
+  \node[et=Dred, anchor=north] at (12,-24.5) {perdu};
+  \node[et=Pbrun, anchor=south] at (48,-15.5) {seul ce B attend};
+  \node[et=Psapin, anchor=north] at (36,-30) {A et C sont remis à l'application dès leur arrivée};
+\end{tikzpicture}
+\end{document}

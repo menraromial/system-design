@@ -1,0 +1,22 @@
+% Allers-retours avant le premier octet de réponse, connexion neuve.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\newcommand{\tr}[5]{%
+  \draw[draw=Dink, line width=0.6pt, fill=#4] (#2,#1-0.32) rectangle (#3,#1+0.32);
+  \node[font=\sffamily\scriptsize, text=Dink] at ({(#2+#3)/2},#1) {#5};}
+\begin{document}
+\begin{tikzpicture}[papier, x=22mm, y=9mm]
+  \draw[ligne=Dcloud] (0,0.75) -- (4.2,0.75);
+  \foreach \t in {0,...,4} {\draw[ligne=Dcloud] (\t,0.75) -- (\t,0.85); \node[note, above] at (\t,0.85) {\t\ RTT};}
+  \foreach \y/\l in {0/{HTTP/1.1 + TLS 1.2}, -1/{HTTP/2 + TLS 1.3}, -2/{HTTP/3 (QUIC)}, -3/{HTTP/3, reprise 0-RTT}}
+    \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries] at (-0.1,\y) {\l};
+  \tr{0}{0}{1}{Porange}{TCP}\tr{0}{1}{3}{Plavande}{TLS 1.2 (2 RTT)}\tr{0}{3}{4}{Pbleu}{requête}
+  \tr{-1}{0}{1}{Porange}{TCP}\tr{-1}{1}{2}{Plavande}{TLS 1.3}\tr{-1}{2}{3}{Pbleu}{requête}
+  \tr{-2}{0}{1}{Pvert}{QUIC + TLS 1.3}\tr{-2}{1}{2}{Pbleu}{requête}
+  \tr{-3}{0}{1}{Pbleu}{requête (0-RTT)}
+  \node[note, anchor=west] at (4.05,0) {4 RTT};
+  \node[note, anchor=west] at (3.05,-1) {3 RTT};
+  \node[note, anchor=west] at (2.05,-2) {2 RTT};
+  \node[note, anchor=west] at (1.05,-3) {1 RTT : requête dans le premier paquet, rejouable};
+\end{tikzpicture}
+\end{document}

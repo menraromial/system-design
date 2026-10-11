@@ -180,8 +180,8 @@ Hypothèses : un service grand public de 10 millions d’utilisateurs par jour�
 
 | TTL | Calcul | Requêtes par seconde au plus |
 |---|---|---|
-| 86 400 s (1 jour) | 150 000 / 86 400 | ≈ 1,7 |
-| 3 600 s (1 h) | 150 000 / 3 600 | ≈ 42 |
+| 86 400 s (1 jour) | 150 000 / 86 400 | ≈ 1,7 |
+| 3 600 s (1 h) | 150 000 / 3 600 | ≈ 42 |
 | 300 s (5 min) | 150 000 / 300 | 500 |
 | 60 s | 150 000 / 60 | 2 500 |
 | 30 s | 150 000 / 30 | 5 000 |
@@ -258,10 +258,10 @@ Quand l’examinateur demande « que se passe-t-il quand on tape une URL ? �
 
 | Grandeur | Calcul | Résultat |
 |---|---|---|
-| Détection | 3 échecs × 10 s | ≈ 30 s |
+| Détection | 3 échecs × 10 s | ≈ 30 s |
 | Expiration des caches | TTL | 60 s |
-| Bascule totale, hors clients récalcitrants | 30 s + 60 s + délai du fournisseur | ≈ 1,5 à 2 min |
-| Charge des serveurs faisant autorité | 50 000 résolveurs × 1 nom / 60 s | ≈ 830 requêtes/s au plus |
+| Bascule totale, hors clients récalcitrants | 30 s + 60 s + délai du fournisseur | ≈ 1,5 à 2 min |
+| Charge des serveurs faisant autorité | 50 000 résolveurs × 1 nom / 60 s | ≈ 830 requêtes/s au plus |
 
 *Charge.* Environ 830 requêtes par seconde au plus pour ce nom, quelques milliers si l’on ajoute d’autres noms au même TTL : c’est négligeable pour un fournisseur de DNS. Le coût du TTL de 60 s est surtout pour les utilisateurs, dont le résolveur doit redemander plus souvent ; il reste faible, puisqu’un résolveur actif redemande une fois par minute pour des milliers d’utilisateurs.
 
@@ -274,7 +274,7 @@ Quand l’examinateur demande « que se passe-t-il quand on tape une URL ? �
 - DNS : arbre de noms découpé en zones déléguées ; racine (13 identités, 12 opérateurs, plus de 2 000 instances), TLD, serveurs faisant autorité.
 - Résolution : souche → résolveur récursif → (racine) → TLD → autorité ; presque toujours servie par un cache.
 - TTL : durée de validité d’une copie en cache ; le baisser au moins un ancien TTL avant une migration ; cache négatif pour les noms absents.
-- Charge des serveurs faisant autorité ≈ résolveurs × noms / TTL, indépendante du nombre d’utilisateurs.
+- Charge des serveurs faisant autorité ≈ résolveurs × noms / TTL, indépendante du nombre d’utilisateurs.
 - Répartition par le DNS : grossière et figée par les caches ; le DNS choisit la région, un répartiteur la machine.
 - Le DNS est la première dépendance du service : deux fournisseurs, TTL raisonnables, migrations préparées à froid.
 :::

@@ -21,7 +21,7 @@ export const PARTIES: Partie[] = [
     chapitres: [
       {num: 3, titre: 'Client-serveur et DNS', doc: 'partie-1/client-serveur-dns'},
       {num: 4, titre: 'Transport : TCP et UDP', doc: 'partie-1/transport'},
-      {num: 5, titre: 'HTTP/1.1, HTTP/2, HTTP/3 et QUIC'},
+      {num: 5, titre: 'HTTP/1.1, HTTP/2, HTTP/3 et QUIC', doc: 'partie-1/http'},
       {num: 6, titre: 'TLS et HTTPS'},
       {num: 7, titre: 'Styles d’API : REST, GraphQL, gRPC'},
       {num: 8, titre: 'Pousser des données vers le client'},

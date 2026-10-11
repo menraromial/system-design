@@ -185,10 +185,10 @@ Un aller-retour parcourt deux fois la distance : $\text{RTT}_{\min} = 2d / v$, 
 | Trajet | Distance à vol d’oiseau | RTT minimal |
 |---|---|---|
 | Deux machines d’un même centre de données | quelques centaines de mètres | quelques µs de propagation (la mesure est dominée par les cartes et les commutateurs) |
-| Paris - Marseille | 660 km | 2 × 660 / 200 ≈ 6,6 ms |
-| Paris - New York | 5 840 km | 2 × 5 840 / 200 ≈ 58 ms |
-| Paris - Singapour | 10 730 km | ≈ 107 ms |
-| Paris - Sydney | 16 960 km | ≈ 170 ms |
+| Paris - Marseille | 660 km | 2 × 660 / 200 ≈ 6,6 ms |
+| Paris - New York | 5 840 km | 2 × 5 840 / 200 ≈ 58 ms |
+| Paris - Singapour | 10 730 km | ≈ 107 ms |
+| Paris - Sydney | 16 960 km | ≈ 170 ms |
 :::
 
 Ces RTT se combinent avec les autres limites de TCP. Voici trois calculs pour une liaison Paris - New York, avec un RTT réel supposé de 80 ms.
@@ -198,10 +198,10 @@ Ces RTT se combinent avec les autres limites de TCP. Voici trois calculs pour un
 |---|---|---|
 | Première réponse sur une connexion neuve, sans TLS | 2 RTT | 160 ms |
 | Même requête sur une connexion réutilisée | 1 RTT | 80 ms |
-| Débit maximal avec une fenêtre de 65 535 o (sans mise à l’échelle) | 65 535 × 8 / 0,08 s | ≈ 6,6 Mbit/s |
+| Débit maximal avec une fenêtre de 65 535 o (sans mise à l’échelle) | 65 535 × 8 / 0,08 s | ≈ 6,6 Mbit/s |
 | Fenêtre nécessaire pour remplir 1 Gbit/s | 10⁹ / 8 × 0,08 s | 10 Mo |
-| Débit de Reno avec 0,1 % de pertes (formule de Mathis, MSS de 1 460 o) | 1 460 × 8 / 0,08 × 1,22 / √0,001 | ≈ 5,6 Mbit/s |
-| Même chose avec 0,001 % de pertes | p divisé par 100, débit × 10 | ≈ 56 Mbit/s |
+| Débit de Reno avec 0,1 % de pertes (formule de Mathis, MSS de 1 460 o) | 1 460 × 8 / 0,08 × 1,22 / √0,001 | ≈ 5,6 Mbit/s |
+| Même chose avec 0,001 % de pertes | p divisé par 100, débit × 10 | ≈ 56 Mbit/s |
 
 Conclusion : sur une longue distance, le débit d’une connexion TCP est borné par sa fenêtre et par ses pertes bien avant de l’être par le lien. Pour un transfert volumineux entre continents, on ouvre plusieurs connexions en parallèle, on choisit un algorithme moins sensible aux pertes, ou l’on rapproche les données des utilisateurs (CDN, ch. 15). Pour une API, ce sont les RTT qui comptent : chaque aller-retour évité vaut 80 ms.
 :::
@@ -224,7 +224,7 @@ Conclusion : la base voit 480 connexions ouvertes dont la moitié au plus trava
 
 ## Exemple réel : BBR chez Google
 
-En juillet 2017, Google a annoncé la mise à disposition de BBR sur sa plateforme cloud, après l'avoir déployé pour le trafic de son moteur de recherche et de YouTube. L’équipe indiquait que BBR avait augmenté le débit réseau de YouTube de 4 % en moyenne sur l’ensemble du monde, et de plus de 14 % dans certains pays[^bbr-gcp]. La formule de Mathis aide à comprendre d’où peut venir un tel gain : sur un réseau qui perd des paquets sans être saturé, comme beaucoup de liaisons mobiles, un algorithme qui interprète chaque perte comme de la congestion divise sa fenêtre pour rien, alors que BBR continue d’envoyer au débit qu’il a mesuré. Pour le concepteur, l’intérêt de l’exemple tient en une phrase : le choix d’un algorithme de congestion, qui ne coûte qu’un réglage du noyau sur les serveurs, change le débit perçu par des centaines de millions d’utilisateurs.
+En juillet 2017, Google a annoncé la mise à disposition de BBR sur sa plateforme cloud, après l’avoir déployé pour le trafic de son moteur de recherche et de YouTube. L’équipe indiquait que BBR avait augmenté le débit réseau de YouTube de 4 % en moyenne sur l’ensemble du monde, et de plus de 14 % dans certains pays[^bbr-gcp]. La formule de Mathis aide à comprendre d’où peut venir un tel gain : sur un réseau qui perd des paquets sans être saturé, comme beaucoup de liaisons mobiles, un algorithme qui interprète chaque perte comme de la congestion divise sa fenêtre pour rien, alors que BBR continue d’envoyer au débit qu’il a mesuré. Pour le concepteur, l’intérêt de l’exemple tient en une phrase : le choix d’un algorithme de congestion, qui ne coûte qu’un réglage du noyau sur les serveurs, change le débit perçu par des centaines de millions d’utilisateurs.
 
 ## Erreurs fréquentes
 
@@ -286,10 +286,10 @@ Si l’examinateur demande pourquoi une page lente à New York est rapide à Par
 - Débit borné par la fenêtre : $D_{\max} = W / \text{RTT}$ ; remplir un lien exige $W \geq D \times \text{RTT}$.
 - Congestion : démarrage lent depuis 10 segments, puis AIMD ; CUBIC par défaut, BBR chez Google ; Mathis : débit en $1 / (\text{RTT}\sqrt{p})$.
 - Blocage en tête de file : une perte retarde tout ce qui suit d’au moins un RTT.
-- TIME_WAIT : 60 s sous Linux chez celui qui ferme en premier ; 28 232 ports / 60 s ≈ 470 connexions par seconde vers un même serveur ; mesuré : épuisement après 28 227 connexions.
+- TIME_WAIT : 60 s sous Linux chez celui qui ferme en premier ; 28 232 ports / 60 s ≈ 470 connexions par seconde vers un même serveur ; mesuré : épuisement après 28 227 connexions.
 - Réutiliser les connexions (keep-alive, pool, multiplexage) : un RTT et un démarrage lent économisés par requête ; mesuré en local : 23 µs contre 427 µs.
 - UDP : 8 octets d’en-tête, ni connexion ni garantie ; DNS, temps réel, jeux, métriques, QUIC.
-- RTT minimal ≈ 2 × distance / 200 km/ms : Paris - New York ≥ 58 ms.
+- RTT minimal ≈ 2 × distance / 200 km/ms : Paris - New York ≥ 58 ms.
 :::
 
 [^jacobson]: Van Jacobson et Michael J. Karels, « Congestion Avoidance and Control », version révisée de novembre 1988 de l’article présenté à ACM SIGCOMM '88, [ee.lbl.gov/papers/congavoid.pdf](https://ee.lbl.gov/papers/congavoid.pdf).

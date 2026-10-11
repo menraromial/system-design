@@ -1,0 +1,16 @@
+# Serveur de l'expérience du chapitre 5 : HTTPS local (certificat de l'autorité
+# interne de Caddy), HTTP/1.1 et HTTP/2 sur TCP, fichiers statiques de ./site.
+{
+	admin off
+	skip_install_trust
+	auto_https disable_redirects
+	servers {
+		protocols h1 h2
+	}
+}
+
+https://localhost:8443 {
+	tls internal
+	root * ./site
+	file_server
+}

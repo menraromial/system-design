@@ -1,0 +1,26 @@
+% Décision d'un cache HTTP pour une requête GET.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, node distance=9mm,
+    q/.style={decision, fill=#1, minimum width=34mm, text width=27mm, font=\sffamily\scriptsize},
+    a/.style={bloc=#1, minimum width=34mm, text width=31mm, font=\sffamily\scriptsize}]
+  \node[a=Pfond] (req) {requête GET};
+  \node[q=Pjaune, below=of req] (copie) {copie en cache ?};
+  \node[q=Pjaune, below=of copie] (fraiche) {encore fraîche ?\\{\tiny âge < max-age}};
+  \node[a=Pvert, right=14mm of fraiche] (sert) {servie depuis le cache\\{\tiny aucun échange}};
+  \node[a=Pbleu, below=of fraiche] (cond) {requête conditionnelle\\{\tiny If-None-Match : ETag}};
+  \node[q=Pjaune, below=of cond] (change) {modifiée sur l'origine ?};
+  \node[a=Pvert, right=14mm of change] (n304) {304 Not Modified\\{\tiny en-têtes seuls, copie rafraîchie}};
+  \node[a=Porange, below=of change] (n200) {200 OK\\{\tiny nouvelle version complète}};
+  \node[a=Porange, left=14mm of fraiche] (complet) {requête complète\\à l'origine};
+  \draw[fl] (req) -- (copie);
+  \draw[fl] (copie) -- node[et, right] {oui} (fraiche);
+  \draw[fl] (copie.west) -| node[et, above, pos=0.25] {non} (complet.north);
+  \draw[fl] (fraiche) -- node[et, above] {oui} (sert);
+  \draw[fl] (fraiche) -- node[et, right] {non} (cond);
+  \draw[fl] (cond) -- (change);
+  \draw[fl] (change) -- node[et, above] {non} (n304);
+  \draw[fl] (change) -- node[et, right] {oui} (n200);
+\end{tikzpicture}
+\end{document}

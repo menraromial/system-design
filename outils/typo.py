@@ -22,6 +22,7 @@ def corriger_texte(t):
     t = re.sub(r"(?<=\d) (?=\d{3}(?!\d))", FINE, t)  # 1 000 000 : deux passes
     t = re.sub(r"(?<=\d) (?=(?:h|min|ms|µs|ns|s|%|o|Ko|Mo|Go|To|Po|bit|Mbit|Gbit|m²|€|\$)(?!\w))", INSEC, t)
     t = re.sub(r"(?<=\d\u00a0h) (?=\d\d(?!\d))", INSEC, t)
+    t = re.sub(r"≈ ", "≈" + INSEC, t)
     t = re.sub(r" :(?=\s|$)", INSEC + ":", t)
     t = re.sub(r" ([;?!])", FINE + r"\1", t)
     t = re.sub(r"(?<=\w)'(?=\w)", "\u2019", t)
