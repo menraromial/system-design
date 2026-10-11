@@ -1,0 +1,283 @@
+---
+title: Estimer la charge
+sidebar_label: 2. Estimer la charge
+description: "L'estimation au dos d'une enveloppe : conversions, débits moyens et de pointe, stockage, bande passante, mémoire, nombre de machines, et la façon d'en tirer une décision."
+partie: 0
+chapitre: 2
+---
+
+import chaine from '@site/src/figures/estimation-chaine.svg';
+import profil from '@site/src/figures/estimation-profil.svg';
+import puissances from '@site/src/figures/estimation-puissances.svg';
+
+Le 3 août 2013, pendant la diffusion à la télévision japonaise du film d’animation *Le Château dans le ciel*, Twitter a enregistré 143 199 tweets en une seconde. Un jour ordinaire, le service en recevait alors 5 700 par seconde en moyenne[^twitter]. Le pic valait donc 25 fois la moyenne, et le service n’est pas tombé ; trois ans plus tôt, des pics soixante-dix fois plus faibles le rendaient instable. Aucun calcul fait sur la moyenne n’aurait permis de dimensionner ce moment-là, et c’est le sujet de ce chapitre : savoir produire en quelques minutes les ordres de grandeur d’un système (requêtes par seconde, octets stockés, débit réseau, nombre de machines) et savoir lesquels comptent.
+
+L’anglais appelle cet exercice back-of-the-envelope estimation : l’estimation qu’on fait au dos d’une enveloppe, sans tableur. Le ch. 1 s’en est servi à l’étape 2 de la démarche ; on en donne ici la technique complète, les repères à connaître par cœur et la façon de juger si le résultat est vraisemblable.
+
+## Le traiteur et les coupes de champagne
+
+:::analogie[Analogie : le traiteur d’un mariage]
+Un traiteur qui prépare un mariage de 150 invités ne connaît pas la soif de chacun. Il compte trois coupes par invité pendant le vin d’honneur, soit 450 coupes ; une bouteille en remplit six, il faut donc 75 bouteilles ; il arrondit à 80 et prévoit une caisse de réserve. Il sait aussi que tout le monde arrive en même temps à la sortie de la mairie : il lui faut assez de serveurs pour remplir 150 coupes en dix minutes, pas en trois heures. Il a fait, sans le nommer, tout le travail d’une estimation de charge : un nombre de personnes, une consommation par personne, une unité de conditionnement, une marge, et une pointe.
+
+**Où l’analogie s’arrête.** Le traiteur connaît le nombre d’invités à l’avance, et ce nombre ne double pas pendant la soirée ; les utilisateurs d’un service, eux, peuvent doubler en un mois, et leur pointe peut atteindre 25 fois la moyenne à cause d’un événement que personne n’avait prévu, comme on vient de le voir. Le traiteur sait aussi quand arrive la vague ; un service grand public a des pointes quotidiennes prévisibles et des pointes d’événement qui ne le sont pas. Enfin, un invité qui boit une coupe consomme une coupe. Dans un système, une action visible déclenche souvent des dizaines d’opérations invisibles : afficher une page peut coûter quinze requêtes en base, et ce facteur d’amplification n’a pas d’équivalent au buffet.
+:::
+
+## La chaîne d’une estimation
+
+<Figure svg={chaine} num="2.1" alt="Quatre colonnes reliées par des flèches : hypothèses écrites, débits, ressources, décision.">
+Les quatre temps d’une estimation, de gauche à droite.
+</Figure>
+
+La figure se lit de gauche à droite. La première colonne rassemble les hypothèses, qu’on écrit avant tout calcul ; la deuxième en tire les débits, moyens puis de pointe, en séparant lectures et écritures ; la troisième convertit ces débits en ressources (disques, réseau, mémoire, machines) ; la dernière est la phrase qui en découle pour la conception. Les formules en petits caractères sont celles qu’on applique dans chaque case.
+
+### Les hypothèses, écrites avant de calculer
+
+Une estimation commence par une liste d’hypothèses, chacune avec son chiffre. Pour un service grand public, on part presque toujours du nombre d’utilisateurs actifs par jour (daily active users, DAU), c’est-à-dire du nombre de personnes distinctes qui utilisent le service au moins une fois dans la journée. On rencontre aussi les utilisateurs actifs par mois (monthly active users, MAU), qui sont plus nombreux, parce qu’une personne qui vient une fois par semaine compte dans les MAU sans compter chaque jour dans les DAU. Confondre les deux gonfle tous les débits.
+
+Viennent ensuite le nombre d’actions par utilisateur et par jour, en séparant les lectures (afficher, chercher) des écritures (publier, voter, envoyer) ; la taille d’un objet stocké et celle d’une réponse ; la durée de conservation des données ; le nombre de copies de chaque donnée (le ch. 24 expliquera pourquoi on en garde souvent trois) ; le facteur de pointe ; la capacité d’une machine pour cette charge précise. En entretien, on obtient certaines de ces valeurs par des questions et on fixe les autres soi-même, à voix haute. Dans une équipe, on les remplace dès que possible par des mesures.
+
+### Les débits : de la journée à la seconde
+
+Le débit moyen s’obtient en divisant le volume quotidien par le nombre de secondes d’une journée, 86 400. Pour calculer de tête, on arrondit souvent 86 400 à 10⁵, ce qui sous-estime les débits de 14 % (86 400 / 100 000 = 0,864) : l’erreur est acceptable pour un ordre de grandeur, à condition de savoir dans quel sens elle va. Quelques repères évitent de refaire la division :
+
+:::calcul[Repères de conversion]
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| 1 million d’événements par jour | 10⁶ / 86 400 | ≈ 11,6 par seconde |
+| 100 millions par jour | 10⁸ / 86 400 | ≈ 1 160 par seconde |
+| 1 milliard par jour | 10⁹ / 86 400 | ≈ 11 600 par seconde |
+| 1 événement par seconde, sur un jour | × 86 400 | 86 400 |
+| 1 événement par seconde, sur un mois | × 86 400 × 30 | ≈ 2,6 millions |
+| 1 événement par seconde, sur un an | × 86 400 × 365 | ≈ 31,5 millions |
+| 1 an en secondes | 365 × 86 400 | 31 536 000 ≈ 3,15 × 10⁷ |
+| 1 Mo/s soutenu | × 86 400 | 86,4 Go par jour, ≈ 2,6 To par mois |
+| 1 Gbit/s | / 8 | 125 Mo/s, soit 10,8 To par jour |
+:::
+
+Le facteur de pointe dit combien de fois le débit le plus élevé dépasse la moyenne. On peut le fixer forfaitairement (entre 2 et 5 pour un service grand public, faute de mieux), mais on fait mieux en le déduisant d’une hypothèse sur la répartition du trafic dans la journée : si une fraction f du trafic quotidien tombe dans une fenêtre de H heures, le débit moyen dans cette fenêtre vaut f × 24 / H fois la moyenne de la journée. Avec 45 % du trafic entre 18 h et 23 h, on obtient 0,45 × 24 / 5 ≈ 2,2.
+
+<Figure svg={profil} num="2.2" alt="Courbe du trafic sur 24 heures, creux la nuit, bosse à midi, pic vers 20 h 30 ; moyenne de la journée en pointillés, moyenne de la fenêtre 18 h-23 h et pointe instantanée marquées.">
+Profil journalier illustratif d’un service grand public, normalisé par sa moyenne.
+</Figure>
+
+L’axe vertical est gradué en multiples de la moyenne de la journée, que matérialise la ligne en pointillés. La bande ocre couvre la fenêtre de 18 h à 23 h, qui concentre 45 % du trafic ; le trait brun donne le débit moyen dans cette fenêtre (2,17 fois la moyenne), le point rouge la pointe instantanée (2,62 fois). La courbe est construite pour l’exemple et ne vient d’aucun service réel ; les trois valeurs ont été calculées sur elle. Elle montre que la formule f × 24 / H donne la moyenne d’une fenêtre, et que la pointe la dépasse : ici de 20 % environ (2,62 / 2,17 ≈ 1,21).
+
+Deux autres effets s’ajoutent au profil quotidien. Les pointes d’événement d’abord, comme celle de Twitter en 2013, qui ne se lisent sur aucun profil moyen. L’amplification ensuite : une requête de l’utilisateur en déclenche plusieurs dans le système (lectures en base, appels à d’autres services), et c’est le débit amplifié que les composants internes doivent tenir. Stack Overflow publiait en 2016 environ 2,4 requêtes SQL par requête HTTP (ch. 1) ; un fil d’actualité qui assemble cinquante publications pour une seule page a une amplification bien plus forte.
+
+### Les ressources
+
+Le stockage se calcule en multipliant la taille d’un objet par le nombre d’objets créés par jour, par la durée de conservation, puis par le nombre de copies, et en ajoutant ce qui n’est pas la donnée elle-même : index, métadonnées, espace libre que le système de stockage réserve. Faute de mieux, on compte un facteur 1,5 à 2 pour ces surcoûts, et on le dit.
+
+La bande passante est le débit multiplié par la taille des réponses, en distinguant l’entrée (ce que les clients envoient) et la sortie (ce qu’on leur renvoie). On la convertit en bits par seconde, parce que c’est l’unité des interfaces réseau et des factures de transit : un octet vaut 8 bits.
+
+La mémoire d’un cache se dimensionne sur les données chaudes (hot data), celles qu’on lit souvent. Une hypothèse fréquente, à vérifier dès qu’on a des mesures, est qu’une petite fraction des objets, par exemple 20 %, reçoit l’essentiel des lectures ; on garde alors en mémoire cette fraction des objets récents. Les ch. 16 et 17 diront comment choisir ce qu’on garde.
+
+Le nombre de machines, enfin, se déduit de la pointe et de la capacité d’une machine. Cette capacité ne s’invente pas : elle se mesure par un test de charge sur l’application réelle, car elle dépend de ce que fait chaque requête. On ne la consomme pas en entier, parce que la latence grimpe brutalement quand une machine approche de la saturation (le ch. 9 explique pourquoi) ; on vise un taux d’utilisation, par exemple 70 %. On ajoute enfin au moins une machine pour pouvoir en perdre une, ou en mettre une à jour, sans passer sous la capacité nécessaire : c’est la règle dite N + 1.
+
+N = ⌈ débit de pointe / (capacité mesurée × taux d’utilisation visé) ⌉ + 1
+
+### La conclusion
+
+Un calcul qui ne débouche sur aucune décision a coûté du temps pour rien. Chaque bloc de chiffres doit finir par une phrase de la forme « donc... » : donc une seule base suffit ; donc les images doivent être servies par un réseau de diffusion de contenu (CDN, ch. 15) ; donc le nombre de connexions ouvertes, et non le débit, dimensionne les serveurs. C’est cette phrase qui relie l’étape 2 de la démarche à l’étape 5.
+
+## Calculer de tête sans se tromper d’ordre de grandeur
+
+On calcule en notation scientifique, avec un ou deux chiffres significatifs : on multiplie les mantisses entre elles et on additionne les exposants. Pour 300 millions d’utilisateurs qui font chacun 2 actions par jour : 3 × 10⁸ × 2 = 6 × 10⁸ actions par jour, divisées par 10⁵ secondes, soit 6 × 10³ actions par seconde. Le calcul exact donne 6 944 par seconde : l’arrondi de 86 400 à 10⁵ a coûté 14 %, comme prévu, et l’ordre de grandeur est juste.
+
+Les unités de taille demandent une attention particulière, parce que deux systèmes coexistent. Le système international définit le kilooctet (Ko) comme 10³ octets, le mégaoctet comme 10⁶ et ainsi de suite ; la norme de la Commission électrotechnique internationale (CEI 80000-13) définit le kibioctet (Kio) comme 2¹⁰ = 1 024 octets, le mébioctet comme 2²⁰, et ainsi de suite[^cei]. Les fabricants de disques vendent des téraoctets décimaux, alors que beaucoup de systèmes d’exploitation affichent des tailles en puissances de 2.
+
+<Figure svg={puissances} num="2.3" alt="Six paires d’unités, du kilooctet à l’exaoctet, avec leur valeur décimale, leur équivalent binaire et l’écart entre les deux, de 2,4 % à 15,3 %.">
+Unités décimales et binaires, et l’écart qui grandit avec elles.
+</Figure>
+
+Chaque colonne associe une unité décimale (en haut) à son équivalent binaire (en bas). L’écart, en dessous, est celui de la puissance de 2 par rapport à la puissance de 10 : 2,4 % au kilo, 10 % au téra, plus de 15 % à l’exa. Pour une estimation, on peut confondre les deux jusqu’au gigaoctet ; au-delà, un disque « de 20 To » ne contient que 18,2 Tio, et l’écart finit par compter dans une commande de matériel.
+
+Reste la question de la précision. Si chaque hypothèse peut être fausse d’un facteur 2, le produit de quatre hypothèses peut, au pire, être faux d’un facteur 2⁴ = 16. Mais ce pire suppose que toutes les erreurs aillent dans le même sens. Quand elles sont indépendantes et aussi souvent par excès que par défaut, ce sont leurs logarithmes qui s’additionnent comme des écarts aléatoires : l’écart typique du logarithme du produit est la racine carrée de la somme des carrés des écarts. Avec quatre facteurs dont chacun est typiquement faux d’un facteur 2 (un écart de 1 en logarithme de base 2), l’écart typique du produit vaut √4 = 2 en logarithme, soit un facteur 2² = 4. C’est ce qui rend ces estimations utiles en pratique : les erreurs se compensent en partie. Ce n’est vrai que si les erreurs sont indépendantes ; une seule hypothèse biaisée, comme des MAU pris pour des DAU, décale tout le résultat.
+
+## Les tailles à connaître
+
+Beaucoup d’objets ont une taille fixée par une norme ou par un format, qu’il vaut la peine de connaître.
+
+| Objet | Taille |
+|---|---|
+| Caractère ASCII | 1 o |
+| Caractère en UTF-8 | 1 à 4 o (« é » en occupe 2) |
+| Entier sur 32 bits, sur 64 bits | 4 o, 8 o |
+| Horodatage Unix en millisecondes sur 64 bits | 8 o |
+| UUID | 16 o en binaire, 36 caractères en texte |
+| Empreinte SHA-256 | 32 o, 64 caractères en hexadécimal |
+| Adresse IPv4, IPv6 | 4 o, 16 o |
+| Une seconde d’audio à 128 kbit/s | 16 Ko |
+| Une seconde de vidéo à 5 Mbit/s (Full HD selon Netflix) | 625 Ko |
+| Une seconde de vidéo à 15 Mbit/s (4K selon Netflix) | 1,875 Mo |
+| Un film de 2 h en 4K à 15 Mbit/s | 15 × 10⁶ × 7 200 / 8 = 13,5 Go |
+
+Les débits vidéo sont ceux que Netflix recommande pour la connexion de ses clients : 3 Mbit/s pour la HD (720p), 5 Mbit/s pour la Full HD (1080p), 15 Mbit/s pour la 4K[^netflix]. Ce sont des débits de connexion conseillés, pas les débits exacts de chaque film, mais ils suffisent pour un ordre de grandeur. Pour tout le reste (une photo, une page web, un document), la taille dépend des choix du service : c’est une hypothèse, qu’on pose et qu’on annonce.
+
+## Deux estimations complètes
+
+### Un service de partage de photos
+
+:::calcul[Calcul : partage de photos]
+Hypothèses : 10 millions d’utilisateurs actifs par jour ; 10 % d’entre eux publient une photo par jour ; chaque utilisateur actif regarde 50 photos par jour ; la photo envoyée pèse 2 Mo, on la garde et on en produit trois variantes (miniature, moyenne, grande) qui pèsent ensemble 1 Mo ; on affiche le plus souvent la variante moyenne, de 200 Ko ; 1 Ko de métadonnées par photo ; 3 copies de chaque fichier ; pointe égale à 3 fois la moyenne ; un serveur d’application traite 1 000 requêtes de métadonnées par seconde (hypothèse à mesurer), utilisé à 70 %.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Photos publiées par jour | 10⁷ × 0,1 | 1 000 000 |
+| Publications par seconde, moyenne | 10⁶ / 86 400 | ≈ 12 |
+| Publications par seconde, pointe | 12 × 3 | ≈ 35 |
+| Photos vues par jour | 10⁷ × 50 | 500 000 000 |
+| Vues par seconde, moyenne | 5 × 10⁸ / 86 400 | ≈ 5 800 |
+| Vues par seconde, pointe | 5 800 × 3 | ≈ 17 400 |
+| Rapport lectures / écritures | 5 × 10⁸ / 10⁶ | 500 |
+| Fichiers stockés par jour | 10⁶ × (2 Mo + 1 Mo) | 3 To |
+| Fichiers sur 5 ans | 3 To × 365 × 5 | ≈ 5,5 Po |
+| Avec 3 copies | 5,5 Po × 3 | ≈ 16,4 Po |
+| Disques de 20 To nécessaires | 16,4 Po / 20 To | ≈ 820 |
+| Métadonnées sur 5 ans | 10⁶ × 1 Ko × 365 × 5 | ≈ 1,8 To |
+| Entrée réseau moyenne | 10⁶ × 2 Mo / 86 400 s = 23 Mo/s | ≈ 185 Mbit/s |
+| Sortie réseau moyenne | 5 × 10⁸ × 200 Ko / 86 400 s = 1,16 Go/s | ≈ 9,3 Gbit/s |
+| Sortie réseau en pointe | 9,3 × 3 | ≈ 28 Gbit/s |
+| Cache des photos chaudes | 7 jours × 10⁶ photos × 20 % × 200 Ko | ≈ 280 Go |
+| Serveurs d’application | ⌈ 17 400 / (1 000 × 0,7) ⌉ + 1 | 26 |
+
+Conclusions. Les fichiers représentent plus de 99,9 % du volume (16,4 Po contre 1,8 To) : ils iront dans un stockage objet (ch. 29), et les métadonnées dans une base classique, qui tient sur une machine. Les 28 Gbit/s de sortie en pointe ne se servent pas depuis quelques serveurs : un CDN est indispensable (ch. 15). Avec 500 lectures par écriture, le cache est rentable, et 280 Go tiennent dans la mémoire de quelques machines. La grande majorité des requêtes concerne la lecture des métadonnées, une vingtaine de serveurs sans état suffit pour elles.
+:::
+
+Le calcul fait aussi ressortir ce qui coûte. Les 820 disques ne sont qu’un point de départ : un stockage objet qui utilise un codage d’effacement (erasure coding) au lieu de trois copies complètes peut ramener le surcoût de ×3 à environ ×1,5, ce que le ch. 29 détaillera, et c’est une décision qui se chiffre en centaines de disques.
+
+### Une messagerie
+
+:::calcul[Calcul : messagerie texte]
+Hypothèses : 50 millions d’utilisateurs actifs par jour ; 40 messages envoyés par utilisateur et par jour ; 200 o par message (100 o de texte, 100 o d’identifiants, d’horodatage et d’état) ; conversations à deux, donc chaque message est remis une fois ; messages conservés un an, 3 copies ; pointe égale à 3 fois la moyenne ; à la pointe, 20 % des utilisateurs actifs ont l’application ouverte et gardent une connexion avec le serveur ; un serveur garde 100 000 connexions ouvertes (hypothèse à mesurer).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Messages par jour | 5 × 10⁷ × 40 | 2 × 10⁹ |
+| Messages par seconde, moyenne | 2 × 10⁹ / 86 400 | ≈ 23 000 |
+| Messages par seconde, pointe | 23 000 × 3 | ≈ 70 000 |
+| Données par jour | 2 × 10⁹ × 200 o | 400 Go |
+| Données sur un an, 3 copies | 400 Go × 365 × 3 | ≈ 440 To |
+| Débit entrant moyen | 23 000 × 200 o = 4,6 Mo/s | ≈ 37 Mbit/s |
+| Connexions ouvertes à la pointe | 5 × 10⁷ × 20 % | 10 000 000 |
+| Serveurs de connexions | 10⁷ / 10⁵ + 1 | 101 |
+
+Conclusions. Le débit réseau est faible (quelques dizaines de Mbit/s) et le stockage reste modeste pour un service de cette taille. Ce qui dimensionne le système, c’est le nombre de connexions ouvertes en même temps : dix millions, réparties sur une centaine de serveurs. Le ch. 8 décrira ces connexions persistantes et le ch. 65 la conception complète d’une messagerie.
+:::
+
+Cette estimation peut se confronter à un fait publié. En février 2020, WhatsApp annonçait plus de deux milliards d’utilisateurs[^wa-utilisateurs] ; en octobre de la même année, Mark Zuckerberg indiquait que le service remettait environ 100 milliards de messages par jour[^wa-messages]. Cela fait 10¹¹ / 86 400 ≈ 1,16 million de messages par seconde en moyenne, cinquante fois plus que notre messagerie, et 10¹¹ / (2 × 10⁹) = 50 messages par jour et par utilisateur inscrit. Notre hypothèse de 40 messages par utilisateur actif est donc du bon ordre de grandeur : c’est exactement le genre de vérification qu’on fait avec un chiffre public.
+
+## Choisir le facteur de pointe et y répondre
+
+Deux décisions se prennent à chaque estimation : comment obtenir le facteur de pointe, puis comment le système encaissera cette pointe. Les tableaux suivants comparent les options.
+
+| Méthode pour le facteur de pointe | Avantages | Inconvénients | Quand la choisir |
+|---|---|---|---|
+| Valeur forfaitaire (2 à 5) | immédiate, suffisante en entretien | ne repose sur rien de propre au service | au tout début, faute d’information |
+| Fenêtre de concentration (f × 24 / H) | se justifie par un comportement réel (le soir, les trajets du matin) | donne la moyenne de la fenêtre, pas le pic instantané | quand on connaît les habitudes des utilisateurs |
+| Mesures historiques et calendrier des événements | reflète le vrai profil, y compris les pics d’événement | demande un service qui existe déjà et des métriques | dans une équipe, pour tout dimensionnement réel |
+
+| Façon d’encaisser la pointe | Avantages | Inconvénients | Quand la choisir |
+|---|---|---|---|
+| Dimensionner pour la pointe | simple, aucune dépendance supplémentaire | machines inutilisées le reste du temps | pointe faible devant la moyenne, ou coût des machines faible |
+| Ajouter des machines automatiquement (ch. 51) | on paie au plus près de la charge | les nouvelles machines mettent du temps à démarrer ; inutile pour un pic de quelques secondes | pointes qui montent en minutes, comme une soirée |
+| Lisser par une file d’attente (ch. 27) | les écritures sont absorbées puis traitées à débit constant | le traitement est différé | travail qui peut attendre (envoi d’e-mails, traitement d’images) |
+| Refuser ou dégrader l’excédent (ch. 39) | protège le service au lieu de le laisser tomber | une partie des utilisateurs est mal servie | pics d’événement imprévisibles et brefs |
+
+## Exemple réel : le pic de Twitter
+
+L’article de l’équipe d’ingénierie de Twitter qui rapporte le record de 2013 donne les deux chiffres nécessaires : plus de 500 millions de tweets par jour, soit 5 700 par seconde en moyenne, et une pointe de 143 199 par seconde[^twitter]. Le calcul de la moyenne se vérifie : 500 × 10⁶ / 86 400 ≈ 5 787. Le facteur de pointe vaut 143 199 / 5 700 ≈ 25, à comparer aux facteurs 2 à 5 qu’on prend d’habitude pour le profil quotidien. Son auteur, Raffi Krikorian, alors responsable de l’ingénierie de la plateforme, rappelle que pendant la Coupe du monde de 2010 des pics de 2 000 tweets par seconde rendaient le service instable, et que c’est ce constat qui a lancé la refonte de l’architecture. L’enseignement, pour l’estimation, est double : la pointe d’événement peut dépasser d’un ordre de grandeur la pointe quotidienne, et c’est elle qu’on choisit, ou non, de tenir. Décider de ne pas la tenir est légitime, à condition de prévoir ce que fait le service quand elle arrive (le ch. 39 traite ce cas).
+
+## Erreurs fréquentes
+
+La plus coûteuse est de confondre les bits et les octets. Les réseaux se mesurent en bits par seconde, les fichiers en octets : 1 Gbit/s fait 125 Mo/s, pas 1 Go/s. Un facteur 8 oublié transforme une liaison suffisante en goulet, ou l’inverse.
+
+Vient ensuite le calcul sur la moyenne. Dimensionner des serveurs pour 5 800 requêtes par seconde quand la pointe en compte 17 400 garantit une panne chaque soir. Le facteur de pointe doit apparaître dans le calcul, avec sa justification.
+
+Beaucoup d’estimations oublient aussi les copies et les surcoûts. Un stockage compté sans réplication, sans index et sans marge sous-estime le besoin d’un facteur 3 à 6.
+
+Une autre erreur consiste à oublier la croissance. Un service dont le volume quotidien augmente de 50 % par an n’accumule pas cinq fois le volume de la première année en cinq ans, mais 1 + 1,5 + 2,25 + 3,4 + 5,1 ≈ 13,2 fois. Le chiffre sur cinq ans change presque d’un facteur 3.
+
+La fausse précision est plus bénigne, mais elle trahit le débutant : annoncer 5 787,04 requêtes par seconde laisse croire à une exactitude que les hypothèses n’ont pas, et fait perdre du temps. Deux chiffres significatifs suffisent.
+
+L’amplification est souvent négligée. Le débit que voit la base n’est pas celui que voit le répartiteur : si une page coûte dix requêtes en base, la base doit tenir dix fois le débit des pages.
+
+Enfin, en entretien, il ne faut ni s’éterniser sur les calculs ni les sauter. Cinq minutes suffisent pour le débit, le stockage et la bande passante, à condition que chaque résultat débouche sur une conclusion. Un examinateur qui voit un candidat aligner des multiplications pendant quinze minutes se demande quand la conception va commencer.
+
+:::piege[Erreur fréquente : DAU et MAU]
+« Notre service a 300 millions d’utilisateurs » : s’agit-il des inscrits, des actifs du mois ou des actifs du jour ? Pour un réseau social, le rapport entre DAU et MAU peut être bien inférieur à 1, et pour un service occasionnel (une billetterie, un outil de déclaration d’impôts) il est très faible. Prendre des MAU pour des DAU multiplie tous les débits d’autant. Posez la question, ou annoncez votre hypothèse.
+:::
+
+:::entretien
+Annoncez la structure du calcul avant les chiffres : « je calcule le débit d’écriture, puis de lecture, puis le stockage sur cinq ans, puis la bande passante ». L’examinateur peut alors vous arrêter sur ce qui l’intéresse. Arrondissez franchement et dites-le (« je prends 10⁵ secondes par jour »), écrivez les résultats au tableau pour pouvoir y revenir, et terminez chaque ligne par sa conséquence.
+:::
+
+## Exercices
+
+**Question 1.** Effectuez de tête, puis vérifiez :
+
+1. 500 millions de requêtes par jour, combien par seconde en moyenne ?
+2. 2 Po de données, gardées en 3 copies sur des disques de 20 To : combien de disques, sans marge ?
+3. Une liaison de 1 Gbit/s utilisée à plein pendant une heure transfère combien de gigaoctets ?
+
+**Question 2.** Un service reçoit 60 % de son trafic quotidien entre 18 h et 22 h. Quel facteur de pointe en déduisez-vous, et pourquoi faut-il le majorer avant de dimensionner les serveurs ?
+
+**Question 3.** Votre estimation de stockage repose sur trois hypothèses, chacune connue « à un facteur 2 près » : le nombre d’utilisateurs, le nombre d’objets créés par utilisateur, la taille d’un objet. Dans quelle plage le résultat se trouve-t-il au pire ? Quel écart typique peut-on attendre si les trois erreurs sont indépendantes ? Quelle hypothèse ruinerait ce raisonnement ?
+
+**Exercice de conception.** Une plateforme d’écoute de podcasts compte 5 millions d’auditeurs actifs par jour. Chaque auditeur écoute en moyenne 2 épisodes par jour, 40 minutes au total par épisode, en MP3 à 128 kbit/s. Les créateurs publient 20 000 nouveaux épisodes par jour, de 50 minutes en moyenne ; on garde le fichier envoyé (192 kbit/s) et on produit deux versions (128 kbit/s et 64 kbit/s). L’application envoie au serveur la position de lecture toutes les 30 secondes. 30 % de l’écoute a lieu entre 7 h et 9 h. Estimez le débit sortant moyen et de pointe, le nombre d’auditeurs simultanés, le stockage ajouté chaque année (3 copies) et le nombre de requêtes par seconde reçues par l’API. Tirez-en au moins trois conclusions pour la conception.
+
+## Corrigés
+
+**Question 1.**
+
+1. De tête : 5 × 10⁸ / 10⁵ = 5 × 10³, soit 5 000 par seconde. Le calcul exact donne 5 × 10⁸ / 86 400 ≈ 5 787. L’arrondi sous-estime de 14 %, comme attendu.
+2. 2 Po × 3 = 6 Po = 6 000 To ; 6 000 / 20 = 300 disques. En pratique on ajoute une marge pour l’espace libre et les disques en panne, et l’on se souvient qu’un disque de 20 To décimaux ne contient que 18,2 Tio si le système affiche des unités binaires.
+3. 1 Gbit/s = 125 Mo/s ; 125 Mo/s × 3 600 s = 450 000 Mo = 450 Go.
+
+**Question 2.** La fenêtre de 4 heures concentre 60 % du trafic : le débit moyen dans cette fenêtre vaut 0,6 × 24 / 4 = 3,6 fois la moyenne de la journée. C’est une moyenne sur quatre heures. À l’intérieur de la fenêtre, le trafic n’est pas uniforme : il monte, culmine puis redescend, et sa valeur maximale dépasse la moyenne de la fenêtre. Sur le profil de la figure 2.2, la pointe dépasse la moyenne de la fenêtre d’environ 20 % ; faute de mesure, on dimensionnerait pour un facteur de l’ordre de 4 à 4,5, en ajoutant une marge si le service peut connaître des pics d’événement.
+
+**Question 3.** Au pire, les trois erreurs vont dans le même sens : le résultat peut être faux d’un facteur 2³ = 8, donc se trouver entre un huitième et huit fois l’estimation. Si les erreurs sont indépendantes et que chacune correspond à un écart typique de 1 en logarithme de base 2, l’écart typique du produit vaut √3 ≈ 1,73 en logarithme, soit un facteur 2^1,73 ≈ 3,3. On s’attend donc plutôt à un résultat juste à un facteur 3 près. Le raisonnement suppose l’indépendance des erreurs. Une hypothèse commune à plusieurs facteurs la ruine : par exemple, si l’on a surestimé le nombre d’utilisateurs parce qu’on a pris des MAU pour des DAU, et que le nombre d’objets par utilisateur a été estimé sur ces mêmes utilisateurs très actifs, les deux erreurs vont dans le même sens et s’additionnent au lieu de se compenser.
+
+**Exercice de conception.**
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Écoutes par jour | 5 × 10⁶ × 2 | 10⁷ |
+| Durée d’écoute totale par jour | 10⁷ × 40 min × 60 s | 2,4 × 10¹⁰ s |
+| Octets par seconde d’écoute | 128 kbit/s / 8 | 16 Ko |
+| Sortie par jour | 2,4 × 10¹⁰ × 16 × 10³ o | 384 To |
+| Débit sortant moyen | 384 × 10¹² × 8 / 86 400 | ≈ 36 Gbit/s |
+| Facteur de pointe | 0,3 × 24 / 2 | 3,6 |
+| Débit sortant en pointe | 36 × 3,6 | ≈ 128 Gbit/s |
+| Auditeurs simultanés, moyenne | 2,4 × 10¹⁰ s / 86 400 s | ≈ 280 000 |
+| Auditeurs simultanés, pointe | 280 000 × 3,6 | ≈ 1 000 000 |
+| Contrôle | 280 000 × 128 kbit/s | ≈ 36 Gbit/s |
+| Audio publié par jour | 20 000 × 50 min × 60 s | 6 × 10⁷ s |
+| Octets par seconde d’audio stocké | (192 + 128 + 64) kbit/s / 8 | 48 Ko |
+| Stockage ajouté par jour | 6 × 10⁷ × 48 × 10³ o | ≈ 2,9 To |
+| Stockage ajouté par an, 3 copies | 2,9 To × 365 × 3 | ≈ 3,2 Po |
+| Requêtes de position, moyenne | 280 000 / 30 s | ≈ 9 300 par seconde |
+| Requêtes de position, pointe | 9 300 × 3,6 | ≈ 33 000 par seconde |
+| Débuts d’écoute | 10⁷ / 86 400 | ≈ 116 par seconde |
+
+La ligne « contrôle » vérifie le débit par un autre chemin : le nombre d’auditeurs simultanés multiplié par le débit d’un flux redonne le débit sortant moyen. Ce raisonnement (écoutes simultanées = durée totale d’écoute / durée de la journée) est un cas particulier de la loi de Little, que le ch. 9 énoncera.
+
+Conclusions. D’abord, les 128 Gbit/s de pointe imposent de servir l’audio par un CDN ; l’origine ne doit voir qu’une petite partie de ce trafic. Ensuite, le stockage croît de plus de 3 Po par an et ne diminue jamais si l’on garde tout : stockage objet, et classes de stockage moins chères pour les épisodes anciens rarement écoutés (ch. 29). Troisième conclusion, la moins évidente : les requêtes que reçoit l’API ne viennent presque pas des débuts d’écoute (116 par seconde) mais des positions de lecture, 33 000 par seconde en pointe, soit près de 300 fois plus. C’est cette écriture fréquente et minuscule qu’il faut concevoir avec soin : on peut l’envoyer moins souvent (toutes les 60 secondes, et à chaque pause), regrouper plusieurs positions dans une requête, et la ranger dans une base adaptée à beaucoup de petites écritures (ch. 21) plutôt que dans la base relationnelle des épisodes. Perdre la dernière position d’un auditeur coûte peu ; l’exigence de durabilité peut être plus faible pour cette donnée que pour le catalogue.
+
+:::fiche
+- Écrire les hypothèses avant de calculer : DAU (et non MAU), actions par utilisateur, tailles, rétention, copies, pointe, capacité mesurée.
+- Débit moyen = volume par jour / 86 400 ; 1 million par jour ≈ 12 par seconde ; 86 400 ≈ 10⁵ sous-estime de 14 %.
+- Facteur de pointe : f × 24 / H donne la moyenne d’une fenêtre, la pointe est plus haute ; les pics d’événement peuvent atteindre 25 fois la moyenne (Twitter, 2013).
+- Stockage = taille × nombre × durée × copies, puis surcoûts (× 1,5 à 2) et croissance.
+- Bande passante en bits : 1 Gbit/s = 125 Mo/s ≈ 10,8 To par jour.
+- Machines : ⌈ pointe / (capacité mesurée × utilisation visée) ⌉ + 1.
+- Ko = 10³ o, Kio = 2¹⁰ o ; l’écart atteint 10 % au téra.
+- Erreurs indépendantes : elles se compensent en partie (4 facteurs à ×2 près donnent typiquement ×4) ; une hypothèse biaisée décale tout.
+- Toujours conclure : « donc... ».
+:::
+
+[^twitter]: Raffi Krikorian, « New Tweets per second record, and how! », blog d’ingénierie de Twitter, 16 août 2013, [blog.x.com/engineering/en_us/a/2013/new-tweets-per-second-record-and-how](https://blog.x.com/engineering/en_us/a/2013/new-tweets-per-second-record-and-how).
+[^cei]: CEI 80000-13:2008, *Grandeurs et unités, partie 13 : science et technologies de l’information*, qui définit les préfixes binaires kibi, mébi, gibi, tébi, pébi, exbi.
+[^netflix]: Centre d’aide de Netflix, « Internet connection speed recommendations », [help.netflix.com/en/node/306](https://help.netflix.com/en/node/306).
+[^wa-utilisateurs]: WhatsApp, « Two Billion Users: Connecting the World Privately », 12 février 2020, [blog.whatsapp.com/two-billion-users-connecting-the-world-privately](https://blog.whatsapp.com/two-billion-users-connecting-the-world-privately).
+[^wa-messages]: Manish Singh, « WhatsApp is now delivering roughly 100 billion messages a day », TechCrunch, 29 octobre 2020, [techcrunch.com/2020/10/29/whatsapp-is-now-delivering-roughly-100-billion-messages-a-day](https://techcrunch.com/2020/10/29/whatsapp-is-now-delivering-roughly-100-billion-messages-a-day/).

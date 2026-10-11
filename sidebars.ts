@@ -10,7 +10,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 0 · Méthode',
       collapsed: false,
       link: {type: 'doc', id: 'partie-0/index'},
-      items: ['partie-0/demarche'],
+      items: ['partie-0/demarche', 'partie-0/estimation'],
     },
   ],
 };

@@ -11,7 +11,7 @@ export const PARTIES: Partie[] = [
     resume: 'La démarche de conception et l’estimation de charge, utilisées dans tout le reste du cours.',
     chapitres: [
       {num: 1, titre: 'La démarche de conception', doc: 'partie-0/demarche'},
-      {num: 2, titre: 'Estimer la charge'},
+      {num: 2, titre: 'Estimer la charge', doc: 'partie-0/estimation'},
     ],
   },
   {

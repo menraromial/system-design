@@ -1,0 +1,39 @@
+% Profil journalier illustratif d'un service grand public : la moyenne, la
+% pointe instantanée et la moyenne de la fenêtre du soir (calculées
+% numériquement sur la même fonction : moyenne 1, pointe 2,62, fenêtre 2,17).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=5.6mm, y=17mm,
+    declare function={prof(\t) = (0.25 + 2.2*exp(-((\t-20.5)/3)^2)
+      + 1.0*exp(-((\t-12.5)/2.5)^2) + 0.35*exp(-((\t-8.5)/1.5)^2)) / 0.9367;}]
+  % fenêtre 18 h - 23 h
+  \fill[Psable] (18,0) rectangle (23,2.85);
+  \node[note, anchor=south] at (20.5,2.87) {18 h à 23 h : 45 \% du trafic};
+  % courbe
+  \fill[Pbleu, domain=0:24, samples=160, smooth] (0,0) -- plot (\x,{prof(\x)}) -- (24,0) -- cycle;
+  \draw[Dblue, line width=1.1pt, domain=0:24, samples=160, smooth] plot (\x,{prof(\x)});
+  % axes
+  \draw[ligne] (0,0) -- (24.4,0);
+  \draw[ligne] (0,0) -- (0,3);
+  \foreach \h in {0,3,...,24} {
+    \draw[ligne] (\h,0) -- (\h,-0.06);
+    \node[note, below] at (\h,-0.06) {\h\,h};
+  }
+  \foreach \v in {1,2} {
+    \draw[ligne=Dcloud] (0,\v) -- (-0.15,\v);
+    \node[note, left] at (-0.15,\v) {\v\,×};
+  }
+  \node[axe, rotate=90, anchor=south] at (-1.6,1.5) {requêtes par seconde (× moyenne)};
+  % moyenne de la journée
+  \draw[ligne=Dslate, dash pattern=on 4pt off 2.5pt] (0,1) -- (24,1);
+  \node[et=Dslate, anchor=south west, fill=white] at (0.3,1.02) {moyenne de la journée = 1};
+  % moyenne de la fenêtre
+  \draw[ligne=Pbrun, line width=1pt] (18,2.17) -- (23,2.17);
+  \node[etb=Pbrun, anchor=west] at (23.1,2.17) {2,17 ×};
+  % pointe instantanée
+  \fill[Dred] (20.5,2.62) circle (0.6mm);
+  \draw[ligne=Dred] (20.5,2.62) -- (16.6,2.62);
+  \node[etb=Dred, anchor=east] at (16.5,2.62) {pointe : 2,62 ×};
+\end{tikzpicture}
+\end{document}

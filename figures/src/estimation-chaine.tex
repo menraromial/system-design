@@ -1,0 +1,41 @@
+% La chaîne d'une estimation : hypothèses écrites, débits, ressources, conclusion.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, node distance=2.5mm,
+    c/.style={bloc=#1, minimum width=33mm, text width=30mm, minimum height=10.5mm}]
+  % colonne 1 : hypothèses
+  \node[c=Pjaune] (h1) {utilisateurs actifs par jour};
+  \node[c=Pjaune, below=of h1] (h2) {actions par utilisateur};
+  \node[c=Pjaune, below=of h2] (h3) {taille d'un objet};
+  \node[c=Pjaune, below=of h3] (h4) {facteur de pointe};
+  \node[c=Pjaune, below=of h4] (h5) {rétention, nombre de copies};
+  \node[c=Pjaune, below=of h5] (h6) {capacité mesurée d'une machine};
+  % colonne 2 : débits
+  \node[c=Porange, right=14mm of h2, yshift=-6mm] (d1) {débit moyen\\[-1pt]{\scriptsize volume par jour / 86\,400}};
+  \node[c=Porange, below=6mm of d1] (d2) {débit de pointe\\[-1pt]{\scriptsize moyen × facteur}};
+  \node[c=Porange, below=6mm of d2] (d3) {lectures / écritures\\[-1pt]{\scriptsize séparées dès ici}};
+  % colonne 3 : ressources
+  \node[c=Pbleu, right=14mm of d1, yshift=8mm] (r1) {stockage\\[-1pt]{\scriptsize taille × nombre × durée × copies}};
+  \node[c=Pbleu, below=of r1] (r2) {bande passante\\[-1pt]{\scriptsize débit × taille des réponses}};
+  \node[c=Pbleu, below=of r2] (r3) {mémoire de cache\\[-1pt]{\scriptsize données chaudes}};
+  \node[c=Pbleu, below=of r3] (r4) {machines\\[-1pt]{\scriptsize pointe / capacité utile, + 1}};
+  % colonne 4 : conclusion
+  \node[c=Pvert, right=14mm of r2, yshift=-6.5mm, minimum height=24mm] (k)
+    {\textbf{conclusion}\\[3pt]{\scriptsize une phrase qui change la conception}};
+  % cadres de colonnes
+  \begin{scope}[on background layer]
+    \node[enclos=DslateZ, fit=(h1)(h6)] (ch) {};
+    \node[enclos=DslateZ, fit=(d1)(d3)] (cd) {};
+    \node[enclos=DslateZ, fit=(r1)(r4)] (cr) {};
+  \end{scope}
+  \node[titrec, anchor=south west] at (ch.north west) {1. hypothèses écrites};
+  \node[titrec, anchor=south west] at (cd.north west) {2. débits};
+  \node[titrec, anchor=south west] at (cr.north west) {3. ressources};
+  \node[titrec, anchor=south west] at (k.north west) {4. décision};
+  % passages d'une colonne à l'autre
+  \node[flecheg=Dcloud] at ($(ch.east)!0.5!(cd.west)$) {};
+  \node[flecheg=Dcloud] at ($(cd.east)!0.5!(cr.west)$) {};
+  \node[flecheg=Dcloud] at ($(cr.east)!0.5!(k.west)$) {};
+\end{tikzpicture}
+\end{document}

@@ -362,10 +362,10 @@ body {
   font-size: 0.84rem;
   margin-bottom: 0.4rem;
 }
-/* la grandeur en police d'interface, le calcul et le résultat en chasse fixe */
-.theme-admonition-calcul table td:not(:first-child) {
-  font-family: var(--sd-police-code);
-  font-size: 0.8rem;
+/* chiffres alignés en colonne (les exposants ⁴ à ⁹ manquent aux polices
+   de chasse fixe chargées, d'où la police d'interface) */
+.theme-admonition-calcul table td {
+  font-variant-numeric: tabular-nums;
 }
 .theme-admonition-calcul table td:last-child,
 .theme-admonition-calcul table th:last-child {

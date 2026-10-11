@@ -1,0 +1,550 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 410.60 91.81">
+<defs>
+<g>
+<g id="estimation-puissances-glyph-0-0">
+<path d="M 4.53 0 L 5.93 0 L 3.57 -3.64 L 5.75 -6.25 L 4.39 -6.25 L 2.84 -4.34 L 1.95 -3.17 L 1.92 -3.17 L 1.92 -6.25 L 0.73 -6.25 L 0.73 0 L 1.92 0 L 1.92 -1.84 L 2.75 -2.82 Z M 4.53 0 "/>
+</g>
+<g id="estimation-puissances-glyph-0-1">
+<path d="M 2.51 0.10 C 3.85 0.10 4.68 -0.84 4.68 -2.34 C 4.68 -3.84 3.85 -4.78 2.51 -4.78 C 1.18 -4.78 0.34 -3.84 0.34 -2.34 C 0.34 -0.84 1.18 0.10 2.51 0.10 Z M 2.51 -0.81 C 1.92 -0.81 1.54 -1.20 1.54 -1.90 L 1.54 -2.78 C 1.54 -3.46 1.92 -3.85 2.51 -3.85 C 3.10 -3.85 3.48 -3.46 3.48 -2.78 L 3.48 -1.90 C 3.48 -1.20 3.10 -0.81 2.51 -0.81 Z M 2.51 -0.81 "/>
+</g>
+<g id="estimation-puissances-glyph-0-2">
+<path d="M 1.23 -5.35 C 1.70 -5.35 1.90 -5.59 1.90 -5.92 L 1.90 -6.10 C 1.90 -6.43 1.70 -6.67 1.23 -6.67 C 0.76 -6.67 0.56 -6.43 0.56 -6.10 L 0.56 -5.92 C 0.56 -5.59 0.76 -5.35 1.23 -5.35 Z M 0.65 0 L 1.81 0 L 1.81 -4.67 L 0.65 -4.67 Z M 0.65 0 "/>
+</g>
+<g id="estimation-puissances-glyph-0-3">
+<path d="M 0.73 0 L 1.85 0 L 1.85 -4.48 L 1.89 -4.48 L 2.37 -3.48 L 3.65 -1.12 L 4.93 -3.48 L 5.42 -4.48 L 5.45 -4.48 L 5.45 0 L 6.57 0 L 6.57 -6.25 L 5.29 -6.25 L 3.70 -3.20 L 3.67 -3.20 L 2.06 -6.25 L 0.73 -6.25 Z M 0.73 0 "/>
+</g>
+<g id="estimation-puissances-glyph-0-4">
+<path d="M 4.71 0 L 5.73 0 L 5.73 -3.40 L 3.37 -3.40 L 3.37 -2.40 L 4.60 -2.40 L 4.60 -2 C 4.60 -1.29 4 -0.93 3.26 -0.93 C 2.32 -0.93 1.71 -1.53 1.71 -2.62 L 1.71 -3.62 C 1.71 -4.73 2.32 -5.31 3.25 -5.31 C 4 -5.31 4.43 -4.90 4.65 -4.37 L 5.60 -4.93 C 5.17 -5.84 4.35 -6.35 3.25 -6.35 C 1.57 -6.35 0.46 -5.20 0.46 -3.10 C 0.46 -1.01 1.57 0.10 3.04 0.10 C 3.98 0.10 4.57 -0.35 4.68 -0.96 L 4.71 -0.96 Z M 4.71 0 "/>
+</g>
+<g id="estimation-puissances-glyph-0-5">
+<path d="M 4.95 -5.20 L 4.95 -6.25 L 0.23 -6.25 L 0.23 -5.20 L 2 -5.20 L 2 0 L 3.18 0 L 3.18 -5.20 Z M 4.95 -5.20 "/>
+</g>
+<g id="estimation-puissances-glyph-0-6">
+<path d="M 1.92 0 L 1.92 -2.37 L 3.54 -2.37 C 4.70 -2.37 5.40 -3.15 5.40 -4.31 C 5.40 -5.46 4.70 -6.25 3.54 -6.25 L 0.73 -6.25 L 0.73 0 Z M 1.92 -5.21 L 3.43 -5.21 C 3.89 -5.21 4.17 -4.98 4.17 -4.51 L 4.17 -4.10 C 4.17 -3.65 3.89 -3.40 3.43 -3.40 L 1.92 -3.40 Z M 1.92 -5.21 "/>
+</g>
+<g id="estimation-puissances-glyph-0-7">
+<path d="M 4.85 0 L 4.85 -1.04 L 1.92 -1.04 L 1.92 -2.64 L 4.51 -2.64 L 4.51 -3.68 L 1.92 -3.68 L 1.92 -5.20 L 4.85 -5.20 L 4.85 -6.25 L 0.73 -6.25 L 0.73 0 Z M 4.85 0 "/>
+</g>
+<g id="estimation-puissances-glyph-1-0">
+<path d="M 3.79 0 L 3.79 -0.51 L 2.54 -0.51 L 2.54 -4.85 L 1.64 -4.85 L 0.35 -3.65 L 0.70 -3.28 L 1.92 -4.42 L 1.96 -4.42 L 1.96 -0.51 L 0.60 -0.51 L 0.60 0 Z M 3.79 0 "/>
+</g>
+<g id="estimation-puissances-glyph-1-1">
+<path d="M 2.09 0.07 C 3.25 0.07 3.75 -0.84 3.75 -2.42 C 3.75 -4.01 3.25 -4.93 2.09 -4.93 C 0.92 -4.93 0.42 -4.01 0.42 -2.42 C 0.42 -0.84 0.92 0.07 2.09 0.07 Z M 2.09 -0.42 C 1.32 -0.42 1.03 -1.09 1.03 -2.03 L 1.03 -2.82 C 1.03 -3.76 1.32 -4.42 2.09 -4.42 C 2.84 -4.42 3.14 -3.76 3.14 -2.82 L 3.14 -2.03 C 3.14 -1.09 2.84 -0.42 2.09 -0.42 Z M 2.09 -0.42 "/>
+</g>
+<g id="estimation-puissances-glyph-1-2">
+<path d="M 1.95 0.07 C 2.90 0.07 3.56 -0.65 3.56 -1.79 C 3.56 -2.93 2.90 -3.67 1.95 -3.67 C 0.98 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.95 0.07 Z M 1.95 -0.40 C 1.34 -0.40 0.92 -0.78 0.92 -1.53 L 0.92 -2.04 C 0.92 -2.81 1.34 -3.17 1.95 -3.17 C 2.54 -3.17 2.96 -2.81 2.96 -2.04 L 2.96 -1.53 C 2.96 -0.78 2.54 -0.40 1.95 -0.40 Z M 1.95 -0.40 "/>
+</g>
+<g id="estimation-puissances-glyph-1-3">
+<path d="M 1.92 0.07 C 2.60 0.07 3.07 -0.25 3.29 -0.76 L 2.90 -1.03 C 2.70 -0.62 2.37 -0.40 1.92 -0.40 C 1.26 -0.40 0.92 -0.85 0.92 -1.48 L 0.92 -2.09 C 0.92 -2.71 1.26 -3.17 1.92 -3.17 C 2.35 -3.17 2.67 -2.96 2.79 -2.59 L 3.26 -2.82 C 3.06 -3.32 2.64 -3.67 1.92 -3.67 C 0.92 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.64 0.92 0.07 1.92 0.07 Z M 1.92 0.07 "/>
+</g>
+<g id="estimation-puissances-glyph-1-4">
+<path d="M 2.07 0 L 2.07 -0.48 L 1.34 -0.48 L 1.34 -3.09 L 2.14 -3.09 L 2.14 -3.59 L 1.34 -3.59 L 1.34 -4.57 L 0.84 -4.57 L 0.84 -3.92 C 0.84 -3.67 0.76 -3.59 0.53 -3.59 L 0.20 -3.59 L 0.20 -3.09 L 0.79 -3.09 L 0.79 -0.59 C 0.79 -0.25 1 0 1.39 0 Z M 2.07 0 "/>
+</g>
+<g id="estimation-puissances-glyph-1-5">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.35 -0.73 L 2.96 -1.01 C 2.78 -0.62 2.42 -0.40 1.96 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.51 -3.20 2.89 -2.78 2.89 -2.15 L 2.89 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.32 -3.20 1.93 -3.20 Z M 1.93 -3.20 "/>
+</g>
+<g id="estimation-puissances-glyph-1-6">
+<path d="M 1.67 0.07 C 2.48 0.07 3 -0.34 3 -1.03 C 3 -1.57 2.68 -1.92 1.89 -2.04 L 1.62 -2.09 C 1.17 -2.15 0.93 -2.29 0.93 -2.64 C 0.93 -2.98 1.17 -3.20 1.64 -3.20 C 2.09 -3.20 2.40 -2.98 2.56 -2.76 L 2.92 -3.09 C 2.64 -3.45 2.25 -3.67 1.67 -3.67 C 0.95 -3.67 0.39 -3.32 0.39 -2.60 C 0.39 -1.95 0.89 -1.67 1.54 -1.57 L 1.82 -1.53 C 2.31 -1.46 2.46 -1.25 2.46 -0.96 C 2.46 -0.60 2.18 -0.39 1.70 -0.39 C 1.26 -0.39 0.92 -0.59 0.64 -0.93 L 0.25 -0.62 C 0.56 -0.18 1.01 0.07 1.67 0.07 Z M 1.67 0.07 "/>
+</g>
+<g id="estimation-puissances-glyph-1-7">
+<path d="M 3.70 -0.51 L 1.15 -0.51 L 2.46 -1.68 C 3.07 -2.25 3.53 -2.78 3.53 -3.53 C 3.53 -4.35 2.98 -4.93 2.03 -4.93 C 1.09 -4.93 0.67 -4.35 0.48 -3.79 L 1 -3.59 C 1.14 -4.04 1.40 -4.42 2.01 -4.42 C 2.60 -4.42 2.90 -4.04 2.90 -3.51 L 2.90 -3.42 C 2.90 -2.96 2.56 -2.46 2.10 -2.06 L 0.51 -0.59 L 0.51 0 L 3.70 0 Z M 3.70 -0.51 "/>
+</g>
+<g id="estimation-puissances-glyph-1-8">
+<path d="M 2.34 -0.43 L 2.34 -1.89 L 3.70 -1.89 L 3.70 -2.35 L 2.34 -2.35 L 2.34 -3.81 L 1.82 -3.81 L 1.82 -2.35 L 0.46 -2.35 L 0.46 -1.89 L 1.82 -1.89 L 1.82 -0.43 Z M 2.34 -0.43 "/>
+</g>
+<g id="estimation-puissances-glyph-1-9">
+<path d="M 0.95 -0.81 C 0.65 -0.81 0.51 -0.64 0.51 -0.40 L 0.51 -0.31 C 0.51 -0.12 0.60 0.01 0.79 0.06 C 0.71 0.39 0.54 0.62 0.26 0.92 L 0.73 0.92 C 1.14 0.57 1.37 0.06 1.37 -0.31 L 1.37 -0.40 C 1.37 -0.64 1.23 -0.81 0.95 -0.81 Z M 0.95 -0.81 "/>
+</g>
+<g id="estimation-puissances-glyph-1-10">
+<path d="M 3.15 0 L 3.15 -0.95 L 3.85 -0.95 L 3.85 -1.43 L 3.15 -1.43 L 3.15 -4.85 L 2.29 -4.85 L 0.26 -1.46 L 0.26 -0.95 L 2.60 -0.95 L 2.60 0 Z M 2.57 -4.40 L 2.60 -4.40 L 2.60 -1.43 L 0.81 -1.43 Z M 2.57 -4.40 "/>
+</g>
+<g id="estimation-puissances-glyph-1-11">
+<path d="M 1.81 0 L 5.17 -4.85 L 4.64 -4.85 L 1.26 0 Z M 1.54 -2.18 C 2.25 -2.18 2.65 -2.67 2.65 -3.56 C 2.65 -4.45 2.25 -4.93 1.54 -4.93 C 0.84 -4.93 0.45 -4.45 0.45 -3.56 C 0.45 -2.67 0.84 -2.18 1.54 -2.18 Z M 1.54 -2.54 C 1.14 -2.54 0.95 -2.82 0.95 -3.34 L 0.95 -3.76 C 0.95 -4.29 1.14 -4.57 1.54 -4.57 C 1.95 -4.57 2.15 -4.29 2.15 -3.76 L 2.15 -3.34 C 2.15 -2.82 1.95 -2.54 1.54 -2.54 Z M 4.89 0.07 C 5.59 0.07 6 -0.40 6 -1.29 C 6 -2.18 5.59 -2.67 4.89 -2.67 C 4.18 -2.67 3.79 -2.18 3.79 -1.29 C 3.79 -0.40 4.18 0.07 4.89 0.07 Z M 4.89 -0.28 C 4.48 -0.28 4.29 -0.56 4.29 -1.07 L 4.29 -1.5 C 4.29 -2.03 4.48 -2.31 4.89 -2.31 C 5.29 -2.31 5.5 -2.03 5.5 -1.5 L 5.5 -1.07 C 5.5 -0.56 5.29 -0.28 4.89 -0.28 Z M 4.89 -0.28 "/>
+</g>
+<g id="estimation-puissances-glyph-1-12">
+<path d="M 3.70 -3.07 C 3.70 -4.23 3.09 -4.93 2.07 -4.93 C 1.10 -4.93 0.46 -4.28 0.46 -3.32 C 0.46 -2.40 1.06 -1.82 1.89 -1.82 C 2.48 -1.82 2.84 -2.14 3.06 -2.53 L 3.09 -2.51 C 2.84 -1.39 2.26 -0.76 1.21 0 L 1.96 0 C 2.75 -0.5 3.70 -1.64 3.70 -3.07 Z M 2.09 -2.32 C 1.45 -2.32 1.07 -2.70 1.07 -3.34 L 1.07 -3.40 C 1.07 -4.06 1.45 -4.42 2.09 -4.42 C 2.71 -4.42 3.09 -4.06 3.09 -3.40 L 3.09 -3.34 C 3.09 -2.70 2.71 -2.32 2.09 -2.32 Z M 2.09 -2.32 "/>
+</g>
+<g id="estimation-puissances-glyph-1-13">
+<path d="M 1.84 0 L 3.67 -4.34 L 3.67 -4.85 L 0.48 -4.85 L 0.48 -3.45 L 1 -3.45 L 1 -4.35 L 3.07 -4.35 L 1.21 0 Z M 1.84 0 "/>
+</g>
+<g id="estimation-puissances-glyph-1-14">
+<path d="M 2.09 0.07 C 3.06 0.07 3.70 -0.56 3.70 -1.51 C 3.70 -2.43 3.10 -3.01 2.28 -3.01 C 1.68 -3.01 1.32 -2.71 1.10 -2.32 L 1.07 -2.34 C 1.32 -3.46 1.90 -4.09 2.95 -4.85 L 2.20 -4.85 C 1.42 -4.34 0.46 -3.21 0.46 -1.78 C 0.46 -0.62 1.07 0.07 2.09 0.07 Z M 2.09 -0.42 C 1.45 -0.42 1.07 -0.79 1.07 -1.45 L 1.07 -1.5 C 1.07 -2.15 1.45 -2.53 2.09 -2.53 C 2.71 -2.53 3.09 -2.15 3.09 -1.5 L 3.09 -1.45 C 3.09 -0.79 2.71 -0.42 2.09 -0.42 Z M 2.09 -0.42 "/>
+</g>
+<g id="estimation-puissances-glyph-1-15">
+<path d="M 3.46 -4.85 L 0.85 -4.85 L 0.68 -2.18 L 1.18 -2.10 C 1.39 -2.34 1.60 -2.53 2.04 -2.53 C 2.71 -2.53 3.06 -2.15 3.06 -1.51 L 3.06 -1.45 C 3.06 -0.81 2.71 -0.43 2.04 -0.43 C 1.46 -0.43 1.21 -0.70 0.96 -1.07 L 0.53 -0.75 C 0.82 -0.32 1.25 0.07 2.04 0.07 C 3.07 0.07 3.68 -0.57 3.68 -1.51 C 3.68 -2.46 3.07 -3.03 2.23 -3.03 C 1.73 -3.03 1.46 -2.81 1.25 -2.48 L 1.20 -2.48 L 1.32 -4.34 L 3.46 -4.34 Z M 3.46 -4.85 "/>
+</g>
+<g id="estimation-puissances-glyph-1-16">
+<path d="M 1.28 -2.79 L 1.28 -2.28 L 1.85 -2.28 C 2.53 -2.28 2.90 -1.95 2.90 -1.39 L 2.90 -1.32 C 2.90 -0.76 2.53 -0.43 1.85 -0.43 C 1.26 -0.43 0.98 -0.70 0.73 -1.07 L 0.29 -0.75 C 0.59 -0.32 1.01 0.07 1.85 0.07 C 2.84 0.07 3.51 -0.5 3.51 -1.32 C 3.51 -2.06 3.01 -2.45 2.48 -2.54 L 2.48 -2.57 C 3 -2.71 3.42 -3.09 3.42 -3.71 C 3.42 -4.5 2.76 -4.93 1.95 -4.93 C 1.17 -4.93 0.75 -4.53 0.5 -4.14 L 0.93 -3.81 C 1.14 -4.17 1.43 -4.42 1.93 -4.42 C 2.45 -4.42 2.79 -4.15 2.79 -3.65 L 2.79 -3.60 C 2.79 -3.14 2.46 -2.79 1.81 -2.79 Z M 1.28 -2.79 "/>
+</g>
+<g id="estimation-puissances-glyph-2-0">
+<path d="M 0.92 -2 L 0.92 -1.64 L 1.32 -1.64 C 1.81 -1.64 2.07 -1.40 2.07 -1 L 2.07 -0.95 C 2.07 -0.54 1.81 -0.31 1.32 -0.31 C 0.90 -0.31 0.70 -0.5 0.51 -0.76 L 0.20 -0.53 C 0.42 -0.23 0.73 0.06 1.32 0.06 C 2.03 0.06 2.51 -0.35 2.51 -0.95 C 2.51 -1.46 2.15 -1.75 1.78 -1.82 L 1.78 -1.84 C 2.14 -1.93 2.43 -2.20 2.43 -2.65 C 2.43 -3.21 1.98 -3.53 1.39 -3.53 C 0.82 -3.53 0.53 -3.23 0.35 -2.96 L 0.67 -2.71 C 0.81 -2.98 1.03 -3.15 1.37 -3.15 C 1.75 -3.15 2 -2.96 2 -2.60 L 2 -2.57 C 2 -2.23 1.76 -2 1.29 -2 Z M 0.92 -2 "/>
+</g>
+<g id="estimation-puissances-glyph-2-1">
+<path d="M 2.71 0 L 2.71 -0.37 L 1.82 -0.37 L 1.82 -3.46 L 1.17 -3.46 L 0.25 -2.60 L 0.5 -2.34 L 1.37 -3.15 L 1.40 -3.15 L 1.40 -0.37 L 0.43 -0.37 L 0.43 0 Z M 2.71 0 "/>
+</g>
+<g id="estimation-puissances-glyph-2-2">
+<path d="M 1.48 0.06 C 2.32 0.06 2.68 -0.59 2.68 -1.73 C 2.68 -2.85 2.32 -3.53 1.48 -3.53 C 0.65 -3.53 0.29 -2.85 0.29 -1.73 C 0.29 -0.59 0.65 0.06 1.48 0.06 Z M 1.48 -0.29 C 0.95 -0.29 0.73 -0.78 0.73 -1.45 L 0.73 -2.01 C 0.73 -2.68 0.95 -3.17 1.48 -3.17 C 2.03 -3.17 2.25 -2.68 2.25 -2.01 L 2.25 -1.45 C 2.25 -0.78 2.03 -0.29 1.48 -0.29 Z M 1.48 -0.29 "/>
+</g>
+<g id="estimation-puissances-glyph-2-3">
+<path d="M 1.5 0.06 C 2.18 0.06 2.64 -0.40 2.64 -1.09 C 2.64 -1.75 2.21 -2.15 1.62 -2.15 C 1.20 -2.15 0.95 -1.93 0.79 -1.65 L 0.76 -1.67 C 0.95 -2.46 1.35 -2.92 2.10 -3.46 L 1.56 -3.46 C 1.01 -3.10 0.32 -2.29 0.32 -1.26 C 0.32 -0.45 0.78 0.06 1.5 0.06 Z M 1.48 -0.29 C 1.03 -0.29 0.76 -0.56 0.76 -1.03 L 0.76 -1.07 C 0.76 -1.54 1.03 -1.79 1.48 -1.79 C 1.95 -1.79 2.21 -1.54 2.21 -1.07 L 2.21 -1.03 C 2.21 -0.56 1.95 -0.29 1.48 -0.29 Z M 1.48 -0.29 "/>
+</g>
+<g id="estimation-puissances-glyph-2-4">
+<path d="M 2.64 -0.37 L 0.82 -0.37 L 1.76 -1.20 C 2.20 -1.60 2.51 -1.98 2.51 -2.51 C 2.51 -3.10 2.12 -3.53 1.45 -3.53 C 0.78 -3.53 0.48 -3.12 0.34 -2.71 L 0.71 -2.56 C 0.81 -2.89 1.01 -3.15 1.43 -3.15 C 1.85 -3.15 2.07 -2.89 2.07 -2.51 L 2.07 -2.45 C 2.07 -2.10 1.82 -1.76 1.5 -1.46 L 0.37 -0.42 L 0.37 0 L 2.64 0 Z M 2.64 -0.37 "/>
+</g>
+<g id="estimation-puissances-glyph-2-5">
+<path d="M 2.64 -2.20 C 2.64 -3.01 2.20 -3.53 1.48 -3.53 C 0.79 -3.53 0.32 -3.06 0.32 -2.37 C 0.32 -1.71 0.76 -1.31 1.35 -1.31 C 1.78 -1.31 2.03 -1.53 2.18 -1.81 L 2.21 -1.79 C 2.03 -1 1.60 -0.54 0.87 0 L 1.40 0 C 1.96 -0.35 2.64 -1.17 2.64 -2.20 Z M 1.48 -1.67 C 1.03 -1.67 0.76 -1.92 0.76 -2.39 L 0.76 -2.43 C 0.76 -2.90 1.03 -3.17 1.48 -3.17 C 1.95 -3.17 2.21 -2.90 2.21 -2.43 L 2.21 -2.39 C 2.21 -1.92 1.95 -1.67 1.48 -1.67 Z M 1.48 -1.67 "/>
+</g>
+<g id="estimation-puissances-glyph-2-6">
+<path d="M 2.26 0 L 2.26 -0.68 L 2.76 -0.68 L 2.76 -1.03 L 2.26 -1.03 L 2.26 -3.46 L 1.64 -3.46 L 0.18 -1.04 L 0.18 -0.68 L 1.85 -0.68 L 1.85 0 Z M 1.84 -3.14 L 1.85 -3.14 L 1.85 -1.03 L 0.57 -1.03 Z M 1.84 -3.14 "/>
+</g>
+<g id="estimation-puissances-glyph-2-7">
+<path d="M 2.46 -3.46 L 0.60 -3.46 L 0.48 -1.56 L 0.84 -1.51 C 0.98 -1.67 1.14 -1.79 1.46 -1.79 C 1.93 -1.79 2.18 -1.54 2.18 -1.07 L 2.18 -1.03 C 2.18 -0.57 1.93 -0.31 1.46 -0.31 C 1.04 -0.31 0.87 -0.5 0.70 -0.76 L 0.37 -0.53 C 0.59 -0.23 0.89 0.06 1.46 0.06 C 2.20 0.06 2.64 -0.40 2.64 -1.09 C 2.64 -1.76 2.20 -2.15 1.59 -2.15 C 1.23 -2.15 1.04 -2.01 0.89 -1.78 L 0.85 -1.78 L 0.95 -3.09 L 2.46 -3.09 Z M 2.46 -3.46 "/>
+</g>
+<g id="estimation-puissances-glyph-2-8">
+<path d="M 1.48 0.06 C 2.28 0.06 2.68 -0.37 2.68 -0.93 C 2.68 -1.42 2.40 -1.68 2 -1.79 L 2 -1.84 C 2.35 -1.96 2.59 -2.26 2.59 -2.65 C 2.59 -3.18 2.18 -3.53 1.48 -3.53 C 0.79 -3.53 0.39 -3.18 0.39 -2.65 C 0.39 -2.26 0.62 -1.96 0.98 -1.84 L 0.98 -1.79 C 0.57 -1.68 0.28 -1.42 0.28 -0.93 C 0.28 -0.37 0.70 0.06 1.48 0.06 Z M 1.48 -0.29 C 1.01 -0.29 0.73 -0.53 0.73 -0.92 L 0.73 -1.03 C 0.73 -1.42 1.01 -1.65 1.48 -1.65 C 1.96 -1.65 2.25 -1.42 2.25 -1.03 L 2.25 -0.92 C 2.25 -0.53 1.96 -0.29 1.48 -0.29 Z M 1.48 -2 C 1.06 -2 0.82 -2.18 0.82 -2.54 L 0.82 -2.62 C 0.82 -2.96 1.06 -3.17 1.48 -3.17 C 1.92 -3.17 2.15 -2.96 2.15 -2.62 L 2.15 -2.54 C 2.15 -2.18 1.92 -2 1.48 -2 Z M 1.48 -2 "/>
+</g>
+<g id="estimation-puissances-glyph-3-0">
+<path d="M 2.76 0 L 3.65 0 L 3.65 -5.14 L 2.76 -5.14 L 2.76 -3.03 L 2.73 -3.03 C 2.60 -3.45 2.21 -3.71 1.73 -3.71 C 0.82 -3.71 0.31 -3.03 0.31 -1.82 C 0.31 -0.60 0.82 0.07 1.73 0.07 C 2.21 0.07 2.59 -0.18 2.73 -0.60 L 2.76 -0.60 Z M 2.01 -0.65 C 1.56 -0.65 1.25 -0.98 1.25 -1.5 L 1.25 -2.12 C 1.25 -2.64 1.56 -2.98 2.01 -2.98 C 2.43 -2.98 2.76 -2.75 2.76 -2.40 L 2.76 -1.25 C 2.76 -0.87 2.43 -0.65 2.01 -0.65 Z M 2.01 -0.65 "/>
+</g>
+<g id="estimation-puissances-glyph-3-1">
+<path d="M 1.98 0.07 C 2.65 0.07 3.18 -0.17 3.48 -0.57 L 3 -1.12 C 2.78 -0.82 2.51 -0.62 2.07 -0.62 C 1.5 -0.62 1.20 -0.98 1.20 -1.5 L 1.20 -1.59 L 3.60 -1.59 L 3.60 -1.89 C 3.60 -2.87 3.09 -3.71 1.95 -3.71 C 0.89 -3.71 0.26 -2.96 0.26 -1.82 C 0.26 -0.65 0.90 0.07 1.98 0.07 Z M 1.96 -3.04 C 2.42 -3.04 2.68 -2.70 2.68 -2.20 L 2.68 -2.14 L 1.20 -2.14 L 1.20 -2.20 C 1.20 -2.70 1.5 -3.04 1.96 -3.04 Z M 2.95 -5.23 L 2.20 -5.59 L 1.53 -4.29 L 2.07 -4.04 Z M 2.95 -5.23 "/>
+</g>
+<g id="estimation-puissances-glyph-3-2">
+<path d="M 1.95 0.07 C 2.65 0.07 3.15 -0.23 3.39 -0.87 L 2.71 -1.20 C 2.57 -0.87 2.37 -0.62 1.95 -0.62 C 1.45 -0.62 1.20 -0.96 1.20 -1.48 L 1.20 -2.14 C 1.20 -2.65 1.45 -3 1.95 -3 C 2.32 -3 2.56 -2.78 2.64 -2.46 L 3.37 -2.79 C 3.15 -3.35 2.67 -3.71 1.95 -3.71 C 0.87 -3.71 0.26 -2.98 0.26 -1.82 C 0.26 -0.65 0.87 0.07 1.95 0.07 Z M 1.95 0.07 "/>
+</g>
+<g id="estimation-puissances-glyph-3-3">
+<path d="M 0.95 -4.15 C 1.32 -4.15 1.48 -4.34 1.48 -4.60 L 1.48 -4.73 C 1.48 -5 1.32 -5.18 0.95 -5.18 C 0.59 -5.18 0.43 -5 0.43 -4.73 L 0.43 -4.60 C 0.43 -4.34 0.59 -4.15 0.95 -4.15 Z M 0.51 0 L 1.40 0 L 1.40 -3.62 L 0.51 -3.62 Z M 0.51 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-4">
+<path d="M 1.40 0 L 1.40 -2.40 C 1.40 -2.78 1.73 -2.98 2.07 -2.98 C 2.46 -2.98 2.65 -2.71 2.65 -2.20 L 2.65 0 L 3.54 0 L 3.54 -2.40 C 3.54 -2.78 3.87 -2.98 4.23 -2.98 C 4.62 -2.98 4.81 -2.71 4.81 -2.20 L 4.81 0 L 5.70 0 L 5.70 -2.29 C 5.70 -3.20 5.29 -3.71 4.59 -3.71 C 4.01 -3.71 3.60 -3.39 3.48 -2.98 L 3.46 -2.98 C 3.28 -3.46 2.90 -3.71 2.40 -3.71 C 1.87 -3.71 1.57 -3.40 1.43 -3.03 L 1.40 -3.03 L 1.40 -3.62 L 0.51 -3.62 L 0.51 0 Z M 1.40 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-5">
+<path d="M 1.40 0.07 C 1.95 0.07 2.34 -0.15 2.46 -0.62 L 2.51 -0.62 C 2.56 -0.25 2.79 0 3.18 0 L 3.67 0 L 3.67 -0.70 L 3.31 -0.70 L 3.31 -2.42 C 3.31 -3.25 2.79 -3.71 1.81 -3.71 C 1.07 -3.71 0.65 -3.43 0.39 -3.01 L 0.92 -2.54 C 1.09 -2.79 1.32 -3 1.75 -3 C 2.21 -3 2.42 -2.76 2.42 -2.35 L 2.42 -2.09 L 1.81 -2.09 C 0.82 -2.09 0.25 -1.73 0.25 -0.98 C 0.25 -0.34 0.67 0.07 1.40 0.07 Z M 1.70 -0.56 C 1.35 -0.56 1.15 -0.70 1.15 -1 L 1.15 -1.12 C 1.15 -1.40 1.39 -1.56 1.85 -1.56 L 2.42 -1.56 L 2.42 -1.07 C 2.42 -0.75 2.10 -0.56 1.70 -0.56 Z M 1.70 -0.56 "/>
+</g>
+<g id="estimation-puissances-glyph-3-6">
+<path d="M 1.89 0 L 1.89 -0.70 L 1.40 -0.70 L 1.40 -5.14 L 0.51 -5.14 L 0.51 -0.87 C 0.51 -0.31 0.79 0 1.40 0 Z M 1.89 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-7">
+<path d="M 0.34 -2.17 C 0.34 -0.81 0.89 0.37 1.57 0.95 L 2.40 0.95 C 1.67 0.28 1.18 -0.75 1.18 -1.90 L 1.18 -2.42 C 1.18 -3.54 1.65 -4.59 2.40 -5.28 L 1.57 -5.28 C 0.87 -4.67 0.34 -3.51 0.34 -2.17 Z M 0.34 -2.17 "/>
+</g>
+<g id="estimation-puissances-glyph-3-8">
+<path d="M 2.07 0.07 C 3.23 0.07 3.90 -0.54 3.90 -1.45 C 3.90 -2.26 3.43 -2.70 2.46 -2.87 L 2.01 -2.95 C 1.54 -3.03 1.32 -3.18 1.32 -3.56 C 1.32 -3.92 1.60 -4.12 2.12 -4.12 C 2.64 -4.12 2.96 -3.92 3.21 -3.62 L 3.84 -4.21 C 3.45 -4.68 2.90 -4.93 2.17 -4.93 C 1.09 -4.93 0.42 -4.37 0.42 -3.5 C 0.42 -2.71 0.89 -2.25 1.87 -2.09 L 2.32 -2.01 C 2.84 -1.93 2.98 -1.73 2.98 -1.40 C 2.98 -1 2.70 -0.71 2.14 -0.71 C 1.64 -0.71 1.21 -0.93 0.89 -1.32 L 0.26 -0.71 C 0.68 -0.25 1.25 0.07 2.07 0.07 Z M 2.07 0.07 "/>
+</g>
+<g id="estimation-puissances-glyph-3-9">
+<path d="M 2.57 0 L 2.57 -0.73 L 1.92 -0.73 L 1.92 -4.10 L 2.57 -4.10 L 2.57 -4.85 L 0.37 -4.85 L 0.37 -4.10 L 1.01 -4.10 L 1.01 -0.73 L 0.37 -0.73 L 0.37 0 Z M 2.57 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-10">
+<path d="M 2 -2.17 C 2 -3.51 1.46 -4.67 0.76 -5.28 L -0.06 -5.28 C 0.68 -4.59 1.15 -3.54 1.15 -2.42 L 1.15 -1.90 C 1.15 -0.75 0.67 0.28 -0.06 0.95 L 0.76 0.95 C 1.45 0.37 2 -0.81 2 -2.17 Z M 2 -2.17 "/>
+</g>
+<g id="estimation-puissances-glyph-3-11">
+<path d="M 0.51 0 L 1.40 0 L 1.40 -0.60 L 1.43 -0.60 C 1.57 -0.18 1.95 0.07 2.43 0.07 C 3.34 0.07 3.85 -0.60 3.85 -1.82 C 3.85 -3.03 3.34 -3.71 2.43 -3.71 C 1.95 -3.71 1.56 -3.45 1.43 -3.03 L 1.40 -3.03 L 1.40 -5.14 L 0.51 -5.14 Z M 2.15 -0.65 C 1.71 -0.65 1.40 -0.87 1.40 -1.25 L 1.40 -2.40 C 1.40 -2.75 1.71 -2.98 2.15 -2.98 C 2.60 -2.98 2.92 -2.64 2.92 -2.12 L 2.92 -1.5 C 2.92 -0.98 2.60 -0.65 2.15 -0.65 Z M 2.15 -0.65 "/>
+</g>
+<g id="estimation-puissances-glyph-3-12">
+<path d="M 1.40 0 L 1.40 -2.40 C 1.40 -2.78 1.76 -2.98 2.12 -2.98 C 2.54 -2.98 2.71 -2.71 2.71 -2.20 L 2.71 0 L 3.60 0 L 3.60 -2.29 C 3.60 -3.20 3.20 -3.71 2.45 -3.71 C 1.89 -3.71 1.57 -3.40 1.43 -3.03 L 1.40 -3.03 L 1.40 -3.62 L 0.51 -3.62 L 0.51 0 Z M 1.40 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-13">
+<path d="M 1.40 0 L 1.40 -2.21 C 1.40 -2.62 1.71 -2.78 2.31 -2.78 L 2.59 -2.78 L 2.59 -3.62 L 2.40 -3.62 C 1.82 -3.62 1.53 -3.26 1.43 -2.87 L 1.40 -2.87 L 1.40 -3.62 L 0.51 -3.62 L 0.51 0 Z M 1.40 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-14">
+<path d="M 1.98 0.07 C 2.65 0.07 3.18 -0.17 3.48 -0.57 L 3 -1.12 C 2.78 -0.82 2.51 -0.62 2.07 -0.62 C 1.5 -0.62 1.20 -0.98 1.20 -1.5 L 1.20 -1.59 L 3.60 -1.59 L 3.60 -1.89 C 3.60 -2.87 3.09 -3.71 1.95 -3.71 C 0.89 -3.71 0.26 -2.96 0.26 -1.82 C 0.26 -0.65 0.90 0.07 1.98 0.07 Z M 1.96 -3.04 C 2.42 -3.04 2.68 -2.70 2.68 -2.20 L 2.68 -2.14 L 1.20 -2.14 L 1.20 -2.20 C 1.20 -2.70 1.5 -3.04 1.96 -3.04 Z M 1.96 -3.04 "/>
+</g>
+<g id="estimation-puissances-glyph-3-15">
+<path d="M 2.45 0.07 C 3.32 0.07 3.90 -0.34 4.25 -1.06 L 3.5 -1.5 C 3.34 -1.06 3 -0.73 2.45 -0.73 C 1.76 -0.73 1.32 -1.20 1.32 -2.03 L 1.32 -2.79 C 1.32 -3.62 1.76 -4.12 2.45 -4.12 C 3 -4.12 3.29 -3.82 3.43 -3.40 L 4.23 -3.81 C 3.89 -4.56 3.32 -4.93 2.45 -4.93 C 1.17 -4.93 0.35 -4.03 0.35 -2.39 C 0.35 -0.76 1.17 0.07 2.45 0.07 Z M 2.45 0.07 "/>
+</g>
+<g id="estimation-puissances-glyph-3-16">
+<path d="M 3.76 0 L 3.76 -0.81 L 1.48 -0.81 L 1.48 -2.04 L 3.5 -2.04 L 3.5 -2.85 L 1.48 -2.85 L 1.48 -4.04 L 3.76 -4.04 L 3.76 -4.85 L 0.56 -4.85 L 0.56 0 Z M 3.76 0 "/>
+</g>
+<g id="estimation-puissances-glyph-3-17">
+<path d="M 1.64 0 L 2.28 0 L 2.28 -0.70 L 1.59 -0.70 L 1.59 -2.92 L 2.34 -2.92 L 2.34 -3.62 L 1.59 -3.62 L 1.59 -4.62 L 0.79 -4.62 L 0.79 -4 C 0.79 -3.75 0.71 -3.62 0.45 -3.62 L 0.17 -3.62 L 0.17 -2.92 L 0.70 -2.92 L 0.70 -0.92 C 0.70 -0.32 1.03 0 1.64 0 Z M 1.64 0 "/>
+</g>
+</g>
+</defs>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 35.71 -0.00 L 380.98 -0.00 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 59.52 -3.40 L 59.52 3.40 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-jaune);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 81.13 32.60 L 37.92 32.60 C 36.54 32.60 35.43 31.48 35.43 30.11 L 35.43 12.81 C 35.43 11.43 36.54 10.32 37.92 10.32 L 81.13 10.32 C 82.50 10.32 83.62 11.43 83.62 12.81 L 83.62 30.11 C 83.62 31.48 82.50 32.60 81.13 32.60 Z M 81.13 32.60 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-0" x="77.10" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-1" x="82.94" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-0" x="66.07" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="70.24" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-0" x="74.42" y="22.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="79.54" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="83.44" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="86.94" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="89.36" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="93.18" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="95.63" y="25.64"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 81.13 -10.31 L 37.92 -10.31 C 36.54 -10.31 35.43 -11.43 35.43 -12.81 L 35.43 -30.54 C 35.43 -31.91 36.54 -33.03 37.92 -33.03 L 81.13 -33.03 C 82.50 -33.03 83.62 -31.91 83.62 -30.54 L 83.62 -12.81 C 83.62 -11.43 82.50 -10.31 81.13 -10.31 Z M 81.13 -10.31 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-0" x="75.75" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-2" x="81.82" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="84.29" y="58.96"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-7" x="66.66" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-1" x="70.84" y="65.90"/>
+<use xlink:href="#estimation-puissances-glyph-2-2" x="73.82" y="65.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="78.95" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="82.84" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="86.34" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="88.76" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="92.58" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="95.02" y="68.90"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-8" x="71.52" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-7" x="75.70" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-9" x="79.87" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-10" x="81.77" y="83.24"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-11" x="87.10" y="83.24"/>
+</g>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 119.05 -3.40 L 119.05 3.40 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-orange);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 140.66 32.60 L 97.45 32.60 C 96.07 32.60 94.96 31.48 94.96 30.11 L 94.96 12.81 C 94.96 11.43 96.07 10.32 97.45 10.32 L 140.66 10.32 C 142.03 10.32 143.14 11.43 143.14 12.81 L 143.14 30.11 C 143.14 31.48 142.03 32.60 140.66 32.60 Z M 140.66 32.60 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-3" x="135.78" y="15.69"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="143.08" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-0" x="125.48" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="129.65" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-3" x="133.83" y="22.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="138.95" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="142.85" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="146.35" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="148.76" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="152.58" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="155.03" y="25.64"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 140.66 -10.31 L 97.45 -10.31 C 96.07 -10.31 94.96 -11.43 94.96 -12.81 L 94.96 -30.54 C 94.96 -31.91 96.07 -33.03 97.45 -33.03 L 140.66 -33.03 C 142.03 -33.03 143.14 -31.91 143.14 -30.54 L 143.14 -12.81 C 143.14 -11.43 142.03 -10.31 140.66 -10.31 Z M 140.66 -10.31 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-3" x="134.54" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-2" x="141.84" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="144.31" y="58.96"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-7" x="126.07" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-4" x="130.25" y="65.90"/>
+<use xlink:href="#estimation-puissances-glyph-2-2" x="133.23" y="65.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="138.35" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="142.25" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="145.75" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="148.17" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="151.99" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="154.43" y="68.90"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-8" x="130.93" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-10" x="135.11" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-9" x="139.28" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-12" x="141.17" y="83.24"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-11" x="146.51" y="83.24"/>
+</g>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 178.58 -3.40 L 178.58 3.40 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-bleu);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 200.19 32.70 L 156.98 32.70 C 155.60 32.70 154.48 31.59 154.48 30.22 L 154.48 12.81 C 154.48 11.43 155.60 10.32 156.98 10.32 L 200.19 10.32 C 201.56 10.32 202.67 11.43 202.67 12.81 L 202.67 30.22 C 202.67 31.59 201.56 32.70 200.19 32.70 Z M 200.19 32.70 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-4" x="195.65" y="15.69"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="202.02" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-0" x="184.88" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="189.06" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-5" x="193.23" y="22.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="198.36" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="202.25" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="205.76" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="208.17" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="211.99" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="214.43" y="25.64"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 200.19 -10.31 L 156.98 -10.31 C 155.60 -10.31 154.48 -11.43 154.48 -12.81 L 154.48 -30.54 C 154.48 -31.91 155.60 -33.03 156.98 -33.03 L 200.19 -33.03 C 201.56 -33.03 202.67 -31.91 202.67 -30.54 L 202.67 -12.81 C 202.67 -11.43 201.56 -10.31 200.19 -10.31 Z M 200.19 -10.31 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-4" x="194.41" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-2" x="200.78" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="203.25" y="58.96"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-7" x="185.48" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-0" x="189.65" y="65.90"/>
+<use xlink:href="#estimation-puissances-glyph-2-2" x="192.64" y="65.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="197.76" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="201.66" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="205.16" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="207.57" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="211.39" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="213.84" y="68.90"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-8" x="190.34" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-13" x="194.51" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-9" x="198.69" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-10" x="200.58" y="83.24"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-11" x="205.91" y="83.24"/>
+</g>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 238.11 -3.40 L 238.11 3.40 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-vert);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 259.71 32.60 L 216.50 32.60 C 215.13 32.60 214.01 31.48 214.01 30.11 L 214.01 12.81 C 214.01 11.43 215.13 10.32 216.50 10.32 L 259.71 10.32 C 261.09 10.32 262.20 11.43 262.20 12.81 L 262.20 30.11 C 262.20 31.48 261.09 32.60 259.71 32.60 Z M 259.71 32.60 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-5" x="255.94" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-1" x="260.55" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-0" x="242.80" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="246.97" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-1" x="251.15" y="22.64"/>
+<use xlink:href="#estimation-puissances-glyph-2-4" x="254.13" y="22.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="259.26" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="263.15" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="266.65" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="269.07" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="272.89" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="275.33" y="25.64"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 259.71 -10.31 L 216.50 -10.31 C 215.13 -10.31 214.01 -11.43 214.01 -12.81 L 214.01 -30.54 C 214.01 -31.91 215.13 -33.03 216.50 -33.03 L 259.71 -33.03 C 261.09 -33.03 262.20 -31.91 262.20 -30.54 L 262.20 -12.81 C 262.20 -11.43 261.09 -10.31 259.71 -10.31 Z M 259.71 -10.31 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-5" x="254.41" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-2" x="259.60" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="262.07" y="58.96"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-7" x="244.89" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-6" x="249.06" y="65.90"/>
+<use xlink:href="#estimation-puissances-glyph-2-2" x="252.05" y="65.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="257.17" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="261.06" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="264.57" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="266.99" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="270.81" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="273.25" y="68.90"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-8" x="247.66" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-0" x="251.83" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="256.01" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-9" x="260.18" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="262.08" y="83.24"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-11" x="267.41" y="83.24"/>
+</g>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 297.64 -3.40 L 297.64 3.40 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-lavande);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 319.24 32.60 L 276.03 32.60 C 274.66 32.60 273.54 31.48 273.54 30.11 L 273.54 12.81 C 273.54 11.43 274.66 10.32 276.03 10.32 L 319.24 10.32 C 320.62 10.32 321.73 11.43 321.73 12.81 L 321.73 30.11 C 321.73 31.48 320.62 32.60 319.24 32.60 Z M 319.24 32.60 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-6" x="314.87" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-1" x="320.43" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-0" x="302.21" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="306.38" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-1" x="310.56" y="22.64"/>
+<use xlink:href="#estimation-puissances-glyph-2-7" x="313.54" y="22.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="318.66" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="322.56" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="326.06" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="328.48" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="332.30" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="334.74" y="25.64"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 319.24 -10.31 L 276.03 -10.31 C 274.66 -10.31 273.54 -11.43 273.54 -12.81 L 273.54 -30.54 C 273.54 -31.91 274.66 -33.03 276.03 -33.03 L 319.24 -33.03 C 320.62 -33.03 321.73 -31.91 321.73 -30.54 L 321.73 -12.81 C 321.73 -11.43 320.62 -10.31 319.24 -10.31 Z M 319.24 -10.31 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-6" x="313.55" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-2" x="319.28" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="321.75" y="58.96"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-7" x="304.29" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-7" x="308.47" y="65.90"/>
+<use xlink:href="#estimation-puissances-glyph-2-2" x="311.45" y="65.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="316.57" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="320.47" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="323.97" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="326.39" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="330.21" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="332.65" y="68.90"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-8" x="307.06" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-0" x="311.24" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-7" x="315.41" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-9" x="319.59" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-14" x="321.48" y="83.24"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-11" x="326.81" y="83.24"/>
+</g>
+<path fill="none" stroke-width="0.99" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 357.16 -3.40 L 357.16 3.40 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-p-rose);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 378.77 32.60 L 335.56 32.60 C 334.19 32.60 333.07 31.48 333.07 30.11 L 333.07 12.81 C 333.07 11.43 334.19 10.32 335.56 10.32 L 378.77 10.32 C 380.14 10.32 381.26 11.43 381.26 12.81 L 381.26 30.11 C 381.26 31.48 380.14 32.60 378.77 32.60 Z M 378.77 32.60 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-7" x="374.42" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-1" x="379.69" y="15.69"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-0" x="361.61" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-1" x="365.79" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-1" x="369.96" y="22.64"/>
+<use xlink:href="#estimation-puissances-glyph-2-8" x="372.95" y="22.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="378.07" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="381.97" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="385.47" y="25.64"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="387.88" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="391.70" y="25.64"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="394.15" y="25.64"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 378.77 -10.31 L 335.56 -10.31 C 334.19 -10.31 333.07 -11.43 333.07 -12.81 L 333.07 -30.54 C 333.07 -31.91 334.19 -33.03 335.56 -33.03 L 378.77 -33.03 C 380.14 -33.03 381.26 -31.91 381.26 -30.54 L 381.26 -12.81 C 381.26 -11.43 380.14 -10.31 378.77 -10.31 Z M 378.77 -10.31 " transform="matrix(0.997978, 0, 0, -0.997978, 23.136036, 39.006978)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-0-7" x="373.14" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-2" x="378.50" y="58.96"/>
+<use xlink:href="#estimation-puissances-glyph-0-1" x="380.97" y="58.96"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-7" x="363.70" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-2-3" x="367.88" y="65.90"/>
+<use xlink:href="#estimation-puissances-glyph-2-2" x="370.86" y="65.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-2" x="375.98" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-3" x="379.88" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="383.38" y="68.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-5" x="385.80" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-4" x="389.62" y="68.90"/>
+<use xlink:href="#estimation-puissances-glyph-1-6" x="392.07" y="68.90"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-8" x="366.47" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-0" x="370.65" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-15" x="374.82" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-9" x="379.00" y="83.24"/>
+<use xlink:href="#estimation-puissances-glyph-1-16" x="380.89" y="83.24"/>
+</g>
+<g style="fill:var(--fig-p-brun)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-1-11" x="386.22" y="83.24"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-0" x="8.98" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-1" x="13.15" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-2" x="17.04" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-3" x="20.61" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-4" x="22.53" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-5" x="28.71" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-6" x="32.60" y="19.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-7" x="36.29" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-8" x="38.63" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-9" x="42.88" y="19.91"/>
+<use xlink:href="#estimation-puissances-glyph-3-10" x="45.83" y="19.91"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-11" x="7.67" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-3" x="11.84" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-12" x="13.77" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-5" x="17.86" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-3" x="21.75" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-13" x="23.67" y="62.80"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-14" x="26.37" y="62.80"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-7" x="31.90" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-15" x="34.24" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-16" x="38.71" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-9" x="42.88" y="62.80"/>
+<use xlink:href="#estimation-puissances-glyph-3-10" x="45.83" y="62.80"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-1" x="31.46" y="83.99"/>
+<use xlink:href="#estimation-puissances-glyph-3-2" x="35.35" y="83.99"/>
+<use xlink:href="#estimation-puissances-glyph-3-5" x="38.92" y="83.99"/>
+<use xlink:href="#estimation-puissances-glyph-3-13" x="42.81" y="83.99"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#estimation-puissances-glyph-3-17" x="45.56" y="83.99"/>
+</g>
+</svg>
