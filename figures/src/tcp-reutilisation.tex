@@ -1,0 +1,25 @@
+% Quatre requêtes successives : une connexion neuve pour chacune, ou une
+% seule connexion réutilisée. Chaque case dure un aller-retour.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\newcommand{\tr}[5]{%
+  \draw[draw=Dink, line width=0.6pt, fill=#4] (#2,#1-0.32) rectangle (#3,#1+0.32);
+  \node[font=\sffamily\scriptsize, text=Dink] at ({(#2+#3)/2},#1) {#5};}
+\begin{document}
+\begin{tikzpicture}[papier, x=15mm, y=11mm]
+  \draw[ligne=Dcloud] (0,0.75) -- (8.2,0.75);
+  \foreach \t in {0,...,8} {\draw[ligne=Dcloud] (\t,0.75) -- (\t,0.85); \node[note, above] at (\t,0.85) {\t};}
+  \node[note, anchor=west] at (8.3,0.95) {RTT};
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.15,0) {une connexion\\par requête};
+  \foreach \k in {0,...,3} {
+    \tr{0}{2*\k}{2*\k+1}{Porange}{ouverture}
+    \tr{0}{2*\k+1}{2*\k+2}{Pbleu}{requête \the\numexpr\k+1\relax}
+  }
+  \node[leg, anchor=east, font=\sffamily\scriptsize\bfseries, align=right] at (-0.15,-1.1) {connexion\\réutilisée};
+  \tr{-1.1}{0}{1}{Porange}{ouverture}
+  \foreach \k in {1,...,4} \tr{-1.1}{\k}{\k+1}{Pbleu}{requête \k}
+  \draw[ligne=Psapin, line width=1pt] (5,-1.55) -- (5,-1.75) node[below, et=Psapin] {fin : 5 RTT};
+  \draw[ligne=Pbrique, line width=1pt] (8,-1.55) -- (8,-1.75) node[below, et=Pbrique] {fin : 8 RTT};
+  \draw[ligne=Pbrique, dash pattern=on 2pt off 1.5pt] (8,-0.35) -- (8,-1.55);
+\end{tikzpicture}
+\end{document}

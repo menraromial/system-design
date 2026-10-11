@@ -1,0 +1,27 @@
+% Blocage en tête de file : le segment 2 est perdu ; 3, 4 et 5 sont arrivés
+% mais attendent dans le tampon du noyau jusqu'à la retransmission de 2.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1mm, y=1mm,
+    seg/.style={boite=#1, minimum width=11mm, minimum height=8mm, font=\sffamily\small}]
+  \node[leg, font=\sffamily\small\bfseries, anchor=east] at (-8,0) {envoyés};
+  \node[leg, font=\sffamily\small\bfseries, anchor=east] at (-8,-16) {reçus par le noyau};
+  \node[leg, font=\sffamily\small\bfseries, anchor=east] at (-8,-32) {remis à l'application};
+  \foreach \i in {1,...,5} \node[seg=Pbleu] (e\i) at ({(\i-1)*13},0) {\i};
+  \node[seg=Pbleu] (r1) at (0,-16) {1};
+  \node[seg=white, draw=Dred, dash pattern=on 2pt off 1.5pt, text=Dred] (r2) at (13,-16) {perdu};
+  \foreach \i in {3,4,5} \node[seg=Pjaune] (r\i) at ({(\i-1)*13},-16) {\i};
+  \node[seg=Pvert] (a1) at (0,-32) {1};
+  \node[seg=white, draw=Dcloud, text=Dcloud] at (13,-32) {?};
+  \foreach \i in {3,4,5} \node[seg=white, draw=Dcloud, text=Dcloud] at ({(\i-1)*13},-32) {};
+  \draw[accol] ([yshift=1mm]r3.north west) -- node[above=3pt, et=Pbrun] {arrivés, mais en attente} ([yshift=1mm]r5.north east);
+  % après retransmission
+  \node[leg, font=\sffamily\small\bfseries, anchor=west] at (68,0) {après retransmission de 2};
+  \foreach \i in {1,...,5} \node[seg=Pvert] at ({68+(\i-1)*13},-32) {\i};
+  \node[seg=Pvert] at (81,-16) {2};
+  \draw[fl=Dred] (81,-5) -- node[right, et=Dred] {renvoyé} (81,-11.5);
+  \node[flecheg=Dcloud] at (61.5,-24) {};
+  \node[note, anchor=north] at (94,-38) {2, 3, 4 et 5 sont remis d'un coup, avec un retard d'au moins un RTT};
+\end{tikzpicture}
+\end{document}

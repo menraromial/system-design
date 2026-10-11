@@ -1,0 +1,36 @@
+% Évolution illustrative de la fenêtre de congestion (comportement de type
+% Reno) : démarrage lent, évitement de congestion, division par deux à
+% chaque perte.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=3.3mm, y=0.55mm]
+  % axes
+  \draw[ligne] (0,0) -- (41,0);
+  \draw[ligne] (0,0) -- (0,112);
+  \foreach \t in {0,5,...,40} {\draw[ligne] (\t,0) -- (\t,-2); \node[note, below] at (\t,-2) {\t};}
+  \foreach \w in {20,40,...,100} {\draw[ligne=Dcloud] (0,\w) -- (-0.4,\w); \node[note, left] at (-0.4,\w) {\w};}
+  \node[axe, anchor=north] at (20.5,-9) {temps, en allers-retours (RTT)};
+  \node[axe, rotate=90, anchor=south] at (-3.6,56) {fenêtre (segments)};
+  % seuil
+  \draw[ligne=Pbrun, dash pattern=on 3pt off 2pt] (0,80) -- (23,80);
+  \node[et=Pbrun, anchor=north] at (14,79) {seuil initial : 80};
+  % démarrage lent : 10, 20, 40, 80
+  \draw[Dblue, line width=1.2pt] (0,10) -- (1,20) -- (2,40) -- (3,80)
+    % évitement : +1 par RTT jusqu'à 100
+    -- (23,100)
+    % perte : division par deux
+    -- (23,50)
+    -- (40,67);
+  \foreach \t/\w in {0/10,1/20,2/40,3/80} \fill[Dblue] (\t,\w) circle (0.55mm);
+  % perte
+  \fill[Dred] (23,100) circle (0.9mm);
+  \node[etb=Dred, anchor=south] at (23,101) {perte détectée};
+  \draw[ligne=Dred, dash pattern=on 2pt off 1.5pt] (23,50) -- (40,50);
+  \node[et=Dred, anchor=north west] at (23.3,49) {nouveau seuil : 50};
+  % phases
+  \node[etb=Dblue, anchor=west, align=left] at (3.6,62) {démarrage lent :\\doublement par RTT};
+  \node[etb=Dblue, anchor=south, align=center] at (13,92) {évitement de congestion :\\+1 segment par RTT};
+  \node[etb=Dblue, anchor=south, align=center] at (32,64) {la fenêtre repart\\de la moitié};
+\end{tikzpicture}
+\end{document}

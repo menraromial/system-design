@@ -1,0 +1,34 @@
+% Vie d'une connexion TCP courte : poignée de main, une requête, fermeture
+% initiée par le client, qui garde la connexion en TIME_WAIT. Les flèches
+% sont inclinées : chaque message met une demi-durée d'aller-retour à arriver.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    msg/.style={arr=#1, line width=1pt},
+    lab/.style={font=\sffamily\footnotesize, text=Dink, fill=white, inner sep=1.5pt}]
+  \def\G{0}\def\D{90}
+  \node[seqhead=Dblue] (c) at (\G,0) {\stack{laptop}{Client}};
+  \node[seqhead=Dpurple] (s) at (\D,0) {\stack{server}{Serveur}};
+  \draw[seqlife] (c.south) -- (\G,-128);
+  \draw[seqlife] (s.south) -- (\D,-128);
+  % poignée de main
+  \draw[msg=Dblue] (\G,-14) -- node[lab, sloped, above] {SYN} (\D,-24);
+  \draw[msg=Dpurple] (\D,-24) -- node[lab, sloped, above] {SYN-ACK} (\G,-34);
+  \draw[msg=Dblue] (\G,-34) -- node[lab, sloped, above] {ACK + requête} (\D,-44);
+  \draw[msg=Dpurple] (\D,-46) -- node[lab, sloped, above] {réponse} (\G,-56);
+  % fermeture
+  \draw[msg=Dblue] (\G,-66) -- node[lab, sloped, above] {FIN} (\D,-76);
+  \draw[msg=Dpurple] (\D,-76) -- node[lab, sloped, above] {ACK, puis FIN} (\G,-86);
+  \draw[msg=Dblue] (\G,-86) -- node[lab, sloped, above] {ACK} (\D,-96);
+  % TIME_WAIT
+  \fill[DamberBg] (\G-2,-86) rectangle (\G+2,-124);
+  \draw[Damber, line width=0.8pt] (\G-2,-86) rectangle (\G+2,-124);
+  \node[font=\sffamily\footnotesize\bfseries, text=Damber, anchor=west, align=left] at (\G+4,-108)
+    {TIME\_WAIT\\[-1pt]{\mdseries 60 s sous Linux, le port}\\[-1pt]{\mdseries éphémère reste occupé}};
+  % accolades des allers-retours
+  \draw[accolm] (\G-6,-14) -- node[left=6pt, note] {1 RTT :\\ouverture} (\G-6,-34);
+  \draw[accolm] (\G-6,-34) -- node[left=6pt, note] {1 RTT :\\requête} (\G-6,-56);
+  \node[note, anchor=west] at (\G+4,-60) {premier octet de réponse : 2 RTT};
+\end{tikzpicture}
+\end{document}
