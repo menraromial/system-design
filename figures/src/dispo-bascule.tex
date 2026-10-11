@@ -1,0 +1,20 @@
+% Mesures de outils/experiences/ch11/bascule.py : requêtes en erreur sur
+% environ 965 quand un serveur est tué, selon l'architecture.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=0.3mm, y=9mm]
+  \node[titrec, anchor=west] at (0,0.85) {requêtes en erreur sur environ 965 (deuxième passage)};
+  \foreach \i/\nom/\v/\d/\c in {
+      0/{A. un serveur, relancé aussitôt}/11/{98,86 \%, coupure de 224 ms}/Porange,
+      1/{B. deux serveurs, sans contrôle}/360/{62,58 \%}/Prose,
+      2/{C. deux serveurs, contrôle passif}/2/{99,79 \%}/Pvert,
+      3/{D. deux serveurs, contrôle actif 2 s}/13/{98,66 \%}/Pjaune,
+      4/{E. deux serveurs, passif + reprise}/0/{100 \%}/Pvert} {
+    \node[leg, anchor=east, font=\sffamily\small] at (-4,-\i) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.25) rectangle (\v+0.8,-\i+0.25);
+    \node[note, anchor=west] at (\v+5,-\i) {\v\ erreurs, disponibilité \d};
+  }
+  \draw[ligne] (0,0.4) -- (0,-4.4);
+\end{tikzpicture}
+\end{document}

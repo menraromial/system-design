@@ -1,0 +1,24 @@
+% SLI, SLO, SLA et budget d'erreur, sur un mois de 30 jours (valeurs de l'exemple
+% du chapitre ; la courbe de consommation est illustrative).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=4.3mm, y=1.2mm]
+  % axes : jours 0-30, budget restant en minutes 0-22
+  \draw[ligne] (0,0) -- (30.6,0);
+  \draw[ligne] (0,0) -- (0,24);
+  \foreach \j in {0,5,...,30} {\draw[ligne] (\j,0) -- (\j,-0.6); \node[note, below] at (\j,-0.6) {\j};}
+  \foreach \m in {0,5,10,15,20} {\draw[ligne=Dcloud] (0,\m) -- (-0.3,\m); \node[note, left] at (-0.3,\m) {\m};}
+  \node[axe, anchor=north] at (15,-4.2) {jour du mois};
+  \node[axe, rotate=90, anchor=south] at (-2.6,12) {budget restant (minutes)};
+  % budget initial : SLO 99,95 % sur 30 jours = 21,6 min
+  \draw[ligne=Dcloud, dash pattern=on 3pt off 2pt] (0,21.6) -- (30,21.6);
+  \node[note, anchor=south west] at (0.3,21.8) {budget du mois : 21,6 min (SLO 99,95 \%)};
+  % consommation illustrative
+  \draw[Dblue, line width=1.2pt] (0,21.6) -- (4,21.1) -- (8,20.6) -- (8,12.6) -- (14,11.8) -- (19,11.2) -- (19,4.2) -- (23,3.6) -- (30,2.8);
+  \node[etb=Dred, anchor=west] at (8.3,16.5) {incident : 8 min};
+  \node[etb=Dred, anchor=east] at (18.7,7.6) {incident : 7 min};
+  \draw[ligne=Dred, dash pattern=on 2pt off 1.5pt] (0,5) -- (30,5);
+  \node[et=Dred, anchor=north west, align=left] at (0.4,4.6) {seuil de gel : sous 5 min restantes, plus de mise en production risquée};
+\end{tikzpicture}
+\end{document}

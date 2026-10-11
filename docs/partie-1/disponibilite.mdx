@@ -1,0 +1,254 @@
+---
+title: Disponibilité et fiabilité
+sidebar_label: 11. Disponibilité et fiabilité
+description: "Disponibilité, fiabilité et durabilité ; MTBF et MTTR ; calcul des neuf ; composants en série et en parallèle ; ce que la redondance apporte vraiment, mesuré ; SLI, SLO, SLA et budget d'erreur."
+partie: 1
+chapitre: 11
+---
+
+import neufs from '@site/src/figures/dispo-neufs.svg';
+import composition from '@site/src/figures/dispo-composition.svg';
+import bascule from '@site/src/figures/dispo-bascule.svg';
+import budget from '@site/src/figures/dispo-budget.svg';
+
+L’équipe commerciale vient de signer avec un gros client un contrat qui promet 99,99 % de disponibilité, avec des pénalités au-delà. Le service tourne sur deux serveurs d’application derrière un répartiteur, et sur une seule base de données. Personne n’a fait le calcul : 99,99 %, c’est 53 minutes d’indisponibilité par an, et la base seule, sans copie prête à prendre le relais, s’arrêtera bien plus longtemps à la première panne de disque ou à la prochaine montée de version. Le contrat est perdu d’avance. À titre de comparaison, AWS ne promet pour une instance EC2 isolée que 99,5 % de disponibilité mensuelle, soit jusqu’à 3,6 heures d’arrêt par mois, et ne s’engage sur 99,99 % que pour des instances réparties sur plusieurs zones de disponibilité[^ec2-sla].
+
+Ce chapitre donne le vocabulaire et les calculs qui évitent ce genre de promesse : ce que mesurent la disponibilité, la fiabilité et la durabilité, comment se combinent les disponibilités de composants qui dépendent les uns des autres, ce que la redondance apporte vraiment, et comment une équipe fixe et gère ses objectifs. Une expérience a été faite pour ce chapitre, avec le script `outils/experiences/ch11/bascule.py` : on fait tomber un serveur sous une charge continue, et l’on mesure la disponibilité vue par le client dans cinq architectures différentes.
+
+## Trois mots qu’on confond
+
+La disponibilité (availability) est la part du temps, ou la part des requêtes, pendant laquelle le service répond correctement. C’est ce que voit l’utilisateur à l’instant présent.
+
+La fiabilité (reliability) est la capacité à fonctionner sans défaillance pendant une durée donnée. Un service qui tombe deux secondes toutes les heures et un service qui tombe une fois par an pendant quatre jours ont à peu près la même disponibilité annuelle, mais pas du tout la même fiabilité, et les utilisateurs ne les vivent pas de la même façon. Le mot fiabilité est aussi employé au sens large de « le service fait ce qu’il doit », c’est le sens qu’il a dans « ingénierie de la fiabilité des sites » (site reliability engineering, SRE).
+
+La durabilité (durability) est la probabilité de ne pas perdre une donnée qu’on a stockée. Elle est indépendante de la disponibilité : une donnée peut être parfaitement conservée et rester inaccessible pendant des heures. AWS annonce pour S3 une durabilité conçue à 99,999999999 % par an (onze neuf), et l’illustre ainsi : pour 10 000 objets stockés, on peut s’attendre en moyenne à perdre un seul objet tous les 10 millions d’années[^s3-faq]. Lors de la panne de S3 de février 2017, décrite plus bas, aucune donnée n’a été perdue ; le service est pourtant resté indisponible plus de quatre heures.
+
+## Mesurer la disponibilité
+
+On mesure la disponibilité de deux façons. Par le temps, comme la part des minutes où le service fonctionnait : c’est ce que fait le SLA d’EC2, qui retire de 100 % la part des minutes du mois pendant lesquelles le service était indisponible[^ec2-sla]. Ou par les requêtes, comme la part des requêtes qui ont réussi :
+
+$$
+A = \frac{\text{requêtes réussies}}{\text{requêtes reçues}}.
+$$
+
+La seconde mesure est plus fidèle à ce que vivent les utilisateurs d’un service réparti, qui n’est presque jamais entièrement en panne ni entièrement en état de marche. C’est celle que décrit le livre de Google sur l’ingénierie de la fiabilité : un service qui reçoit 2,5 millions de requêtes par jour avec un objectif de 99,99 % peut se permettre 250 erreurs par jour[^sre-risque].
+
+Une troisième façon de voir la disponibilité relie la fréquence des pannes à leur durée. Si un composant tombe en moyenne une fois tous les MTBF (mean time between failures, temps moyen entre deux pannes) et met en moyenne MTTR (mean time to repair, ou to recovery, temps moyen de remise en service) à repartir, sa disponibilité vaut
+
+$$
+A = \frac{\text{MTBF}}{\text{MTBF} + \text{MTTR}}.
+$$
+
+Un serveur qui tombe une fois par trimestre (MTBF de 2 190 heures) et qu’on met 4 heures à remplacer est disponible à $2\,190 / 2\,194 \approx 99{,}82\,\%$. La formule dit quelque chose d’important : on peut gagner autant en réduisant la durée des pannes qu’en réduisant leur nombre, et le second moyen est souvent bien plus accessible. Rendre les pannes rares demande du meilleur matériel et du meilleur code ; les rendre courtes demande de la détection et de l’automatisation.
+
+## Les « neuf »
+
+On exprime les objectifs de disponibilité en nombre de neuf : « trois neuf » pour 99,9 %, « quatre neuf » pour 99,99 %. Le temps d’indisponibilité autorisé sur une période $T$ vaut $(1 - A) \times T$.
+
+<Figure svg={neufs} num="11.1" alt="Barres horizontales sur échelle logarithmique : 99 % autorise 3,65 jours par an et 7 h 12 par mois ; 99,9 %, 8 h 46 et 43 min ; 99,95 %, 4 h 23 et 22 min ; 99,99 %, 53 min et 4 min 19 s ; 99,999 %, 5 min 15 s et 26 s.">
+Temps d’indisponibilité autorisé par an et par mois, selon l’objectif.
+</Figure>
+
+L’axe horizontal est logarithmique : chaque neuf ajouté divise le temps autorisé par dix et décale la barre d’une graduation vers la gauche. Les barres bleues donnent le temps par an (365 jours), les orange par mois (30 jours). À quatre neuf, il reste 4 minutes et 19 secondes par mois : moins que le temps qu’il faut à une personne d’astreinte pour être réveillée, se connecter et comprendre ce qui se passe.
+
+Ce dernier point est le plus utile en conception. Au-delà de trois neuf, une intervention humaine est trop lente : chaque incident qui demande un humain consomme d’un coup tout le budget du mois. Les objectifs de quatre neuf et plus supposent une détection et une bascule automatiques, en quelques secondes.
+
+## Composer des disponibilités
+
+Un service est fait de composants qui dépendent les uns des autres, et sa disponibilité se calcule à partir de la leur.
+
+<Figure svg={composition} num="11.2" alt="En haut, trois composants en série à 99,99 %, 99,9 % et 99,9 %, d’où 99,79 % pour l’ensemble. En bas, deux copies à 99,9 % en parallèle, d’où 99,9999 % si leurs pannes sont indépendantes.">
+Composants en série et en parallèle.
+</Figure>
+
+En haut, les trois composants sont tous nécessaires : la requête traverse le répartiteur, puis l’application, puis la base, et il suffit qu’un seul soit en panne pour qu’elle échoue. En bas, deux copies font le même travail et une seule suffit : la requête n’échoue que si les deux sont en panne en même temps. Les formules sont écrites sous chaque cadre.
+
+En série, les disponibilités se multiplient :
+
+$$
+A_{\text{série}} = A_1 \times A_2 \times \dots \times A_n,
+$$
+
+et l’ensemble est toujours moins disponible que son composant le plus faible. Dix services à 99,9 % appelés l’un après l’autre donnent $0{,}999^{10} \approx 99{,}0\,\%$ : on a perdu un neuf sans qu’aucun composant ne soit mauvais.
+
+En parallèle, ce sont les indisponibilités qui se multiplient, si les pannes sont indépendantes :
+
+$$
+A_{\text{parallèle}} = 1 - (1 - A_1)(1 - A_2) \cdots (1 - A_n).
+$$
+
+Deux copies à 99,9 % donnent 99,9999 %, trois copies 99,9999999 %. C’est le principe de la redondance : des composants ordinaires, doublés, donnent un ensemble très disponible.
+
+Tout repose sur le mot indépendantes. Deux serveurs dans la même baie tombent ensemble quand l’alimentation de la baie lâche ; deux copies du même logiciel tombent ensemble quand le même bogue se déclenche ; deux régions tombent ensemble quand une même modification de configuration y est poussée. Dans ces cas, la formule du parallèle est fausse, et la vraie disponibilité est celle de la cause commune. Les dépendances cachées sont la cause commune la plus fréquente : un service redondant qui s’appuie, sans le savoir, sur un composant unique (un DNS, un fournisseur d’identité, un stockage partagé) a la disponibilité de ce composant. On appelle point unique de défaillance (single point of failure, SPOF) tout composant dont la panne arrête le service, et l’étape 7 de la démarche (ch. 1) consiste justement à les chercher.
+
+## Ce que la redondance apporte vraiment, mesuré
+
+La formule du parallèle suppose qu’une copie prend le relais dès que l’autre tombe. En pratique, il faut d’abord s’apercevoir de la panne, puis cesser d’envoyer des requêtes vers la copie morte. Le script `bascule.py` mesure ce que cela change. Un sondeur envoie une requête toutes les 20 ms, pendant 20 secondes, à travers un répartiteur Caddy ; au bout de 5 secondes, un serveur d’application est tué brutalement (signal `SIGKILL`, comme une panne de machine). Cinq configurations sont essayées : A, un seul serveur, relancé aussitôt par un superviseur ; B, deux serveurs sans aucun contrôle de santé ; C, deux serveurs avec un contrôle passif, où un échec retire le serveur de la rotation pendant 10 secondes ; D, deux serveurs avec un contrôle actif, où le répartiteur interroge chaque serveur toutes les 2 secondes ; E, deux serveurs avec contrôle passif et nouvelle tentative de la requête sur l’autre serveur en cas d’échec.
+
+```text
+sondage toutes les 20 ms pendant 20 s ; panne à 5 s
+configuration                requêtes erreurs disponibilité coupure max
+A. un serveur, relancé         967      11    98.86 %      224 ms
+B. deux, sans contrôle         962     360    62.58 %       20 ms
+C. deux, contrôle passif       968       2    99.79 %       20 ms
+D. deux, contrôle actif 2 s    968      13    98.66 %       20 ms
+E. deux, passif + reprise      964       0   100.00 %        0 ms
+```
+
+<Figure svg={bascule} num="11.3" alt="Barres du nombre de requêtes en erreur : 11 pour un serveur relancé, 360 pour deux serveurs sans contrôle, 2 avec contrôle passif, 13 avec contrôle actif, 0 avec contrôle passif et nouvelle tentative.">
+Requêtes en erreur quand un serveur est tué, selon l’architecture (deuxième passage).
+</Figure>
+
+Chaque barre compte les requêtes en erreur sur les quelque 965 envoyées pendant l’essai ; la disponibilité observée est écrite à droite. Deux passages ont donné les mêmes valeurs, à une erreur près pour la configuration A (10 puis 11) et à 20 ms près pour sa coupure (204 puis 224 ms).
+
+La configuration B est la plus instructive : deux serveurs, mais aucun moyen de savoir que l’un est mort, et le répartiteur continue de lui envoyer une requête sur deux. Elle fait bien pire qu’un serveur unique (62,58 % contre 98,86 %), alors qu’elle a deux fois plus de machines. La redondance sans détection n’apporte rien. La configuration A illustre l’autre terme de la formule MTBF/MTTR : un seul serveur, mais relancé automatiquement en 224 ms, ne perd que 11 requêtes. Le contrôle passif (C) détecte la panne dès la première erreur, puis réessaie le serveur mort une fois quand son exclusion de 10 secondes expire, d’où 2 erreurs ; le contrôle actif (D) met jusqu’à 2 secondes à s’en apercevoir, pendant lesquelles une requête sur deux échoue. Seule la configuration E, qui rejoue sur l’autre serveur la requête qui a échoué, masque complètement la panne. Cette reprise n’est sans danger que pour des requêtes qu’on peut rejouer : ici des lectures, mais pas un paiement (ch. 38).
+
+Le temps de remise en service d’un système redondant n’est donc pas le temps de réparer la machine : c’est le temps de détecter la panne et de cesser de lui envoyer du trafic. La détection des pannes est l’objet du ch. 32, la répartition et ses contrôles de santé celui du ch. 13.
+
+## SLI, SLO, SLA et budget d’erreur
+
+Le livre de Google sur l’ingénierie de la fiabilité a fixé le vocabulaire qu’on emploie aujourd’hui[^sre-slo] :
+
+- un indicateur de niveau de service (service level indicator, SLI) est une mesure quantitative, soigneusement définie, d’un aspect du service rendu ; par exemple, la part des requêtes HTTP qui réussissent en moins de 300 ms, mesurée au répartiteur ;
+- un objectif de niveau de service (service level objective, SLO) est la valeur visée pour un SLI ; par exemple, 99,95 % sur 30 jours glissants ;
+- un accord de niveau de service (service level agreement, SLA) est un engagement envers les utilisateurs, explicite ou non, qui prévoit des conséquences si les objectifs ne sont pas tenus, le plus souvent des remboursements.
+
+Les trois se règlent les uns par rapport aux autres. Le SLA, qui engage l’entreprise, est moins exigeant que le SLO interne, pour laisser une marge : on corrige un problème quand il entame le SLO, avant qu’il coûte de l’argent. Le SLA d’EC2 en donne la forme typique : un objectif de 99,99 % à l’échelle d’une région, et un crédit de 10 % de la facture si la disponibilité mensuelle tombe entre 99,0 % et 99,99 %, de 30 % entre 95,0 % et 99,0 %, de 100 % en dessous[^ec2-sla].
+
+Le SLO définit un budget d’erreur (error budget) : la part d’échecs que l’objectif autorise, soit $1 - \text{SLO}$. Avec un SLO de 99,95 % sur 30 jours, le budget vaut 0,05 % du temps, soit 21,6 minutes, ou 0,05 % des requêtes. Le budget sert à décider : tant qu’il en reste, l’équipe peut prendre des risques (mises en production fréquentes, expériences) ; quand il est épuisé, elle ralentit et consacre son temps à la fiabilité. Les équipes de Google en ont fait un outil de négociation entre développement et exploitation, qui remplace un débat d’opinions par un chiffre partagé[^sre-risque].
+
+<Figure svg={budget} num="11.4" alt="Courbe du budget d’erreur restant sur un mois : 21,6 minutes au départ, deux incidents de 8 et 7 minutes, et un seuil de gel des mises en production à 5 minutes.">
+Consommation du budget d’erreur au cours d’un mois (exemple illustratif).
+</Figure>
+
+Le budget part de 21,6 minutes au premier jour du mois. Les petites erreurs quotidiennes le grignotent lentement, et deux incidents en consomment chacun une grosse part d’un coup. Sous le trait rouge, il reste moins de 5 minutes : selon la règle que s’est donnée l’équipe dans cet exemple, les mises en production risquées sont gelées jusqu’à la fin du mois. La courbe est construite pour l’exemple, elle ne vient pas d’un service réel.
+
+Deux idées du même livre prolongent celle-ci. Viser 100 % est une erreur : les utilisateurs ne voient pas la différence entre 99,99 % et 99,999 % quand leur propre accès (un téléphone sur un réseau mobile, par exemple) est bien moins disponible que le service, et chaque neuf supplémentaire coûte beaucoup plus que le précédent[^sre-risque]. Et un service trop fiable crée une dépendance dangereuse : ceux qui l’appellent finissent par supposer qu’il ne tombe jamais[^sre-slo].
+
+## Compromis
+
+Les façons d’ajouter de la redondance se distinguent par ce qu’elles coûtent, par le temps de bascule et par les pannes qu’elles couvrent. Les chapitres indiqués détaillent chacune.
+
+| Approche | Ce qu’elle couvre | Temps de remise en service | Coût | Difficulté principale |
+|---|---|---|---|---|
+| Un exemplaire, relancé automatiquement | plantage du processus | court (224 ms mesurées ici) | aucun matériel en plus | ne couvre pas la panne de la machine |
+| Actif-passif : une copie en attente | panne d’une machine | celui de la détection et de la bascule | la copie attend sans servir | décider qui est actif sans en avoir deux (ch. 32 et 35) |
+| Actif-actif : plusieurs copies servent | panne d’une machine | celui de la détection ; nul avec nouvelle tentative | les copies servent toutes | simple pour l’application sans état (ch. 10), difficile pour les données (ch. 24 et 25) |
+| Plusieurs zones de disponibilité | panne d’un centre de données | idem, à quelques millisecondes de distance | trafic entre zones facturé | réplication des données entre zones |
+| Plusieurs régions | panne d’une région entière | de quelques secondes à des heures selon la préparation | infrastructure doublée | latence entre régions et cohérence des données (ch. 46) |
+
+Aucune ligne ne protège contre une erreur reproduite partout : une configuration fausse, un bogue ou une suppression accidentelle atteignent toutes les copies. Contre ces pannes, il faut des déploiements progressifs (ch. 52) et des sauvegardes (ch. 53).
+
+## Ordres de grandeur
+
+:::calcul[Calcul : le contrat à 99,99 % était-il tenable ?]
+Hypothèses : répartiteur géré à 99,99 % ; deux serveurs d’application à 99,9 % chacun, en parallèle, avec une détection de panne efficace ; une seule base à 99,9 %, sans copie de secours.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Couche applicative (parallèle) | $1 - (1 - 0{,}999)^2$ | 99,9999 % |
+| Ensemble (série) | $0{,}9999 \times 0{,}999999 \times 0{,}999$ | ≈ 99,89 % |
+| Indisponibilité par an | $(1 - 0{,}9989) \times 8\,760$ h | ≈ 9,6 h |
+| Indisponibilité autorisée par le contrat | $(1 - 0{,}9999) \times 8\,760$ h | ≈ 53 min |
+| Base avec une copie et une bascule automatique de 30 s, 4 pannes par an | $4 \times 30$ s = 2 min par an | ≈ 99,9996 % |
+| Ensemble avec cette base | $0{,}9999 \times 0{,}999999 \times 0{,}999996$ | ≈ 99,989 % |
+
+Conclusion : avec une base unique, le service tombe dix fois plus longtemps que ce que le contrat autorise. Une copie de la base avec bascule automatique (ch. 24) ramène l’ensemble à 99,989 %, encore un peu sous l’objectif : c’est désormais le répartiteur qui limite. Un composant en série à 99,99 % suffit à rendre l’objectif intenable, et la moindre dépendance supplémentaire (un fournisseur d’identité, un service de paiement) éloigne encore. Tenir 99,99 % de bout en bout demande que chaque maillon de la chaîne soit nettement au-dessus.
+:::
+
+:::calcul[Calcul : raccourcir les pannes]
+Un composant tombe une fois par mois (MTBF de 720 heures).
+
+| Temps de remise en service | Disponibilité | Indisponibilité par an |
+|---|---|---|
+| 4 h (remplacement manuel) | $720 / 724 \approx 99{,}45\,\%$ | 48 h |
+| 30 min (astreinte réactive) | $720 / 720{,}5 \approx 99{,}93\,\%$ | 6 h |
+| 1 min (bascule automatique) | $720 / 720{,}017 \approx 99{,}998\,\%$ | 12 min |
+| 0,2 s (relance automatique, mesurée) | ≈ 99,99999 % | ≈ 2,4 s |
+
+Conclusion : à fréquence de pannes égale, passer d’une réparation humaine à une bascule automatique fait passer de 99,45 % à 99,998 %, et l’indisponibilité annuelle de deux jours à douze minutes. C’est presque toujours l’amélioration la moins chère.
+:::
+
+:::calcul[Calcul : un budget d’erreur en requêtes]
+Hypothèses : 50 millions de requêtes par mois ; SLO de 99,95 %.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Requêtes en erreur autorisées par mois | $5 \times 10^7 \times 0{,}0005$ | 25 000 |
+| Par jour en moyenne | 25 000 / 30 | ≈ 830 |
+| Débit moyen | $5 \times 10^7 / (30 \times 86\,400)$ | ≈ 19 req/s |
+| Budget consommé par une panne totale de 10 min | 19 × 600 | ≈ 11 600, soit 46 % du mois |
+
+Conclusion : une seule panne complète de dix minutes consomme près de la moitié du budget mensuel ; deux pannes de ce type, et l’objectif est manqué.
+:::
+
+## Exemples réels
+
+**La panne de S3 du 28 février 2017.** Le compte rendu publié par AWS raconte qu’à 9 h 37, heure du Pacifique, un membre de l’équipe S3 qui suivait une procédure établie a saisi une commande avec un paramètre erroné, et retiré beaucoup plus de serveurs que prévu, dont une partie de ceux des sous-systèmes d’index et de placement de S3 dans la région de Virginie du Nord. Le sous-système d’index a recommencé à servir des lectures à 12 h 26 et s’est entièrement rétabli à 13 h 18 ; celui de placement a fini de se rétablir à 13 h 54, plus de quatre heures après l’erreur[^s3-2017]. Deux leçons concernent ce chapitre. Aucune donnée n’a été perdue, mais le service est resté indisponible : la durabilité était intacte, la disponibilité non. Et AWS n’a pas pu mettre à jour son propre tableau de bord de l’état des services jusqu’à 11 h 37, parce que la console d’administration de ce tableau de bord dépendait de S3 : une dépendance cachée qui rendait l’outil de communication des pannes indisponible pendant la panne qu’il devait signaler. AWS indique avoir ensuite modifié ce tableau de bord pour qu’il fonctionne à partir de plusieurs régions.
+
+**Les pannes volontaires de Chubby.** Le livre de Google sur l’ingénierie de la fiabilité rapporte que Chubby, son service interne de verrous et de configuration, était devenu si rarement indisponible que des services en dépendaient sans prévoir sa panne, et tombaient avec lui les rares fois où elle survenait. L’équipe a décidé de tenir l’objectif de Chubby sans le dépasser : quand un trimestre passait sans panne réelle, elle provoquait une indisponibilité contrôlée, pour obliger les équipes clientes à prévoir le cas[^sre-slo].
+
+## Erreurs fréquentes
+
+La première est de promettre un niveau de service sans faire le calcul de la chaîne. Une disponibilité se calcule en multipliant celles de tous les composants traversés, dépendances externes comprises ; on ne la choisit pas.
+
+La deuxième est de croire que deux serveurs valent mieux qu’un sans se demander comment on détecte la panne de l’un d’eux. L’expérience du chapitre l’a montré : deux serveurs sans contrôle de santé font bien pire qu’un serveur relancé automatiquement.
+
+Une troisième erreur consiste à supposer des pannes indépendantes là où elles ne le sont pas : même zone, même alimentation, même version du logiciel, même modification de configuration, même dépendance cachée.
+
+Mesurer la disponibilité du côté du serveur, et non du client, conduit à des tableaux de bord au vert pendant que les utilisateurs voient des erreurs : un serveur qui fonctionne mais qu’aucune requête n’atteint est, pour eux, en panne. Le SLI se mesure au plus près de l’utilisateur, au répartiteur ou par des sondes externes.
+
+Confondre durabilité et disponibilité conduit à de mauvaises décisions dans les deux sens : des sauvegardes ne rendent pas un service disponible, et un service redondant ne protège pas contre une suppression accidentelle, répliquée aussitôt sur toutes les copies (ch. 53).
+
+Viser 100 %, ou un SLA plus exigeant que le SLO interne, ne laisse aucune marge : chaque incident devient une crise, et chaque mise en production un risque contractuel.
+
+:::piege[Erreur fréquente : la disponibilité moyenne de plusieurs services]
+« Nos dix services ont en moyenne 99,9 % de disponibilité, donc le site a 99,9 %. » Si une page a besoin des dix, sa disponibilité est le produit, $0{,}999^{10} \approx 99{,}0\,\%$, soit 87 heures d’indisponibilité par an au lieu de 8,8. La moyenne n’a aucun sens pour des composants en série.
+:::
+
+:::entretien
+Quand vous annoncez « haute disponibilité », chiffrez-la et justifiez-la : « 99,95 %, soit 22 minutes par mois ; donc pas d’intervention humaine dans la boucle de bascule ». Puis montrez les points uniques de défaillance de votre schéma et comment chacun est doublé, et dites comment la panne d’un composant est détectée et en combien de temps le trafic s’en détourne.
+:::
+
+## Exercices
+
+**Question 1.** Un service web dépend en série d’un répartiteur à 99,99 %, d’un service d’authentification à 99,9 %, de trois serveurs d’application à 99,5 % chacun en parallèle, et d’une base de données à 99,95 %. Quelle est sa disponibilité, en supposant des pannes indépendantes et une détection parfaite ? Quel composant faut-il améliorer en premier ?
+
+**Question 2.** Un service a un SLO de 99,9 % sur 30 jours, mesuré en requêtes. Au 20e jour, 0,07 % des requêtes du mois ont échoué. Quelle part du budget reste-t-il ? L’équipe prévoit pour le lendemain une migration de base de données qui, d’après la répétition, peut provoquer 15 minutes d’erreurs totales sur un trafic régulier. Doit-elle la faire ?
+
+**Question 3.** Dans l’expérience du chapitre, pourquoi la configuration B (deux serveurs sans contrôle) est-elle moins disponible que la configuration A (un serveur relancé) ? Et pourquoi la configuration C produit-elle exactement deux erreurs ?
+
+**Exercice de conception.** Une plateforme de prise de rendez-vous médicaux veut un SLO de 99,95 % sur ses pages de réservation. Elle comprend un CDN, un répartiteur, des serveurs d’application, une base relationnelle, un cache Redis utilisé pour les sessions, et un service tiers d’envoi de SMS de confirmation, dont le fournisseur ne promet que 99,5 %. Calculez ce que permet l’architecture actuelle (un seul exemplaire de chaque composant interne), proposez les changements qui tiennent l’objectif, et définissez le SLI, le SLO interne et ce que pourrait être un SLA offert aux cabinets médicaux.
+
+## Corrigés
+
+**Question 1.** La couche applicative en parallèle : $1 - (1 - 0{,}995)^3 = 1 - 0{,}005^3 = 1 - 1{,}25 \times 10^{-7} \approx 99{,}99999\,\%$. En série avec le reste : $0{,}9999 \times 0{,}999 \times 0{,}9999999 \times 0{,}9995 \approx 0{,}9984$, soit environ 99,84 %, ou 14 heures d’indisponibilité par an. Le composant le plus faible est l’authentification (99,9 %), suivie de la base (99,95 %) : ce sont elles qu’il faut doubler ou rendre moins critiques. Les trois serveurs d’application, médiocres un par un, ne pèsent presque rien dans le résultat.
+
+**Question 2.** Le budget du mois est de 0,1 % des requêtes. 0,07 % sont consommés, il reste 0,03 % des requêtes du mois, soit 30 % du budget. Le trafic étant régulier, 15 minutes d’erreurs totales représentent $15 / (30 \times 24 \times 60) \approx 0{,}035\,\%$ des requêtes du mois : plus que ce qui reste. Faire la migration le lendemain, au pire cas, fait manquer l’objectif. L’équipe peut la reporter au mois suivant, la découper pour réduire la fenêtre d’erreurs, la faire sans coupure (ch. 52), ou la faire en sachant qu’elle risque de manquer le SLO, mais c’est alors une décision explicite, prise avec le chiffre sous les yeux.
+
+**Question 3.** En B, le répartiteur ne sait pas que le serveur tué est mort et continue de lui envoyer une requête sur deux pendant les 15 secondes qui suivent la panne : environ la moitié des quelque 750 requêtes de cette période échouent, d’où 360 erreurs. En A, il n’y a qu’un serveur, mais il est relancé en environ 220 ms : seules les requêtes envoyées pendant ce court intervalle échouent, une dizaine. La disponibilité dépend de la durée pendant laquelle des requêtes vont vers un composant en panne, pas du nombre de composants. En C, la première requête envoyée au serveur mort échoue et le fait retirer de la rotation pendant 10 secondes ; quand ce délai expire, le répartiteur lui envoie de nouveau une requête, qui échoue et le retire pour 10 secondes de plus. L’essai se termine avant la troisième tentative : deux erreurs.
+
+**Exercice de conception.**
+
+*Situation actuelle.* Hypothèses de disponibilité pour des composants non doublés : CDN géré 99,99 %, répartiteur géré 99,99 %, un serveur d’application 99,5 %, une base 99,9 %, un Redis 99,9 %. Le SMS, s’il est dans le chemin de la réservation, pèse 99,5 %. Produit : $0{,}9999 \times 0{,}9999 \times 0{,}995 \times 0{,}999 \times 0{,}999 \times 0{,}995 \approx 0{,}988$, soit 98,8 %, très loin de 99,95 %.
+
+*Changements.* Le SMS ne doit pas être dans le chemin de la réservation : la réservation est enregistrée et confirmée à l’écran, le SMS est envoyé ensuite par une file de messages (ch. 27) qui réessaie si le fournisseur est indisponible. Il sort de la chaîne. Les serveurs d’application passent à trois exemplaires derrière le répartiteur, avec contrôle de santé et nouvelle tentative des lectures : $1 - 0{,}005^3 \approx 99{,}99999\,\%$. La base reçoit une copie synchrone avec bascule automatique (ch. 24) ; avec une bascule de l’ordre de 30 secondes et quelques pannes par an, elle atteint environ 99,999 %. Redis est doublé (copie et bascule), ou les sessions sont rendues non critiques : si Redis tombe, l’utilisateur doit se reconnecter mais la réservation reste possible. Nouvelle chaîne : $0{,}9999 \times 0{,}9999 \times 0{,}9999999 \times 0{,}99999 \times 0{,}99999 \approx 0{,}99978$, soit 99,98 %, au-dessus de l’objectif, avec une marge que consommeront les mises en production.
+
+*SLI, SLO, SLA.* SLI : part des requêtes de réservation (affichage des créneaux et confirmation) qui réussissent en moins de 1 seconde, mesurée au répartiteur, sur 30 jours glissants. SLO interne : 99,95 %. SLA offert aux cabinets : 99,9 % par mois, avec un crédit d’une partie de l’abonnement en dessous, ce qui laisse une marge entre l’engagement contractuel et l’objectif interne. La règle d’usage du budget : en dessous de 25 % de budget restant, les mises en production non urgentes attendent le mois suivant.
+
+:::fiche
+- Disponibilité : part du temps ou des requêtes servies correctement ; fiabilité : fonctionner sans défaillance dans la durée ; durabilité : ne pas perdre les données (S3 : onze neuf).
+- $A = \text{MTBF} / (\text{MTBF} + \text{MTTR})$ : réduire la durée des pannes rapporte autant que réduire leur nombre, et coûte souvent moins.
+- Indisponibilité autorisée = $(1 - A) \times T$ : 99,9 % → 43 min par mois ; 99,99 % → 4 min 19 s ; au-delà de trois neuf, pas d’humain dans la boucle.
+- Série : produit des disponibilités ; parallèle : $1 - \prod (1 - A_i)$, si les pannes sont indépendantes.
+- Mesuré : deux serveurs sans contrôle de santé, 62,58 % ; un serveur relancé en 224 ms, 98,86 % ; contrôle passif, 2 erreurs ; nouvelle tentative, 0.
+- SLI = mesure ; SLO = objectif interne ; SLA = engagement avec pénalités, moins strict que le SLO.
+- Budget d’erreur = $1 - \text{SLO}$ ; il règle le rythme des mises en production.
+- Chercher les SPOF et les dépendances cachées (le tableau de bord d’AWS dépendait de S3 en 2017).
+:::
+
+[^ec2-sla]: Amazon Web Services, « Amazon Compute Service Level Agreement », [aws.amazon.com/compute/sla](https://aws.amazon.com/compute/sla/).
+[^s3-faq]: Amazon Web Services, « Amazon S3 FAQs », question sur la durabilité, [aws.amazon.com/s3/faqs](https://aws.amazon.com/s3/faqs/).
+[^sre-risque]: Marc Alvidrez, « Embracing Risk », chapitre 3 de Betsy Beyer, Chris Jones, Jennifer Petoff et Niall Richard Murphy (dir.), *Site Reliability Engineering*, O’Reilly, 2016, [sre.google/sre-book/embracing-risk](https://sre.google/sre-book/embracing-risk/).
+[^sre-slo]: « Service Level Objectives », chapitre 4 de *Site Reliability Engineering*, O’Reilly, 2016, [sre.google/sre-book/service-level-objectives](https://sre.google/sre-book/service-level-objectives/).
+[^s3-2017]: Amazon Web Services, « Summary of the Amazon S3 Service Disruption in the Northern Virginia (US-EAST-1) Region », [aws.amazon.com/message/41926](https://aws.amazon.com/message/41926/).

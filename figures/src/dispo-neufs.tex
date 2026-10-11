@@ -1,0 +1,26 @@
+% Temps d'indisponibilité autorisé selon l'objectif de disponibilité, par an
+% (365 jours) et par mois (30 jours). Échelle logarithmique : x = log10(minutes).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=24mm, y=9mm]
+  \draw[ligne] (0,0.6) -- (0,-5.6);
+  \foreach \x/\l in {-1/{6 s}, 0/{1 min}, 1/{10 min}, 2/{1 h 40}, 3/{16 h 40}, 4/{7 jours}}
+    {\draw[ligne=Dcloud] (\x+1,0.6) -- (\x+1,0.75); \node[note, above] at (\x+1,0.75) {\l};}
+  % lignes : objectif, minutes par an, libellé an, minutes par mois, libellé mois
+  \foreach \i/\o/\an/\la/\mo/\lm in {
+      0/{99 \%}/5256/{3,65 jours}/432/{7 h 12},
+      1/{99,9 \%}/525.6/{8 h 46}/43.2/{43 min},
+      2/{99,95 \%}/262.8/{4 h 23}/21.6/{22 min},
+      3/{99,99 \%}/52.56/{53 min}/4.32/{4 min 19 s},
+      4/{99,999 \%}/5.256/{5 min 15 s}/0.432/{26 s}} {
+    \node[leg, anchor=east, font=\sffamily\small\bfseries] at (-0.08,-\i*1.1) {\o};
+    \pgfmathsetmacro{\xa}{log10(\an)+1}
+    \pgfmathsetmacro{\xm}{log10(\mo)+1}
+    \draw[draw=Dink, line width=0.5pt, fill=Pbleu] (0,-\i*1.1+0.04) rectangle (\xa,-\i*1.1+0.38);
+    \node[note, anchor=west] at (\xa+0.05,-\i*1.1+0.21) {\la\ par an};
+    \draw[draw=Dink, line width=0.5pt, fill=Porange] (0,-\i*1.1-0.04) rectangle (\xm,-\i*1.1-0.38);
+    \node[note, anchor=west] at (\xm+0.05,-\i*1.1-0.21) {\lm\ par mois};
+  }
+\end{tikzpicture}
+\end{document}

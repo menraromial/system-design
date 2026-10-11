@@ -1,0 +1,35 @@
+% Disponibilité de composants en série (tous nécessaires) et en parallèle
+% (un seul suffit), en supposant leurs pannes indépendantes.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, node distance=7mm,
+    c/.style={bloc=#1, minimum width=26mm, minimum height=11mm, text width=24mm}]
+  % série
+  \node[c=Pbleu] (a) {répartiteur\\[-1pt]{\scriptsize 99,99 \%}};
+  \node[c=Pbleu, right=of a] (b) {application\\[-1pt]{\scriptsize 99,9 \%}};
+  \node[c=Pbleu, right=of b] (d) {base\\[-1pt]{\scriptsize 99,9 \%}};
+  \draw[fl] (a) -- (b); \draw[fl] (b) -- (d);
+  \node[sous, anchor=north west] at ([yshift=-3mm]a.south west) {en série : $0{,}9999 \times 0{,}999 \times 0{,}999 \approx 99{,}79\,\%$, moins que le plus faible};
+  \begin{scope}[on background layer]
+    \node[enclos=DslateZ, fit=(a)(d), inner sep=4mm, yshift=-2mm, minimum height=26mm] (e1) {};
+  \end{scope}
+  \node[titrec] at (e1.north west) {tous nécessaires};
+  % parallèle
+  \node[c=Pfond] (entree) at ([yshift=-44mm]a.center) {entrée};
+  \node[c=Pvert, right=14mm of entree, yshift=8mm] (p1) {copie 1\\[-1pt]{\scriptsize 99,9 \%}};
+  \node[c=Pvert, right=14mm of entree, yshift=-8mm] (p2) {copie 2\\[-1pt]{\scriptsize 99,9 \%}};
+  \node[c=Pfond, right=14mm of p1, yshift=-8mm] (sortie) {sortie};
+  \foreach \p in {p1,p2} {
+    \draw[ligne] (entree.east) -- ++(5mm,0) |- (\p.west);
+    \draw[fl] ([xshift=5mm]entree.east |- \p.west) -- (\p.west);
+    \draw[ligne] (\p.east) -- ++(5mm,0) |- (sortie.west);
+  }
+  \draw[fl] ([xshift=-2mm]sortie.west) -- (sortie.west);
+  \node[sous, anchor=north west, align=left] at ([yshift=-3mm]p2.south -| entree.west) {en parallèle : $1 - (1 - 0{,}999)^2 = 99{,}9999\,\%$, si les pannes sont indépendantes};
+  \begin{scope}[on background layer]
+    \node[enclos=DslateZ, fit=(entree)(p1)(p2)(sortie), inner sep=4mm, yshift=-2mm, minimum height=40mm] (e2) {};
+  \end{scope}
+  \node[titrec] at (e2.north west) {un seul suffit};
+\end{tikzpicture}
+\end{document}
