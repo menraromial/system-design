@@ -25,7 +25,7 @@ export const PARTIES: Partie[] = [
       {num: 6, titre: 'TLS et HTTPS', doc: 'partie-1/tls'},
       {num: 7, titre: 'Styles d’API : REST, GraphQL, gRPC', doc: 'partie-1/styles-api'},
       {num: 8, titre: 'Pousser des données vers le client', doc: 'partie-1/pousser-donnees'},
-      {num: 9, titre: 'Latence, débit et chiffres à connaître'},
+      {num: 9, titre: 'Latence, débit et chiffres à connaître', doc: 'partie-1/latence-debit'},
       {num: 10, titre: 'Passer à l’échelle : vertical, horizontal, sans état'},
       {num: 11, titre: 'Disponibilité et fiabilité'},
       {num: 12, titre: 'Cohérence, CAP et PACELC'},

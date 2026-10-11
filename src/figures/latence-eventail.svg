@@ -1,0 +1,847 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 611.14 132.92">
+<defs>
+<g>
+<g id="latence-eventail-glyph-0-0">
+<path d="M 0.65 1.79 L 1.81 1.79 L 1.81 -0.78 L 1.84 -0.78 C 2.01 -0.25 2.51 0.10 3.14 0.10 C 4.31 0.10 4.96 -0.78 4.96 -2.34 C 4.96 -3.90 4.31 -4.78 3.14 -4.78 C 2.51 -4.78 2.01 -4.43 1.84 -3.90 L 1.81 -3.90 L 1.81 -4.67 L 0.65 -4.67 Z M 2.76 -0.84 C 2.21 -0.84 1.81 -1.12 1.81 -1.60 L 1.81 -3.09 C 1.81 -3.54 2.21 -3.84 2.76 -3.84 C 3.35 -3.84 3.76 -3.40 3.76 -2.73 L 3.76 -1.93 C 3.76 -1.26 3.35 -0.84 2.76 -0.84 Z M 2.76 -0.84 "/>
+</g>
+<g id="latence-eventail-glyph-0-1">
+<path d="M 4.93 -3.90 C 4.93 -5.40 4.09 -6.35 2.65 -6.35 C 1.28 -6.35 0.39 -5.46 0.39 -4.20 C 0.39 -3.01 1.18 -2.26 2.21 -2.26 C 3.01 -2.26 3.40 -2.70 3.64 -3.18 L 3.70 -3.17 C 3.42 -1.89 2.56 -1.06 1.09 0 L 2.68 0 C 3.75 -0.70 4.93 -2.10 4.93 -3.90 Z M 2.65 -3.17 C 2 -3.17 1.60 -3.54 1.60 -4.23 L 1.60 -4.37 C 1.60 -5.04 2 -5.42 2.65 -5.42 C 3.32 -5.42 3.71 -5.04 3.71 -4.37 L 3.71 -4.23 C 3.71 -3.54 3.32 -3.17 2.65 -3.17 Z M 2.65 -3.17 "/>
+</g>
+<g id="latence-eventail-glyph-0-2">
+<path d="M 3.56 0 L 4.70 0 L 4.70 -6.62 L 3.56 -6.62 L 3.56 -3.90 L 3.51 -3.90 C 3.35 -4.43 2.84 -4.78 2.23 -4.78 C 1.06 -4.78 0.40 -3.90 0.40 -2.34 C 0.40 -0.78 1.06 0.10 2.23 0.10 C 2.84 0.10 3.34 -0.25 3.51 -0.78 L 3.56 -0.78 Z M 2.59 -0.84 C 2 -0.84 1.60 -1.26 1.60 -1.93 L 1.60 -2.73 C 1.60 -3.40 2 -3.84 2.59 -3.84 C 3.14 -3.84 3.56 -3.54 3.56 -3.09 L 3.56 -1.60 C 3.56 -1.12 3.14 -0.84 2.59 -0.84 Z M 2.59 -0.84 "/>
+</g>
+<g id="latence-eventail-glyph-0-3">
+<path d="M 2.54 0.10 C 3.42 0.10 4.09 -0.21 4.48 -0.75 L 3.87 -1.43 C 3.57 -1.07 3.23 -0.81 2.67 -0.81 C 1.92 -0.81 1.54 -1.26 1.54 -1.93 L 1.54 -2.04 L 4.64 -2.04 L 4.64 -2.42 C 4.64 -3.70 3.96 -4.78 2.51 -4.78 C 1.14 -4.78 0.34 -3.82 0.34 -2.34 C 0.34 -0.84 1.17 0.10 2.54 0.10 Z M 2.53 -3.92 C 3.12 -3.92 3.45 -3.48 3.45 -2.84 L 3.45 -2.75 L 1.54 -2.75 L 1.54 -2.82 C 1.54 -3.46 1.93 -3.92 2.53 -3.92 Z M 2.53 -3.92 "/>
+</g>
+<g id="latence-eventail-glyph-0-4">
+<path d="M 2.42 0 L 2.42 -0.90 L 1.81 -0.90 L 1.81 -6.62 L 0.65 -6.62 L 0.65 -1.12 C 0.65 -0.40 1.03 0 1.81 0 Z M 2.42 0 "/>
+</g>
+<g id="latence-eventail-glyph-0-5">
+<path d="M 1.81 0.10 C 2.51 0.10 3.03 -0.20 3.17 -0.81 L 3.23 -0.81 C 3.29 -0.32 3.60 0 4.09 0 L 4.73 0 L 4.73 -0.90 L 4.26 -0.90 L 4.26 -3.10 C 4.26 -4.18 3.59 -4.78 2.34 -4.78 C 1.39 -4.78 0.84 -4.42 0.51 -3.89 L 1.18 -3.28 C 1.42 -3.59 1.71 -3.87 2.25 -3.87 C 2.85 -3.87 3.12 -3.56 3.12 -3.04 L 3.12 -2.70 L 2.32 -2.70 C 1.06 -2.70 0.32 -2.23 0.32 -1.26 C 0.32 -0.43 0.87 0.10 1.81 0.10 Z M 2.20 -0.71 C 1.75 -0.71 1.5 -0.90 1.5 -1.29 L 1.5 -1.43 C 1.5 -1.81 1.79 -2.01 2.39 -2.01 L 3.12 -2.01 L 3.12 -1.39 C 3.12 -0.95 2.71 -0.71 2.20 -0.71 Z M 2.20 -0.71 "/>
+</g>
+<g id="latence-eventail-glyph-0-6">
+<path d="M 1.81 0 L 1.81 -2.85 C 1.81 -3.37 2.21 -3.59 2.98 -3.59 L 3.34 -3.59 L 3.34 -4.67 L 3.09 -4.67 C 2.34 -4.67 1.96 -4.20 1.85 -3.70 L 1.81 -3.70 L 1.81 -4.67 L 0.65 -4.67 L 0.65 0 Z M 1.81 0 "/>
+</g>
+<g id="latence-eventail-glyph-0-7">
+<path d="M 3.56 1.79 L 4.70 1.79 L 4.70 -4.67 L 3.56 -4.67 L 3.56 -3.90 L 3.51 -3.90 C 3.35 -4.43 2.84 -4.78 2.23 -4.78 C 1.06 -4.78 0.40 -3.90 0.40 -2.34 C 0.40 -0.78 1.06 0.10 2.23 0.10 C 2.84 0.10 3.34 -0.25 3.51 -0.78 L 3.56 -0.78 Z M 2.59 -0.84 C 2 -0.84 1.60 -1.26 1.60 -1.93 L 1.60 -2.73 C 1.60 -3.40 2 -3.84 2.59 -3.84 C 3.14 -3.84 3.56 -3.54 3.56 -3.09 L 3.56 -1.60 C 3.56 -1.12 3.14 -0.84 2.59 -0.84 Z M 2.59 -0.84 "/>
+</g>
+<g id="latence-eventail-glyph-0-8">
+<path d="M 3.45 0 L 4.60 0 L 4.60 -4.67 L 3.45 -4.67 L 3.45 -1.57 C 3.45 -1.07 3 -0.84 2.54 -0.84 C 2 -0.84 1.75 -1.18 1.75 -1.82 L 1.75 -4.67 L 0.60 -4.67 L 0.60 -1.71 C 0.60 -0.56 1.14 0.10 2.10 0.10 C 2.87 0.10 3.25 -0.31 3.40 -0.78 L 3.45 -0.78 Z M 3.45 0 "/>
+</g>
+<g id="latence-eventail-glyph-0-9">
+<path d="M 2.54 0.10 C 3.42 0.10 4.09 -0.21 4.48 -0.75 L 3.87 -1.43 C 3.57 -1.07 3.23 -0.81 2.67 -0.81 C 1.92 -0.81 1.54 -1.26 1.54 -1.93 L 1.54 -2.04 L 4.64 -2.04 L 4.64 -2.42 C 4.64 -3.70 3.96 -4.78 2.51 -4.78 C 1.14 -4.78 0.34 -3.82 0.34 -2.34 C 0.34 -0.84 1.17 0.10 2.54 0.10 Z M 2.53 -3.92 C 3.12 -3.92 3.45 -3.48 3.45 -2.84 L 3.45 -2.75 L 1.54 -2.75 L 1.54 -2.82 C 1.54 -3.46 1.93 -3.92 2.53 -3.92 Z M 2.03 -7.03 L 0.90 -5.65 L 1.48 -5.20 L 2.54 -6.23 L 3.62 -5.20 L 4.20 -5.65 L 3.07 -7.03 Z M 2.03 -7.03 "/>
+</g>
+<g id="latence-eventail-glyph-0-10">
+<path d="M 2.12 0 L 2.95 0 L 2.95 -0.90 L 2.06 -0.90 L 2.06 -3.76 L 3.01 -3.76 L 3.01 -4.67 L 2.06 -4.67 L 2.06 -5.95 L 1.03 -5.95 L 1.03 -5.15 C 1.03 -4.82 0.92 -4.67 0.57 -4.67 L 0.21 -4.67 L 0.21 -3.76 L 0.90 -3.76 L 0.90 -1.18 C 0.90 -0.43 1.32 0 2.12 0 Z M 2.12 0 "/>
+</g>
+<g id="latence-eventail-glyph-0-11">
+<path d="M 2.5 0.10 C 3.40 0.10 4.06 -0.29 4.37 -1.12 L 3.48 -1.54 C 3.32 -1.12 3.04 -0.81 2.5 -0.81 C 1.87 -0.81 1.54 -1.25 1.54 -1.90 L 1.54 -2.75 C 1.54 -3.40 1.87 -3.85 2.5 -3.85 C 3 -3.85 3.29 -3.57 3.40 -3.17 L 4.34 -3.59 C 4.06 -4.32 3.45 -4.78 2.5 -4.78 C 1.12 -4.78 0.34 -3.84 0.34 -2.34 C 0.34 -0.84 1.12 0.10 2.5 0.10 Z M 2.5 0.10 "/>
+</g>
+<g id="latence-eventail-glyph-0-12">
+<path d="M 2.51 0.10 C 3.85 0.10 4.68 -0.84 4.68 -2.34 C 4.68 -3.84 3.85 -4.78 2.51 -4.78 C 1.18 -4.78 0.34 -3.84 0.34 -2.34 C 0.34 -0.84 1.18 0.10 2.51 0.10 Z M 2.51 -0.81 C 1.92 -0.81 1.54 -1.20 1.54 -1.90 L 1.54 -2.78 C 1.54 -3.46 1.92 -3.85 2.51 -3.85 C 3.10 -3.85 3.48 -3.46 3.48 -2.78 L 3.48 -1.90 C 3.48 -1.20 3.10 -0.81 2.51 -0.81 Z M 2.51 -0.81 "/>
+</g>
+<g id="latence-eventail-glyph-0-13">
+<path d="M 1.81 0 L 1.81 -3.09 C 1.81 -3.59 2.23 -3.84 2.67 -3.84 C 3.18 -3.84 3.42 -3.51 3.42 -2.84 L 3.42 0 L 4.57 0 L 4.57 -3.09 C 4.57 -3.59 5 -3.84 5.43 -3.84 C 5.95 -3.84 6.20 -3.51 6.20 -2.84 L 6.20 0 L 7.34 0 L 7.34 -2.95 C 7.34 -4.12 6.82 -4.78 5.90 -4.78 C 5.17 -4.78 4.64 -4.35 4.46 -3.84 L 4.45 -3.84 C 4.23 -4.46 3.75 -4.78 3.10 -4.78 C 2.40 -4.78 2.03 -4.39 1.85 -3.89 L 1.81 -3.89 L 1.81 -4.67 L 0.65 -4.67 L 0.65 0 Z M 1.81 0 "/>
+</g>
+<g id="latence-eventail-glyph-0-14">
+<path d="M 2.54 0.10 C 3.42 0.10 4.09 -0.21 4.48 -0.75 L 3.87 -1.43 C 3.57 -1.07 3.23 -0.81 2.67 -0.81 C 1.92 -0.81 1.54 -1.26 1.54 -1.93 L 1.54 -2.04 L 4.64 -2.04 L 4.64 -2.42 C 4.64 -3.70 3.96 -4.78 2.51 -4.78 C 1.14 -4.78 0.34 -3.82 0.34 -2.34 C 0.34 -0.84 1.17 0.10 2.54 0.10 Z M 2.53 -3.92 C 3.12 -3.92 3.45 -3.48 3.45 -2.84 L 3.45 -2.75 L 1.54 -2.75 L 1.54 -2.82 C 1.54 -3.46 1.93 -3.92 2.53 -3.92 Z M 2.43 -5.20 L 3.12 -5.53 L 2.28 -7.20 L 1.31 -6.73 Z M 2.43 -5.20 "/>
+</g>
+<g id="latence-eventail-glyph-0-15">
+<path d="M 0.45 -2.79 C 0.45 -1.04 1.14 0.48 2.01 1.23 L 3.10 1.23 C 2.15 0.35 1.51 -0.96 1.51 -2.45 L 1.51 -3.10 C 1.51 -4.56 2.14 -5.90 3.10 -6.79 L 2.01 -6.79 C 1.12 -6.03 0.45 -4.51 0.45 -2.79 Z M 0.45 -2.79 "/>
+</g>
+<g id="latence-eventail-glyph-0-16">
+<path d="M 2.18 0.10 C 3.35 0.10 4.12 -0.51 4.12 -1.42 C 4.12 -2.20 3.62 -2.65 2.60 -2.79 L 2.12 -2.85 C 1.68 -2.93 1.51 -3.07 1.51 -3.39 C 1.51 -3.68 1.73 -3.87 2.23 -3.87 C 2.68 -3.87 3.07 -3.65 3.34 -3.37 L 4.01 -4.04 C 3.57 -4.51 3.10 -4.78 2.18 -4.78 C 1.12 -4.78 0.42 -4.20 0.42 -3.29 C 0.42 -2.45 0.96 -2.01 1.98 -1.89 L 2.43 -1.82 C 2.85 -1.76 3.01 -1.60 3.01 -1.32 C 3.01 -1 2.78 -0.79 2.23 -0.79 C 1.70 -0.79 1.29 -1.03 0.95 -1.43 L 0.26 -0.75 C 0.71 -0.21 1.31 0.10 2.18 0.10 Z M 2.18 0.10 "/>
+</g>
+<g id="latence-eventail-glyph-0-17">
+<path d="M 2.56 -2.79 C 2.56 -4.51 1.89 -6.03 1 -6.79 L -0.09 -6.79 C 0.87 -5.90 1.5 -4.56 1.5 -3.10 L 1.5 -2.45 C 1.5 -0.96 0.87 0.35 -0.09 1.23 L 1 1.23 C 1.87 0.48 2.56 -1.04 2.56 -2.79 Z M 2.56 -2.79 "/>
+</g>
+<g id="latence-eventail-glyph-1-0">
+<path d="M 4.89 0 L 4.89 -0.65 L 3.28 -0.65 L 3.28 -6.25 L 2.10 -6.25 L 0.45 -4.70 L 0.89 -4.21 L 2.46 -5.68 L 2.53 -5.68 L 2.53 -0.65 L 0.78 -0.65 L 0.78 0 Z M 4.89 0 "/>
+</g>
+<g id="latence-eventail-glyph-1-1">
+<path d="M 2.15 0.10 C 3.20 0.10 3.85 -0.43 3.85 -1.32 C 3.85 -2.03 3.46 -2.48 2.43 -2.62 L 2.09 -2.68 C 1.51 -2.78 1.20 -2.95 1.20 -3.40 C 1.20 -3.84 1.51 -4.12 2.10 -4.12 C 2.68 -4.12 3.09 -3.84 3.29 -3.54 L 3.76 -3.98 C 3.39 -4.45 2.90 -4.73 2.15 -4.73 C 1.21 -4.73 0.51 -4.28 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 2 -2.03 L 2.35 -1.98 C 2.96 -1.89 3.17 -1.60 3.17 -1.25 C 3.17 -0.78 2.81 -0.5 2.20 -0.5 C 1.62 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.15 0.10 Z M 2.15 0.10 "/>
+</g>
+<g id="latence-eventail-glyph-1-2">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.5 -4.12 "/>
+</g>
+<g id="latence-eventail-glyph-1-3">
+<path d="M 1.48 0 L 1.48 -3.14 C 1.48 -3.57 1.93 -3.90 2.71 -3.90 L 3.14 -3.90 L 3.14 -4.62 L 2.85 -4.62 C 2.10 -4.62 1.68 -4.20 1.51 -3.76 L 1.48 -3.76 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="latence-eventail-glyph-1-4">
+<path d="M 2.60 0 L 4.25 -4.62 L 3.54 -4.62 L 2.73 -2.32 L 2.23 -0.75 L 2.18 -0.75 L 1.68 -2.32 L 0.87 -4.62 L 0.15 -4.62 L 1.78 0 Z M 2.60 0 "/>
+</g>
+<g id="latence-eventail-glyph-1-5">
+<path d="M 3.60 0 L 4.32 0 L 4.32 -4.62 L 3.60 -4.62 L 3.60 -1.42 C 3.60 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.43 -0.95 1.43 -1.78 L 1.43 -4.62 L 0.71 -4.62 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.28 0.10 C 3.04 0.10 3.39 -0.31 3.57 -0.75 L 3.60 -0.75 Z M 3.60 0 "/>
+</g>
+<g id="latence-eventail-glyph-1-6">
+<path d="M 2.68 0.10 C 4.18 0.10 4.82 -1.07 4.82 -3.12 C 4.82 -5.17 4.18 -6.35 2.68 -6.35 C 1.18 -6.35 0.53 -5.17 0.53 -3.12 C 0.53 -1.07 1.18 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.70 -0.54 1.32 -1.40 1.32 -2.60 L 1.32 -3.64 C 1.32 -4.84 1.70 -5.70 2.68 -5.70 C 3.65 -5.70 4.04 -4.84 4.04 -3.64 L 4.04 -2.60 C 4.04 -1.40 3.65 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="latence-eventail-glyph-2-0">
+<path d="M 3.71 -0.51 L 1.15 -0.51 L 2.46 -1.68 C 3.09 -2.25 3.53 -2.78 3.53 -3.53 C 3.53 -4.35 2.98 -4.95 2.04 -4.95 C 1.09 -4.95 0.67 -4.37 0.48 -3.81 L 1 -3.60 C 1.14 -4.06 1.42 -4.42 2.01 -4.42 C 2.60 -4.42 2.90 -4.06 2.90 -3.51 L 2.90 -3.43 C 2.90 -2.96 2.56 -2.48 2.10 -2.06 L 0.51 -0.59 L 0.51 0 L 3.71 0 Z M 3.71 -0.51 "/>
+</g>
+<g id="latence-eventail-glyph-2-1">
+<path d="M 3.81 0 L 3.81 -0.51 L 2.56 -0.51 L 2.56 -4.85 L 1.64 -4.85 L 0.35 -3.65 L 0.70 -3.29 L 1.92 -4.43 L 1.96 -4.43 L 1.96 -0.51 L 0.60 -0.51 L 0.60 0 Z M 3.81 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-2">
+<path d="M 0.95 -0.81 C 0.65 -0.81 0.51 -0.64 0.51 -0.40 L 0.51 -0.31 C 0.51 -0.12 0.60 0.01 0.79 0.06 C 0.71 0.39 0.54 0.64 0.26 0.92 L 0.73 0.92 C 1.14 0.57 1.37 0.06 1.37 -0.31 L 1.37 -0.40 C 1.37 -0.64 1.23 -0.81 0.95 -0.81 Z M 0.95 -0.81 "/>
+</g>
+<g id="latence-eventail-glyph-2-3">
+<path d="M 3.17 0 L 3.17 -0.95 L 3.87 -0.95 L 3.87 -1.43 L 3.17 -1.43 L 3.17 -4.85 L 2.29 -4.85 L 0.26 -1.46 L 0.26 -0.95 L 2.60 -0.95 L 2.60 0 Z M 2.57 -4.40 L 2.60 -4.40 L 2.60 -1.43 L 0.81 -1.43 Z M 2.57 -4.40 "/>
+</g>
+<g id="latence-eventail-glyph-2-4">
+<path d="M 1.67 0.07 C 2.5 0.07 3 -0.34 3 -1.03 C 3 -1.57 2.70 -1.93 1.90 -2.04 L 1.62 -2.09 C 1.17 -2.15 0.93 -2.29 0.93 -2.64 C 0.93 -2.98 1.17 -3.20 1.64 -3.20 C 2.09 -3.20 2.40 -2.98 2.56 -2.76 L 2.93 -3.09 C 2.64 -3.46 2.26 -3.67 1.67 -3.67 C 0.95 -3.67 0.39 -3.32 0.39 -2.62 C 0.39 -1.95 0.89 -1.67 1.54 -1.57 L 1.84 -1.54 C 2.31 -1.46 2.46 -1.25 2.46 -0.96 C 2.46 -0.60 2.18 -0.39 1.71 -0.39 C 1.26 -0.39 0.92 -0.59 0.64 -0.93 L 0.25 -0.62 C 0.57 -0.18 1.01 0.07 1.67 0.07 Z M 1.67 0.07 "/>
+</g>
+<g id="latence-eventail-glyph-2-5">
+<path d="M 3.51 0 L 3.51 -0.48 L 3.10 -0.48 L 3.10 -2.46 C 3.10 -3.21 2.59 -3.67 1.73 -3.67 C 1.07 -3.67 0.64 -3.35 0.45 -2.96 L 0.78 -2.65 C 0.98 -2.98 1.26 -3.20 1.70 -3.20 C 2.26 -3.20 2.54 -2.92 2.54 -2.40 L 2.54 -2.06 L 1.84 -2.06 C 0.79 -2.06 0.31 -1.67 0.31 -1 C 0.31 -0.32 0.75 0.07 1.51 0.07 C 2.01 0.07 2.39 -0.14 2.54 -0.57 L 2.57 -0.57 C 2.62 -0.25 2.79 0 3.20 0 Z M 1.60 -0.39 C 1.17 -0.39 0.89 -0.59 0.89 -0.95 L 0.89 -1.09 C 0.89 -1.43 1.17 -1.64 1.81 -1.64 L 2.54 -1.64 L 2.54 -1.04 C 2.54 -0.67 2.15 -0.39 1.60 -0.39 Z M 1.60 -0.39 "/>
+</g>
+<g id="latence-eventail-glyph-2-6">
+<path d="M 1.15 0 L 1.15 -2.5 C 1.15 -2.95 1.57 -3.17 2.03 -3.17 C 2.56 -3.17 2.84 -2.84 2.84 -2.20 L 2.84 0 L 3.40 0 L 3.40 -2.31 C 3.40 -3.17 2.93 -3.67 2.18 -3.67 C 1.65 -3.67 1.35 -3.42 1.17 -3.01 L 1.15 -3.01 L 1.15 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.15 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-7">
+<path d="M 2.89 0 L 3.45 0 L 3.45 -5.15 L 2.89 -5.15 L 2.89 -3.01 L 2.85 -3.01 C 2.67 -3.46 2.31 -3.67 1.81 -3.67 C 0.90 -3.67 0.34 -2.95 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.81 0.07 C 2.31 0.07 2.64 -0.14 2.85 -0.57 L 2.89 -0.57 Z M 1.96 -0.42 C 1.34 -0.42 0.95 -0.84 0.95 -1.48 L 0.95 -2.10 C 0.95 -2.75 1.34 -3.17 1.96 -3.17 C 2.46 -3.17 2.89 -2.89 2.89 -2.48 L 2.89 -1.15 C 2.89 -0.68 2.46 -0.42 1.96 -0.42 Z M 1.96 -0.42 "/>
+</g>
+<g id="latence-eventail-glyph-2-8">
+<path d="M 1.95 0.07 C 2.90 0.07 3.57 -0.65 3.57 -1.79 C 3.57 -2.93 2.90 -3.67 1.95 -3.67 C 0.98 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.95 0.07 Z M 1.95 -0.40 C 1.35 -0.40 0.92 -0.78 0.92 -1.54 L 0.92 -2.06 C 0.92 -2.81 1.35 -3.18 1.95 -3.18 C 2.54 -3.18 2.96 -2.81 2.96 -2.06 L 2.96 -1.54 C 2.96 -0.78 2.54 -0.40 1.95 -0.40 Z M 1.95 -0.40 "/>
+</g>
+<g id="latence-eventail-glyph-2-9">
+<path d="M 2.81 0 L 3.35 0 L 3.35 -3.59 L 2.81 -3.59 L 2.81 -1.10 C 2.81 -0.64 2.37 -0.42 1.93 -0.42 C 1.40 -0.42 1.10 -0.75 1.10 -1.39 L 1.10 -3.59 L 0.56 -3.59 L 0.56 -1.29 C 0.56 -0.42 1.03 0.07 1.76 0.07 C 2.37 0.07 2.64 -0.25 2.78 -0.57 L 2.81 -0.57 Z M 2.81 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-10">
+<path d="M 0.59 0 L 1.15 0 L 1.15 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.23 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.95 3.12 -3.67 2.23 -3.67 C 1.73 -3.67 1.35 -3.46 1.17 -3.01 L 1.15 -3.01 L 1.15 -5.15 L 0.59 -5.15 Z M 2.07 -0.42 C 1.56 -0.42 1.15 -0.68 1.15 -1.15 L 1.15 -2.48 C 1.15 -2.89 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.75 3.09 -2.10 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="latence-eventail-glyph-2-11">
+<path d="M 1.67 0 L 1.67 -0.48 L 1.15 -0.48 L 1.15 -5.15 L 0.59 -5.15 L 0.59 -0.57 C 0.59 -0.25 0.79 0 1.18 0 Z M 1.67 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-12">
+<path d="M 3.62 0.39 C 3.62 -0.18 3.23 -0.56 2.34 -0.56 L 1.57 -0.56 C 1.25 -0.56 1.03 -0.60 1.03 -0.82 C 1.03 -1.04 1.26 -1.17 1.5 -1.23 C 1.60 -1.21 1.73 -1.20 1.85 -1.20 C 2.67 -1.20 3.21 -1.70 3.21 -2.43 C 3.21 -2.82 3.06 -3.14 2.79 -3.35 L 2.79 -3.59 L 3.48 -3.59 L 3.48 -4.07 L 2.95 -4.07 C 2.64 -4.07 2.53 -3.87 2.53 -3.60 L 2.53 -3.54 C 2.32 -3.62 2.10 -3.67 1.84 -3.67 C 1.03 -3.67 0.5 -3.17 0.5 -2.43 C 0.5 -1.93 0.75 -1.54 1.17 -1.34 L 1.17 -1.31 C 0.81 -1.21 0.54 -1.04 0.54 -0.68 C 0.54 -0.43 0.67 -0.28 0.87 -0.18 L 0.87 -0.10 C 0.51 0 0.29 0.20 0.29 0.59 C 0.29 1.15 0.76 1.48 1.87 1.48 C 3.03 1.48 3.62 1.14 3.62 0.39 Z M 3.09 0.43 C 3.09 0.82 2.73 1.03 2.12 1.03 L 1.60 1.03 C 1.03 1.03 0.82 0.76 0.82 0.45 C 0.82 0.23 0.92 0.06 1.15 -0.03 L 2.35 -0.03 C 2.90 -0.03 3.09 0.15 3.09 0.43 Z M 1.85 -1.64 C 1.37 -1.64 1.07 -1.87 1.07 -2.34 L 1.07 -2.53 C 1.07 -3.01 1.37 -3.23 1.85 -3.23 C 2.32 -3.23 2.62 -3.01 2.62 -2.53 L 2.62 -2.34 C 2.62 -1.87 2.32 -1.64 1.85 -1.64 Z M 1.85 -1.64 "/>
+</g>
+<g id="latence-eventail-glyph-2-13">
+<path d="M 1.93 0.07 C 2.62 0.07 3.14 -0.25 3.35 -0.73 L 2.96 -1.03 C 2.78 -0.62 2.43 -0.40 1.98 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.5 -1.65 L 3.5 -1.92 C 3.5 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.21 C 2.51 -3.21 2.90 -2.78 2.90 -2.15 L 2.90 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.34 -3.21 1.93 -3.21 Z M 1.93 -3.21 "/>
+</g>
+<g id="latence-eventail-glyph-2-14">
+<path d="M 1.01 -0.81 C 0.71 -0.81 0.59 -0.64 0.59 -0.40 L 0.59 -0.31 C 0.59 -0.12 0.67 0.01 0.85 0.06 C 0.78 0.39 0.62 0.64 0.34 0.92 L 0.81 0.92 C 1.20 0.57 1.43 0.06 1.43 -0.31 L 1.43 -0.40 C 1.43 -0.64 1.31 -0.81 1.01 -0.81 Z M 1.01 -2.78 C 1.31 -2.78 1.43 -2.95 1.43 -3.18 L 1.43 -3.28 C 1.43 -3.51 1.31 -3.67 1.01 -3.67 C 0.71 -3.67 0.59 -3.51 0.59 -3.28 L 0.59 -3.18 C 0.59 -2.95 0.71 -2.78 1.01 -2.78 Z M 1.01 -2.78 "/>
+</g>
+<g id="latence-eventail-glyph-2-15">
+<path d="M 1.81 0 L 5.18 -4.85 L 4.64 -4.85 L 1.28 0 Z M 1.54 -2.18 C 2.26 -2.18 2.65 -2.67 2.65 -3.56 C 2.65 -4.45 2.26 -4.95 1.54 -4.95 C 0.84 -4.95 0.45 -4.45 0.45 -3.56 C 0.45 -2.67 0.84 -2.18 1.54 -2.18 Z M 1.54 -2.54 C 1.15 -2.54 0.95 -2.82 0.95 -3.35 L 0.95 -3.78 C 0.95 -4.31 1.15 -4.57 1.54 -4.57 C 1.95 -4.57 2.15 -4.31 2.15 -3.78 L 2.15 -3.35 C 2.15 -2.82 1.95 -2.54 1.54 -2.54 Z M 4.90 0.07 C 5.60 0.07 6 -0.40 6 -1.29 C 6 -2.18 5.60 -2.67 4.90 -2.67 C 4.20 -2.67 3.81 -2.18 3.81 -1.29 C 3.81 -0.40 4.20 0.07 4.90 0.07 Z M 4.90 -0.28 C 4.5 -0.28 4.31 -0.56 4.31 -1.09 L 4.31 -1.5 C 4.31 -2.03 4.5 -2.31 4.90 -2.31 C 5.31 -2.31 5.5 -2.03 5.5 -1.5 L 5.5 -1.09 C 5.5 -0.56 5.31 -0.28 4.90 -0.28 Z M 4.90 -0.28 "/>
+</g>
+<g id="latence-eventail-glyph-2-16">
+<path d="M 1.15 0 L 1.15 -2.43 C 1.15 -2.78 1.51 -3.03 2.10 -3.03 L 2.43 -3.03 L 2.43 -3.59 L 2.21 -3.59 C 1.64 -3.59 1.31 -3.28 1.18 -2.93 L 1.15 -2.93 L 1.15 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.15 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-17">
+<path d="M 2.89 1.39 L 3.45 1.39 L 3.45 -3.59 L 2.89 -3.59 L 2.89 -3.01 L 2.85 -3.01 C 2.67 -3.46 2.31 -3.67 1.81 -3.67 C 0.90 -3.67 0.34 -2.95 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.81 0.07 C 2.31 0.07 2.64 -0.14 2.85 -0.57 L 2.89 -0.57 Z M 1.96 -0.42 C 1.34 -0.42 0.95 -0.84 0.95 -1.48 L 0.95 -2.10 C 0.95 -2.75 1.34 -3.17 1.96 -3.17 C 2.46 -3.17 2.89 -2.89 2.89 -2.48 L 2.89 -1.15 C 2.89 -0.68 2.46 -0.42 1.96 -0.42 Z M 1.96 -0.42 "/>
+</g>
+<g id="latence-eventail-glyph-2-18">
+<path d="M 1.93 0.07 C 2.62 0.07 3.14 -0.25 3.35 -0.73 L 2.96 -1.03 C 2.78 -0.62 2.43 -0.40 1.98 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.5 -1.65 L 3.5 -1.92 C 3.5 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.21 C 2.51 -3.21 2.90 -2.78 2.90 -2.15 L 2.90 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.34 -3.21 1.93 -3.21 Z M 1.59 -5.32 L 0.82 -4.32 L 1.12 -4.12 L 1.93 -4.93 L 2.76 -4.12 L 3.06 -4.32 L 2.29 -5.32 Z M 1.59 -5.32 "/>
+</g>
+<g id="latence-eventail-glyph-2-19">
+<path d="M 2.07 0 L 2.07 -0.48 L 1.35 -0.48 L 1.35 -3.10 L 2.14 -3.10 L 2.14 -3.59 L 1.35 -3.59 L 1.35 -4.59 L 0.84 -4.59 L 0.84 -3.92 C 0.84 -3.67 0.78 -3.59 0.53 -3.59 L 0.20 -3.59 L 0.20 -3.10 L 0.79 -3.10 L 0.79 -0.59 C 0.79 -0.25 1 0 1.39 0 Z M 2.07 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-20">
+<path d="M 1.93 0.07 C 2.62 0.07 3.14 -0.25 3.35 -0.73 L 2.96 -1.03 C 2.78 -0.62 2.43 -0.40 1.98 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.5 -1.65 L 3.5 -1.92 C 3.5 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.21 C 2.51 -3.21 2.90 -2.78 2.90 -2.15 L 2.90 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.34 -3.21 1.93 -3.21 Z M 2.73 -5.18 L 2.21 -5.42 L 1.62 -4.25 L 2 -4.07 Z M 2.73 -5.18 "/>
+</g>
+<g id="latence-eventail-glyph-2-21">
+<path d="M 0.59 1.39 L 1.15 1.39 L 1.15 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.23 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.95 3.12 -3.67 2.23 -3.67 C 1.73 -3.67 1.35 -3.46 1.17 -3.01 L 1.15 -3.01 L 1.15 -3.59 L 0.59 -3.59 Z M 2.07 -0.42 C 1.56 -0.42 1.15 -0.68 1.15 -1.15 L 1.15 -2.48 C 1.15 -2.89 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.75 3.09 -2.10 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="latence-eventail-glyph-2-22">
+<path d="M 3.71 -3.07 C 3.71 -4.23 3.09 -4.95 2.07 -4.95 C 1.10 -4.95 0.46 -4.29 0.46 -3.34 C 0.46 -2.42 1.06 -1.84 1.90 -1.84 C 2.5 -1.84 2.84 -2.14 3.07 -2.53 L 3.10 -2.51 C 2.84 -1.39 2.26 -0.76 1.21 0 L 1.98 0 C 2.76 -0.51 3.71 -1.64 3.71 -3.07 Z M 2.09 -2.32 C 1.45 -2.32 1.07 -2.70 1.07 -3.35 L 1.07 -3.42 C 1.07 -4.06 1.45 -4.43 2.09 -4.43 C 2.73 -4.43 3.10 -4.06 3.10 -3.42 L 3.10 -3.35 C 3.10 -2.70 2.73 -2.32 2.09 -2.32 Z M 2.09 -2.32 "/>
+</g>
+<g id="latence-eventail-glyph-2-23">
+<path d="M 0.98 -5.21 C 0.68 -5.21 0.56 -5.06 0.56 -4.81 L 0.56 -4.71 C 0.56 -4.53 0.64 -4.39 0.82 -4.34 C 0.75 -4.01 0.57 -3.78 0.31 -3.48 L 0.78 -3.48 C 1.17 -3.82 1.40 -4.34 1.40 -4.71 L 1.40 -4.81 C 1.40 -5.06 1.28 -5.21 0.98 -5.21 Z M 0.98 -5.21 "/>
+</g>
+<g id="latence-eventail-glyph-2-24">
+<path d="M 2.03 0 L 3.29 -3.59 L 2.76 -3.59 L 2.12 -1.81 L 1.73 -0.57 L 1.70 -0.57 L 1.31 -1.81 L 0.68 -3.59 L 0.12 -3.59 L 1.39 0 Z M 2.03 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-25">
+<path d="M 1.84 0 L 3.67 -4.34 L 3.67 -4.85 L 0.48 -4.85 L 0.48 -3.45 L 1 -3.45 L 1 -4.35 L 3.07 -4.35 L 1.21 0 Z M 1.84 0 "/>
+</g>
+<g id="latence-eventail-glyph-2-26">
+<path d="M 1.93 0.07 C 2.60 0.07 3.07 -0.25 3.31 -0.76 L 2.90 -1.03 C 2.70 -0.62 2.39 -0.40 1.93 -0.40 C 1.26 -0.40 0.92 -0.85 0.92 -1.48 L 0.92 -2.10 C 0.92 -2.73 1.26 -3.18 1.93 -3.18 C 2.37 -3.18 2.67 -2.96 2.81 -2.59 L 3.28 -2.84 C 3.06 -3.32 2.64 -3.67 1.93 -3.67 C 0.92 -3.67 0.32 -2.95 0.32 -1.79 C 0.32 -0.64 0.92 0.07 1.93 0.07 Z M 1.93 0.07 "/>
+</g>
+<g id="latence-eventail-glyph-2-27">
+<path d="M 3.46 -4.85 L 0.85 -4.85 L 0.68 -2.18 L 1.18 -2.12 C 1.39 -2.34 1.60 -2.53 2.06 -2.53 C 2.71 -2.53 3.07 -2.15 3.07 -1.51 L 3.07 -1.45 C 3.07 -0.81 2.71 -0.43 2.06 -0.43 C 1.46 -0.43 1.21 -0.70 0.96 -1.07 L 0.53 -0.75 C 0.82 -0.32 1.25 0.07 2.06 0.07 C 3.07 0.07 3.68 -0.57 3.68 -1.53 C 3.68 -2.46 3.07 -3.03 2.25 -3.03 C 1.73 -3.03 1.48 -2.82 1.25 -2.5 L 1.20 -2.5 L 1.34 -4.34 L 3.46 -4.34 Z M 3.46 -4.85 "/>
+</g>
+<g id="latence-eventail-glyph-2-28">
+<path d="M 0.57 -2.17 C 0.57 -0.81 1.15 0.37 1.84 0.95 L 2.37 0.95 C 1.60 0.28 1.09 -0.89 1.09 -1.87 L 1.09 -2.46 C 1.09 -3.43 1.59 -4.59 2.37 -5.29 L 1.84 -5.29 C 1.12 -4.68 0.57 -3.51 0.57 -2.17 Z M 0.57 -2.17 "/>
+</g>
+<g id="latence-eventail-glyph-2-29">
+<path d="M 1.75 -2.17 C 1.75 -3.51 1.20 -4.68 0.5 -5.29 L -0.03 -5.29 C 0.73 -4.59 1.23 -3.43 1.23 -2.46 L 1.23 -1.87 C 1.23 -0.89 0.71 0.28 -0.03 0.95 L 0.5 0.95 C 1.18 0.37 1.75 -0.81 1.75 -2.17 Z M 1.75 -2.17 "/>
+</g>
+<g id="latence-eventail-glyph-2-30">
+<path d="M 1.29 -2.79 L 1.29 -2.29 L 1.85 -2.29 C 2.54 -2.29 2.90 -1.96 2.90 -1.39 L 2.90 -1.34 C 2.90 -0.76 2.54 -0.43 1.85 -0.43 C 1.26 -0.43 0.98 -0.70 0.73 -1.07 L 0.29 -0.75 C 0.59 -0.32 1.03 0.07 1.87 0.07 C 2.85 0.07 3.51 -0.5 3.51 -1.32 C 3.51 -2.06 3.01 -2.45 2.5 -2.56 L 2.5 -2.57 C 3.01 -2.71 3.42 -3.09 3.42 -3.71 C 3.42 -4.51 2.78 -4.95 1.95 -4.95 C 1.17 -4.95 0.75 -4.54 0.5 -4.15 L 0.93 -3.81 C 1.14 -4.18 1.43 -4.42 1.93 -4.42 C 2.45 -4.42 2.81 -4.17 2.81 -3.65 L 2.81 -3.60 C 2.81 -3.14 2.46 -2.79 1.81 -2.79 Z M 1.29 -2.79 "/>
+</g>
+<g id="latence-eventail-glyph-2-31">
+<path d="M 2.09 0.07 C 3.25 0.07 3.76 -0.84 3.76 -2.43 C 3.76 -4.01 3.25 -4.95 2.09 -4.95 C 0.92 -4.95 0.42 -4.01 0.42 -2.43 C 0.42 -0.84 0.92 0.07 2.09 0.07 Z M 2.09 -0.42 C 1.32 -0.42 1.03 -1.09 1.03 -2.03 L 1.03 -2.82 C 1.03 -3.76 1.32 -4.43 2.09 -4.43 C 2.84 -4.43 3.15 -3.76 3.15 -2.82 L 3.15 -2.03 C 3.15 -1.09 2.84 -0.42 2.09 -0.42 Z M 2.09 -0.42 "/>
+</g>
+<g id="latence-eventail-glyph-2-32">
+<path d="M 2.09 0.07 C 3.07 0.07 3.71 -0.57 3.71 -1.53 C 3.71 -2.45 3.10 -3.03 2.28 -3.03 C 1.68 -3.03 1.34 -2.71 1.10 -2.32 L 1.07 -2.34 C 1.34 -3.46 1.92 -4.10 2.95 -4.85 L 2.20 -4.85 C 1.42 -4.35 0.46 -3.21 0.46 -1.78 C 0.46 -0.62 1.09 0.07 2.09 0.07 Z M 2.09 -0.42 C 1.45 -0.42 1.07 -0.79 1.07 -1.45 L 1.07 -1.5 C 1.07 -2.15 1.45 -2.53 2.09 -2.53 C 2.73 -2.53 3.10 -2.15 3.10 -1.5 L 3.10 -1.45 C 3.10 -0.79 2.73 -0.42 2.09 -0.42 Z M 2.09 -0.42 "/>
+</g>
+<g id="latence-eventail-glyph-2-33">
+<path d="M 2.09 0.07 C 3.20 0.07 3.78 -0.51 3.78 -1.32 C 3.78 -1.98 3.37 -2.37 2.79 -2.53 L 2.79 -2.57 C 3.29 -2.76 3.62 -3.17 3.62 -3.73 C 3.62 -4.46 3.06 -4.95 2.09 -4.95 C 1.12 -4.95 0.54 -4.46 0.54 -3.73 C 0.54 -3.17 0.87 -2.76 1.39 -2.57 L 1.39 -2.53 C 0.79 -2.37 0.40 -1.98 0.40 -1.32 C 0.40 -0.51 0.98 0.07 2.09 0.07 Z M 2.09 -0.42 C 1.42 -0.42 1.03 -0.75 1.03 -1.29 L 1.03 -1.43 C 1.03 -2 1.42 -2.31 2.09 -2.31 C 2.76 -2.31 3.15 -2 3.15 -1.43 L 3.15 -1.29 C 3.15 -0.75 2.76 -0.42 2.09 -0.42 Z M 2.09 -2.79 C 1.48 -2.79 1.15 -3.07 1.15 -3.56 L 1.15 -3.67 C 1.15 -4.17 1.48 -4.43 2.09 -4.43 C 2.70 -4.43 3.03 -4.17 3.03 -3.67 L 3.03 -3.56 C 3.03 -3.07 2.70 -2.79 2.09 -2.79 Z M 2.09 -2.79 "/>
+</g>
+<g id="latence-eventail-glyph-2-34">
+<path d="M 1.01 0.07 C 1.31 0.07 1.43 -0.07 1.43 -0.32 L 1.43 -0.40 C 1.43 -0.64 1.31 -0.81 1.01 -0.81 C 0.71 -0.81 0.59 -0.64 0.59 -0.40 L 0.59 -0.32 C 0.59 -0.07 0.71 0.07 1.01 0.07 Z M 1.01 -2.78 C 1.31 -2.78 1.43 -2.95 1.43 -3.18 L 1.43 -3.28 C 1.43 -3.51 1.31 -3.67 1.01 -3.67 C 0.71 -3.67 0.59 -3.51 0.59 -3.28 L 0.59 -3.18 C 0.59 -2.95 0.71 -2.78 1.01 -2.78 Z M 1.01 -2.78 "/>
+</g>
+<g id="latence-eventail-glyph-2-35">
+<path d="M 1.15 0 L 1.15 -2.5 C 1.15 -2.95 1.56 -3.17 2 -3.17 C 2.53 -3.17 2.78 -2.84 2.78 -2.20 L 2.78 0 L 3.34 0 L 3.34 -2.5 C 3.34 -2.95 3.75 -3.17 4.18 -3.17 C 4.71 -3.17 4.96 -2.84 4.96 -2.20 L 4.96 0 L 5.53 0 L 5.53 -2.31 C 5.53 -3.17 5.09 -3.67 4.35 -3.67 C 3.75 -3.67 3.39 -3.34 3.26 -2.95 L 3.25 -2.95 C 3.04 -3.46 2.62 -3.67 2.14 -3.67 C 1.59 -3.67 1.34 -3.37 1.17 -3.01 L 1.15 -3.01 L 1.15 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.15 0 "/>
+</g>
+</g>
+</defs>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-0" x="67.94" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-1" x="73.31" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-1" x="78.68" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-2" x="86.16" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-3" x="91.53" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-4" x="98.64" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-5" x="101.27" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-6" x="108.39" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-3" x="111.87" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-7" x="116.87" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-8" x="122.24" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-9" x="127.51" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-10" x="132.50" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-3" x="135.82" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-11" x="142.92" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-12" x="147.47" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-13" x="152.52" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-0" x="160.47" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-4" x="165.84" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-14" x="168.47" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-10" x="173.47" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-3" x="176.78" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-0-15" x="183.88" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-13" x="186.90" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-16" x="194.85" y="15.22"/>
+<use xlink:href="#latence-eventail-glyph-0-17" x="199.32" y="15.22"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-0" x="22.56" y="42.05"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-1" x="30.05" y="42.05"/>
+<use xlink:href="#latence-eventail-glyph-1-2" x="34.41" y="42.05"/>
+<use xlink:href="#latence-eventail-glyph-1-3" x="39.32" y="42.05"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-4" x="42.70" y="42.05"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-2" x="47.03" y="42.05"/>
+<use xlink:href="#latence-eventail-glyph-1-5" x="51.95" y="42.05"/>
+<use xlink:href="#latence-eventail-glyph-1-3" x="57.03" y="42.05"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-rose);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.49" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 1.56 L 0.00 11.84 L 133.45 11.84 L 133.45 1.56 Z M 0.00 1.56 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-0" x="203.82" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-1" x="208.00" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="212.18" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-3" x="214.07" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="219.89" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="223.29" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="227.00" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="230.96" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="236.00" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-8" x="240.03" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="243.93" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-10" x="247.89" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="251.93" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="253.82" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-12" x="257.54" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="261.18" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-14" x="266.64" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-1" x="270.32" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="274.50" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-0" x="276.39" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-15" x="281.73" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="289.83" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="293.87" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="297.69" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-16" x="302.73" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="305.25" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-17" x="309.08" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="313.12" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-18" x="317.07" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="320.89" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="323.31" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="327.13" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="332.16" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-20" x="336.20" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-21" x="340.02" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="344.06" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="347.78" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="351.14" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="354.53" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="358.35" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="362.31" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-11" x="366.39" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="368.29" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="373.75" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="377.79" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="381.97" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="387.79" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-23" x="391.83" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-9" x="393.67" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="397.62" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="403.22" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="406.61" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="410.43" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="413.06" y="34.26"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="416.44" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="420.26" y="34.26"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="424.21" y="34.26"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-vert);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.49" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -1.55 L 0.00 -11.84 L 107.26 -11.84 L 107.26 -1.55 Z M 0.00 -1.55 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-1" x="177.67" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-25" x="181.84" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="186.02" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-0" x="187.92" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-5" x="193.74" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="197.40" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="200.77" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-26" x="204.60" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="209.74" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-8" x="213.78" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="217.68" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-10" x="221.64" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="225.68" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="227.57" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-12" x="231.29" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="234.92" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-5" x="240.39" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="244.11" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="249.71" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="253.75" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="257.93" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-28" x="263.75" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="266.08" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-15" x="271.42" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="279.52" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="283.55" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-16" x="289.02" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="291.55" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-17" x="295.37" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="299.41" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-18" x="303.37" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="307.19" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="309.61" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="313.43" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="318.46" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="322.28" y="47.59"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="327.88" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="331.92" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="333.81" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="337.77" y="47.59"/>
+<use xlink:href="#latence-eventail-glyph-2-29" x="341.16" y="47.59"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-0" x="12.83" y="73.24"/>
+<use xlink:href="#latence-eventail-glyph-1-6" x="18.20" y="73.24"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-1" x="25.69" y="73.24"/>
+<use xlink:href="#latence-eventail-glyph-1-2" x="30.05" y="73.24"/>
+<use xlink:href="#latence-eventail-glyph-1-3" x="34.96" y="73.24"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-4" x="38.34" y="73.24"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-2" x="42.67" y="73.24"/>
+<use xlink:href="#latence-eventail-glyph-1-5" x="47.59" y="73.24"/>
+<use xlink:href="#latence-eventail-glyph-1-3" x="52.67" y="73.24"/>
+<use xlink:href="#latence-eventail-glyph-1-1" x="55.96" y="73.24"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-rose);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.49" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -29.62 L 0.00 -19.33 L 199.56 -19.33 L 199.56 -29.62 Z M 0.00 -29.62 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-30" x="269.83" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-0" x="274.01" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="278.19" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-31" x="280.08" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="285.91" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="289.30" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="293.02" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="296.97" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="302.01" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-8" x="306.05" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="309.95" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-10" x="313.90" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="317.94" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="319.83" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-12" x="323.55" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="327.19" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-14" x="332.66" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-22" x="336.33" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="340.51" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="342.41" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-15" x="347.74" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="355.84" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="359.88" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="363.70" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-16" x="368.74" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="371.26" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-17" x="375.09" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="379.13" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-18" x="383.08" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="386.91" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="389.32" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="393.15" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="398.17" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-20" x="402.21" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-21" x="406.04" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="410.08" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="413.79" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="417.15" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="420.54" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="424.37" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="428.32" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-11" x="432.40" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="434.30" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="439.76" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="443.80" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="447.98" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="453.80" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-23" x="457.84" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-9" x="459.68" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="463.64" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="469.23" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="472.62" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="476.44" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="479.07" y="65.39"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="482.45" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="486.27" y="65.39"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="490.23" y="65.39"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-vert);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.49" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -32.74 L 0.00 -43.02 L 139.69 -43.02 L 139.69 -32.74 Z M 0.00 -32.74 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-0" x="210.05" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-0" x="214.23" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="218.41" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-3" x="220.30" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-5" x="226.12" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="229.78" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="233.16" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-26" x="236.98" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="242.12" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-8" x="246.16" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="250.06" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-10" x="254.02" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="258.06" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="259.95" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-12" x="263.67" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="267.31" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-5" x="272.77" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="276.49" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="282.09" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="286.13" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="290.31" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-28" x="296.13" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="298.46" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-15" x="303.80" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="311.90" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="315.94" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-16" x="321.40" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="323.93" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-17" x="327.76" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="331.79" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-18" x="335.75" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="339.57" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="341.99" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="345.81" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="350.84" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="354.66" y="78.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="360.26" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="364.30" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="366.20" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="370.15" y="78.73"/>
+<use xlink:href="#latence-eventail-glyph-2-29" x="373.54" y="78.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-0" x="7.46" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-6" x="12.83" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-6" x="18.20" y="104.38"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-1" x="25.69" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-2" x="30.05" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-3" x="34.96" y="104.38"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-4" x="38.34" y="104.38"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-1-2" x="42.67" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-5" x="47.59" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-3" x="52.67" y="104.38"/>
+<use xlink:href="#latence-eventail-glyph-1-1" x="55.96" y="104.38"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-rose);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.49" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -60.80 L 0.00 -50.51 L 305.57 -50.51 L 305.57 -60.80 Z M 0.00 -60.80 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-3" x="375.70" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="379.88" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="384.06" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-31" x="385.95" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="391.77" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="395.16" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="398.88" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="402.84" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="407.87" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-8" x="411.91" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="415.81" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-10" x="419.77" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="423.81" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="425.70" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-12" x="429.42" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="433.06" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-14" x="438.52" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-32" x="442.20" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-30" x="446.38" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="450.56" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-0" x="452.45" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-15" x="457.79" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="465.88" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="469.92" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="473.75" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-16" x="478.78" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="481.31" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-17" x="485.13" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="489.17" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-18" x="493.13" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="496.95" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="499.37" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="503.19" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="508.22" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-20" x="512.26" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-21" x="516.08" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="520.12" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="523.84" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="527.20" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="530.59" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="534.41" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="538.37" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-11" x="542.45" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="544.34" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="549.81" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="553.85" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="558.03" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="563.85" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-23" x="567.89" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-9" x="569.73" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="573.68" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="579.27" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="582.67" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="586.49" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="589.11" y="96.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="592.49" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="596.32" y="96.53"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="600.27" y="96.53"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-p-vert);stroke:var(--fig-ink)" fill-opacity="1" stroke-width="0.49" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 -63.92 L 0.00 -74.21 L 177.11 -74.21 L 177.11 -63.92 Z M 0.00 -63.92 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-0" x="247.41" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-33" x="251.59" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="255.77" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-3" x="257.66" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-5" x="263.49" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="267.16" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="270.53" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-26" x="274.35" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="279.49" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-8" x="283.53" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="287.43" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-10" x="291.38" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="295.42" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-5" x="297.32" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-12" x="301.04" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="304.68" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-5" x="310.14" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="313.86" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="319.46" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="323.50" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="327.67" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-28" x="333.50" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-27" x="335.83" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-15" x="341.16" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="349.26" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="353.30" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-16" x="358.77" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="361.30" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-17" x="365.12" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="369.16" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-18" x="373.11" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-19" x="376.94" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="379.35" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="383.18" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="388.21" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="392.03" y="109.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="397.63" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-11" x="401.67" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="403.56" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="407.52" y="109.87"/>
+<use xlink:href="#latence-eventail-glyph-2-29" x="410.91" y="109.87"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 15.59 L 0.00 -77.95 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<path fill="none" stroke-width="0.79" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-dasharray="1.99 1.49" stroke-miterlimit="10" d="M 129.09 15.59 L 129.09 -77.95 " transform="matrix(0.998603, 0, 0, -0.998603, 65.753011, 38.979947)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-21" x="152.44" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="156.48" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-22" x="160.66" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-7" x="166.48" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-23" x="170.52" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-9" x="172.36" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-6" x="176.31" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-4" x="181.91" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-13" x="185.30" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="189.12" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-24" x="191.75" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-13" x="195.12" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-9" x="198.94" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-16" x="202.90" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-34" x="207.10" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-0" x="211.32" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-31" x="215.50" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-2" x="219.68" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-25" x="221.57" y="123.93"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#latence-eventail-glyph-2-35" x="227.39" y="123.93"/>
+<use xlink:href="#latence-eventail-glyph-2-4" x="233.47" y="123.93"/>
+</g>
+</svg>

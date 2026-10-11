@@ -1,0 +1,30 @@
+% Temps de séjour mesuré selon le taux d'utilisation (file à un serveur,
+% service moyen 2 ms), et courbe du modèle M/M/1 W = S / (1 - ρ).
+% Échelle verticale logarithmique : y = log10(ms).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=110mm, y=22mm]
+  \draw[ligne] (0.4,0) -- (1.02,0);
+  \draw[ligne] (0.4,0) -- (0.4,3.05);
+  \foreach \r/\l in {0.4/0{,}4, 0.5/0{,}5, 0.6/0{,}6, 0.7/0{,}7, 0.8/0{,}8, 0.9/0{,}9, 1.0/1} {\draw[ligne] (\r,0) -- (\r,-0.05); \node[note, below] at (\r,-0.05) {\l};}
+  \foreach \v/\l in {0/1, 1/10, 2/100, 3/1\,000}
+    {\draw[ligne=Dcloud] (0.4,\v) -- (0.39,\v); \node[note, left] at (0.39,\v) {\l\,ms};}
+  \node[axe, anchor=north] at (0.71,-0.32) {taux d'utilisation du serveur $\rho$};
+  \node[axe, rotate=90, anchor=south] at (0.31,1.5) {temps de séjour (échelle log.)};
+  % modèle M/M/1 : W = 2 / (1 - ρ) ms
+  \draw[Dslate, line width=0.9pt, dash pattern=on 4pt off 2pt, domain=0.4:0.985, samples=80, smooth]
+    plot (\x, {log10(2/(1-\x))});
+  \node[et=Dslate, anchor=north west] at (0.6,{log10(2/(1-0.6))-0.12}) {modèle M/M/1 : $W = S/(1-\rho)$};
+  % mesures (ρ réel ; moyenne ; p99)
+  \foreach \r/\m/\q in {0.53/4.5/19.1, 0.75/8.7/41.5, 0.85/14.2/67.2, 0.95/44.3/165.5, 0.99/523.8/843.9} {
+    \fill[Dblue] (\r,{log10(\m)}) circle (0.7mm);
+    \fill[Dred] (\r,{log10(\q)}) circle (0.7mm);
+  }
+  \draw[Dblue, line width=1pt] (0.53,{log10(4.5)}) -- (0.75,{log10(8.7)}) -- (0.85,{log10(14.2)}) -- (0.95,{log10(44.3)}) -- (0.99,{log10(523.8)});
+  \draw[Dred, line width=1pt] (0.53,{log10(19.1)}) -- (0.75,{log10(41.5)}) -- (0.85,{log10(67.2)}) -- (0.95,{log10(165.5)}) -- (0.99,{log10(843.9)});
+  \node[etb=Dblue, anchor=south east] at (0.74,{log10(8.7)+0.05}) {moyenne mesurée};
+  \node[etb=Dred, anchor=south east] at (0.74,{log10(41.5)}) {p99 mesuré};
+  \node[note, anchor=east, align=right] at (0.975,2.95) {à 0,99, la file\\ne se stabilise plus};
+\end{tikzpicture}
+\end{document}

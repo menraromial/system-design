@@ -1,0 +1,30 @@
+% Échelle des latences, de la nanoseconde à la seconde (échelle logarithmique) :
+% valeurs mesurées sur le poste du chapitre (Core Ultra 7 165H, SSD NVMe) et
+% bornes physiques de propagation dans la fibre.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=15mm, y=1.25mm]
+  % x = log10(ns)
+  \draw[ligne, line width=1pt] (0,0) -- (9.3,0);
+  \foreach \e/\l in {0/1 ns, 3/1 µs, 6/1 ms, 9/1 s} {\draw[ligne, line width=1pt] (\e,-1.5) -- (\e,1.5); \node[note, below] at (\e,-1.8) {\l};}
+  \foreach \e in {1,2,4,5,7,8} \draw[ligne=Dcloud] (\e,-0.8) -- (\e,0.8);
+  \foreach \x/\y/\c/\t in {
+      0.30/9/Pvert/{cache L1 : 2 ns},
+      0.67/17/Pvert/{verrou : 4,7 ns},
+      0.86/25/Pvert/{cache L2 : 7 ns},
+      1.64/33/Pvert/{cache L3 : 40-50 ns},
+      2.06/41/Pjaune/{appel système : 115 ns},
+      2.59/49/Pjaune/{mémoire : 380-400 ns},
+      4.05/57/Pbleu/{TCP local : 11 µs},
+      4.69/65/Pbleu/{SSD, 4 Kio : 49 µs},
+      6.82/9/Porange/{Paris-Marseille : $\geq$ 6,6 ms},
+      7.76/17/Porange/{Paris-New York : $\geq$ 58 ms},
+      8.23/25/Porange/{Paris-Sydney : $\geq$ 170 ms}} {
+    \fill[Dink] (\x,0) circle (0.5mm);
+    \begin{scope}[on background layer]\draw[ligne=Dcloud] (\x,0) -- (\x,\y);\end{scope}
+    \node[bloc=\c, anchor=south west, minimum width=0pt, minimum height=0pt, font=\sffamily\footnotesize, inner sep=2pt] at (\x,\y) {\t};
+  }
+  \node[note, anchor=north west] at (0,-6) {vert : processeur et mémoire ; jaune : noyau ; bleu : entrées-sorties locales ; orange : distance (borne physique)};
+\end{tikzpicture}
+\end{document}

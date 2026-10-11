@@ -21,3 +21,7 @@ __pycache__/
 
 # Fichiers générés par outils/experiences/ch05/mesurer.sh
 outils/experiences/ch05/site/
+
+# Binaire compilé de outils/experiences/ch09/latences.c
+outils/experiences/ch09/latences
+__pycache__/

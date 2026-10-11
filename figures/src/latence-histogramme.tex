@@ -1,0 +1,26 @@
+% Distribution mesurée des temps de séjour d'un serveur à 50 % de charge
+% (outils/experiences/ch09) : la moyenne ne décrit ni le cas courant ni le pire.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch09-histogramme.tex}
+\begin{tikzpicture}[papier, x=3.4mm, y=3mm]
+  \foreach \x/\p in \histo {
+    \draw[draw=Dink, line width=0.3pt, fill=Pbleu] (\x,0) rectangle (\x+1,\p);
+  }
+  \draw[ligne] (0,0) -- (40.5,0);
+  \draw[ligne] (0,0) -- (0,18);
+  \foreach \t in {0,5,...,40} {\draw[ligne] (\t,0) -- (\t,-0.3); \node[note, below] at (\t,-0.3) {\t};}
+  \foreach \p in {5,10,15} {\draw[ligne=Dcloud] (0,\p) -- (-0.3,\p); \node[note, left] at (-0.3,\p) {\p\,\%};}
+  \node[axe, anchor=north] at (20,-2.2) {temps passé dans le système (ms)};
+  \node[axe, rotate=90, anchor=south] at (-3.2,9) {part des requêtes};
+  % repères
+  \foreach \v/\c/\l/\h in {\mediane/Dgreen/{médiane}/17.2, \moyenne/Damber/{moyenne}/15.2, \pquatrevingtdixneuf/Dred/{p99}/17.2} {
+    \draw[ligne=\c, line width=1pt, dash pattern=on 3pt off 2pt] (\v,0) -- (\v,\h);
+  }
+  \node[etb=Dgreen, anchor=south east] at (\mediane,17.2) {médiane \medianetexte\,ms};
+  \node[etb=Damber, anchor=west] at (\moyenne+0.2,15.2) {moyenne \moyennetexte\,ms};
+  \node[etb=Dred, anchor=south] at (\pquatrevingtdixneuf,17.2) {p99 : \pquatrevingtdixneuftexte\,ms};
+  \node[note, anchor=west, align=left] at (24,8) {1 requête sur 100 attend plus\\de 4 fois la moyenne};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,19 @@
+% Appel en éventail vers N serveurs, latence de chaque serveur tirée dans la
+% distribution mesurée (p99 d'un serveur : 20,7 ms) ; avec et sans requêtes
+% doublées au 95e centile.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=2.2mm, y=11mm]
+  \node[titrec, anchor=west] at (0,0.85) {p99 de la requête complète (ms)};
+  \foreach \i/\n/\s/\d/\pc/\ls/\ld in {0/1/21.4/17.2/1{,}2/21{,}4/17{,}2, 1/10/32.0/22.4/9{,}5/32{,}0/22{,}4, 2/100/49.0/28.4/63{,}2/49{,}0/28{,}4} {
+    \node[leg, anchor=east, font=\sffamily\small] at (-0.6,-\i) {\n\ serveur\ifnum\n>1 s\fi};
+    \draw[draw=Dink, line width=0.5pt, fill=Prose] (0,-\i+0.05) rectangle (\s,-\i+0.38);
+    \node[note, anchor=west] at (\s+0.5,-\i+0.215) {\ls\ sans doublage ; \pc\,\% des requêtes dépassent le p99 d'un serveur};
+    \draw[draw=Dink, line width=0.5pt, fill=Pvert] (0,-\i-0.05) rectangle (\d,-\i-0.38);
+    \node[note, anchor=west] at (\d+0.5,-\i-0.215) {\ld\ avec doublage au p95 (5\,\% de requêtes en plus)};
+  }
+  \draw[ligne] (0,0.5) -- (0,-2.5);
+  \draw[ligne=Dred, dash pattern=on 2pt off 1.5pt] (20.7,0.5) -- (20.7,-2.5) node[below, et=Dred] {p99 d'un serveur : 20,7 ms};
+\end{tikzpicture}
+\end{document}

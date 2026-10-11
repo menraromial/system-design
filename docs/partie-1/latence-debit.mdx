@@ -1,0 +1,286 @@
+---
+title: Latence, débit et chiffres à connaître
+sidebar_label: 9. Latence et débit
+description: "Latence et débit, percentiles, files d'attente et saturation, loi de Little, latence de queue amplifiée par l'appel en éventail, et les latences de référence mesurées sur une vraie machine."
+partie: 1
+chapitre: 9
+---
+
+import histogramme from '@site/src/figures/latence-histogramme.svg';
+import charge from '@site/src/figures/latence-charge.svg';
+import eventail from '@site/src/figures/latence-eventail.svg';
+import echelle from '@site/src/figures/latence-echelle.svg';
+
+Le tableau de bord de l’équipe affiche un temps de réponse moyen de 50 ms, stable depuis des semaines, et pourtant le service client reçoit chaque jour des plaintes de gens qui attendent plusieurs secondes. Les deux sont vrais en même temps. Une moyenne additionne les requêtes rapides et les lentes et ne dit rien de la forme de leur répartition ; si une requête sur cent prend trois secondes, la moyenne bouge à peine, et un utilisateur qui fait cent requêtes dans sa journée en subit une. C’est pour cette raison qu’Amazon, dans l’article de 2007 qui décrit sa base Dynamo, expliquait que ses objectifs de performance n’étaient exprimés ni en moyenne ni en médiane, mais au 99,9e centile[^dynamo].
+
+Ce chapitre donne les outils pour raisonner sur la latence : les percentiles, les files d’attente qui se forment quand un serveur approche de la saturation, la loi de Little, et la latence de queue qui s’aggrave quand une requête attend plusieurs serveurs. Il se termine par les chiffres de référence, du cache du processeur au trajet entre continents. Ceux-ci ne sont pas recopiés d’un tableau ancien : ils ont été mesurés pour ce chapitre sur une machine réelle, avec les programmes du dossier `outils/experiences/ch09/` du dépôt.
+
+## La caisse du supermarché
+
+:::analogie[Analogie : une caisse, des clients qui arrivent au hasard]
+Un supermarché n’a qu’une caisse ouverte. Les clients arrivent au hasard, et chacun met un temps variable à passer, selon la taille de son panier. Tant que la caissière est occupée la moitié du temps, la file reste courte. À 90 %, il suffit de trois clients arrivés coup sur coup pour qu’une file se forme, et elle met longtemps à se résorber ; à 99 %, elle ne se résorbe plus. La plupart des clients passent vite, mais celui qui arrive derrière un caddie plein attend dix fois plus que la moyenne. Et si vous devez passer à la boucherie, à la fromagerie et à la boulangerie avant de partir, c’est le plus lent des trois comptoirs qui fixe l’heure à laquelle vous sortez.
+
+Le directeur du magasin dispose d’une relation simple : le nombre moyen de clients dans la file est égal au nombre de clients qui arrivent par minute multiplié par le temps moyen qu’ils y passent. C’est la loi de Little.
+
+**Où l’analogie s’arrête.** Une file de supermarché se voit, et un client qui la trouve trop longue s’en va ; une file de requêtes est invisible, cachée dans les tampons d’un serveur, d’une bibliothèque ou d’un répartiteur, et les requêtes y attendent sans limite si personne n’en a fixé une. Pire, un client logiciel qui attend trop longtemps abandonne puis recommence, ce qui ajoute une requête à la file au lieu d’en retirer une (le ch. 38 y revient). Les durées de service, enfin, ne dépendent pas seulement du panier : un serveur peut s’arrêter d’un coup pendant une collecte de mémoire ou une compaction de disque, et ralentir tous les clients en même temps, ce qu’une caissière fait rarement.
+:::
+
+## Latence et débit
+
+La latence (latency) est le temps que met une opération, de la demande à la réponse. Le débit (throughput) est le nombre d’opérations terminées par unité de temps. On confond souvent le débit et la bande passante (bandwidth), qui est la capacité maximale d’un lien ou d’un composant : une liaison de 1 Gbit/s a cette bande passante, mais le débit utile d’une connexion TCP qui la traverse peut être bien plus faible (ch. 4).
+
+Latence et débit sont liés, mais ne se confondent pas. Un système qui traite les requêtes une par une, chacune en 2 ms, a un débit de 500 requêtes par seconde ; s’il en traite dix en parallèle, toujours en 2 ms chacune, son débit passe à 5 000 par seconde sans que la latence change. Inversement, regrouper les opérations par lots (batching) augmente souvent le débit, parce qu’on paie une seule fois des frais fixes, mais augmente la latence de chaque opération, qui attend que son lot soit complet. La relation exacte entre les trois grandeurs, débit, latence et nombre d’opérations en cours, est la loi de Little, plus bas.
+
+## Les percentiles
+
+Le percentile $p$ (ou centile) d’une série de latences est la valeur sous laquelle se trouve $p$ % des mesures. La médiane, ou p50, sépare les requêtes en deux moitiés ; le p99 est la valeur que seule une requête sur cent dépasse ; le p99,9, une sur mille. On parle de latence de queue (tail latency) pour les centiles élevés, qui décrivent la « queue » de la distribution.
+
+<Figure svg={histogramme} num="9.1" alt="Histogramme des temps passés dans le système par 20 000 requêtes : la plupart entre 0 et 5 ms, une longue traîne jusqu’à 40 ms ; médiane 3,3 ms, moyenne 4,6 ms, p99 19,6 ms.">
+Distribution mesurée des temps de séjour de 20 000 requêtes, pour un serveur chargé à 50 %.
+</Figure>
+
+Chaque barre donne la part des requêtes dont le temps de séjour tombe dans une tranche d’une milliseconde. La distribution est très asymétrique : beaucoup de requêtes rapides, une longue traîne vers la droite. La médiane (3,3 ms) est sous la moyenne (4,6 ms), tirée vers le haut par la traîne, et le p99, à 19,6 ms, vaut plus de quatre fois la moyenne. Les mesures viennent de l’expérience de file d’attente décrite plus bas.
+
+Trois règles pratiques découlent de cette forme. On ne résume jamais une latence par sa moyenne : on donne au moins la médiane et un ou deux centiles élevés. On ne fait jamais la moyenne de percentiles : la moyenne des p99 de dix serveurs n’est pas le p99 de l’ensemble, qui ne se calcule qu’à partir de toutes les mesures, ou d’histogrammes qu’on peut additionner (les bibliothèques comme HdrHistogram de Gil Tene sont faites pour cela[^hdr]). Et l’on mesure du point de vue du client : une requête qui attend dans la file d’un répartiteur ou dans le pool de connexions du client ne figure pas dans la latence mesurée par le serveur.
+
+La façon de produire la charge compte aussi. Un outil de test qui n’envoie une requête qu’après avoir reçu la réponse à la précédente ralentit en même temps que le serveur : pendant une pause du serveur, il cesse d’envoyer, et les requêtes qui auraient dû attendre n’existent jamais dans les mesures. Gil Tene a appelé ce biais l’omission coordonnée (coordinated omission). L’expérience de ce chapitre l’évite en générant les arrivées à des instants aléatoires indépendants des réponses, comme le feraient de vrais utilisateurs.
+
+## Files d’attente et saturation
+
+Dès qu’un serveur reçoit des requêtes à des instants qu’il ne choisit pas, une file d’attente se forme parfois, même si sa capacité moyenne est suffisante. Le taux d’utilisation $\rho$ (rho) est la fraction du temps où le serveur travaille : pour des requêtes qui arrivent au débit $\lambda$ et demandent en moyenne un temps de service $S$,
+
+$$
+\rho = \lambda \times S.
+$$
+
+Le modèle le plus simple, noté M/M/1, suppose des arrivées aléatoires indépendantes (un processus de Poisson), des durées de service aléatoires de loi exponentielle et un seul serveur. Il donne le temps moyen passé dans le système, attente comprise :
+
+$$
+W = \frac{S}{1 - \rho},
+$$
+
+et, dans ce modèle, le temps de séjour suit lui-même une loi exponentielle, si bien que son p99 vaut $W \ln 100 \approx 4{,}6\,W$. À 50 % de charge, une requête passe en moyenne deux fois son temps de service dans le système ; à 90 %, dix fois ; à 99 %, cent fois. La croissance est lente, puis brutale.
+
+Le script `file_attente.py` le vérifie avec de vraies attentes plutôt qu’un calcul. Un fil génère 20 000 requêtes à des instants aléatoires, un autre les sert une par une, chacune pendant une durée aléatoire de 2 ms en moyenne (le temps est réellement attendu par `time.sleep`), et l’on mesure le temps passé dans le système par chaque requête, ainsi que le nombre moyen de requêtes présentes. Le taux d’utilisation réel est un peu supérieur au taux visé, parce que chaque attente dure légèrement plus que demandé :
+
+```text
+S = 2 ms ; temps de séjour en ms ; ρ réel = débit mesuré × service moyen mesuré
+ρ visé ρ réel   moyen     p50     p99   p99,9   M/M/1  L mesuré   λ × W
+  0.50   0.53     4.5     3.2    19.1    27.7     4.2      1.12    1.12
+  0.70   0.75     8.7     6.0    41.5    53.1     7.9      3.06    3.06
+  0.80   0.85    14.2     9.8    67.2    97.2    13.0      5.67    5.67
+  0.90   0.95    44.3    30.7   165.5   180.9    40.2     19.79   19.79
+  0.95   0.99   523.8   570.6   843.9   863.0   167.1    241.96  241.95
+```
+
+<Figure svg={charge} num="9.2" alt="Courbe sur échelle logarithmique : le temps de séjour moyen et le p99 mesurés augmentent lentement jusqu’à 85 % de charge, puis brutalement ; la courbe du modèle M/M/1 suit la moyenne mesurée.">
+Temps de séjour mesuré selon le taux d’utilisation, et prévision du modèle M/M/1.
+</Figure>
+
+L’axe vertical est logarithmique. La courbe en pointillés est le modèle, les points bleus la moyenne mesurée, les rouges le p99 mesuré. Jusqu’à 95 % de charge, la moyenne suit le modèle à 10 % près, et le p99 mesuré à 53 % de charge (19,1 ms) est très proche de la prévision ($4{,}6 \times 4{,}2 \approx 19{,}4$ ms). À 99 %, la mesure s’écarte du modèle par le haut : le modèle décrit un régime établi, et à ce taux la file met plus longtemps à s’établir que les quelques dizaines de secondes de l’expérience ; elle ne fait que grandir.
+
+La conséquence pour le dimensionnement est directe. Un serveur qu’on fait tourner à 90 % de sa capacité ne « garde pas 10 % de marge » : il multiplie ses temps de réponse par cinq par rapport à 50 % de charge. Si l’on veut, dans ce modèle, que le p99 reste sous dix fois le temps de service, il faut $4{,}6 / (1 - \rho) \leq 10$, soit $\rho \leq 0{,}54$. Plusieurs serveurs qui partagent une même file font mieux, parce qu’un pic d’un côté est absorbé par un serveur libre de l’autre ; c’est l’une des raisons de répartir la charge entre plusieurs machines (ch. 13). Mais la forme de la courbe reste la même : près de la saturation, tout système file d’attente s’effondre.
+
+### La loi de Little
+
+Les deux dernières colonnes de la sortie comparent le nombre moyen de requêtes présentes dans le système, mesuré en intégrant ce nombre au cours du temps, au produit du débit par le temps moyen de séjour. Elles sont égales à chaque niveau de charge. C’est la loi de Little[^little] :
+
+$$
+L = \lambda \times W,
+$$
+
+où $L$ est le nombre moyen d’éléments dans le système, $\lambda$ leur débit d’arrivée et $W$ le temps moyen qu’ils y passent. Elle ne suppose rien sur la loi des arrivées ni sur celle des durées, seulement un régime stable ; elle s’applique à une file, à un serveur, à une base de données, à un service entier. On s’en sert dans les deux sens. Un service qui traite 2 000 requêtes par seconde en 50 ms en moyenne a toujours, en moyenne, $2\,000 \times 0{,}05 = 100$ requêtes en cours : il lui faut au moins 100 fils d’exécution ou connexions disponibles, sous peine de créer une file. Et si l’on observe 400 requêtes en cours alors que le débit n’a pas changé, c’est que la latence moyenne a été multipliée par quatre.
+
+## La latence de queue amplifiée par l’éventail
+
+Beaucoup de requêtes ne dépendent pas d’un serveur mais de plusieurs à la fois : une recherche interroge les cent fragments d’un index (ch. 67), une page assemble les réponses de dix services, une lecture en base consulte trois répliques. La requête attend alors la plus lente des réponses. Si chaque serveur dépasse un seuil $t$ avec la probabilité $p$, indépendamment des autres, une requête qui en attend $N$ le dépasse avec la probabilité
+
+$$
+P = 1 - (1 - p)^N .
+$$
+
+Avec $p = 1\,\%$ (le seuil est le p99 d’un serveur) et $N = 100$, $P = 1 - 0{,}99^{100} \approx 63\,\%$ : le p99 d’un serveur devient la latence typique de la requête. C’est l’exemple qui ouvre l’article de Jeff Dean et Luiz André Barroso, « The Tail at Scale »[^tail].
+
+Le script `eventail.py` le vérifie sur la distribution réellement mesurée : il tire au hasard, parmi les 20 000 temps de séjour mesurés à 50 % de charge, la latence de chaque serveur, et calcule celle de la requête complète pour 1, 10 et 100 serveurs. Il essaie aussi les requêtes doublées (hedged requests) décrites dans le même article : si un serveur n’a pas répondu au bout de son p95, on envoie la même demande à un second serveur et l’on garde la première réponse.
+
+```text
+un serveur : p50 3.4 ms, p95 13.6 ms, p99 20.7 ms
+> p99 : part des requêtes complètes qui dépassent le p99 d'un serveur seul
+serveurs    p50    p99   > p99 p99 doublé  en plus
+       1    3.5   21.4   1.2 %       17.2    5.0 %
+      10   12.4   32.0   9.5 %       22.4    5.0 %
+     100   22.4   49.0  63.2 %       28.4    5.0 %
+```
+
+<Figure svg={eventail} num="9.3" alt="Barres horizontales du p99 de la requête complète pour 1, 10 et 100 serveurs, sans doublage (21,4, 32,0 et 49,0 ms) et avec doublage au p95 (17,2, 22,4 et 28,4 ms).">
+p99 d’une requête qui attend 1, 10 ou 100 serveurs, avec et sans requêtes doublées.
+</Figure>
+
+Pour chaque nombre de serveurs, la barre rose est le p99 sans précaution, la verte avec requêtes doublées ; le trait rouge vertical est le p99 d’un serveur seul. Avec 100 serveurs, 63,2 % des requêtes dépassent ce p99, en accord avec le calcul de 63 % ; la médiane de la requête (22,4 ms) est même au-dessus du p99 d’un serveur. Le doublage ramène le p99 de la requête de 49,0 à 28,4 ms pour 5 % de requêtes supplémentaires. La distribution de chaque passage est remesurée, d’où de petits écarts avec la figure 9.1 (p99 d’un serveur à 20,7 ms ici, 19,6 ms là).
+
+Le calcul suppose que les lenteurs des serveurs sont indépendantes, et le doublage aussi : un second serveur aide si sa lenteur n’est pas liée à celle du premier. Si la lenteur vient d’une cause commune (une base surchargée derrière les deux, un réseau saturé), doubler les requêtes ajoute de la charge là où il en faudrait moins. Dean et Barroso rapportent un gain bien plus spectaculaire que celui de notre simulation, sur une table BigTable répartie sur 100 serveurs : envoyer une requête doublée au bout de 10 ms ramenait le 99,9e centile de la lecture de 1 000 clés de 1 800 ms à 74 ms, pour seulement 2 % de requêtes en plus[^tail].
+
+| Technique | Avantages | Inconvénients | Quand la choisir |
+|---|---|---|---|
+| Requêtes doublées après le p95 | coupe la queue pour quelques pour cent de requêtes en plus | inutile si les lenteurs sont corrélées ; seulement pour des lectures ou des opérations idempotentes | lectures réparties sur des répliques indépendantes |
+| Délais d’expiration et nouvelle tentative (ch. 38) | borne l’attente d’un client | une nouvelle tentative ajoute de la charge ; dangereux près de la saturation | appels dont la réponse tardive ne sert plus |
+| Réduire l’éventail (moins de fragments, réponses partielles) | moins de serveurs à attendre, donc moins de queue | moins de parallélisme ou résultats incomplets | recherche, agrégation où un résultat approché suffit |
+| Baisser le taux d’utilisation | divise l’attente dans les files | coûte des machines | services critiques en latence |
+| Supprimer les causes de pauses (collecte de mémoire, compactions planifiées) | agit sur la cause | demande de l’analyse et parfois un changement de technologie | quand la queue vient de pauses identifiables |
+
+## Les chiffres à connaître
+
+Un tableau de latences de référence circule depuis longtemps parmi les ingénieurs ; la version de Peter Norvig, publiée dans son essai « Teach Yourself Programming in Ten Years », donne par exemple 0,5 ns pour une lecture dans le cache L1, 100 ns pour la mémoire principale, 8 ms pour un déplacement de la tête d’un disque, et 150 ms pour un aller-retour entre les États-Unis et l’Europe[^norvig]. Ces valeurs datent d’avant les SSD, et le matériel a changé depuis. Le programme `latences.c` du chapitre les remesure sur la machine qui a servi à rédiger ce cours : un ordinateur portable à processeur Intel Core Ultra 7 165H et SSD NVMe Samsung, sous Linux, le programme étant épinglé sur un cœur de performance. Voici l’un des passages :
+
+```text
+accès dépendant (ns)        pages de 4 Kio   pages de 2 Mio
+  tableau de 16 Kio                 2.0              2.0
+  tableau de 512 Kio                7.5              6.7
+  tableau de 4 Mio                 27.0             23.9
+  tableau de 16 Mio                82.4             50.2
+  tableau de 256 Mio              411.4            393.5
+  tableau de 1 Gio                499.1            399.0
+lecture séquentielle mémoire    28.9 Go/s (tableau de 1 Gio)
+appel système (getpid)           114.8 ns
+verrou non contesté                4.7 ns (prise + libération)
+aller-retour TCP local          médiane   11.2 µs   p99   13.9 µs
+lecture aléatoire 4 Kio, SSD    médiane   48.6 µs   p99   59.4 µs   p99,9   66.2 µs
+lecture séquentielle, SSD       3.19 Go/s (1 Mio par lecture)
+```
+
+Les accès « dépendants » suivent une chaîne de pointeurs dans un ordre aléatoire : chaque lecture attend la précédente, ce qui mesure la latence et non le débit. La taille du tableau décide du niveau de la hiérarchie qui répond : 16 Kio tiennent dans le cache L1, 512 Kio dans le cache L2, 4 et 16 Mio dans le cache L3 de 24 Mio, et 256 Mio ou 1 Gio obligent à aller en mémoire. La colonne des grandes pages isole un second effet : avec des pages de 4 Kio, chaque accès aléatoire dans un grand tableau rate aussi le cache de traduction des adresses (TLB), ce qui ajoute une marche dans les tables de pages. Trois passages successifs ont donné des valeurs proches, sauf pour le tableau de 16 Mio en pages de 4 Kio, qui a varié de 82 à 363 ns d’un passage à l’autre, parce que le cache L3 est partagé avec les autres programmes du poste ; en grandes pages, il est resté entre 38 et 50 ns.
+
+<Figure svg={echelle} num="9.4" alt="Échelle logarithmique de 1 ns à 1 s : cache L1 2 ns, verrou 4,7 ns, cache L2 7 ns, cache L3 40 à 50 ns, appel système 115 ns, mémoire 380 à 400 ns, TCP local 11 µs, lecture SSD 49 µs, puis les bornes physiques Paris-Marseille 6,6 ms, Paris-New York 58 ms, Paris-Sydney 170 ms.">
+Échelle des latences, de la nanoseconde à la seconde : mesures du chapitre et bornes physiques de la fibre.
+</Figure>
+
+L’axe horizontal est logarithmique : chaque grande graduation multiplie la durée par mille. Les étiquettes vertes, jaunes et bleues sont mesurées sur la machine du chapitre ; les orange sont les bornes physiques de propagation dans la fibre calculées au ch. 4, qu’aucun réseau réel n’atteint tout à fait. Entre une lecture dans le cache L1 et un aller-retour vers l’Australie, il y a huit ordres de grandeur.
+
+| Opération | Mesure du chapitre | Tableau de Norvig | Commentaire |
+|---|---|---|---|
+| Cache L1 | 2 ns | 0,5 ns | une lecture dépendante coûte quelques cycles d’horloge |
+| Cache L2 | 7 ns | 7 ns | |
+| Cache L3 | 40 à 50 ns (grandes pages) | absent | |
+| Mémoire principale | 380 à 400 ns | 100 ns | portable en mode d’économie d’énergie ; la latence mémoire dépend beaucoup de la machine |
+| Verrou non contesté | 4,7 ns | 25 ns | sans concurrence, une prise de verrou est une instruction atomique |
+| Appel système | 115 ns | absent | |
+| Lecture séquentielle mémoire | 22 à 29 Go/s | 1 Mo en 250 µs, soit 4 Go/s | |
+| Aller-retour TCP local | 11 µs | absent | plancher logiciel d’un appel réseau, sans aucun réseau |
+| Lecture aléatoire de 4 Kio | 49 µs (SSD NVMe) | 8 ms (déplacement de tête d’un disque) | le SSD supprime la mécanique : 160 fois plus rapide |
+| Lecture séquentielle de stockage | 3,2 Go/s (SSD) | 1 Mo en 20 ms, soit 50 Mo/s (disque) | |
+| Aller-retour entre continents | borne physique : 58 ms (Paris-New York) | 150 ms (États-Unis - Europe) | la distance, elle, n’a pas changé |
+
+Les écarts entre les deux colonnes sont instructifs. Le stockage a gagné deux ordres de grandeur avec les SSD, la mémoire séquentielle un ordre, alors que la latence de la mémoire principale n’a pas baissé (elle est même plus élevée sur ce portable que dans le tableau, ce qui rappelle que ces chiffres dépendent de la machine et qu’il faut les mesurer sur la sienne). Le réseau entre continents n’a pas gagné grand-chose et ne gagnera rien : il est borné par la vitesse de la lumière. Les rapports, plus que les valeurs, sont à retenir : la mémoire répond environ cent fois plus vite qu’une lecture aléatoire sur SSD ; un aller-retour TCP, même sans quitter la machine, coûte autant que des milliers de lectures dans le cache L1 et une trentaine d’accès à la mémoire ; un aller-retour entre continents coûte autant que mille lectures sur SSD. Pour les distances intermédiaires, AWS indique que les zones de disponibilité d’une même région sont situées à moins de 100 km les unes des autres[^aws-az], ce qui borne la propagation à moins d’une milliseconde aller-retour.
+
+## Ordres de grandeur
+
+:::calcul[Calcul : dimensionner avec la loi de Little]
+Hypothèses : un service doit tenir 5 000 requêtes par seconde ; chaque requête attend 2 appels en base de 3 ms chacun et un appel à un autre service de 15 ms, en série ; le reste du traitement coûte 2 ms de calcul.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Latence moyenne d’une requête | 2 × 3 + 15 + 2 | 23 ms |
+| Requêtes en cours en moyenne | $L = \lambda W = 5\,000 \times 0{,}023$ | 115 |
+| Connexions occupées vers la base | $5\,000 \times 2 \times 0{,}003$ | 30 |
+| Appels en cours vers l’autre service | $5\,000 \times 0{,}015$ | 75 |
+| Cœurs occupés par le calcul | $5\,000 \times 0{,}002$ | 10 |
+
+Conclusion : le service doit pouvoir garder au moins 115 requêtes en cours (fils d’exécution, tâches asynchrones ou connexions), alors qu’il n’occupe que 10 cœurs. Un serveur limité à 64 fils d’exécution bloquants plafonnerait à $64 / 0{,}023 \approx 2\,800$ requêtes par seconde, quel que soit le nombre de ses cœurs. Si l’autre service ralentit à 150 ms, la loi de Little donne $5\,000 \times 0{,}158 = 790$ requêtes en cours : c’est par l’épuisement des fils ou des connexions que la lenteur d’un service se propage à ceux qui l’appellent (ch. 39).
+:::
+
+:::calcul[Calcul : quelle charge pour quel p99 ?]
+Dans le modèle M/M/1, $\text{p99} = 4{,}6 \times S / (1 - \rho)$. Avec un temps de service $S = 2$ ms :
+
+| Taux d’utilisation | Calcul | p99 prévu |
+|---|---|---|
+| 0,5 | $4{,}6 \times 2 / 0{,}5$ | 18 ms |
+| 0,7 | $4{,}6 \times 2 / 0{,}3$ | 31 ms |
+| 0,9 | $4{,}6 \times 2 / 0{,}1$ | 92 ms |
+| 0,99 | $4{,}6 \times 2 / 0{,}01$ | 920 ms |
+
+Conclusion : pour un objectif de p99 à 30 ms, ce serveur ne doit pas dépasser environ 70 % de charge ; c’est l’origine des taux d’utilisation visés de 60 à 70 % qu’on retrouve dans les règles de dimensionnement (ch. 2). Les mesures de l’expérience sont du même ordre : 19,1 ms à 0,53 et 41,5 ms à 0,75.
+:::
+
+:::calcul[Calcul : éventail et 99,9e centile]
+Une requête de recherche attend 100 fragments d’index, et l’on vise la latence de la requête au 99e centile.
+
+| Seuil de chaque fragment | Probabilité qu’un fragment le dépasse | Requêtes qui le dépassent |
+|---|---|---|
+| p99 du fragment | 1 % | $1 - 0{,}99^{100} \approx 63\,\%$ |
+| p99,9 du fragment | 0,1 % | $1 - 0{,}999^{100} \approx 9{,}5\,\%$ |
+| p99,99 du fragment | 0,01 % | $1 - 0{,}9999^{100} \approx 1{,}0\,\%$ |
+
+Conclusion : pour que 99 % des requêtes restent sous un seuil, chacun des 100 fragments doit le tenir au 99,99e centile. Plus l’éventail est large, plus il faut surveiller des centiles élevés de chaque composant, et c’est ce qui rend la latence de queue décisive dans les systèmes à grande échelle.
+:::
+
+## Exemples réels
+
+**Les objectifs au 99,9e centile chez Amazon.** L’article sur Dynamo donne la règle et sa raison. Un objectif type est de répondre en moins de 300 ms pour 99,9 % des requêtes, à une charge de pointe de 500 requêtes par seconde. Les auteurs expliquent qu’une moyenne ou une médiane ne protège pas les clients dont les requêtes sont les plus lourdes, ceux qui ont le plus d’historique par exemple, et que le choix du 99,9e centile plutôt que d’un centile plus élevé résulte d’une analyse coût-bénéfice : aller au-delà coûtait beaucoup plus cher[^dynamo].
+
+**Les requêtes doublées chez Google.** L’article de Dean et Barroso décrit plusieurs techniques employées chez Google pour contenir la latence de queue, mesurées sur des systèmes réels : les requêtes doublées, déjà citées, qui ramènent le 99,9e centile d’une lecture de 1 000 clés BigTable de 1 800 ms à 74 ms pour 2 % de requêtes supplémentaires, mais aussi les requêtes liées (tied requests), où les deux copies d’une requête se préviennent mutuellement pour que la seconde soit annulée dès que la première commence à être traitée[^tail].
+
+## Erreurs fréquentes
+
+La plus répandue est de juger un service sur sa latence moyenne. Elle masque exactement ce qui fait souffrir les utilisateurs, et elle bouge à peine quand la queue s’allonge.
+
+Vient ensuite la moyenne de percentiles. Le p99 global n’est pas la moyenne des p99 de chaque serveur, ni de chaque minute ; il se calcule sur l’ensemble des mesures, ou en fusionnant des histogrammes.
+
+Faire tourner les serveurs à 85 ou 90 % de leur capacité pour économiser des machines produit des latences qui s’envolent au moindre pic, comme le montre la figure 9.2. Le taux d’utilisation visé se choisit à partir de l’objectif de latence, pas à partir du coût.
+
+Les tests de charge en boucle fermée, où chaque client virtuel attend sa réponse avant d’envoyer la suivante, sous-estiment la latence pendant les ralentissements (l’omission coordonnée). Un test de charge doit fixer le débit d’arrivée, pas le nombre de clients.
+
+Ne mesurer que du côté du serveur oublie le réseau, les files des répartiteurs et du client ; le chiffre qui compte est celui du client, ou à défaut celui du point d’entrée le plus proche de lui.
+
+Enfin, croire qu’on réduit une latence liée aux allers-retours en ajoutant de la bande passante : un lien dix fois plus large ne raccourcit pas d’une milliseconde un aller-retour entre Paris et New York.
+
+:::piege[Erreur fréquente : des files d’attente sans limite]
+Une file sans limite ne rejette jamais rien : quand la charge dépasse la capacité, elle grandit, et toutes les requêtes, même celles qui arrivent après le pic, attendent derrière. Le service paraît vivant mais toutes ses réponses arrivent trop tard. Une file bornée qui refuse l’excédent (réponse 503 ou 429) protège les requêtes acceptées ; le ch. 39 détaille ce délestage.
+:::
+
+:::entretien
+Quand vous annoncez une exigence de latence (étape 1 du ch. 1), donnez un centile et un chiffre, « p99 sous 200 ms », jamais une moyenne. Si la conception comporte un appel en éventail, dites-le et chiffrez l’effet sur la queue ($1 - (1-p)^N$) ; si elle impose une charge élevée à un composant, rappelez que l’attente croît comme $1/(1-\rho)$.
+:::
+
+## Exercices
+
+**Question 1.** Un service publie ces mesures sur une minute : moyenne 40 ms, médiane 25 ms, p99 600 ms. Un utilisateur charge une page qui envoie 30 requêtes à ce service. Quelle est, approximativement, la probabilité qu’au moins une de ces requêtes dépasse 600 ms ? Qu’en concluez-vous sur la latence perçue de la page ?
+
+**Question 2.** Un serveur à un seul fil d’exécution traite des requêtes de 4 ms en moyenne, et en reçoit 200 par seconde. Quel est son taux d’utilisation ? Que prévoit le modèle M/M/1 pour son temps de séjour moyen et pour son p99 ? Que devient le temps moyen si le trafic monte de 20 % ?
+
+**Question 3.** Un service reçoit 1 200 requêtes par seconde, et l’on observe en permanence 360 requêtes en cours de traitement. Quelle est la latence moyenne ? Le lendemain, le débit est le même mais on observe 1 800 requêtes en cours. Que s’est-il passé, et quelle ressource risque de manquer ?
+
+**Exercice de conception.** Une page de produit d’un site marchand est assemblée par un service qui appelle en parallèle 12 services (prix, stock, avis, recommandations, livraison, etc.), puis répond. L’objectif est un p99 de la page sous 300 ms. Le service de recommandations a un p50 de 40 ms et un p99 de 400 ms ; les 11 autres ont un p99 de 80 ms. Estimez le p99 de la page sans précaution, proposez une conception qui tient l’objectif, et dites ce qu’il faut mesurer pour vérifier qu’elle le tient.
+
+## Corrigés
+
+**Question 1.** Chaque requête dépasse 600 ms avec une probabilité de 1 % (c’est la définition du p99). Si les requêtes sont indépendantes, la probabilité qu’au moins une des 30 dépasse ce seuil vaut $1 - 0{,}99^{30} \approx 26\,\%$. Une page sur quatre attend donc au moins 600 ms, si la page doit attendre toutes ses requêtes. La latence perçue de la page n’a rien à voir avec la moyenne de 40 ms affichée par le service : elle est gouvernée par son p99, et plus la page fait de requêtes, plus elle l’est. Il faudrait réduire le nombre de requêtes de la page, les faire en parallèle plutôt qu’en série, ou travailler sur la queue du service.
+
+**Question 2.** $\rho = \lambda S = 200 \times 0{,}004 = 0{,}8$. Temps moyen : $W = S / (1 - \rho) = 4 / 0{,}2 = 20$ ms ; p99 : $4{,}6 \times 20 = 92$ ms. Avec 20 % de trafic en plus, $\lambda = 240$, $\rho = 0{,}96$, $W = 4 / 0{,}04 = 100$ ms, et un p99 de 460 ms. Un trafic en hausse de 20 % multiplie le temps de réponse par cinq : près de la saturation, la sensibilité au trafic est énorme. La correction n’est pas d’optimiser de 20 % mais de ramener la charge sous 70 % (un second serveur, ou un service plus rapide).
+
+**Question 3.** Par la loi de Little, $W = L / \lambda = 360 / 1\,200 = 0{,}3$ s, soit 300 ms. Le lendemain, $W = 1\,800 / 1\,200 = 1{,}5$ s : la latence moyenne a été multipliée par cinq sans que le trafic change, donc un composant dont dépend le service a ralenti (une base, un service appelé). La ressource qui risque de manquer est tout ce qui est occupé par une requête en cours : fils d’exécution, connexions vers la base, mémoire des requêtes. Si le service est limité à, disons, 1 000 requêtes simultanées, les suivantes sont mises en attente ou rejetées, et la lenteur se propage aux clients du service.
+
+**Exercice de conception.**
+
+*Estimation sans précaution.* La page attend les 12 réponses : sa latence est le maximum des 12. Le service de recommandations dépasse 400 ms dans 1 % des cas ; à lui seul, il fait dépasser 300 ms à plus de 1 % des pages, puisque son p99 (400 ms) est au-dessus de l’objectif. Pour les 11 autres, la probabilité qu’au moins un dépasse son p99 de 80 ms vaut $1 - 0{,}99^{11} \approx 10\,\%$ : environ une page sur dix attend plus de 80 ms à cause d’eux, ce qui reste compatible avec 300 ms si leur queue au-delà du p99 n’est pas trop longue. Le p99 de la page est donc gouverné par les recommandations, au-dessus de 400 ms : l’objectif n’est pas tenu.
+
+*Conception.* Les recommandations ne sont pas indispensables à l’affichage d’une page de produit : on leur fixe une échéance, par exemple 150 ms, et la page s’affiche sans elles (ou avec des recommandations génériques mises en cache) si elles n’ont pas répondu, une forme de dégradation progressive (ch. 39). Pour les services indispensables (prix, stock), on fixe aussi une échéance par appel, inférieure au budget restant, et l’on peut doubler les lectures au-delà de leur p95 si elles sont servies par des répliques indépendantes. Les données qui changent peu (avis, informations de livraison générales) sont servies depuis un cache (ch. 16), ce qui sort ces appels de l’éventail. Enfin, on vérifie que le service d’assemblage lui-même n’est pas chargé au-delà de 60 à 70 % et qu’il dispose d’assez d’appels simultanés possibles, par la loi de Little.
+
+*Mesures.* Le p50, le p99 et le p99,9 de la page, mesurés au point d’entrée du site ; les mêmes centiles pour chaque service appelé, vus du service d’assemblage (et non mesurés par les services eux-mêmes) ; la part des pages affichées sans recommandations, qui doit rester faible et qu’on surveille comme un indicateur de qualité ; le nombre de requêtes doublées, pour vérifier qu’il reste de l’ordre de quelques pour cent ; et le taux d’utilisation de chaque composant.
+
+:::fiche
+- Latence = durée d’une opération ; débit = opérations par seconde ; bande passante = capacité maximale.
+- Ne jamais résumer une latence par sa moyenne ; donner p50, p99, p99,9 ; ne jamais moyenner des percentiles.
+- Mesuré : moyenne 4,6 ms, médiane 3,3 ms, p99 19,6 ms pour un serveur à 50 % de charge.
+- File d’attente : $\rho = \lambda S$, $W = S / (1-\rho)$, p99 ≈ $4{,}6\,W$ (M/M/1) ; viser 60 à 70 % de charge.
+- Loi de Little : $L = \lambda W$, vérifiée à chaque niveau de charge de l’expérience ; sert à dimensionner fils, connexions et pools.
+- Éventail : $P = 1 - (1-p)^N$ ; 100 serveurs → 63 % des requêtes au-delà du p99 d’un serveur (mesuré : 63,2 %).
+- Requêtes doublées après le p95 : mesuré, p99 de 49,0 à 28,4 ms pour 5 % de requêtes en plus ; Google : 1 800 → 74 ms pour 2 %.
+- Mesures de référence (portable Core Ultra 7) : L1 2 ns, L2 7 ns, L3 40-50 ns, mémoire 380-400 ns, appel système 115 ns, TCP local 11 µs, SSD 4 Kio 49 µs, SSD séquentiel 3,2 Go/s ; Paris-New York ≥ 58 ms.
+:::
+
+[^dynamo]: Giuseppe DeCandia et al., « Dynamo: Amazon’s Highly Available Key-value Store », *ACM SOSP*, 2007, section 2.2, [allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf](https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf).
+[^hdr]: HdrHistogram, [hdrhistogram.org](https://hdrhistogram.org/).
+[^little]: John D. C. Little, « A Proof for the Queuing Formula: L = λW », *Operations Research*, vol. 9, n° 3, 1961.
+[^tail]: Jeffrey Dean et Luiz André Barroso, « The Tail at Scale », *Communications of the ACM*, vol. 56, n° 2, 2013, [cacm.acm.org/research/the-tail-at-scale](https://cacm.acm.org/research/the-tail-at-scale/).
+[^norvig]: Peter Norvig, « Teach Yourself Programming in Ten Years », [norvig.com/21-days.html](https://norvig.com/21-days.html), tableau « Approximate timing for various operations on a typical PC ».
+[^aws-az]: Amazon Web Services, « Regions and Availability Zones », [aws.amazon.com/about-aws/global-infrastructure/regions_az](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/).
