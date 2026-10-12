@@ -236,7 +236,7 @@ Le goulet, lui, apparaît dans un scénario que les moyennes de l’étape 2 cac
 Une base qui parcourrait cent millions de lignes par seconde, ce qui est déjà beaucoup pour une seule machine (le [ch. 9](../partie-1/latence-debit.mdx) donne les débits de référence), resterait 5 à 6 fois trop lente, et ce sondage n’est pas le seul à servir. L’option « compter à la lecture » s’effondre sur lui, alors qu’elle convient parfaitement aux 199 999 autres.
 :::
 
-La réponse découle du tableau de l’étape 6 : pour un sondage qui dépasse un seuil de participations, on garde le décompte en cache quelques secondes, ce que l’exigence de cohérence autorise (les autres participants peuvent voir le décompte en retard). Ce raisonnement est typique de l’étape 7 : un cas rare se traite là où il apparaît, sans changer toute l’architecture. Le problème plus général d’une donnée unique que tout le monde lit en même temps porte un nom, la clé chaude (hot key), et le ch. 17 lui est consacré.
+La réponse découle du tableau de l’étape 6 : pour un sondage qui dépasse un seuil de participations, on garde le décompte en cache quelques secondes, ce que l’exigence de cohérence autorise (les autres participants peuvent voir le décompte en retard). Ce raisonnement est typique de l’étape 7 : un cas rare se traite là où il apparaît, sans changer toute l’architecture. Le problème plus général d’une donnée unique que tout le monde lit en même temps porte un nom, la clé chaude (hot key), et le [ch. 17](../partie-2/cache-invalidation.mdx) lui est consacré.
 
 ### Étape 8 : les évolutions
 

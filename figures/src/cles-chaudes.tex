@@ -1,0 +1,25 @@
+% Une clé chaude sur un cache partitionné, et deux remèdes ; débits mesurés par
+% outils/experiences/ch17/chaudes.py.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    n/.style={soft=#1, minimum width=16mm, minimum height=10mm, font=\sffamily\small, inner sep=2pt, align=center}]
+  % à gauche : une seule copie
+  \node[pillo=Dred] at (30,30) {la clé sur un seul nœud};
+  \foreach \i/\x/\c in {1/0/Dblue, 2/20/Dred, 3/40/Dblue, 4/60/Dblue} \node[n=\c] (a\i) at (\x,0) {\stack{database}{nœud \i}};
+  \node[tile] (ca) at (30,20) {\dicon[\Large][Dslate]{users}\\[1pt]{\small lecteurs}};
+  \draw[arr=Dred, line width=2pt] (ca) -- (a2);
+  \foreach \i in {1,3,4} \draw[ligne=Dcloud, line width=0.5pt, dash pattern=on 2pt off 1.5pt] (ca) -- (a\i);
+  \node[note, text=Dred, anchor=north, align=center] at (30,-8) {le nœud 2 sature : 137 000 lectures/s\\au plus, quel que soit le nombre de clients};
+  % à droite : copies
+  \node[pillo=Dgreen] at (115,30) {une copie par nœud (k\#1 à k\#4)};
+  \foreach \i/\x in {1/85, 2/105, 3/125, 4/145} {
+    \node[n=Dgreen] (b\i) at (\x,0) {\stack{database}{nœud \i}};
+    \node[bloc=Pjaune, font=\sffamily\scriptsize, minimum width=0pt, minimum height=0pt] at ([yshift=-3.5mm]b\i.south) {k\#\i};
+  }
+  \node[tile] (cb) at (115,20) {\dicon[\Large][Dslate]{users}\\[1pt]{\small lecteurs}};
+  \foreach \i in {1,...,4} \draw[arr=Dgreen, line width=1pt] (cb) -- (b\i);
+  \node[note, text=Dgreen, anchor=north, align=center] at (115,-13) {chaque lecteur choisit une copie au hasard :\\340 000 lectures/s sur 4 nœuds (mesuré)};
+\end{tikzpicture}
+\end{document}

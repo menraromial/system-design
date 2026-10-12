@@ -1,0 +1,24 @@
+% Mesures de outils/experiences/ch17/stampede.py (premier passage en régime établi).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1mm, y=8mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  % recalculs, échelle logarithmique : x = 20 * log10(n)
+  \node[titrec, anchor=west] at (0,0.95) {recalculs en 20 s (échelle log.)};
+  \foreach \i/\nom/\n/\t/\c in {0/{naïve}/800/800/Prose, 1/{verrou}/9/9/Pvert, 2/{XFetch}/42/42/Porange, 3/{stale-while-revalidate}/9/9/Pvert} {
+    \node[leg, anchor=east] at (-2,-\i) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.27) rectangle ({20*log10(\n)},-\i+0.27);
+    \node[note, anchor=west] at ({20*log10(\n)+1},-\i) {\t};
+  }
+  \draw[ligne] (0,0.45) -- (0,-3.45);
+  % 99e centile
+  \begin{scope}[xshift=95mm]
+    \node[titrec, anchor=west] at (0,0.95) {99e centile des lectures (ms)};
+    \foreach \i/\v/\t/\c in {0/106.6/{106,6}/Prose, 1/87.1/{87,1}/Pvert, 2/2.3/{2,3}/Porange, 3/5.7/{5,7}/Pvert} {
+      \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.27) rectangle ({0.5*\v},-\i+0.27);
+      \node[note, anchor=west] at ({0.5*\v+1},-\i) {\t};
+    }
+    \draw[ligne] (0,0.45) -- (0,-3.45);
+  \end{scope}
+\end{tikzpicture}
+\end{document}

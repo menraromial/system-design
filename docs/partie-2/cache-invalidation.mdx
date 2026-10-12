@@ -1,0 +1,268 @@
+---
+title: "Cache (2) : invalidation, stampede, hot keys"
+sidebar_label: "17. Cache (2) : invalidation, stampede, hot keys"
+description: "Invalider un cache (TTL, événement, version) et les courses entre cache et base ; l'avalanche de recalculs à l'expiration d'une clé populaire (verrou, XFetch, stale-while-revalidate, baux) ; les clés chaudes ; Redis et Memcached ; mesures avec PostgreSQL et Redis."
+partie: 2
+chapitre: 17
+---
+
+import chrono from '@site/src/figures/stampede-chrono.svg';
+import mesures from '@site/src/figures/stampede-mesures.svg';
+import course from '@site/src/figures/course-cache.svg';
+import chaudes from '@site/src/figures/cles-chaudes.svg';
+
+La page d’accueil d’un site est le résultat d’une requête de 100 ms. On la garde dans Redis pendant deux secondes, et cent serveurs la lisent en boucle. Tout va bien tant que la clé existe ; à l’instant où elle expire, chaque lecteur qui la demande la trouve absente et lance lui-même la requête. Dans la mesure de ce chapitre, chaque expiration déclenche ainsi 80 recalculs de la même page, qui occupent d’un coup les 40 connexions à la base dont dispose l’application, et les lectures qui attendaient 1 ms en attendent jusqu’à 300. Avec une base plus lente ou un trafic plus fort, c’est ainsi qu’une seule clé fait tomber la base : chaque recalcul ralentit les autres, la page n’est jamais recalculée à temps, et les lecteurs continuent d’arriver.
+
+Le [ch. 16](cache-strategies.mdx) a décrit comment placer et organiser un cache. Ce chapitre traite de ce qui y va mal : garder le cache d’accord avec la base (l’invalidation), éviter qu’une valeur ancienne s’y installe à cause d’une course entre une lecture et une écriture, éviter l’avalanche de recalculs à l’expiration d’une clé populaire, et répartir la charge d’une clé que tout le monde lit. Il se termine par une comparaison de Redis et de Memcached.
+
+Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch17/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch17), sur PostgreSQL 18 et Redis 8.8 en conteneurs : l’avalanche de recalculs et quatre façons de l’éviter ([`stampede.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch17/stampede.py)), la course entre une lecture et une écriture ([`course.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch17/course.py)), et le débit maximal d’une clé chaude ([`chaudes.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch17/chaudes.py)).
+
+## Invalider : garder le cache d’accord avec la base
+
+Une donnée en cache est une copie ; quand l’original change, la copie devient fausse. Trois mécanismes la corrigent, et on les combine souvent.
+
+Le TTL borne la durée pendant laquelle une copie peut être fausse : au bout de son temps de vie, elle disparaît et la lecture suivante relit la base. C’est simple et sûr, mais la copie peut rester fausse pendant tout le TTL, et un TTL court multiplie les échecs. Quand beaucoup de clés reçoivent le même TTL au même moment (au remplissage d’un cache vide, après un déploiement), elles expirent toutes ensemble ; la documentation de Redis signale d’ailleurs que de nombreuses clés qui expirent dans la même seconde sont une source de latence pour Redis lui-même[^redis-latence]. On ajoute donc au TTL une part aléatoire (jitter), par exemple ±10 %, pour étaler les expirations.
+
+L’invalidation par événement supprime la copie au moment où l’original change : l’application qui écrit dans la base supprime aussitôt la clé ([ch. 16](cache-strategies.mdx)). Quand plusieurs services écrivent dans la même base, ou qu’on ne veut pas confier l’invalidation au code de chaque écrivain, on peut faire produire ces événements par la base elle-même, en lisant son journal de modifications (change data capture), ou par une table d’événements écrite dans la même transaction que la modification (ch. 37), et les transmettre par une file de messages (ch. 27).
+
+Le numéro de version dans la clé évite d’invalider : la clé contient la version de la donnée (`produit:42:v7`), et une modification crée une nouvelle clé (`produit:42:v8`). L’ancienne n’est plus jamais demandée et finit par être écartée par l’éviction. Il faut seulement que le lecteur connaisse la version courante, ce qui demande une lecture ailleurs (une petite clé `produit:42:version`, ou la donnée qui référence le produit). C’est la technique des noms de fichiers versionnés du [ch. 15](cdn-edge.mdx).
+
+## Les courses entre le cache et la base
+
+Le cache-aside avec suppression de la clé ([ch. 16](cache-strategies.mdx)) semble garantir que le cache ne garde jamais une valeur ancienne plus longtemps qu’une écriture. Une course entre un lecteur et un écrivain y laisse pourtant une valeur ancienne, et pour toute la durée du TTL.
+
+<Figure svg={course} num="17.1" alt="Diagramme de séquence avec un lecteur, le cache, la base et un écrivain. 1 : le lecteur trouve la clé absente. 2 : il lit la version 1 dans la base. 3 : l’écrivain écrit la version 2 dans la base. 4 : l’écrivain supprime la clé. 5 : le lecteur range la version 1 dans le cache, qui la sert jusqu’à l’expiration. Une note explique qu’avec un bail, le SET de l’étape 5 est refusé.">
+La course qui laisse une valeur ancienne dans le cache, et ce qu’y change un bail.
+</Figure>
+
+Le lecteur trouve la clé absente (1) et lit la version 1 dans la base (2). Avant qu’il ait rangé ce résultat, parce que son serveur est lent ou que son ramasse-miettes l’a suspendu, l’écrivain modifie la base (3) et supprime la clé (4), qui n’existait d’ailleurs pas encore. Le lecteur range alors la version 1 (5). La base contient la version 2, le cache la version 1, et rien ne viendra plus supprimer la clé : la valeur ancienne est servie jusqu’à son expiration.
+
+Deux remèdes sont courants. La double suppression demande à l’écrivain de supprimer la clé une seconde fois, un peu plus tard (quelques millisecondes à quelques secondes), pour effacer une valeur ancienne rangée entre-temps ; elle réduit la fenêtre sans la fermer, puisqu’un lecteur plus lent que le délai choisi gagne encore la course. Les baux (leases), décrits par Facebook pour son memcache, ferment la fenêtre : quand une lecture échoue, le cache remet au lecteur un jeton lié à la clé ; une suppression de la clé invalide ce jeton ; et le cache n’accepte de ranger une valeur que si le lecteur présente un jeton encore valide[^facebook]. Dans la figure, le SET de l’étape 5 présente un jeton invalidé à l’étape 4, et il est refusé. Une troisième technique compare des versions : chaque valeur rangée porte la version lue dans la base, et le cache refuse d’écraser une version plus récente par une plus ancienne, ce que Redis permet avec un petit script Lua.
+
+### La course, mesurée
+
+`course.py` joue 500 manches. Dans chacune, la clé est absente ; un lecteur la lit, lit la base, attend entre 0 et 20 ms (sa lenteur), puis la range ; en même temps, un écrivain, qui démarre entre 0 et 10 ms après, modifie la base et supprime la clé. On compte les manches qui finissent avec une version ancienne dans le cache. Les trois stratégies sont la version naïve, la double suppression avec un second effacement 10 ms après le premier, et des baux écrits en Lua sur Redis, à la manière de Facebook.
+
+```text
+500 manches : un lecteur lent (0 à 20 ms) et un écrivain sur la même clé
+stratégie               version ancienne laissée dans le cache
+naïve                                           314 manches (62.8 %)
+double suppression                               62 manches (12.4 %)
+baux                                              0 manches (0.0 %)
+```
+
+Trois passages ont donné de 62 % à 64 % en version naïve, de 11,8 % à 12,4 % avec la double suppression et aucune valeur ancienne avec les baux. L’essai est construit pour provoquer la course à chaque manche : dans un vrai système, la plupart des lectures trouvent la clé présente et la plupart des écritures ne croisent pas de lecteur, si bien que la course est rare. Mais elle n’a pas besoin d’être fréquente pour gêner, puisque chacune laisse une valeur fausse pour tout un TTL. Les chiffres disent surtout ceci : la double suppression ne protège que des lecteurs plus rapides que son délai (ici, les lecteurs attendaient jusqu’à 20 ms et le second effacement venait à 10 ms), alors que le bail ne dépend d’aucun délai.
+
+Quoi qu’on choisisse, un TTL reste nécessaire comme filet de sécurité : il borne la durée de toute incohérence qu’aucun mécanisme n’a prévue.
+
+## L’avalanche de recalculs
+
+Andrea Vattani, Flavio Chierichetti et Keegan Lowenstein définissent ainsi l’avalanche de recalculs (cache stampede) : quand une donnée très demandée expire, de nombreuses requêtes arrivent avant que son recalcul soit terminé, et chacune lance le même recalcul ; ces recalculs simultanés ralentissent la base, ce qui allonge chacun d’eux et fait entrer encore plus de requêtes dans l’avalanche[^vattani]. Quatre stratégies l’évitent.
+
+<Figure svg={chrono} num="17.2" alt="Trois lignes de temps à l’expiration de la clé. Naïve : une pile de recalculs simultanés, 80 par expiration. Verrou : un seul recalcul, les autres lecteurs attendent, 99e centile de 87 à 89 ms. Stale-while-revalidate : un seul recalcul en arrière-plan, la valeur périmée servie à tous, 99e centile de 5 à 6 ms.">
+À l’expiration d’une clé populaire, selon la stratégie.
+</Figure>
+
+Le trait vertical est l’instant où la clé expire ; chaque rectangle est un recalcul de 100 ms, ou une attente. En version naïve, les rectangles rouges s’empilent : chaque lecteur qui arrive pendant le recalcul en lance un autre. Avec un verrou, un seul recalcul a lieu, mais les autres lecteurs attendent qu’il finisse. Avec stale-while-revalidate, un seul recalcul a lieu, en arrière-plan, et personne n’attend.
+
+Le verrou de recalcul (ou de mutex) ne laisse qu’un lecteur recalculer : le premier qui trouve la clé absente pose un verrou (avec Redis, `SET page:accueil:verrou 1 NX PX 1000`, qui n’écrit que si la clé n’existe pas et la fait expirer au bout d’une seconde si le recalcul échoue), recalcule et range la valeur ; les autres attendent un peu et relisent le cache.
+
+L’expiration anticipée probabiliste recalcule la valeur avant son expiration, chaque lecteur décidant au hasard. Vattani et ses collègues en donnent une version optimale, XFetch : on garde avec la valeur la durée $\Delta$ de son dernier recalcul et son instant d’expiration, et un lecteur recalcule si
+
+$$
+\text{maintenant} - \Delta \, \beta \, \ln(\text{aléa}) \geq \text{expiration},
+$$
+
+où aléa est tiré uniformément entre 0 et 1 et $\beta$ vaut 1 par défaut[^vattani]. Comme $-\ln(\text{aléa})$ est positif, chaque lecteur avance un peu l’expiration, d’une durée aléatoire proportionnelle à $\Delta$ ; plus l’expiration approche, plus la probabilité est grande qu’un lecteur recalcule, et en pratique l’un d’eux le fait avant que la clé disparaisse. Aucun verrou n’est nécessaire.
+
+Stale-while-revalidate, défini pour HTTP par la RFC 5861 ([ch. 15](cdn-edge.mdx)), sert la valeur périmée pendant qu’un seul lecteur la recalcule en arrière-plan[^rfc5861]. Dans un cache applicatif, on range la valeur avec deux durées : une durée de fraîcheur, et une durée de vie de la clé plus longue ; au-delà de la fraîcheur, le premier lecteur pose un verrou et lance le recalcul sans l’attendre, et tous continuent de recevoir l’ancienne valeur.
+
+### L’avalanche, mesurée
+
+`stampede.py` fait lire la page d’accueil par 100 clients pendant 20 s, avec 20 ms de pause entre deux lectures. La page coûte 100 ms à la base (une requête `pg_sleep(0.1)` dans PostgreSQL), reste deux secondes en cache, et l’application dispose de 40 connexions à la base. La clé est en cache au début de l’essai.
+
+```text
+100 clients, 20 s, TTL 2 s, recalcul de 100 ms, 40 connexions
+stratégie                lectures recalculs simultanés   médiane  99e cent.      max
+naïve                       80547       800         40   1.04 ms   106.6 ms   309 ms
+verrou de recalcul          83700         9          1   0.98 ms    87.1 ms   125 ms
+XFetch (beta = 1)           89067        42         15   0.91 ms     2.3 ms   107 ms
+stale-while-revalidate      87896         9          1   0.97 ms     5.7 ms    91 ms
+```
+
+<Figure svg={mesures} num="17.3" alt="Deux graphiques en barres. Recalculs en 20 s, sur une échelle logarithmique : 800 en version naïve, 9 avec le verrou, 42 avec XFetch, 9 avec stale-while-revalidate. 99e centile des lectures : 106,6 ms, 87,1 ms, 2,3 ms et 5,7 ms.">
+Recalculs et 99e centile des lectures selon la stratégie (premier passage).
+</Figure>
+
+À gauche, le nombre de recalculs, sur une échelle logarithmique ; à droite, le 99e centile de la latence des lectures. Un second passage a donné les mêmes nombres pour la version naïve, le verrou et stale-while-revalidate, et 29 recalculs pour XFetch, avec au plus 8 simultanés.
+
+En version naïve, les 9 à 10 expirations des 20 secondes ont déclenché 800 recalculs, environ 80 chacune, et jusqu’à 40 à la fois, autant que de connexions disponibles : c’est le nombre de connexions qui a limité l’avalanche, pas la stratégie. Le verrou réduit les recalculs à un par expiration, mais pas la latence : le 99e centile reste à 87 ms, parce que les lecteurs qui arrivent pendant le recalcul l’attendent. XFetch et stale-while-revalidate font disparaître l’attente : le 99e centile tombe à 2 à 6 ms. XFetch recalcule toutefois plus souvent que nécessaire, 29 à 42 fois au lieu de 10, et jusqu’à 15 fois en même temps : avec 4 500 lectures par seconde, beaucoup de lecteurs tirent leur chance pendant les 100 ms que dure un recalcul déjà lancé, et la formule, qui ne pose pas de verrou, en laisse plusieurs le lancer aussi. Augmenter $\beta$ fait recalculer plus tôt, sans changer ce point ; à fort trafic, on combine XFetch et un verrou. Stale-while-revalidate obtient ici le meilleur des deux, un recalcul par expiration et presque aucune attente, au prix de servir pendant 100 ms une valeur périmée.
+
+Les baux de Facebook servent aussi contre l’avalanche : chaque serveur memcache ne remet un jeton que toutes les 10 secondes par clé, et un lecteur qui demande la clé pendant ce temps reçoit l’ordre d’attendre un peu avant de relire, la valeur étant en général rangée en quelques millisecondes par le détenteur du jeton[^facebook]. Une lecture peut aussi recevoir la valeur qui vient d’être supprimée, marquée comme périmée, quand l’application peut s’en contenter[^facebook].
+
+## Les clés chaudes
+
+Une clé chaude (hot key) est une clé lue bien plus souvent que les autres : la fiche d’un produit en promotion, le profil d’une célébrité, le compteur d’un événement en direct. Dans un cache réparti sur plusieurs nœuds ([ch. 13](repartition-charge.mdx) et 26), chaque clé n’est que sur un nœud (dans Redis Cluster, celui qui porte son emplacement[^redis-cluster]) ; ajouter des nœuds augmente la capacité totale, mais pas celle d’une clé, qui reste celle du nœud qui la porte. Redis exécute toutes les commandes d’un nœud dans un seul fil d’exécution, comme le précise sa documentation : la capacité d’une clé est celle de ce fil[^redis-latence].
+
+`chaudes.py` lance quatre nœuds Redis indépendants et lit une clé de 1 Kio avec `redis-benchmark` (50 connexions par instance, 2 millions de lectures) : une instance contre un nœud, quatre instances contre le même nœud, puis quatre instances contre quatre nœuds qui portent chacun une copie de la clé.
+
+```text
+une clé de 1 Kio lue par redis-benchmark (GET, 50 connexions par instance)
+montage                                         lectures/s
+1 banc, 1 nœud                                     106 270
+4 bancs, la clé sur un seul nœud                   137 254
+4 bancs, une copie de la clé par nœud              339 879
+```
+
+<Figure svg={chaudes} num="17.4" alt="À gauche, des lecteurs envoient toutes leurs lectures au nœud 2, en rouge, qui sature à 137 000 lectures par seconde. À droite, la clé a une copie sur chacun des quatre nœuds, k#1 à k#4, et chaque lecteur choisit une copie au hasard : 340 000 lectures par seconde.">
+Une clé chaude sur un cache réparti en quatre nœuds, et ses copies.
+</Figure>
+
+À gauche, toute la charge de la clé va au nœud qui la porte ; les autres nœuds ne servent à rien pour elle. À droite, la clé est recopiée sous quatre noms (`k#1` à `k#4`), choisis pour tomber sur quatre nœuds différents, et chaque lecteur lit une copie au hasard. Trois passages ont donné de 104 000 à 106 000 lectures par seconde pour un banc seul, 137 000 pour quatre bancs sur un nœud et de 332 000 à 343 000 avec les copies.
+
+Quatre fois plus de clients sur le même nœud ne font gagner que 30 % : le fil unique de Redis est saturé. Avec une copie par nœud, le débit de la clé est multiplié par 2,5 ; pas par 4, parce que les quatre nœuds et les quatre instances de `redis-benchmark` se partagent les 22 fils d’exécution de la machine de mesure. Les copies ont un prix à l’écriture : chaque modification doit mettre à jour, ou supprimer, toutes les copies.
+
+L’autre remède est un cache local de second niveau dans chaque serveur d’application, pour les seules clés chaudes, avec un TTL très court (une seconde, par exemple). La lecture coûte alors environ une microseconde ([ch. 16](cache-strategies.mdx)), et le cache partagé ne reçoit plus pour cette clé qu’une lecture par seconde et par serveur, quel que soit le trafic ; le prix est une valeur qui peut avoir une seconde de retard. Encore faut-il savoir quelles clés sont chaudes : `redis-cli --hotkeys` les cherche par échantillonnage, mais seulement quand la politique d’éviction est de type LFU, puisqu’il lit les compteurs de fréquence de cette politique[^redis-cli].
+
+## Redis et Memcached
+
+| | Memcached | Redis |
+|---|---|---|
+| Données | de petites valeurs arbitraires (chaînes, objets sérialisés) sous une clé[^memcached] | chaînes, listes, ensembles, ensembles triés, tables de hachage, flux, et d’autres types (JSON, structures probabilistes, ensembles de vecteurs)[^redis-types] |
+| Exécution | plusieurs fils de travail, 4 par défaut (option `-t`)[^memcached-man] | un seul fil pour exécuter les commandes, des fils annexes pour certaines entrées-sorties[^redis-latence] |
+| Plusieurs nœuds | les serveurs s’ignorent : pas de synchronisation ni de réplication ; c’est le client qui choisit le serveur d’une clé par hachage[^memcached] | réplication ([ch. 12](../partie-1/coherence-cap.mdx) et 24) ; Redis Cluster répartit les clés en 16 384 emplacements (CRC16 de la clé modulo 16 384), chaque nœud en portant une partie[^redis-cluster] |
+| Persistance | aucune | instantanés (RDB) et journal (AOF), à régler entre durabilité et latence[^redis-latence] |
+| Éviction | LRU par défaut, plus une expiration par clé[^memcached] | `noeviction` par défaut ; LRU, LFU, aléatoire, TTL au choix ([ch. 16](cache-strategies.mdx)) |
+| Conviendra à | un cache pur, de grande taille, sur des machines à plusieurs cœurs | un cache qui sert aussi de structure de données partagée : files, classements, compteurs, verrous, sessions |
+
+Le choix se fait d’abord sur ce qu’on stocke. Pour un cache de valeurs opaques, les deux conviennent, et Memcached tire parti de plusieurs cœurs par nœud. Dès qu’on a besoin de structures (un classement, une file, un compteur atomique, un verrou comme celui de l’avalanche), de réplication ou de survivre à un redémarrage, Redis s’impose.
+
+## Compromis
+
+| Problème | Remède | Ce qu’il coûte | Mesuré |
+|---|---|---|---|
+| Course lecture-écriture | double suppression | réduit la fenêtre, ne la ferme pas | 63 % → 12 % de manches avec valeur ancienne |
+| | baux (jeton à l’échec) | un aller-retour et un script ; un lecteur peut devoir réessayer | 0 % |
+| | versions comparées | une version dans chaque valeur | |
+| Avalanche de recalculs | verrou | un recalcul, mais les lecteurs attendent | 9 recalculs, 99e centile 87 ms |
+| | XFetch | recalculs en double à fort trafic | 42 recalculs, 99e centile 2,3 ms |
+| | stale-while-revalidate | valeur périmée servie le temps du recalcul | 9 recalculs, 99e centile 5,7 ms |
+| Clé chaude | copies sur plusieurs nœuds | toutes les copies à mettre à jour | 137 000 → 340 000 lectures/s |
+| | cache local de second niveau | retard égal à son TTL | |
+| Expirations simultanées | TTL avec une part aléatoire | des clés vivent un peu plus ou moins longtemps | |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la taille d’une avalanche]
+Hypothèses : la page d’accueil est lue 20 000 fois par seconde ; son recalcul prend 200 ms quand la base est tranquille ; l’application a 100 connexions à la base.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Lectures pendant un recalcul | 20 000 × 0,2 s | 4 000 |
+| Recalculs lancés en version naïve | une par lecture en échec | jusqu’à 4 000 |
+| Connexions disponibles | | 100 |
+| Lectures qui attendent une connexion | 4 000 − 100 | 3 900 |
+| Avec un verrou ou stale-while-revalidate | | 1 recalcul |
+
+Conclusion : en version naïve, la base reçoit en une fraction de seconde quarante fois plus de travail qu’elle n’a de connexions ; si chaque recalcul ralentit, le suivant est lancé avant que le premier finisse. Un seul recalcul par expiration suffit pourtant.
+:::
+
+:::calcul[Calcul : étaler les expirations]
+Hypothèses : un million de clés rangées en quelques secondes après un redémarrage du cache, toutes avec un TTL d’une heure.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Expirations sans part aléatoire | toutes dans les mêmes secondes, une heure plus tard | ≈ 1 000 000 en quelques secondes |
+| Fenêtre avec un TTL de 60 min ± 10 % | de 54 à 66 min | 12 min = 720 s |
+| Expirations par seconde, étalées | 1 000 000 / 720 | ≈ 1 400 /s |
+| Échecs simultanés à la base | même ordre | ≈ 1 400 /s au lieu d’un million |
+
+Conclusion : une part aléatoire de 10 % sur le TTL transforme un pic d’un million d’échecs en un flux régulier de 1 400 par seconde.
+:::
+
+:::calcul[Calcul : une clé chaude pendant une vente flash]
+Hypothèses : la fiche du produit en promotion est lue 300 000 fois par seconde ; un nœud Redis en sert au plus 137 000 (mesuré) ; 40 serveurs d’application.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Copies nécessaires, sans marge | 300 000 / 137 000 | 3 |
+| Copies avec une marge de 50 % | 300 000 × 1,5 / 137 000 | 4 |
+| Avec un cache local de 1 s par serveur | 40 serveurs × 1 lecture/s | 40 lectures/s à Redis |
+| Retard maximal de la fiche | | 1 s |
+
+Conclusion : quatre copies suffisent à tenir la charge, mais un cache local d’une seconde la fait presque disparaître du cache partagé. Pour un prix ou un stock qui ne doit jamais être en retard, on garde les copies ; pour une fiche descriptive, le cache local suffit.
+:::
+
+## Exemple réel
+
+**Les baux du memcache de Facebook.** L’article de 2013 décrit les baux comme la réponse à deux problèmes : les écritures périmées (stale sets), quand des mises à jour concurrentes arrivent au cache dans le désordre, et les avalanches (thundering herds), quand une clé très lue est sans cesse invalidée par des écritures[^facebook]. Un serveur memcache remet un jeton de 64 bits, lié à la clé, au client qui a subi un échec ; le client présente ce jeton pour ranger sa valeur, et le serveur la refuse si le jeton a été invalidé par une suppression entre-temps. Pour l’avalanche, chaque serveur ne remet qu’un jeton toutes les 10 secondes par clé, et les autres lecteurs reçoivent l’ordre d’attendre un peu ; le détenteur du jeton a en général rangé la valeur en quelques millisecondes. Sur une semaine, pour un ensemble de clés particulièrement exposées, le pic de requêtes à la base est passé de 17 000 par seconde sans baux à 1 300 par seconde avec. Comme les bases sont dimensionnées pour leur pic, l’article présente ce gain comme une économie de capacité importante.
+
+## Erreurs fréquentes
+
+Compter sur la suppression de la clé à l’écriture pour avoir un cache toujours juste : une course entre un lecteur lent et un écrivain laisse une valeur ancienne pour tout le TTL (mesuré : à chaque manche dans 63 % des cas quand la course est provoquée).
+
+Choisir un TTL infini « puisqu’on invalide à chaque écriture » : la moindre invalidation oubliée ou perdue laisse une valeur fausse pour toujours. Le TTL est le filet de sécurité.
+
+Laisser une clé populaire expirer sans protection, en se rassurant parce que le recalcul est rapide : il est rapide quand la base est tranquille ; pendant l’avalanche, il ne l’est plus.
+
+Poser un verrou de recalcul sans expiration : si le serveur qui le détient meurt pendant le recalcul, plus personne ne recalcule. Le verrou doit expirer (le `PX 1000` de l’exemple), et les lecteurs doivent avoir un plan de secours.
+
+Donner le même TTL à des milliers de clés remplies en même temps, ce qui programme une avalanche générale pour l’heure suivante.
+
+Ajouter des nœuds au cache pour soulager une clé chaude : la clé reste sur un nœud, et sa capacité ne change pas (mesuré : 137 000 lectures/s avec un ou quatre fois plus de clients).
+
+:::piege[Erreur fréquente : le verrou qui fait attendre tout le monde]
+« On a mis un verrou de recalcul, l’avalanche est réglée. » Le nombre de recalculs, oui : un par expiration. Mais tous les lecteurs qui arrivent pendant le recalcul attendent sa fin, et la latence de la page monte à chaque expiration (mesuré : 99e centile à 87 ms pour un recalcul de 100 ms). Si la latence compte, il faut servir l’ancienne valeur pendant le recalcul : stale-while-revalidate, ou un verrou combiné à une copie périmée gardée plus longtemps.
+:::
+
+:::entretien
+Dès qu’une clé du schéma est lue par tout le monde (page d’accueil, produit vedette, configuration), dites ce qui se passe à son expiration et à sa modification : « TTL de 60 s avec 10 % d’aléa ; recalcul en arrière-plan, l’ancienne valeur reste servie ; suppression de la clé à l’écriture, avec un bail contre les écritures périmées ». Puis traitez sa charge : « 300 000 lectures par seconde, un nœud Redis en sert environ 100 000 : cache local d’une seconde dans chaque serveur, ou plusieurs copies ».
+:::
+
+## Exercices
+
+**Question 1.** Avec XFetch ($\beta = 1$), une valeur dont le recalcul prend $\Delta = 0{,}1$ s expire dans 0,5 s. Quelle est la probabilité qu’une lecture déclenche un recalcul anticipé ? Si la clé est lue 4 000 fois par seconde, combien de recalculs anticipés attend-on pendant les 100 ms qui précèdent cet instant ? Expliquez ainsi les recalculs simultanés de la mesure.
+
+**Question 2.** Choisissez une technique d’invalidation pour chacune des données suivantes : (a) le prix d’un produit, modifié par trois services différents ; (b) l’adresse de l’image de profil d’un utilisateur ; (c) un rapport quotidien recalculé chaque nuit ; (d) le nombre d’articles restant en stock pendant une vente flash.
+
+**Question 3.** Dans la mesure de la course, pourquoi la double suppression laisse-t-elle encore une valeur ancienne dans 12 % des manches ? Que se passerait-il en reportant le second effacement à 50 ms ? Pourquoi les baux n’ont-ils pas ce problème ?
+
+**Exercice de conception.** Un site de billetterie ouvre la vente d’un concert à 10 h. Dès 9 h 59, 200 000 personnes rechargent la page de l’événement, qui affiche la description (modifiée rarement), le plan de salle et le nombre de places restantes par catégorie (modifié à chaque achat, des centaines de fois par seconde). La page est construite à partir de requêtes qui prennent 150 ms à la base. Le cache est un Redis réparti sur 6 nœuds. Concevez la mise en cache de cette page : ce qui est mis en cache et comment, les TTL, la protection contre l’avalanche, le traitement de la clé chaude, et ce que voit un acheteur quand il clique sur « acheter ».
+
+## Corrigés
+
+**Question 1.** Une lecture déclenche un recalcul si $-\Delta \ln(\text{aléa}) \geq r$, où $r$ est le temps restant, soit si $\text{aléa} \leq e^{-r/\Delta}$ : la probabilité vaut $e^{-0{,}5/0{,}1} = e^{-5} \approx 0{,}67\,\%$. En 100 ms, 400 lectures tirent leur chance ; avec une probabilité qui passe de $e^{-6}$ à $e^{-5}$ sur cet intervalle, on attend environ $400 \times 0{,}4\,\% \approx 1{,}7$ recalculs. Le premier recalcul anticipé a donc lieu bien avant l’expiration, mais tant qu’il n’a pas rangé sa valeur (100 ms), les lecteurs suivants continuent de tirer, avec une probabilité qui grandit : d’où plusieurs recalculs en parallèle, que la mesure a vus (jusqu’à 8 à 15 simultanés). Un verrou posé par le premier qui décide de recalculer supprime ces doublons.
+
+**Question 2.** (a) Invalidation par événement produite par la base (journal des modifications, ou table d’événements dans la même transaction) : trois services écrivent, et on ne veut pas confier l’invalidation au code de chacun ; plus un TTL de quelques minutes en filet. (b) Numéro de version dans l’URL de l’image (`avatar/123/v4.jpg`) : une nouvelle image est une nouvelle adresse, aucune invalidation n’est nécessaire, et l’image peut être gardée longtemps partout, CDN compris. (c) TTL aligné sur le recalcul, ou mieux une nouvelle clé par jour (`rapport:2026-10-12`) : la clé de la veille n’est plus demandée. (d) Pas de cache pour la décision d’achat, qui se prend sur la base (ch. 18 et 73) ; pour l’affichage, un TTL d’une à deux secondes ou un cache local, en acceptant que le nombre affiché ait une seconde de retard.
+
+**Question 3.** Le second effacement a lieu 10 ms après le premier, alors que le lecteur peut ranger sa valeur jusqu’à 20 ms après sa lecture et que l’écrivain démarre jusqu’à 10 ms après lui : quand le lecteur range sa valeur ancienne après le second effacement, elle reste. Reporter le second effacement à 50 ms couvrirait tous les lecteurs de cette mesure, mais pas un lecteur suspendu 100 ms par son ramasse-miettes ; plus le délai est long, plus la valeur ancienne peut être servie longtemps avant d’être effacée. Le bail ne dépend d’aucun délai : la suppression invalide le jeton, et un lecteur qui présente un jeton invalidé est refusé, quelle que soit sa lenteur.
+
+**Exercice de conception.**
+
+*Découper la page.* La description et le plan de salle changent rarement : une clé chacune, TTL de 5 minutes avec 10 % d’aléa, suppression à la modification, et le CDN peut garder la partie statique ([ch. 15](cdn-edge.mdx)). Le nombre de places restantes change sans cesse : une clé à part, qu’on ne cherche pas à garder exacte.
+
+*Avalanche.* À 200 000 lecteurs, chaque expiration de la description ou du plan déclencherait des milliers de recalculs de 150 ms : stale-while-revalidate sur ces clés, avec une durée de vie de la clé bien plus longue que sa fraîcheur, et un verrou pour qu’un seul serveur recalcule. On remplit ces clés avant 9 h 59, pour ne pas commencer par un démarrage à froid.
+
+*Clé chaude.* Les clés de l’événement sont lues des centaines de milliers de fois par seconde, sur un seul des 6 nœuds : cache local d’une seconde dans chaque serveur d’application pour la description, le plan et le nombre de places, qui ne reçoivent plus qu’une lecture par seconde et par serveur ; ou plusieurs copies par clé, réparties sur les 6 nœuds, si l’on refuse le retard d’une seconde.
+
+*Places restantes.* Le nombre affiché vient d’un compteur mis à jour à chaque achat et lu avec le cache local : il peut avoir une seconde de retard, ce qui est acceptable pour un affichage. L’achat lui-même ne lit jamais le cache : il réserve la place dans la base, en transaction (ch. 18), et peut échouer si la dernière place vient d’être prise ; l’acheteur voit alors un message clair, et c’est la base qui fait foi. Le ch. 73 traite cette billetterie en entier.
+
+:::fiche
+- Invalider : TTL (borne la durée d’une copie fausse ; ajouter 10 % d’aléa), événement (suppression à l’écriture, ou journal de la base), version dans la clé (aucune invalidation).
+- Course en cache-aside : un lecteur lent range une valeur lue avant une écriture, après la suppression. Mesuré : 63 % des manches en naïf, 12 % avec double suppression, 0 % avec des baux.
+- Baux (Facebook) : jeton remis à l’échec, invalidé par la suppression, exigé pour ranger la valeur. Un TTL reste le filet de sécurité.
+- Avalanche : à l’expiration, chaque lecteur recalcule (mesuré : 80 recalculs par expiration, 40 simultanés).
+- Verrou : 1 recalcul, mais les lecteurs attendent (99e centile 87 ms). XFetch : recalcul anticipé si maintenant $- \Delta\beta\ln(\text{aléa}) \geq$ expiration ; 99e centile 2,3 ms mais doublons à fort trafic. Stale-while-revalidate : 1 recalcul, 99e centile 5,7 ms, valeur périmée le temps du recalcul.
+- Clé chaude : limitée par son nœud (mesuré : 137 000 lectures/s même avec 4 fois plus de clients) ; copies sur plusieurs nœuds (340 000), ou cache local de 1 s.
+- Memcached : valeurs opaques, plusieurs fils, serveurs indépendants, pas de persistance. Redis : structures, un fil d’exécution, réplication, persistance.
+:::
+
+[^redis-latence]: Redis, « Diagnosing latency issues », documentation, sections « Single threaded nature of Redis » et « Latency generated by expires », [redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency](https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/).
+[^facebook]: Rajesh Nishtala et al., « Scaling Memcache at Facebook », *10th USENIX Symposium on Networked Systems Design and Implementation (NSDI 13)*, 2013, section 3.2.1 « Leases », [usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala).
+[^vattani]: Andrea Vattani, Flavio Chierichetti et Keegan Lowenstein, « Optimal Probabilistic Cache Stampede Prevention », *Proceedings of the VLDB Endowment*, vol. 8, n° 8, 2015, p. 886-897, [doi:10.14778/2757807.2757813](https://doi.org/10.14778/2757807.2757813).
+[^rfc5861]: M. Nottingham, « HTTP Cache-Control Extensions for Stale Content », RFC 5861, mai 2010, [rfc-editor.org/rfc/rfc5861](https://www.rfc-editor.org/rfc/rfc5861).
+[^redis-cli]: Redis 8.8.3, aide de `redis-cli` (`redis-cli --help`), option `--hotkeys`.
+[^redis-types]: Redis, « Redis data types », documentation, [redis.io/docs/latest/develop/data-types](https://redis.io/docs/latest/develop/data-types/).
+[^redis-cluster]: Redis, « Scale with Redis Cluster », documentation, [redis.io/docs/latest/operate/oss_and_stack/management/scaling](https://redis.io/docs/latest/operate/oss_and_stack/management/scaling/).
+[^memcached]: Memcached, page d’accueil du projet, [memcached.org](https://www.memcached.org/).
+[^memcached-man]: Memcached, page de manuel `memcached.1`, option `-t, --threads`, [github.com/memcached/memcached/blob/master/doc/memcached.1](https://github.com/memcached/memcached/blob/master/doc/memcached.1).

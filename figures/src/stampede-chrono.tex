@@ -1,0 +1,29 @@
+% Ce qui se passe à l'expiration d'une clé populaire, selon la stratégie (schéma).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  \foreach \nom/\y in {{naïve}/0, {verrou}/-20, {stale-while-revalidate}/-40} {
+    \node[axe, anchor=east] at (-3,\y) {\nom};
+  }
+  \draw[Dink, line width=1.2pt] (40,6) -- (40,-46);
+  \node[note, anchor=south] at (40,6) {la clé expire};
+  % naïve : beaucoup de recalculs en même temps
+  \foreach \i in {0,...,9} \fill[DredBg, draw=Dred, line width=0.5pt] (40+\i*0.9,{-3+\i*0.6}) rectangle (60+\i*0.9,{-2+\i*0.6});
+  \node[note, text=Dred, anchor=west, align=left] at (72,1) {chaque lecteur recalcule :\\80 recalculs par expiration (mesuré)};
+  % verrou : un recalcul, les autres attendent
+  \fill[DgreenBg, draw=Dgreen, line width=0.8pt] (40,-22) rectangle (60,-18);
+  \node[note, text=Dgreen] at (50,-20) {1 recalcul};
+  \fill[DamberBg, draw=Damber, line width=0.5pt] (40,-27) rectangle (60,-24);
+  \node[note, text=Damber, anchor=west, align=left] at (62,-25.5) {les autres lecteurs attendent :\\99e centile 87 à 89 ms (mesuré)};
+  % SWR : périmée servie, un rafraîchissement en arrière-plan
+  \fill[DslateBg, draw=Dslate, line width=0.5pt] (40,-44) rectangle (60,-41);
+  \node[note, anchor=west] at (61,-42.5) {valeur périmée servie à tous : 99e centile 5 à 6 ms (mesuré)};
+  \fill[DgreenBg, draw=Dgreen, line width=0.8pt] (40,-38.5) rectangle (60,-35);
+  \node[note, text=Dgreen] at (50,-36.7) {en fond};
+  \node[note, text=Dgreen, anchor=west] at (61,-36.7) {1 recalcul en arrière-plan};
+  \draw[ligne] (0,-50) -- (120,-50);
+  \foreach \t/\l in {40/{0 ms}, 60/{100 ms}} {\draw[ligne] (\t,-50) -- (\t,-51.5); \node[note, below] at (\t,-51.5) {\l};}
+  \node[axe, anchor=north] at (60,-56) {temps (le recalcul dure 100 ms)};
+\end{tikzpicture}
+\end{document}

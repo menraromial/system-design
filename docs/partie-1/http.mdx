@@ -182,7 +182,7 @@ Les navigateurs peuvent garder la page une heure, les caches de Wikipédia une j
 | `no-cache` | gardée, mais revalidée à chaque usage | page qui doit toujours être à jour, mais grosse |
 | `no-store` | jamais écrite dans un cache | données sensibles (relevé bancaire) |
 | `must-revalidate` | pas de copie périmée servie sans validation | contenu dont l’exactitude compte |
-| `stale-while-revalidate=N`[^rfc5861] | sert la copie périmée pendant N s en revalidant en arrière-plan | cacher la latence de la revalidation (ch. 17) |
+| `stale-while-revalidate=N`[^rfc5861] | sert la copie périmée pendant N s en revalidant en arrière-plan | cacher la latence de la revalidation ([ch. 17](../partie-2/cache-invalidation.mdx)) |
 | `immutable`[^rfc8246] | la ressource ne changera jamais à cette adresse | fichiers dont le nom contient une empreinte (`app.3f9a2c.js`) |
 
 Le schéma classique pour les ressources statiques d’un site en découle : chaque fichier reçoit un nom qui contient une empreinte de son contenu, est servi avec `max-age=31536000, immutable` (un an), et c’est la page HTML, peu cacheable, qui change de référence quand le fichier change. L’en-tête `Vary` complète le tout : il dit au cache sur quels en-têtes de la requête la réponse dépend (`Vary: Accept-Encoding`), pour qu’il ne serve pas une version compressée en Brotli à un client qui ne sait pas la lire.

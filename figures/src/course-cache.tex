@@ -1,0 +1,24 @@
+% La course qui laisse une valeur ancienne dans le cache, en cache-aside, et ce
+% qu'y change un bail.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    lab/.style={font=\sffamily\small, text=#1, fill=white, inner sep=1.5pt}, lab/.default=Dink]
+  \node[seqhead=Dblue] (l) at (0,0) {\stack{server}{Lecteur}};
+  \node[seqhead=Dpurple] (c) at (45,0) {\stack{database}{Cache}};
+  \node[seqhead=Dorange] (b) at (90,0) {\stack{database}{Base}};
+  \node[seqhead=Dteal] (e) at (135,0) {\stack{server}{Écrivain}};
+  \seqlife{-86}{l,c,b,e}
+  \draw[arr=Dblue] (0,-14) -- node[lab, above=1pt] {GET : absent} (45,-14); \node[num=Dblue] at (0,-14) {1};
+  \draw[arr=Dblue] (0,-24) -- node[lab, above=1pt, pos=0.7] {SELECT : version 1} (90,-24); \node[num=Dblue] at (0,-24) {2};
+  \draw[arr=Dteal] (135,-36) -- node[lab, above=1pt] {UPDATE : version 2} (90,-36); \node[num=Dteal] at (135,-36) {3};
+  \draw[arr=Dteal] (135,-46) -- node[lab, above=1pt, pos=0.3] {DEL} (45,-46); \node[num=Dteal] at (135,-46) {4};
+  \draw[arr=Dred] (0,-58) -- node[lab=Dred, above=1pt] {SET version 1} (45,-58); \node[num=Dred] at (0,-58) {5};
+  \fill[DredBg] (43.6,-58) rectangle (46.4,-82); \draw[Dred, line width=0.7pt] (43.6,-58) rectangle (46.4,-82);
+  \node[note, text=Dred, anchor=west, align=left, font=\sffamily\small] at (49,-70) {le cache sert la version 1\\jusqu'à l'expiration de la clé};
+  \node[note, anchor=east, align=right, font=\sffamily\small] at (-4,-41) {pause du lecteur\\entre 2 et 5};
+  \draw[accolm] (-2,-26) -- (-2,-56);
+  \node[seqnote, anchor=north, align=left, font=\sffamily\footnotesize] at (90,-90) {avec un bail : en 1, le cache remet un jeton au lecteur ; en 4, la suppression\\l'invalide ; en 5, le SET présente un jeton périmé et le cache le refuse};
+\end{tikzpicture}
+\end{document}

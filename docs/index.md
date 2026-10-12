@@ -11,7 +11,7 @@ Ce cours s’adresse à des personnes qui savent programmer, ont peut-être déj
 
 La partie 0 donne la méthode et l’outil de calcul dont tout le reste se sert. La partie 1 pose les fondamentaux (réseau, protocoles, latence, disponibilité, cohérence), la partie 2 les briques que l’on assemble (répartiteurs, caches, bases de données, files de messages), la partie 3 ce qui rend les systèmes distribués difficiles (pannes partielles, horloges, consensus). Les parties 4 et 5 traitent des styles d’architecture et de l’exploitation en production. La partie 6 applique tout cela à vingt-six systèmes conçus de bout en bout, et la partie 7, facultative, prépare aux entretiens de conception objet.
 
-Les chapitres sont numérotés de 1 à 89 sans repartir à zéro à chaque partie : un renvoi comme « ch. 17 » désigne toujours le même chapitre. Une notion n’est jamais utilisée avant d’avoir été expliquée ; quand un chapitre a besoin d’une idée traitée plus loin, il le dit et renvoie vers elle.
+Les chapitres sont numérotés de 1 à 89 sans repartir à zéro à chaque partie : un renvoi comme « [ch. 17](partie-2/cache-invalidation.mdx) » désigne toujours le même chapitre. Une notion n’est jamais utilisée avant d’avoir été expliquée ; quand un chapitre a besoin d’une idée traitée plus loin, il le dit et renvoie vers elle.
 
 ## Ce que vous trouverez dans un chapitre
 

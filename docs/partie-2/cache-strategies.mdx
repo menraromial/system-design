@@ -13,7 +13,7 @@ import latence from '@site/src/figures/cache-latence.svg';
 
 La requête qui calcule les dix produits les mieux notés d’une catégorie, sur un catalogue de 100 000 produits et 2 millions d’avis, prend 127 ms à PostgreSQL. Lire son résultat dans Redis prend 61 µs, deux mille fois moins. Lire un produit par sa clé primaire dans PostgreSQL prend 70 µs : presque autant que Redis. Ces trois mesures, faites pour ce chapitre sur la même machine, résument ce qu’un cache apporte et ce qu’il n’apporte pas : il évite de refaire un travail coûteux, mais il ne rend pas plus rapide un accès qui était déjà rapide.
 
-Un cache (cache) est une copie d’une partie des données, placée là où elle coûte moins cher à lire que l’original. Une lecture qui y trouve sa donnée est un succès (hit), une lecture qui doit aller à la source est un échec (miss), et la part des succès est le taux de succès (hit rate). Ce chapitre traite des choix de conception : où placer le cache, comment l’organiser avec la base pour les lectures et les écritures, quoi garder quand il est plein, et comment calculer ce qu’il fait gagner. Le ch. 17 traitera de ce qui va mal : l’invalidation, les courses entre cache et base, les avalanches de recalculs et les clés trop populaires.
+Un cache (cache) est une copie d’une partie des données, placée là où elle coûte moins cher à lire que l’original. Une lecture qui y trouve sa donnée est un succès (hit), une lecture qui doit aller à la source est un échec (miss), et la part des succès est le taux de succès (hit rate). Ce chapitre traite des choix de conception : où placer le cache, comment l’organiser avec la base pour les lectures et les écritures, quoi garder quand il est plein, et comment calculer ce qu’il fait gagner. Le [ch. 17](cache-invalidation.mdx) traitera de ce qui va mal : l’invalidation, les courses entre cache et base, les avalanches de recalculs et les clés trop populaires.
 
 Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch16/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch16), qui lancent PostgreSQL 18 et Redis 8.8 en conteneurs sur la machine du cours : le coût d’une lecture à chaque niveau ([`niveaux.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch16/niveaux.py)), trois stratégies d’écriture et ce qu’elles perdent quand le processus meurt ([`ecriture.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch16/ecriture.py)), et trois politiques d’éviction de Redis sur trois profils d’accès ([`eviction.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch16/eviction.py)).
 
@@ -104,7 +104,7 @@ Le write-back n’est donc acceptable que pour des données qu’on peut perdre 
 
 Un cache est plus petit que les données qu’il copie ; quand il est plein, il doit en écarter une pour en accueillir une autre. La politique d’éviction (eviction policy) choisit laquelle.
 
-LRU (least recently used) écarte la donnée dont le dernier accès est le plus ancien. Elle parie que ce qui a servi récemment resservira bientôt. LFU (least frequently used) écarte la donnée la moins souvent demandée : elle parie sur la popularité accumulée. FIFO (first in, first out) écarte la plus anciennement entrée, quel que soit son usage. Le choix aléatoire écarte n’importe laquelle. Le TTL, enfin, n’est pas une politique d’éviction mais une durée de validité : une donnée expirée disparaît même si le cache n’est pas plein, parce qu’on ne veut plus la servir (ch. 17).
+LRU (least recently used) écarte la donnée dont le dernier accès est le plus ancien. Elle parie que ce qui a servi récemment resservira bientôt. LFU (least frequently used) écarte la donnée la moins souvent demandée : elle parie sur la popularité accumulée. FIFO (first in, first out) écarte la plus anciennement entrée, quel que soit son usage. Le choix aléatoire écarte n’importe laquelle. Le TTL, enfin, n’est pas une politique d’éviction mais une durée de validité : une donnée expirée disparaît même si le cache n’est pas plein, parce qu’on ne veut plus la servir ([ch. 17](cache-invalidation.mdx)).
 
 Redis propose ces politiques sous les noms `allkeys-lru`, `allkeys-lfu` et `allkeys-random`, et leurs variantes `volatile-*` qui ne considèrent que les clés munies d’une expiration ; par défaut, la politique est `noeviction`, qui refuse les écritures quand la mémoire est pleine[^redis-eviction]. Redis n’implémente pas ces politiques exactement : pour LRU, il tire un petit échantillon de clés (5 par défaut, réglable par `maxmemory-samples`) et écarte la plus anciennement utilisée, en gardant un réservoir de bons candidats ; pour LFU, il estime la fréquence d’accès de chaque clé par un compteur probabiliste de Morris de quelques bits, qu’il fait décroître avec le temps (d’un cran par minute par défaut) pour que les clés qui ne sont plus demandées finissent par perdre leur rang[^redis-eviction]. Sa documentation conseille `allkeys-lru` par défaut, quand une partie des clés est beaucoup plus demandée que le reste[^redis-eviction].
 
@@ -157,7 +157,7 @@ Pour le top 10, le seuil vaut $61 / 126\,584 \approx 0{,}05\,\%$ : le moindre s
 
 | Stratégie | Lecture | Écriture | Cohérence avec la base | Si le cache tombe | Quand la choisir |
 |---|---|---|---|---|---|
-| Cache-aside + suppression (write-around) | échec : cache, base, puis remplissage | base, puis suppression de la clé | courte fenêtre de valeur ancienne possible (ch. 17) | tout va à la base, plus lentement | la plupart des cas |
+| Cache-aside + suppression (write-around) | échec : cache, base, puis remplissage | base, puis suppression de la clé | courte fenêtre de valeur ancienne possible ([ch. 17](cache-invalidation.mdx)) | tout va à la base, plus lentement | la plupart des cas |
 | Read-through | le cache charge lui-même | selon l’écriture choisie | idem | dépend du produit | bibliothèque ou produit qui sait lire la base |
 | Write-through | toujours à jour après une écriture | base, puis cache : deux écritures synchrones | bonne pour les données écrites | rien n’est perdu | données relues juste après leur écriture |
 | Write-back | à jour dans le cache | cache seulement, base plus tard par lots | la base est en retard | écritures confirmées perdues (mesuré : 2 819 sur 8 006) | compteurs, statistiques, données qu’on peut perdre |
@@ -212,7 +212,7 @@ Conclusion : le write-back divise par mille le nombre de transactions et par qu
 
 ## Exemple réel
 
-**Le memcache de Facebook.** L’article publié à NSDI en 2013 décrit un système de cache qui traite des milliards de requêtes par seconde et garde des milliers de milliards d’objets[^facebook]. Facebook l’utilise en cache-aside : un serveur web demande une valeur à memcache par sa clé, et, si elle manque, la lit dans la base ou dans un autre service puis la range dans le cache. Pour une écriture, le serveur envoie la requête SQL à la base, puis une demande de suppression à memcache, et non une mise à jour, parce qu’une suppression est idempotente. memcache n’est pas la source de vérité, et peut donc écarter des données quand il le veut. L’article décrit aussi les baux (leases), des jetons que memcache donne au client qui a eu un échec et qu’il exige pour accepter la valeur qu’il apporte : ils empêchent un client lent d’écrire dans le cache une valeur devenue ancienne, et limitent les avalanches de recalculs (ch. 17).
+**Le memcache de Facebook.** L’article publié à NSDI en 2013 décrit un système de cache qui traite des milliards de requêtes par seconde et garde des milliers de milliards d’objets[^facebook]. Facebook l’utilise en cache-aside : un serveur web demande une valeur à memcache par sa clé, et, si elle manque, la lit dans la base ou dans un autre service puis la range dans le cache. Pour une écriture, le serveur envoie la requête SQL à la base, puis une demande de suppression à memcache, et non une mise à jour, parce qu’une suppression est idempotente. memcache n’est pas la source de vérité, et peut donc écarter des données quand il le veut. L’article décrit aussi les baux (leases), des jetons que memcache donne au client qui a eu un échec et qu’il exige pour accepter la valeur qu’il apporte : ils empêchent un client lent d’écrire dans le cache une valeur devenue ancienne, et limitent les avalanches de recalculs ([ch. 17](cache-invalidation.mdx)).
 
 ## Erreurs fréquentes
 
@@ -220,7 +220,7 @@ Mettre en cache ce qui est déjà rapide. Une lecture par clé primaire dans une
 
 Juger un cache au taux de succès moyen, alors que la latence est faite par les échecs : passer de 90 % à 99 % divise la latence moyenne par près de dix quand la donnée est coûteuse.
 
-Écrire dans le cache plutôt que supprimer la clé, en cache-aside. Deux écritures concurrentes peuvent arriver au cache dans l’ordre inverse de la base, et y laisser la mauvaise valeur pour toute la durée du TTL ; supprimer est idempotent, et la lecture suivante rechargera la bonne valeur (ch. 17).
+Écrire dans le cache plutôt que supprimer la clé, en cache-aside. Deux écritures concurrentes peuvent arriver au cache dans l’ordre inverse de la base, et y laisser la mauvaise valeur pour toute la durée du TTL ; supprimer est idempotent, et la lecture suivante rechargera la bonne valeur ([ch. 17](cache-invalidation.mdx)).
 
 Choisir le write-back pour des données qu’on ne peut pas perdre, ou sans savoir combien de temps les écritures restent dans le seul cache.
 
@@ -229,7 +229,7 @@ Garder la politique par défaut sans regarder les accès : `noeviction` dans Re
 Enfin, oublier que la base doit tenir sans le cache. Après un redémarrage du cache, ou une erreur qui le vide, toutes les lectures vont à la base en même temps ; si elle n’est dimensionnée que pour les 5 % d’échecs habituels, elle tombe.
 
 :::piege[Erreur fréquente : le cache local sur vingt serveurs]
-« On met un cache en mémoire dans chaque serveur, c’est le plus rapide. » Avec vingt serveurs derrière un répartiteur ([ch. 13](repartition-charge.mdx)), chaque donnée est chargée vingt fois, occupe vingt fois la mémoire, et une modification n’est visible sur chaque serveur qu’à l’expiration de sa copie : un utilisateur qui recharge la page peut voir tour à tour l’ancienne et la nouvelle valeur selon le serveur qui lui répond ([ch. 12](../partie-1/coherence-cap.mdx)). Un cache local convient aux données qui changent rarement ou qu’on accepte de voir en retard, souvent en second niveau devant un cache partagé (ch. 17).
+« On met un cache en mémoire dans chaque serveur, c’est le plus rapide. » Avec vingt serveurs derrière un répartiteur ([ch. 13](repartition-charge.mdx)), chaque donnée est chargée vingt fois, occupe vingt fois la mémoire, et une modification n’est visible sur chaque serveur qu’à l’expiration de sa copie : un utilisateur qui recharge la page peut voir tour à tour l’ancienne et la nouvelle valeur selon le serveur qui lui répond ([ch. 12](../partie-1/coherence-cap.mdx)). Un cache local convient aux données qui changent rarement ou qu’on accepte de voir en retard, souvent en second niveau devant un cache partagé ([ch. 17](cache-invalidation.mdx)).
 :::
 
 :::entretien
@@ -264,7 +264,7 @@ Quand vous ajoutez un cache, dites ce qu’il cache et pourquoi : « le résul
 
 *Écritures.* Elles vont à la base, puis suppriment la clé de la fiche ; les recherches en cache se corrigent à l’expiration de leur TTL d’une minute.
 
-*Démarrage à froid.* Un cache vide envoie les 27 000 lectures de fiches à la base, qui en tient 3 000 : il faut le préchauffer avant de lui envoyer du trafic, en chargeant les fiches les plus demandées (la liste vient des journaux de la veille), et ne pas redémarrer tous les nœuds du cache à la fois. Le ch. 17 traite de l’avalanche qui suit l’expiration simultanée de nombreuses clés.
+*Démarrage à froid.* Un cache vide envoie les 27 000 lectures de fiches à la base, qui en tient 3 000 : il faut le préchauffer avant de lui envoyer du trafic, en chargeant les fiches les plus demandées (la liste vient des journaux de la veille), et ne pas redémarrer tous les nœuds du cache à la fois. Le [ch. 17](cache-invalidation.mdx) traite de l’avalanche qui suit l’expiration simultanée de nombreuses clés.
 
 :::fiche
 - Cache : copie d’une partie des données là où elle coûte moins cher à lire ; succès, échec, taux de succès.

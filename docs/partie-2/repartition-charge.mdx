@@ -115,7 +115,7 @@ Caddy uri_hash (rendez-vous) : 21.4 % des URI changent de serveur,
 modulo (SHA-1 mod n)         : 81.0 % des URI changent de serveur
 ```
 
-Les deux résultats sont proches de la théorie : 20 % et 80 %. Le hachage a un prix qu’aucune de ces méthodes n’efface : il ignore la charge. Une clé très demandée, une vidéo virale ou un compte suivi par des millions de personnes, envoie toute sa charge au même serveur ; c’est le problème des clés chaudes, traité au ch. 17.
+Les deux résultats sont proches de la théorie : 20 % et 80 %. Le hachage a un prix qu’aucune de ces méthodes n’efface : il ignore la charge. Une clé très demandée, une vidéo virale ou un compte suivi par des millions de personnes, envoie toute sa charge au même serveur ; c’est le problème des clés chaudes, traité au [ch. 17](cache-invalidation.mdx).
 
 ## Contrôles de santé
 
@@ -291,7 +291,7 @@ Dessinez le répartiteur comme deux boîtes (ou une boîte gérée par le cloud,
 
 *gRPC interne.* Répartition par requête, par un proxy L7 ou par le client gRPC lui-même, pour la raison de la question 3.
 
-*Cache des fiches produits.* Hachage cohérent sur l’identifiant du produit, pour qu’un ajout ou une panne de serveur ne vide pas le cache (troisième calcul) ; surveiller les produits très demandés (ch. 17).
+*Cache des fiches produits.* Hachage cohérent sur l’identifiant du produit, pour qu’un ajout ou une panne de serveur ne vide pas le cache (troisième calcul) ; surveiller les produits très demandés ([ch. 17](cache-invalidation.mdx)).
 
 *Drainage et mises en production.* Les requêtes API durent au plus 400 ms : un délai de drainage de 30 s suffit largement, au lieu des 300 s par défaut d’AWS. Avec 8 serveurs par zone, on met à jour un serveur par zone à la fois : retrait du groupe, 30 s de drainage, démarrage et premier contrôle réussi en 30 s environ, soit une minute par lot et 8 minutes pour l’ensemble, en gardant 7 serveurs sur 8 dans chaque zone. À 6 000 requêtes par seconde réparties sur 21 serveurs pendant la mise à jour, chacun en reçoit environ 290 par seconde, ce qui fixe la capacité minimale à prévoir par serveur.
 
