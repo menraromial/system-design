@@ -1,28 +1,33 @@
 % Le problème du chapitre : l'écriture va au primaire, la lecture suivante à
-% une réplique que le flux de réplication n'a pas encore atteinte.
+% une réplique que la modification n'a pas encore atteinte.
 \documentclass[border=6pt]{standalone}
 \usepackage{sd}
 \begin{document}
 \begin{tikzpicture}[x=1mm, y=1mm,
-    msg/.style={arr=#1, line width=1pt},
-    lab/.style={font=\sffamily\footnotesize, text=Dink, fill=white, inner sep=1.5pt, align=center}]
-  \def\U{0}\def\P{70}\def\R{125}
-  \node[seqhead=Dblue] (u) at (\U,0) {\stack{laptop}{Navigateur}};
-  \node[seqhead=Dpurple] (p) at (\P,0) {\stack{database}{Primaire}};
-  \node[seqhead=Dteal] (r) at (\R,0) {\stack{database}{Réplique}};
-  \foreach \x in {\U,\P,\R} \draw[seqlife] (\x,-12) -- (\x,-92);
-  % écriture
-  \draw[msg=Dblue] (\U,-16) -- node[lab, sloped, above] {modifier le profil : nom = « Léa Martin »} (\P,-20);
-  \draw[msg=Dpurple, dash pattern=on 4pt off 2pt] (\P,-23) -- node[lab, sloped, below] {OK} (\U,-27);
-  % flux de réplication, lent
-  \draw[msg=Dpurple, line width=1.4pt] (\P,-23) -- node[lab, sloped, above, pos=0.78] {flux de réplication} (\R,-66);
-  % lecture trop tôt
-  \draw[msg=Dblue] (\U,-34) -- node[lab, sloped, above, pos=0.25] {afficher le profil} (\R,-38);
-  \draw[msg=Dred, dash pattern=on 4pt off 2pt] (\R,-41) -- node[lab, sloped, below, pos=0.72, text=Dred] {nom = « Léa » : l'ancienne version} (\U,-45);
-  % lecture après la réplication
-  \draw[msg=Dblue] (\U,-74) -- node[lab, sloped, above, pos=0.25] {afficher le profil} (\R,-78);
-  \draw[msg=Dgreen, dash pattern=on 4pt off 2pt] (\R,-81) -- node[lab, sloped, below, pos=0.72, text=Dgreen] {nom = « Léa Martin »} (\U,-85);
-  % retard de réplication
-  \draw[accolm] (\R+6,-23) -- node[right=6pt, note, align=left] {retard de\\réplication} (\R+6,-66);
+    lab/.style={font=\sffamily\small, text=#1, fill=white, inner sep=1.5pt},
+    lab/.default=Dink]
+  \node[seqhead=Dblue] (u) at (0,0) {\stack{laptop}{Navigateur}};
+  \node[seqhead=Dpurple] (p) at (64,0) {\stack{database}{Primaire}};
+  \node[seqhead=Dteal] (r) at (128,0) {\stack{database}{Réplique}};
+  \seqlife{-92}{u,p,r}
+  % retard de réplication, sur la ligne de vie de la réplique
+  \fill[DamberBg] (126.6,-26) rectangle (129.4,-62);
+  \draw[Damber, line width=0.7pt] (126.6,-26) rectangle (129.4,-62);
+  \draw[accol, Damber] (131,-26) -- node[right=6pt, note, align=left, text=Damber, font=\sffamily\footnotesize] {retard de\\réplication :\\la réplique a\\encore l'ancien nom} (131,-62);
+  % 1. écriture
+  \draw[arr=Dblue] (0,-16) -- node[lab, above=1pt] {modifier : nom = « Léa Martin »} (64,-16);
+  \node[num=Dblue] at (0,-16) {1};
+  \draw[darr=Dpurple, line width=0.9pt] (64,-26) -- node[lab=Dslate, above=1pt] {OK, enregistré} (0,-26);
+  % 2. lecture trop tôt
+  \draw[arr=Dblue] (0,-38) -- node[lab, above=1pt, pos=0.25] {afficher le profil} (126.6,-38);
+  \node[num=Dblue] at (0,-38) {2};
+  \draw[darr=Dred, line width=0.9pt] (126.6,-48) -- node[lab=Dred, above=1pt, pos=0.75] {nom = « Léa » : l'ancienne version} (0,-48);
+  % 3. la modification atteint la réplique
+  \draw[arr=Dpurple] (64,-62) -- node[lab, above=1pt] {modification répliquée} (126.6,-62);
+  \node[num=Dpurple] at (64,-62) {3};
+  % 4. lecture après la réplication
+  \draw[arr=Dblue] (0,-74) -- node[lab, above=1pt, pos=0.25] {afficher le profil} (128,-74);
+  \node[num=Dblue] at (0,-74) {4};
+  \draw[darr=Dgreen, line width=0.9pt] (128,-84) -- node[lab=Dgreen, above=1pt, pos=0.75] {nom = « Léa Martin »} (0,-84);
 \end{tikzpicture}
 \end{document}
