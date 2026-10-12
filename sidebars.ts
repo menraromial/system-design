@@ -19,6 +19,13 @@ const sidebars: SidebarsConfig = {
       link: {type: 'doc', id: 'partie-1/index'},
       items: ['partie-1/client-serveur-dns', 'partie-1/transport', 'partie-1/http', 'partie-1/tls', 'partie-1/styles-api', 'partie-1/pousser-donnees', 'partie-1/latence-debit', 'partie-1/passer-echelle', 'partie-1/disponibilite', 'partie-1/coherence-cap'],
     },
+    {
+      type: 'category',
+      label: 'Partie 2 · Briques de base',
+      collapsed: false,
+      link: {type: 'doc', id: 'partie-2/index'},
+      items: ['partie-2/repartition-charge'],
+    },
   ],
 };
 

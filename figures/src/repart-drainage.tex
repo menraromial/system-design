@@ -1,0 +1,43 @@
+% Trois façons d'arrêter un serveur derrière un répartiteur qui contrôle sa santé
+% toutes les 500 ms (schéma ; mesures de ch13/drainage.py dans le texte).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=80mm, y=1mm,
+    zone/.style={draw=none, fill=#1, minimum height=6mm, inner sep=0pt}]
+  \foreach \nom/\y in {{SIGKILL}/0, {SIGTERM, arrêt immédiat}/-16, {SIGTERM, drainage}/-32} {
+    \node[axe, anchor=east] at (-0.03,\y) {\nom};
+    \draw[ligne=Dcloud] (0,\y) -- (1.65,\y);
+  }
+  % contrôles de santé
+  \foreach \t in {0.35, 0.85, 1.35} {
+    \draw[ligne=Dpurple, dash pattern=on 1.5pt off 1.5pt] (\t,6) -- (\t,-37);
+  }
+  \node[note, text=Dpurple, anchor=south] at (0.35,6) {contrôle de santé};
+  \node[note, text=Dpurple, anchor=south] at (0.85,6) {toutes les 500 ms};
+  % SIGKILL
+  \fill[DredBg] (0,-3) rectangle (0.35,3);
+  \draw[Dred, line width=0.8pt] (0,-3) rectangle (0.35,3);
+  \node[note, text=Dred, anchor=west, align=left] at (0.37,0) {requêtes en cours perdues, puis les nouvelles\\échouent jusqu'au contrôle suivant};
+  % arrêt immédiat
+  \fill[DgreenBg] (0,-19) rectangle (0.1,-13);
+  \draw[Dgreen, line width=0.8pt] (0,-19) rectangle (0.1,-13);
+  \fill[DredBg] (0.1,-19) rectangle (0.35,-13);
+  \draw[Dred, line width=0.8pt] (0.1,-19) rectangle (0.35,-13);
+  \node[note, text=Dred, anchor=west, align=left] at (0.37,-16) {en cours terminées (vert), puis les nouvelles\\sont refusées jusqu'au contrôle suivant};
+  % drainage
+  \fill[DgreenBg] (0,-35) rectangle (0.42,-29);
+  \draw[Dgreen, line width=0.8pt] (0,-35) rectangle (0.42,-29);
+  \fill[DslateBg] (0.42,-35) rectangle (1.42,-29);
+  \draw[Dslate, line width=0.8pt] (0.42,-35) rectangle (1.42,-29);
+  \node[note, anchor=center] at (0.92,-32) {1 s sans nouvelle requête, puis arrêt};
+  \node[note, text=Dgreen, anchor=north, align=center] at (0.21,-36) {/sante répond 503 ;\\tout est servi};
+  \draw[Dink, line width=1.2pt] (1.42,-36) -- (1.42,-28);
+  \node[note, anchor=north] at (1.42,-37) {fin à 1,42 s};
+  % axe
+  \draw[ligne] (0,-45) -- (1.65,-45);
+  \foreach \t/\l in {0/0, 0.5/{0,5}, 1/1, 1.5/{1,5}} {\draw[ligne] (\t,-45) -- (\t,-46.5); \node[note, below] at (\t,-46.5) {\l\ s};}
+  \node[axe, anchor=north] at (0.82,-51) {temps après le signal d'arrêt};
+  \draw[Dink, line width=1.2pt] (0,-38) -- (0,6);
+\end{tikzpicture}
+\end{document}

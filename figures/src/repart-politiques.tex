@@ -1,0 +1,24 @@
+% Mesures de outils/experiences/ch13/repartition.py (premier passage) : débit et
+% 99e centile selon la politique de Caddy, trois serveurs à 400 req/s et un à 100.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=0.075mm, y=9mm]
+  \node[titrec, anchor=west] at (0,0.9) {débit obtenu (req/s) ; capacité totale du parc : 1 300 req/s};
+  \foreach \i/\nom/\d/\p/\lent/\c in {
+      0/{tourniquet}/404/{644 ms}/{24 \%}/Prose,
+      1/{aléatoire}/395/{664 ms}/{24 \%}/Prose,
+      2/{deux choix (Caddy 2.10.2)}/655/{618 ms}/{15 \%}/Porange,
+      3/{tourniquet pondéré 4-4-4-1}/1158/{330 ms}/{8 \%}/Pvert,
+      4/{moins de connexions}/1115/{168 ms}/{9 \%}/Pvert} {
+    \node[leg, anchor=east, font=\sffamily\small] at (-40,-\i) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.27) rectangle (\d,-\i+0.27);
+    \node[note, anchor=west] at (\d+20,-\i) {\d};
+    \node[note, anchor=west] at (1380,-\i) {99e centile \p, serveur lent : \lent};
+  }
+  \draw[ligne] (0,0.45) -- (0,-4.45);
+  \draw[ligne=Dcloud, dash pattern=on 3pt off 2pt] (1300,0.45) -- (1300,-4.45);
+  \node[note, anchor=south] at (1300,0.45) {capacité};
+  \foreach \v in {0,400,800,1200} {\draw[ligne] (\v,-4.45) -- (\v,-4.6); \node[note, below] at (\v,-4.6) {\v};}
+\end{tikzpicture}
+\end{document}

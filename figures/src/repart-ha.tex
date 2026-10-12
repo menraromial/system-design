@@ -1,0 +1,33 @@
+% Deux façons de ne pas faire du répartiteur un point unique de défaillance.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    lb/.style={soft=#1, minimum width=24mm, minimum height=11mm, font=\sffamily\small},
+    srv/.style={soft=Dblue, minimum width=13mm, minimum height=8mm, font=\sffamily\small, inner sep=2pt}]
+  % ---- VRRP ----
+  \node[pillo=Dpurple] at (35,32) {Paire actif-secours et IP virtuelle (VRRP)};
+  \node[tile] (cl) at (35,18) {\dicon[\Large][Dslate]{users}\\[1pt]{\small clients}};
+  \node[lb=Dpurple] (l1) at (15,-4) {\stack{random}{actif}};
+  \node[lb=Dslate] (l2) at (55,-4) {\stack{random}{secours}};
+  \node[bloc=Pjaune, font=\sffamily\scriptsize, minimum width=0pt, minimum height=0pt] (vip) at (15,7) {IP virtuelle 203.0.113.10};
+  \draw[arr=Dpurple] (cl) -- (vip);
+  \draw[darr=Dslate] (l1.east) -- node[lbl, above] {annonces VRRP} (l2.west);
+  \foreach \s/\x in {A/15, B/35, C/55} \node[srv] (v\s) at (\x,-26) {\s};
+  \foreach \s in {A,B,C} {\draw[arr=Dblue] (l1.south) -- (v\s.north); \draw[ligne=Dcloud, dash pattern=on 2pt off 1.5pt] (l2.south) -- (v\s.north);}
+  \node[note, anchor=north, align=center] at (35,-33) {si les annonces cessent, le secours prend l'IP\\et le signale au réseau par un ARP gratuit};
+  % ---- anycast / ECMP ----
+  \node[pillo=Dteal] at (130,32) {Plusieurs répartiteurs actifs (BGP et ECMP)};
+  \node[tile] (cl2) at (130,18) {\dicon[\Large][Dslate]{users}\\[1pt]{\small clients}};
+  \node[soft=Dslate, minimum width=34mm, minimum height=8mm, font=\sffamily\small] (r) at (130,6) {routeur : ECMP};
+  \draw[arr=Dteal] (cl2) -- (r);
+  \foreach \i/\x in {1/104, 2/130, 3/156} {
+    \node[lb=Dteal, minimum width=20mm] (m\i) at (\x,-8) {\stack{random}{répartiteur \i}};
+    \draw[arr=Dteal] (r.south) -- (m\i.north);
+  }
+  \node[note, anchor=south] at (104,-1.5) {} ;
+  \foreach \s/\x in {A/110, B/130, C/150} \node[srv] (w\s) at (\x,-26) {\s};
+  \foreach \i in {1,2,3} \foreach \s in {A,B,C} \draw[ligne=Dteal, line width=0.5pt] (m\i.south) -- (w\s.north);
+  \node[note, anchor=north, align=center] at (130,-33) {chacun annonce la même IP par BGP ; une panne\\retire l'annonce et le routeur répartit sur les autres};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,32 @@
+% Douze clés réparties sur 4 puis 5 serveurs, par modulo et par hachage de
+% rendez-vous (SHA-1, calcul fait pour la figure ; mesures sur 1 000 URI dans le texte).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    cle/.style={draw=Dink, line width=0.5pt, fill=#1, minimum width=7.6mm, minimum height=7mm, inner sep=0pt, font=\sffamily\small},
+    bouge/.style={draw=Dred, line width=1.6pt}]
+  \def\coul#1{\ifcase#1 Pbleu\or Pvert\or Porange\or Plavande\or Pjaune\fi}
+  \foreach \i in {0,...,11} \node[note] at (\i*9,8) {k\i};
+  % lignes : nom, y, affectations
+  \foreach \nom/\y/\liste in {
+      {modulo, 4 serveurs}/0/{2,1,2,1,0,1,0,1,3,3,0,2},
+      {modulo, 5 serveurs}/-10/{3,4,4,0,2,4,2,3,1,0,0,0},
+      {rendez-vous, 4 serveurs}/-26/{0,0,0,2,2,0,1,3,2,2,2,1},
+      {rendez-vous, 5 serveurs}/-36/{0,0,0,2,2,0,1,3,4,2,2,4}} {
+    \node[axe, anchor=east] at (-7,\y) {\nom};
+    \foreach \s [count=\i from 0] in \liste
+      \node[cle=\coul{\s}] at (\i*9,\y) {S\s};
+  }
+  % clés déplacées
+  \foreach \i in {0,1,2,3,4,5,6,7,8,9,11} \draw[bouge] (\i*9-3.8,-13.5) rectangle (\i*9+3.8,-6.5);
+  \foreach \i in {8,11} \draw[bouge] (\i*9-3.8,-39.5) rectangle (\i*9+3.8,-32.5);
+  \node[et=Dred, anchor=west] at (-3.8,-17.5) {11 clés sur 12 changent de serveur};
+  \node[et=Dred, anchor=west] at (-3.8,-43.5) {2 clés sur 12 changent de serveur, toutes vers S4};
+  % légende
+  \foreach \s in {0,...,4} {
+    \node[cle=\coul{\s}, minimum width=6mm, minimum height=5mm, font=\sffamily\scriptsize] at (\s*9,-54) {S\s};
+  }
+  \node[note, anchor=west] at (42,-54) {S4 : serveur ajouté ; encadré rouge : clé déplacée};
+\end{tikzpicture}
+\end{document}

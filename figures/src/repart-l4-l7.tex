@@ -1,0 +1,37 @@
+% Ce que voit et ce que répartit un répartiteur L4 et un répartiteur L7, pour un
+% client qui garde une seule connexion ouverte (mesures de ch13/repartition.py).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    srv/.style={soft=Dblue, minimum width=14mm, minimum height=8mm, font=\sffamily\small, inner sep=2pt},
+    rq/.style={draw=Dink, line width=0.5pt, fill=Pjaune, minimum size=4.2mm, inner sep=0pt, font=\sffamily\scriptsize}]
+  % ---- L4 ----
+  \node[pillo=Dorange] at (35,30) {L4 : chaque connexion va à un serveur};
+  \node[tile] (c1) at (0,0) {\dicon[\Large][Dslate]{laptop}\\[1pt]{\small client}};
+  \node[soft=Dorange, minimum width=22mm, minimum height=10mm, font=\sffamily\small] (lb1) at (33,0) {répartiteur L4};
+  \foreach \s/\y in {A/18, B/6, C/-6, D/-18} \node[srv] (a\s) at (68,\y) {\s};
+  \draw[ligne=Dink, line width=2.2pt] (c1.east) -- (lb1.west);
+  \foreach \i/\x in {1/9, 2/14, 3/19} \node[rq] at (\x,3.8) {\i};
+  \node[note] at (14,9.5) {une seule connexion TCP};
+  \draw[arr=Dorange, line width=1.8pt] (lb1.east) -- (aA.west);
+  \foreach \i/\t in {1/0.22, 2/0.46, 3/0.7} \node[rq] at ($(lb1.east)!\t!(aA.west)+(0,3.4)$) {\i};
+  \node[note, anchor=north] at (35,-8) {voit : adresses IP et ports};
+  \node[note, anchor=north, text=Dorange] at (35,-27) {mesuré : 400, 0, 0 et 0 requêtes};
+  % ---- L7 ----
+  \node[pillo=Dteal] at (118,30) {L7 : chaque requête est placée à part};
+  \node[tile] (c2) at (88,0) {\dicon[\Large][Dslate]{laptop}\\[1pt]{\small client}};
+  \node[soft=Dteal, minimum width=22mm, minimum height=10mm, font=\sffamily\small] (lb2) at (120,0) {répartiteur L7};
+  \foreach \s/\y in {A/18, B/6, C/-6, D/-18} \node[srv] (b\s) at (150,\y) {\s};
+  \draw[ligne=Dink, line width=2.2pt] (c2.east) -- (lb2.west);
+  \foreach \i/\x in {1/97, 2/102, 3/107} \node[rq] at (\x,3.8) {\i};
+  \node[note] at (102,9.5) {une seule connexion TCP};
+  \foreach \s/\i in {A/1, B/2, C/3} {
+    \draw[arr=Dteal] (lb2.east) -- (b\s.west);
+    \node[rq] at ($(lb2.east)!0.55!(b\s.west)$) {\i};
+  }
+  \draw[arr=Dteal, dash pattern=on 2pt off 1.5pt] (lb2.east) -- (bD.west);
+  \node[note, anchor=north] at (112,-8) {voit : méthode, chemin, en-têtes, cookies};
+  \node[note, anchor=north, text=Dteal] at (118,-27) {mesuré : 100 requêtes pour chacun};
+\end{tikzpicture}
+\end{document}
