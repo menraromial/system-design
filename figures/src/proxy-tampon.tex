@@ -1,0 +1,26 @@
+% Mesures de outils/experiences/ch14/tampon.py : combien de temps un fil de
+% l'origine reste occupé par un client lent, avec et sans tampon dans le proxy.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, every node/.append style={font=\sffamily\small}]
+  \foreach \nom/\y in {{sans tampon : fil de l'origine}/0, {sans tampon : client lent}/-9,
+                       {avec tampon : fil de l'origine}/-24, {avec tampon : proxy vers le client}/-33} {
+    \node[axe, anchor=east] at (-2,\y) {\nom};
+  }
+  % sans tampon
+  \fill[DredBg] (0,-2.5) rectangle (102,2.5); \draw[Dred, line width=0.8pt] (0,-2.5) rectangle (102,2.5);
+  \node[note, text=Dred] at (51,0) {occupé jusqu'à la fin du téléchargement};
+  \fill[DslateBg] (0,-11.5) rectangle (102,-6.5); \draw[Dslate, line width=0.8pt] (0,-11.5) rectangle (102,-6.5);
+  \node[note] at (51,-9) {64 Mio à 640 Kio/s : environ 100 s};
+  % avec tampon
+  \fill[DgreenBg] (0,-26.5) rectangle (0.8,-21.5); \draw[Dgreen, line width=0.8pt] (0,-26.5) rectangle (0.8,-21.5);
+  \node[note, text=Dgreen, anchor=west] at (2,-24) {libéré après 0,26 à 0,33 s : le proxy a tout lu};
+  \fill[DslateBg] (0.8,-35.5) rectangle (102.8,-30.5); \draw[Dslate, line width=0.8pt] (0.8,-35.5) rectangle (102.8,-30.5);
+  \node[note] at (51.8,-33) {le proxy garde la réponse en mémoire et la renvoie à 640 Kio/s};
+  % axe
+  \draw[ligne] (0,-42) -- (106,-42);
+  \foreach \t in {0,20,...,100} {\draw[ligne] (\t,-42) -- (\t,-43.5); \node[note, below] at (\t,-43.5) {\t\ s};}
+  \node[axe, anchor=north] at (53,-48) {temps depuis le début du téléchargement (durées approximatives)};
+\end{tikzpicture}
+\end{document}

@@ -127,7 +127,7 @@ Chaque ligne est une architecture, du client au serveur ; la colonne de droite
 
 | Option | Avantages | Inconvénients | Quand la choisir |
 |---|---|---|---|
-| Terminaison au répartiteur | un seul endroit où gérer les certificats publics ; le répartiteur lit HTTP et peut router par chemin, compresser, mettre en cache, bloquer des abus (ch. 14) ; serveurs déchargés des poignées de main | trafic en clair dans le réseau interne : quiconque y accède le lit | réseau interne de confiance, données peu sensibles, contrainte de coût |
+| Terminaison au répartiteur | un seul endroit où gérer les certificats publics ; le répartiteur lit HTTP et peut router par chemin, compresser, mettre en cache, bloquer des abus ([ch. 14](../partie-2/proxy-passerelle.mdx)) ; serveurs déchargés des poignées de main | trafic en clair dans le réseau interne : quiconque y accède le lit | réseau interne de confiance, données peu sensibles, contrainte de coût |
 | Rechiffrement | mêmes fonctions de niveau HTTP ; trafic interne chiffré | deux poignées de main, certificats internes à émettre et renouveler | cas le plus fréquent aujourd’hui, et exigé par beaucoup de référentiels de conformité |
 | Passage direct | le répartiteur ne voit jamais les données ; chiffrement de bout en bout | le répartiteur ne peut ni lire ni router par chemin ; chaque serveur gère le certificat public et sa clé | données très sensibles, exigence de ne pas confier la clé à un tiers (par exemple au fournisseur de CDN) |
 
@@ -157,7 +157,7 @@ Verification: OK
 
 Le client croit d’abord la connexion établie : en TLS 1.3, il a terminé sa part de la poignée de main avant que le serveur ait examiné son certificat (absent ici), et ne reçoit l’alerte `certificate required` qu’ensuite. Une application qui considère la connexion comme réussie dès la fin de sa poignée de main découvre l’échec à sa première lecture ; c’est un détail qui rend les erreurs de mTLS déroutantes à diagnostiquer.
 
-Le TLS mutuel à grande échelle se heurte au même problème que les certificats publics, multiplié par le nombre de services : émettre, distribuer et renouveler des certificats, souvent valables seulement quelques heures pour limiter les dégâts d’une clé volée. On ne le fait pas à la main. Les maillages de services (service mesh) comme Istio ou Linkerd placent à côté de chaque service un proxy qui établit les connexions mTLS et renouvelle ses certificats tout seul, sans que le code de l’application change ; le ch. 14 compare cette approche à une passerelle centrale.
+Le TLS mutuel à grande échelle se heurte au même problème que les certificats publics, multiplié par le nombre de services : émettre, distribuer et renouveler des certificats, souvent valables seulement quelques heures pour limiter les dégâts d’une clé volée. On ne le fait pas à la main. Les maillages de services (service mesh) comme Istio ou Linkerd placent à côté de chaque service un proxy qui établit les connexions mTLS et renouvelle ses certificats tout seul, sans que le code de l’application change ; le [ch. 14](../partie-2/proxy-passerelle.mdx) compare cette approche à une passerelle centrale.
 
 ## Renouveler sans y penser
 

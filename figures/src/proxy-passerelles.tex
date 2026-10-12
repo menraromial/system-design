@@ -1,0 +1,31 @@
+% Passerelle d'API, BFF et maillage de services : qui traite quel trafic.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    gw/.style={soft=#1, minimum width=30mm, minimum height=11mm, font=\sffamily\small, align=center, inner sep=2pt},
+    svc/.style={soft=Dblue, minimum width=24mm, minimum height=10mm, font=\sffamily\small, inner sep=2pt},
+    side/.style={draw=Dteal, fill=DtealBg, line width=0.7pt, minimum width=5mm, minimum height=5mm, inner sep=0pt, font=\sffamily\scriptsize}]
+  % clients
+  \node[tile] (web) at (0,40) {\dicon[\Large][Dslate]{laptop}\\[1pt]{\small site web}};
+  \node[tile] (mob) at (40,40) {\dicon[\Large][Dslate]{mobile-alt}\\[1pt]{\small application}};
+  \node[tile] (par) at (80,40) {\dicon[\Large][Dslate]{building}\\[1pt]{\small partenaires}};
+  % passerelles
+  \node[gw=Dorange] (bw) at (0,16) {BFF web};
+  \node[gw=Dorange] (bm) at (40,16) {BFF mobile};
+  \node[gw=Dpurple] (ap) at (80,16) {passerelle publique\\[-1pt]{\scriptsize clés, quotas}};
+  \draw[arr=Dslate] (web) -- (bw); \draw[arr=Dslate] (mob) -- (bm); \draw[arr=Dslate] (par) -- (ap);
+  % services avec mandataires latéraux
+  \foreach \n/\x/\t in {c/0/commandes, k/40/catalogue, p/80/paiement} {
+    \node[svc] (s\n) at (\x,-14) {\t};
+    \node[side] (m\n) at ([xshift=-1mm]s\n.north east) {};
+  }
+  \foreach \g in {bw,bm,ap} \foreach \n in {c,k,p} \draw[ligne=Dslate, line width=0.5pt] (\g.south) -- (s\n.north);
+  \draw[darr=Dteal, line width=1pt] (sc.east) -- (sk.west);
+  \draw[darr=Dteal, line width=1pt] (sk.east) -- (sp.west);
+  % repères
+  \draw[arr=Dcloud, line width=1.6pt] (106,40) -- (106,-12);
+  \node[note, anchor=west, align=left] at (108,14) {nord-sud :\\trafic des clients,\\traité par les\\passerelles};
+  \node[note, anchor=north, align=center] at (40,-21) {est-ouest : appels entre services, traités par le maillage ;\\le petit carré vert est le mandataire latéral (sidecar) de chaque service};
+\end{tikzpicture}
+\end{document}

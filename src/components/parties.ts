@@ -37,7 +37,7 @@ export const PARTIES: Partie[] = [
     resume: 'Répartiteurs, CDN, caches, bases de données, réplication, partitionnement, files de messages, stockage, limitation de débit, identifiants.',
     chapitres: [
       {num: 13, titre: 'Répartition de charge', doc: 'partie-2/repartition-charge'},
-      {num: 14, titre: 'Reverse proxy et API gateway'},
+      {num: 14, titre: 'Reverse proxy et API gateway', doc: 'partie-2/proxy-passerelle'},
       {num: 15, titre: 'CDN et edge computing'},
       {num: 16, titre: 'Cache (1) : placement et stratégies'},
       {num: 17, titre: 'Cache (2) : invalidation, stampede, hot keys'},

@@ -1,0 +1,23 @@
+% Ce que fait un reverse proxy placé entre Internet et les serveurs d'origine.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    srv/.style={soft=Dblue, minimum width=20mm, minimum height=9mm, font=\sffamily\small, inner sep=2pt},
+    f/.style={font=\sffamily\small, anchor=west, text=Dink, inner sep=1pt}]
+  \node[tile] (cl) at (0,0) {\dicon[\LARGE][Dslate]{users}\\[1pt]{\small clients}};
+  \node[soft=Dpurple, minimum width=50mm, minimum height=50mm, anchor=center] (rp) at (52,0) {};
+  \node[font=\sffamily\bfseries\small, text=Dpurple, anchor=north] at (rp.north) {\stack{random}{reverse proxy}};
+  \foreach \t [count=\i] in {termine TLS (ch. 6), compresse les réponses, met en tampon, ajoute X-Forwarded-For, répartit la charge (ch. 13), coupe les clients trop lents}
+    \node[f] at (31,17-\i*5.6) {\textbullet\ \t};
+  \foreach \s/\y in {A/14, B/0, C/-14} \node[srv] (o\s) at (112,\y) {\stack{server}{origine \s}};
+  \draw[arr=Dslate, line width=1.2pt] (cl.east) -- (rp.west);
+  \foreach \s in {A,B,C} \draw[arr=Dblue] (rp.east) -- (o\s.west);
+  \node[note, anchor=south] at (13.5,4) {HTTPS};
+  \node[note, anchor=north, align=center] at (13.5,-4) {réseaux lents,\\clients de toute sorte};
+  \node[note, anchor=south] at (91,17) {HTTP};
+  \node[note, anchor=north, align=center] at (112,-21) {réseau interne rapide ;\\l'origine n'est joignable\\que par le proxy};
+  \draw[ligne=Dred, dash pattern=on 3pt off 2pt] (82,-30) -- (82,30);
+  \node[note, text=Dred, anchor=south] at (82,30) {pare-feu};
+\end{tikzpicture}
+\end{document}

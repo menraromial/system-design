@@ -1,0 +1,264 @@
+---
+title: Reverse proxy et API gateway
+sidebar_label: 14. Reverse proxy et API gateway
+description: "Reverse proxy : terminaison TLS, compression, mise en tampon, protection de l'origine. Passerelle d'API : authentification, routage, quotas, agrégation. BFF, maillage de services, et le risque d'une passerelle trop centrale ; mesures avec Caddy."
+partie: 2
+chapitre: 14
+---
+
+import fonctions from '@site/src/figures/proxy-fonctions.svg';
+import tampon from '@site/src/figures/proxy-tampon.svg';
+import passerelles from '@site/src/figures/proxy-passerelles.svg';
+
+Un serveur d’application à quatre fils de travail répond à une petite requête en une milliseconde. Il suffit pourtant de quatre clients sur une connexion lente, qui téléchargent chacun un gros fichier, pour qu’il ne réponde plus à personne : chacun de ses quatre fils attend que son client ait fini de lire, et la mesure de ce chapitre montre qu’aucune petite requête n’obtient de réponse en dix secondes. Placé devant lui, un proxy réglé pour lire toute la réponse avant de la renvoyer libère les quatre fils en un tiers de seconde, et les petites requêtes reviennent en moins de 3 ms. Le même proxy, avec son réglage par défaut, ne change rien.
+
+Ce chapitre traite du composant qui se tient entre les clients et les serveurs d’application, et de ce qu’on lui confie. Dans sa forme la plus simple, c’est un reverse proxy : il reçoit les connexions des clients à la place des serveurs et les relaie, en se chargeant au passage du chiffrement, de la compression et de la mise en tampon. Quand on lui confie aussi l’authentification, les quotas, le routage vers plusieurs services et l’assemblage de leurs réponses, on l’appelle une passerelle d’API (API gateway). Le répartiteur du [ch. 13](repartition-charge.mdx) est souvent le même logiciel : HAProxy, NGINX, Envoy ou Caddy font les trois métiers, et c’est la configuration qui décide.
+
+Trois expériences ont été faites pour ce chapitre avec Caddy 2.10.2, avec les scripts du dossier [`outils/experiences/ch14/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch14) : la protection d’une origine contre des clients lents ([`tampon.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch14/tampon.py)), le coût et le gain de la compression ([`compresser.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch14/compresser.py)), et le coût d’une authentification déléguée par la passerelle ([`auth.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch14/auth.py)).
+
+## Ce que fait un reverse proxy
+
+Un proxy de transfert (forward proxy) agit pour le compte des clients : un réseau d’entreprise fait sortir les navigateurs de ses employés par lui. Un reverse proxy agit pour le compte des serveurs : les clients croient parler au site, et c’est lui qui choisit à quel serveur transmettre chaque requête et qui leur renvoie les réponses. Pour les clients, il est le site.
+
+<Figure svg={fonctions} num="14.1" alt="Des clients en HTTPS sur des réseaux lents parlent à un reverse proxy, qui termine TLS, compresse, met en tampon, ajoute X-Forwarded-For, répartit la charge et coupe les clients trop lents ; derrière un pare-feu, il parle en HTTP à trois serveurs d’origine sur un réseau interne rapide.">
+Ce que fait un reverse proxy placé entre Internet et les serveurs d’origine.
+</Figure>
+
+À gauche, le monde extérieur : des clients nombreux, sur des réseaux de qualité variable, qui parlent HTTPS. À droite du pare-feu, les serveurs d’origine (origin servers), qui ne sont joignables que par le proxy et lui parlent sur un réseau interne rapide. La liste du milieu est ce que le proxy fait à chaque requête ; les sections suivantes en détaillent quatre.
+
+### Terminer TLS
+
+Le proxy termine la connexion TLS ([ch. 6](../partie-1/tls.mdx)) : il détient les certificats, fait la poignée de main avec chaque client et déchiffre les requêtes. Les serveurs d’origine n’ont plus à gérer de certificats ni à payer le calcul de la poignée de main, qui est le coût le plus élevé de TLS. Entre le proxy et l’origine, le trafic peut repartir chiffré, avec un certificat interne ou du TLS mutuel ([ch. 6](../partie-1/tls.mdx)), ou en clair sur un réseau qu’on juge sûr ; ce dernier choix suppose que personne d’autre ne puisse écouter ce réseau.
+
+Comme la connexion vue par l’origine vient du proxy, l’origine ne connaît plus l’adresse du client. Le proxy la lui transmet dans un en-tête, `X-Forwarded-For` par usage, ou `Forwarded` dans sa forme normalisée par la RFC 7239[^rfc7239]. L’origine ne doit faire confiance à cet en-tête que s’il vient du proxy : un client peut l’écrire lui-même. Caddy, par exemple, ignore par défaut les en-têtes `X-Forwarded-*` reçus des clients et les réécrit, sauf pour les adresses déclarées comme proxys de confiance (`trusted_proxies`)[^caddy-rp].
+
+### Compresser
+
+Le proxy peut compresser les réponses à la volée, avec gzip ou zstd (RFC 8878)[^rfc8878], quand le client annonce qu’il les accepte (`Accept-Encoding`). Caddy le fait avec la directive `encode`, pour les types textuels (HTML, JSON, JavaScript, CSS, SVG...) et les réponses d’au moins 512 octets[^caddy-encode]. Les images JPEG ou PNG et les vidéos sont déjà compressées : les recompresser ne gagne rien et coûte du calcul.
+
+Le script `compresser.py` met derrière Caddy, réglé avec `encode zstd gzip`, un service qui renvoie un catalogue JSON de 1 000 produits, puis mesure la taille reçue et, sous la charge de `wrk` (16 connexions pendant 8 secondes), le débit et le temps processeur consommé par Caddy pour chaque requête :
+
+```text
+catalogue JSON de 1 000 produits, servi par Caddy avec encode zstd gzip
+demandé   reçu       octets  rapport   req/s       CPU Caddy
+rien      aucun      284033     1.0x    8009      0.40 ms/req
+gzip      gzip        58728     4.8x    3686      3.32 ms/req
+zstd      zstd        58427     4.9x    3640      3.35 ms/req
+```
+
+La réponse passe de 284 Ko à 58 Ko, presque cinq fois moins, avec gzip comme avec zstd aux niveaux par défaut de Caddy. Le prix est le calcul : le proxy consomme huit fois plus de processeur par requête, 3,3 ms au lieu de 0,4, et son débit tombe de 8 009 à 3 686 requêtes par seconde sur la même machine. Un second passage a donné les mêmes chiffres à 5 % près. La compression déplace donc le coût : moins d’octets sur le réseau, ce que gagnent surtout les clients sur un réseau lent (troisième calcul plus bas), et plus de processeur sur le proxy. Pour des fichiers statiques qui ne changent pas, on évite de payer ce calcul à chaque requête en les compressant une fois pour toutes au moment du déploiement.
+
+La compression a aussi un risque de sécurité. L’attaque BREACH, présentée par Angelo Prado, Neal Harris et Yoel Gluck à Black Hat USA en 2013, retrouve un secret contenu dans des réponses HTTPS en observant leur taille compressée : elle vise les pages compressées au niveau HTTP qui renvoient à la fois une donnée choisie par l’attaquant et un secret, comme un jeton anti-CSRF[^breach]. Les parades citées par les auteurs vont de désactiver la compression pour ces pages à séparer les secrets des données de l’utilisateur ou à rendre les secrets différents à chaque requête.
+
+### Mettre en tampon et protéger l’origine
+
+C’est la fonction la moins visible et souvent la plus utile. Un serveur d’application classique a un nombre limité de fils ou de processus de travail ; chacun reste occupé tant que la requête qu’il traite n’est pas terminée, et une requête n’est terminée que lorsque le client a reçu toute la réponse. Un client sur un réseau mobile lent occupe ainsi un fil pendant tout son téléchargement. Quand il met les réponses en tampon (buffering), le proxy lit chacune de l’origine aussi vite que le réseau interne le permet, ce qui libère le fil, puis la renvoie au client à son rythme. Le même mécanisme vaut dans l’autre sens pour les corps de requête : le proxy reçoit tout le corps d’un envoi lent avant de le transmettre à l’origine.
+
+Les réglages par défaut diffèrent d’un logiciel à l’autre. NGINX met en tampon par défaut les réponses (`proxy_buffering on`) et les corps de requête (`proxy_request_buffering on`), et peut déborder sur un fichier temporaire, jusqu’à 1 024 Mo par défaut, quand une réponse ne tient pas en mémoire[^nginx-proxy]. Caddy ne met rien en tampon par défaut : il faut le demander avec `response_buffers` et `request_buffers`[^caddy-rp].
+
+Le script `tampon.py` mesure l’effet. L’origine, `origine.py`, a 4 fils de travail ; chaque fil sert soit une petite réponse, soit une réponse de 64 Mio. Quatre clients lents demandent chacun la grosse réponse et la lisent à 640 Kio/s, ce qui demanderait une centaine de secondes ; une seconde plus tard, un client rapide demande trois petites réponses, en abandonnant après 10 secondes d’attente. L’essai est fait sans proxy, derrière Caddy avec son réglage par défaut, et derrière Caddy avec `response_buffers 128MiB`.
+
+```text
+origine à 4 fils ; 4 clients lents (64 Mio à 640 Kio/s) ; 3 petites requêtes
+montage                             petites requêtes  fils libérés après  mémoire Caddy
+direct                      > 10 s / > 10 s / > 10 s           4 occupés              -
+Caddy, par défaut           > 10 s / > 10 s / > 10 s           4 occupés         42 Mio
+Caddy, response_buffers     2.8 ms / 1.1 ms / 1.5 ms              327 ms       1015 Mio
+```
+
+<Figure svg={tampon} num="14.2" alt="Quatre barres sur une échelle de 0 à 100 s. Sans tampon, le fil de l’origine reste occupé pendant tout le téléchargement du client lent, environ 100 s. Avec tampon, le fil est libéré après environ 0,3 s, et c’est le proxy qui renvoie la réponse au client pendant 100 s.">
+Durée d’occupation d’un fil de l’origine par un client lent, avec et sans tampon dans le proxy.
+</Figure>
+
+Les deux barres du haut montrent le cas sans tampon : le fil de l’origine, en rouge, est occupé exactement aussi longtemps que le client lent met à lire. En bas, avec tampon, le fil est libéré après une fraction de seconde, la petite barre verte, et la longue barre grise est désormais à la charge du proxy.
+
+Sans proxy, et derrière Caddy réglé par défaut, les quatre fils sont pris et aucune petite requête n’obtient de réponse en 10 secondes. Le proxy sans tampon ne protège rien : il relaie les octets au rythme du client, et l’origine attend avec lui. Avec le tampon, Caddy lit chaque réponse de 64 Mio en environ 0,3 seconde, les fils sont libérés, et les petites requêtes répondent en 1 à 3 ms. Le prix est la mémoire : Caddy occupait environ 1 Gio pendant l’essai, pour quatre réponses qui totalisent 256 Mio. Sur cinq passages, la mémoire de Caddy a varié de 795 à 1 015 Mio et le temps de libération des fils de 260 à 327 ms. Un serveur qui protège son origine de cette façon doit donc borner la taille des réponses qu’il garde en mémoire, et en déborder une partie sur disque comme le fait NGINX.
+
+Une première version de l’expérience montrait 42 ms pour les deuxième et troisième petites requêtes au lieu de 1 à 3. L’origine envoyait l’en-tête et le corps de la réponse en deux écritures, et l’algorithme de Nagle, combiné à l’accusé de réception retardé, retenait la seconde ([ch. 4](../partie-1/transport.mdx)). Activer `TCP_NODELAY` sur l’origine a fait disparaître ces 40 ms ; c’est la version publiée.
+
+### Protéger l’origine autrement
+
+Le proxy est aussi le bon endroit pour fixer des limites que l’origine n’a pas à connaître : taille maximale d’un corps de requête, durée maximale pour recevoir les en-têtes, nombre de connexions par client, délai au-delà duquel une connexion inactive est fermée. Une attaque qui ouvre de nombreuses connexions et envoie ses en-têtes très lentement, pour occuper les fils de l’origine sans presque rien transmettre, vise exactement ce que le tampon et ces délais neutralisent. Le proxy peut enfin garder en cache des réponses entières (ch. 16) et servir une page d’erreur propre quand l’origine est en panne.
+
+## La passerelle d’API
+
+Une passerelle d’API est un reverse proxy placé devant un ensemble de services, et chargé de ce que tous ont en commun. Chris Richardson la décrit comme le point d’entrée unique de tous les clients, qui transmet certaines requêtes au service concerné et en répartit d’autres vers plusieurs services dont elle assemble les réponses[^richardson]. Ses tâches habituelles sont les suivantes.
+
+Le routage : `/commandes/...` va au service des commandes, `/catalogue/...` à celui du catalogue. Les clients ne connaissent qu’une adresse, et l’organisation interne peut changer sans eux (ch. 42).
+
+L’authentification : la passerelle vérifie le jeton ou la clé d’API de chaque requête avant de la laisser passer, puis transmet l’identité du client aux services, par exemple dans un en-tête. Les services n’ont plus à vérifier eux-mêmes les jetons, à condition de n’accepter de requêtes que de la passerelle : un en-tête d’identité qui arrive d’ailleurs ne prouve rien. Le ch. 54 détaille les jetons eux-mêmes.
+
+Les quotas et la limitation de débit : la passerelle compte les requêtes par client, par clé d’API ou par adresse, et refuse celles qui dépassent leur quota. Le ch. 30 décrit les algorithmes. Amazon API Gateway, par exemple, applique par défaut un plafond de 10 000 requêtes par seconde par compte et par région, avec une réserve de 5 000 requêtes pour les rafales, gérée par un seau à jetons[^aws-apigw].
+
+L’agrégation : la page d’accueil d’une application mobile a besoin du profil, des dernières commandes et des recommandations. Plutôt que trois appels du téléphone, un seul appel à la passerelle, qui interroge les trois services en parallèle sur le réseau interne et renvoie une réponse unique (deuxième calcul).
+
+La transformation : traduire entre le protocole public et les protocoles internes (REST et JSON dehors, gRPC dedans, [ch. 7](../partie-1/styles-api.mdx)), retirer des champs internes, convertir des versions d’API.
+
+### Authentification déléguée, mesurée
+
+Caddy n’a pas de vérification de jetons intégrée, mais sa directive `forward_auth` montre le mécanisme le plus courant : pour chaque requête, la passerelle envoie une copie de la requête à un service d’authentification ; si celui-ci répond par un code 2xx, la passerelle recopie dans la requête les en-têtes choisis (ici l’identité de l’utilisateur) et la transmet ; sinon, elle renvoie au client la réponse du service d’authentification[^caddy-fa]. Le script `auth.py` mesure ce que coûte ce détour, devant une petite API, avec `wrk` (16 connexions pendant 8 secondes) et un jeton valide :
+
+```text
+petite API derrière Caddy ; wrk, 16 connexions, 8 s, avec un jeton valide
+montage                       sans jeton   req/s    médiane  99e cent.
+proxy seul                           200   14618    1.00 ms    2.34 ms
+proxy + forward_auth                 401   10327    1.56 ms    2.90 ms
+réponse de l'API avec jeton, à travers forward_auth : {"utilisateur": "lea", "ok": true}
+```
+
+Sans `forward_auth`, une requête sans jeton atteint l’API (code 200) ; avec, elle est arrêtée par la passerelle (401), et l’API reçoit l’identité vérifiée de celles qui passent. Le détour coûte une demi-milliseconde de médiane et 30 % du débit, parce que chaque requête en devient deux. Un second passage a donné 15 096 et 10 211 requêtes par seconde, et des 99e centiles de 1,9 et 3,5 ms. Sur une machine, entre processus voisins, ce détour est bon marché ; entre deux machines, il ajoute un aller-retour réseau à chaque requête, et le service d’authentification devient un composant que toutes les requêtes traversent, donc un point unique de défaillance de plus ([ch. 11](../partie-1/disponibilite.mdx)). C’est pourquoi on préfère souvent des jetons signés, comme les JWT, que la passerelle vérifie elle-même avec une clé publique, sans appel réseau (ch. 54).
+
+### Backend for frontend
+
+Une passerelle unique, partagée par le site web, l’application mobile et les partenaires, doit servir des besoins qui divergent : le téléphone veut peu d’appels et des réponses légères, le site veut des pages riches, les partenaires veulent une API stable et documentée. Sam Newman a décrit en 2015 la réponse qu’il avait vue chez REA et SoundCloud, où Phil Calçado lui avait donné son nom : plutôt qu’une API générale, un backend par expérience utilisateur, le backend for frontend (BFF)[^newman]. Chaque BFF appartient en général à l’équipe qui fait l’interface correspondante, et elle peut le faire évoluer sans négocier avec toutes les autres. Newman accepte en contrepartie une part de code dupliqué entre BFF, plutôt qu’un couplage entre équipes, et propose d’extraire le code commun quand il apparaît à trois endroits[^newman].
+
+### Passerelle et maillage de services
+
+La passerelle traite le trafic qui entre dans le système, dit nord-sud. Les appels entre services, dits est-ouest, ont eux aussi besoin de répartition de charge, de TLS mutuel, de délais d’attente, de nouvelles tentatives et de mesures. Un maillage de services (service mesh) les confie à un mandataire placé à côté de chaque instance de service, le mandataire latéral (sidecar). Dans Istio, par exemple, le plan de données est formé de mandataires Envoy déployés à côté de chaque service, qui assurent la découverte des services, la répartition de charge, la terminaison TLS, les disjoncteurs, les contrôles de santé et les mesures, tandis que le plan de contrôle, `istiod`, leur distribue leur configuration[^istio].
+
+<Figure svg={passerelles} num="14.3" alt="En haut, trois sortes de clients : site web, application, partenaires. Chacun passe par sa passerelle : BFF web, BFF mobile, passerelle publique avec clés et quotas. En bas, trois services, commandes, catalogue, paiement, chacun avec un petit mandataire latéral, s’appellent entre eux. Une flèche verticale marque le trafic nord-sud, une note le trafic est-ouest.">
+Passerelles pour le trafic des clients, maillage pour les appels entre services.
+</Figure>
+
+Les trois boîtes du milieu sont les passerelles, une par sorte de client ; toutes peuvent appeler tous les services. En bas, les flèches vertes entre services passent par les mandataires latéraux, les petits carrés verts, qui forment le maillage. Les deux couches utilisent souvent le même logiciel (Envoy), mais n’ont ni le même rôle ni la même équipe.
+
+## Le risque d’une passerelle trop centrale
+
+Toute requête traverse la passerelle. Elle est donc, par construction, un point unique de défaillance ([ch. 11](../partie-1/disponibilite.mdx)), et un point unique de modification : une erreur de configuration y touche tous les services d’un coup. Le 2 juillet 2019, Cloudflare a déployé une nouvelle règle de son pare-feu applicatif, dont une expression régulière provoquait un retour arrière (backtracking) excessif ; la règle a été poussée en quelques secondes sur tout le réseau, les processeurs qui traitaient le trafic HTTP et HTTPS se sont saturés, et le service a été gravement perturbé pendant 27 minutes, de 13 h 42 à 14 h 09 UTC[^cloudflare]. Cloudflare a ensuite décidé de déployer ses règles de façon progressive, comme son code, et de changer de moteur d’expressions régulières pour un moteur qui borne le temps d’exécution[^cloudflare].
+
+La passerelle peut aussi devenir un monolithe de configuration : des milliers de règles de routage, de transformation et d’exceptions, écrites par toutes les équipes dans un même fichier, que personne n’ose plus modifier. Trois habitudes limitent ce risque. La passerelle ne contient pas de logique métier : elle route, vérifie, limite, assemble, mais ne calcule pas de prix ni de remise. Sa configuration est du code, versionnée, relue et déployée progressivement (ch. 52), avec des routes qui appartiennent chacune à une équipe. Et ses instances sont multiples, comme celles d’un répartiteur ([ch. 13](repartition-charge.mdx)), sans état partagé autre que leur configuration.
+
+## Compromis
+
+| Composant | Trafic | Ce qu’il fait | Qui le possède en général | Risque principal |
+|---|---|---|---|---|
+| Reverse proxy | entrant, vers un groupe de serveurs | TLS, compression, tampon, limites, cache | l’équipe d’exploitation | protection illusoire si le tampon est désactivé ; mémoire si les réponses sont grosses |
+| Passerelle d’API | entrant, vers plusieurs services | routage, authentification, quotas, agrégation, traduction | une équipe de plateforme | point unique de défaillance ; monolithe de configuration |
+| BFF | entrant, pour une sorte de client | agrégation et forme des réponses propres à une interface | l’équipe de cette interface | code dupliqué entre BFF ; logique métier qui s’y installe |
+| Maillage de services | entre services | répartition, TLS mutuel, délais, nouvelles tentatives, mesures | une équipe de plateforme | un mandataire et ses ressources par instance ; complexité d’exploitation |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : combien de fils pour servir des clients lents sans tampon]
+Hypothèses : 50 téléchargements de 2 Mo par seconde ; les clients lisent à 1 Mbit/s en moyenne ; entre le proxy et l’origine, 1 Gbit/s.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Durée d’un téléchargement côté client | $2 \times 8$ Mbit / 1 Mbit/s | 16 s |
+| Téléchargements simultanés (loi de Little, [ch. 9](../partie-1/latence-debit.mdx)) | 50 /s × 16 s | 800 |
+| Fils occupés à l’origine, sans tampon | un par téléchargement | 800 |
+| Durée d’envoi au proxy, avec tampon | $16$ Mbit / 1 Gbit/s | 16 ms |
+| Fils occupés à l’origine, avec tampon | 50 /s × 0,016 s | ≈ 1 |
+| Mémoire du proxy, si tout est gardé en mémoire | 800 × 2 Mo | 1,6 Go |
+
+Conclusion : sans tampon, l’origine doit avoir 800 fils de travail pour une charge qu’un seul fil sert en 16 ms par requête. Avec le tampon, l’attente se déplace dans le proxy, qui la paie en mémoire (ou en disque) plutôt qu’en fils d’application, beaucoup plus coûteux.
+:::
+
+:::calcul[Calcul : agréger les appels d’une application mobile]
+Hypothèses : l’écran d’accueil a besoin de 4 réponses ; aller-retour réseau mobile de 100 ms ; les services répondent en 20 à 30 ms ; le téléphone fait ses appels l’un après l’autre (le second dépend de la réponse du premier).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Appels directs depuis le téléphone | 4 × (100 + 30) ms | ≈ 520 ms |
+| Appels directs, en parallèle s’ils étaient indépendants | 100 + 30 ms | ≈ 130 ms |
+| Un appel au BFF, qui fait 4 appels en parallèle à 1 ms de réseau interne | 100 + 30 + 1 ms | ≈ 131 ms |
+| Données transmises, réponses complètes | 4 × 40 Ko | 160 Ko |
+| Données transmises, réponse taillée par le BFF | | 15 Ko |
+
+Conclusion : le BFF ramène l’écran à un seul aller-retour mobile, même quand les appels dépendent les uns des autres (le BFF les enchaîne sur le réseau interne, à 1 ms près), et il ne renvoie que les champs que l’écran affiche.
+:::
+
+:::calcul[Calcul : ce que rapporte la compression du catalogue]
+Hypothèses : le catalogue mesuré, 284 Ko non compressé, 58 Ko compressé ; 1 000 requêtes par seconde ; un client mobile à 10 Mbit/s ; 3,3 ms de processeur par compression (mesuré).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Transfert au client, non compressé | $284 \times 8$ kbit / 10 Mbit/s | ≈ 227 ms |
+| Transfert au client, compressé | $58 \times 8$ kbit / 10 Mbit/s | ≈ 46 ms |
+| Débit sortant du site, non compressé | 1 000 × 284 Ko × 8 | ≈ 2,3 Gbit/s |
+| Débit sortant du site, compressé | 1 000 × 58 Ko × 8 | ≈ 0,46 Gbit/s |
+| Processeur pour compresser | 1 000 × 3,3 ms | ≈ 3,3 cœurs |
+
+Conclusion : pour 3 ou 4 cœurs de proxy, chaque client gagne 180 ms et le site divise par cinq son débit sortant. Si la même réponse est demandée souvent, la compresser une fois et la garder en cache (ch. 16) supprime l’essentiel de ce calcul.
+:::
+
+## Exemple réel
+
+**La panne de Cloudflare du 2 juillet 2019.** Le compte rendu de John Graham-Cumming décrit l’enchaînement[^cloudflare]. Une règle gérée du pare-feu applicatif, qui s’exécute dans les proxys par lesquels passe tout le trafic HTTP et HTTPS des clients de Cloudflare, contenait une expression régulière dont l’évaluation pouvait revenir en arrière un très grand nombre de fois. La règle a été déployée à 13 h 42 UTC, en quelques secondes, par le système de distribution de configuration (Quicksilver) et non par le déploiement progressif utilisé pour le logiciel. Les processeurs se sont saturés, les sites des clients ont renvoyé des erreurs, et le service n’a été rétabli qu’à 14 h 09, après la désactivation globale du pare-feu applicatif. Les deux leçons pour une passerelle sont directes : une règle de configuration est du code, et doit être déployée comme du code, progressivement ; et une fonction dont le coût par requête n’est pas borné ne doit pas s’exécuter sur le chemin de toutes les requêtes.
+
+## Erreurs fréquentes
+
+Croire qu’un reverse proxy protège l’origine des clients lents par sa seule présence. La mesure l’a montré : Caddy réglé par défaut ne change rien, parce qu’il relaie les octets au rythme du client. Il faut vérifier le réglage de mise en tampon du logiciel choisi.
+
+Faire confiance aux en-têtes `X-Forwarded-For` ou d’identité reçus de n’importe qui. Un client peut écrire `X-Utilisateur: admin` ; seul l’en-tête posé par la passerelle, sur un réseau où seule la passerelle peut joindre les services, a une valeur.
+
+Compresser tout, y compris les images déjà compressées et les réponses minuscules, ou compresser des pages qui renvoient à la fois des données de l’utilisateur et un secret, ce qui ouvre la porte à BREACH.
+
+Mettre de la logique métier dans la passerelle : un calcul de prix ou une règle de remise y est invisible pour les équipes des services, non testée avec leur code, et déployée au rythme de la plateforme.
+
+Une passerelle unique pour tous les clients, qui devient un goulet d’étranglement organisationnel : chaque changement d’un écran mobile attend l’équipe de la plateforme. C’est le problème que les BFF résolvent.
+
+Enfin, oublier que la passerelle et le service d’authentification sont sur le chemin de toutes les requêtes : leur disponibilité multiplie celle de tout le reste ([ch. 11](../partie-1/disponibilite.mdx)).
+
+:::piege[Erreur fréquente : l’authentification dans un seul service]
+« Les services internes ne vérifient rien, la passerelle s’en charge. » C’est raisonnable seulement si les services sont injoignables autrement que par la passerelle. Si un service est aussi exposé par un autre chemin (une ancienne adresse, un outil interne, un autre service compromis), il accepte n’importe quel en-tête d’identité. On combine donc la vérification à la passerelle avec un réseau fermé et, de préférence, du TLS mutuel entre la passerelle et les services ([ch. 6](../partie-1/tls.mdx)).
+:::
+
+:::entretien
+Quand vous dessinez la passerelle, dites ce qu’elle fait et ce qu’elle ne fait pas : « elle termine TLS, vérifie les JWT, applique les quotas par clé d’API, route par préfixe et agrège l’écran d’accueil mobile ; aucune logique métier ». Puis traitez son risque : plusieurs instances derrière le répartiteur, configuration versionnée et déployée progressivement, et ce qui se passe si le service d’identité tombe (jetons signés vérifiés localement, donc pas d’appel).
+:::
+
+## Exercices
+
+**Question 1.** Un site sert des factures en PDF de 5 Mo. Son serveur d’application a 64 processus de travail et sert chaque facture en 50 ms quand le client est rapide. Pendant la clôture mensuelle, 20 clients par seconde téléchargent une facture, à 2 Mbit/s en moyenne. Combien de processus faut-il sans tampon ? Le serveur tient-il ? Que change un proxy qui met les réponses en tampon, et que faut-il lui prévoir ?
+
+**Question 2.** La passerelle utilise `forward_auth` vers un service d’authentification, et chaque service fait confiance à l’en-tête `X-Utilisateur` qu’elle ajoute. Un client envoie une requête avec un jeton valide pour l’utilisateur `lea` et un en-tête `X-Utilisateur: admin`. Que peut-il se passer, et quelles vérifications faut-il prévoir à la passerelle et dans les services ?
+
+**Question 3.** Dans la mesure de la compression, le débit de Caddy tombe de 8 009 à 3 686 requêtes par seconde. Est-ce une raison de désactiver la compression ? Dans quels cas la désactiveriez-vous, et que feriez-vous pour les fichiers statiques ?
+
+**Exercice de conception.** Une plateforme de livraison de repas a une application mobile (2 millions d’utilisateurs actifs par jour), un site web pour les restaurants et une API publique pour des partenaires (agrégateurs, caisses enregistreuses). Derrière, une quinzaine de services : comptes, restaurants, menus, commandes, paiement, livreurs, notifications. L’écran d’accueil mobile affiche les restaurants proches, les commandes en cours et des promotions ; les partenaires doivent être limités à 50 requêtes par seconde chacun. Concevez la couche d’entrée : reverse proxy, passerelles, BFF, authentification, quotas, et ce qui garantit qu’une erreur de configuration ne fait pas tomber toute la plateforme.
+
+## Corrigés
+
+**Question 1.** Un téléchargement dure $5 \times 8 / 2 = 20$ s. Par la loi de Little ([ch. 9](../partie-1/latence-debit.mdx)), il y a en moyenne $20 \times 20 = 400$ téléchargements en cours, donc 400 processus occupés sans tampon : le serveur n’en a que 64 et sature, les requêtes s’accumulent et le site ne répond plus, alors que 20 factures par seconde à 50 ms ne demandent que $20 \times 0{,}05 = 1$ processus. Un proxy avec tampon lit chaque facture en quelques dizaines de millisecondes et libère le processus ; il garde alors en moyenne 400 réponses de 5 Mo, soit 2 Go, qu’il faut prévoir en mémoire ou en disque (NGINX déborde sur un fichier temporaire). Mieux encore, si les factures sont des fichiers, les servir depuis un stockage d’objets ou un CDN (ch. 15 et 29) sort ce trafic de l’application.
+
+**Question 2.** Si la passerelle ajoute son en-tête sans retirer celui du client, ou si les services lisent le premier en-tête `X-Utilisateur` trouvé, le client se fait passer pour `admin`. La passerelle doit supprimer de chaque requête entrante tous les en-têtes qu’elle se réserve (identité, rôles, `X-Forwarded-*` hors proxys de confiance) avant d’ajouter les siens. Les services ne doivent accepter de connexions que de la passerelle (réseau fermé, et de préférence TLS mutuel pour qu’ils puissent vérifier que l’appelant est bien la passerelle), et ne jamais lire l’identité ailleurs. Un jeton signé transmis jusqu’au service, qui peut le vérifier lui-même, ferme aussi cette porte.
+
+**Question 3.** Non : la baisse de débit vient de ce que le processeur de la machine de mesure est entièrement consacré à compresser ; elle se traduit par 3,3 ms de processeur par réponse, qu’on achète en ajoutant des cœurs au proxy, et le gain pour les clients (180 ms sur un réseau à 10 Mbit/s) et pour le débit sortant (cinq fois moins) les vaut largement. On désactive la compression pour les contenus déjà compressés (images, vidéos, archives), pour les réponses trop petites pour y gagner, et pour les pages sensibles à BREACH (données de l’utilisateur et secret dans le même corps) si l’on ne peut pas séparer ou masquer le secret. Les fichiers statiques se compressent une fois, au déploiement, et le serveur envoie la version précompressée.
+
+**Exercice de conception.**
+
+*Entrée.* Un répartiteur L7 géré ([ch. 13](repartition-charge.mdx)), présent dans plusieurs zones, termine TLS et met en tampon les requêtes et les réponses ; il protège ainsi les services des connexions mobiles lentes et coupe les clients qui envoient leurs en-têtes trop lentement.
+
+*Trois passerelles.* Un BFF mobile, propriété de l’équipe mobile : un appel par écran, qui assemble en parallèle les restaurants proches, les commandes en cours et les promotions, et renvoie seulement les champs affichés (deuxième calcul : un seul aller-retour mobile au lieu de trois ou quatre). Un BFF web pour l’interface des restaurants. Une passerelle publique pour les partenaires, avec une API stable et versionnée, des clés d’API et un quota de 50 requêtes par seconde par clé (ch. 30), dont les dépassements reçoivent un code 429.
+
+*Authentification.* Les utilisateurs et les restaurants reçoivent des jetons signés (ch. 54), que chaque passerelle vérifie elle-même avec la clé publique du service d’identité, sans appel réseau ; seul le renouvellement des jetons passe par le service d’identité. Les passerelles retirent les en-têtes d’identité reçus des clients avant d’ajouter les leurs ; les services n’acceptent de connexions que des passerelles et des autres services, en TLS mutuel.
+
+*Entre services.* Les appels internes (commandes vers paiement, commandes vers livreurs) passent par un maillage de services ou par une bibliothèque commune, qui fixe les délais d’attente et les nouvelles tentatives (ch. 38) ; les passerelles n’en voient rien.
+
+*Risque de configuration.* Chaque passerelle a sa configuration, versionnée dans le dépôt de l’équipe qui la possède ; les règles communes (limites de taille, en-têtes de sécurité) viennent d’un module partagé. Tout changement est relu, testé, puis déployé d’abord sur une fraction des instances, avec un retour arrière automatique si le taux d’erreurs monte (ch. 52). Aucune passerelle ne contient de logique métier. Une erreur sur le BFF mobile ne touche donc que l’application mobile, et seulement sur la fraction des instances où elle a été déployée.
+
+:::fiche
+- Reverse proxy : parle aux clients à la place des serveurs ; termine TLS, compresse, met en tampon, fixe des limites, transmet l’adresse du client (`X-Forwarded-For`, `Forwarded`).
+- Tampon : sans lui, un client lent occupe un fil de l’origine pendant tout son téléchargement (mesuré : aucune réponse en 10 s) ; avec lui, fils libérés en 0,3 s, réponses en 1 à 3 ms, au prix de la mémoire du proxy (≈ 1 Gio pour 4 × 64 Mio).
+- Défauts différents : NGINX met en tampon par défaut, Caddy non.
+- Compression : 284 Ko → 58 Ko (mesuré), 8 fois plus de processeur sur le proxy ; pas pour les images ; attention à BREACH.
+- Passerelle d’API : routage, authentification, quotas, agrégation, traduction ; aucune logique métier.
+- Authentification déléguée par appel : +0,5 ms et −30 % de débit en local (mesuré), un composant de plus sur le chemin ; jetons signés vérifiés localement à la place.
+- BFF : une passerelle par sorte de client, propriété de l’équipe de l’interface.
+- Nord-sud pour les passerelles, est-ouest pour le maillage de services (mandataires latéraux).
+- Risque : point unique de défaillance et de modification ; configuration en code, déployée progressivement (Cloudflare, 2 juillet 2019).
+:::
+
+[^rfc7239]: A. Petersson et M. Nilsson, « Forwarded HTTP Extension », RFC 7239, juin 2014, [rfc-editor.org/rfc/rfc7239](https://www.rfc-editor.org/rfc/rfc7239).
+[^caddy-rp]: Caddy, « reverse_proxy », documentation de la directive, [caddyserver.com/docs/caddyfile/directives/reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).
+[^rfc8878]: Y. Collet et M. Kucherawy (dir.), « Zstandard Compression and the 'application/zstd' Media Type », RFC 8878, février 2021, [rfc-editor.org/rfc/rfc8878](https://www.rfc-editor.org/rfc/rfc8878).
+[^caddy-encode]: Caddy, « encode », documentation de la directive, [caddyserver.com/docs/caddyfile/directives/encode](https://caddyserver.com/docs/caddyfile/directives/encode).
+[^breach]: Angelo Prado, Neal Harris et Yoel Gluck, « BREACH: SSL, gone in 30 seconds », Black Hat USA 2013, [breachattack.com](https://www.breachattack.com/).
+[^nginx-proxy]: NGINX, « Module ngx_http_proxy_module », documentation, directives `proxy_buffering`, `proxy_request_buffering` et `proxy_max_temp_file_size`, [nginx.org/en/docs/http/ngx_http_proxy_module.html](https://nginx.org/en/docs/http/ngx_http_proxy_module.html).
+[^richardson]: Chris Richardson, « Pattern: API Gateway / Backends for Frontends », [microservices.io/patterns/apigateway.html](https://microservices.io/patterns/apigateway.html).
+[^aws-apigw]: Amazon Web Services, « Amazon API Gateway quotas », *API Gateway Developer Guide*, [docs.aws.amazon.com/apigateway/latest/developerguide/limits.html](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html).
+[^caddy-fa]: Caddy, « forward_auth », documentation de la directive, [caddyserver.com/docs/caddyfile/directives/forward_auth](https://caddyserver.com/docs/caddyfile/directives/forward_auth).
+[^newman]: Sam Newman, « Backends For Frontends », 18 novembre 2015, [samnewman.io/patterns/architectural/bff](https://samnewman.io/patterns/architectural/bff/).
+[^istio]: Istio, « Architecture », documentation, [istio.io/latest/docs/ops/deployment/architecture](https://istio.io/latest/docs/ops/deployment/architecture/).
+[^cloudflare]: John Graham-Cumming, « Details of the Cloudflare outage on July 2, 2019 », blog de Cloudflare, [blog.cloudflare.com/details-of-the-cloudflare-outage-on-july-2-2019](https://blog.cloudflare.com/details-of-the-cloudflare-outage-on-july-2-2019/).
