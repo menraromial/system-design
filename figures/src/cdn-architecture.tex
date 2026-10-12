@@ -1,0 +1,22 @@
+% Le chemin d'une requête dans un CDN à trois niveaux : PoP, bouclier, origine.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\footnotesize},
+    pop/.style={soft=Dteal, minimum width=22mm, minimum height=10mm, font=\sffamily\small, inner sep=2pt, align=center}]
+  \foreach \v/\x in {Sydney/0, Paris/36, {São Paulo}/72, Tokyo/108}
+    \node[tile] (u\x) at (\x,30) {\dicon[\Large][Dslate]{users}\\[1pt]{\small \v}};
+  \foreach \v/\x in {Sydney/0, Paris/36, {São Paulo}/72, Tokyo/108} {
+    \node[pop] (p\x) at (\x,8) {\stack{server}{PoP \v}};
+    \draw[arr=Dslate] (u\x) -- (p\x);
+  }
+  \node[note, anchor=west, align=left] at (124,19) {anycast ou DNS :\\chaque client va\\au PoP le plus proche};
+  \node[soft=Dpurple, minimum width=40mm, minimum height=10mm, font=\sffamily\small] (b) at (54,-16) {\stack{database}{bouclier d'origine}};
+  \foreach \x in {0,36,72,108} \draw[arr=Dteal, dash pattern=on 3pt off 2pt] (p\x.south) -- (b.north);
+  \node[soft=Dblue, minimum width=28mm, minimum height=10mm, font=\sffamily\small] (o) at (54,-38) {\stack{server}{origine}};
+  \draw[arr=Dpurple, dash pattern=on 3pt off 2pt] (b) -- (o);
+  \node[note, anchor=west, align=left] at (124,4) {succès : réponse\\servie par le PoP};
+  \node[note, anchor=west, align=left] at (82,-16) {échec du PoP : demande\\au bouclier, qui la\\regroupe avec les autres};
+  \node[note, anchor=west, align=left] at (72,-38) {échec du bouclier : seule\\requête vers l'origine};
+\end{tikzpicture}
+\end{document}

@@ -203,7 +203,7 @@ Ces RTT se combinent avec les autres limites de TCP. Voici trois calculs pour un
 | Débit de Reno avec 0,1 % de pertes (formule de Mathis, MSS de 1 460 o) | 1 460 × 8 / 0,08 × 1,22 / √0,001 | ≈ 5,6 Mbit/s |
 | Même chose avec 0,001 % de pertes | p divisé par 100, débit × 10 | ≈ 56 Mbit/s |
 
-Conclusion : sur une longue distance, le débit d’une connexion TCP est borné par sa fenêtre et par ses pertes bien avant de l’être par le lien. Pour un transfert volumineux entre continents, on ouvre plusieurs connexions en parallèle, on choisit un algorithme moins sensible aux pertes, ou l’on rapproche les données des utilisateurs (CDN, ch. 15). Pour une API, ce sont les RTT qui comptent : chaque aller-retour évité vaut 80 ms.
+Conclusion : sur une longue distance, le débit d’une connexion TCP est borné par sa fenêtre et par ses pertes bien avant de l’être par le lien. Pour un transfert volumineux entre continents, on ouvre plusieurs connexions en parallèle, on choisit un algorithme moins sensible aux pertes, ou l’on rapproche les données des utilisateurs (CDN, [ch. 15](../partie-2/cdn-edge.mdx)). Pour une API, ce sont les RTT qui comptent : chaque aller-retour évité vaut 80 ms.
 :::
 
 Le dernier calcul dimensionne un pool de connexions. Le nombre de connexions occupées en même temps est, en moyenne, le débit des requêtes multiplié par leur durée, une relation que le [ch. 9](latence-debit.mdx) nommera loi de Little.

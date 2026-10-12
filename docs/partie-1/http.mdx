@@ -152,7 +152,7 @@ QUIC a aussi des coûts. Il tourne dans l’application, en espace utilisateur, 
 
 ## Le cache HTTP
 
-La requête la plus rapide est celle qu’on n’envoie pas. HTTP décrit, par la RFC 9111[^rfc9111], quand une réponse peut être gardée et resservie, par le navigateur ou par un cache partagé (un proxy, un CDN, ch. 15). Deux mécanismes se combinent.
+La requête la plus rapide est celle qu’on n’envoie pas. HTTP décrit, par la RFC 9111[^rfc9111], quand une réponse peut être gardée et resservie, par le navigateur ou par un cache partagé (un proxy, un CDN, [ch. 15](../partie-2/cdn-edge.mdx)). Deux mécanismes se combinent.
 
 La fraîcheur dit combien de temps une copie peut resservir sans rien demander au serveur. L’en-tête `Cache-Control: max-age=3600` la rend fraîche pendant une heure ; `s-maxage` fixe une durée différente pour les caches partagés ; l’en-tête `Age` indique depuis combien de secondes la copie servie est en cache.
 
@@ -263,7 +263,7 @@ Une API qui répond `200 OK` avec `{"erreur": "introuvable"}` dans le corps trom
 :::
 
 :::entretien
-Pour une question sur la latence perçue d’une application mobile, déroulez le compte des allers-retours : DNS (souvent en cache), ouverture de connexion (1 avec QUIC, 2 avec TCP et TLS 1.3), requêtes en série. Proposez ensuite ce qui en supprime : HTTP/3 pour l’ouverture et les réseaux à pertes, multiplexage pour les requêtes parallèles, cache avec ETag pour ne pas retélécharger ce qui n’a pas changé, CDN pour réduire le RTT lui-même (ch. 15).
+Pour une question sur la latence perçue d’une application mobile, déroulez le compte des allers-retours : DNS (souvent en cache), ouverture de connexion (1 avec QUIC, 2 avec TCP et TLS 1.3), requêtes en série. Proposez ensuite ce qui en supprime : HTTP/3 pour l’ouverture et les réseaux à pertes, multiplexage pour les requêtes parallèles, cache avec ETag pour ne pas retélécharger ce qui n’a pas changé, CDN pour réduire le RTT lui-même ([ch. 15](../partie-2/cdn-edge.mdx)).
 :::
 
 ## Exercices
@@ -291,7 +291,7 @@ Pour une question sur la latence perçue d’une application mobile, déroulez l
 
 **Exercice de conception.**
 
-*Versions.* Côté application, un client HTTP qui sait faire HTTP/3 et revient à HTTP/2 si QUIC échoue. Côté serveur, HTTP/3 et HTTP/2 sur le point d’entrée public (souvent le CDN ou le répartiteur de charge, [ch. 13](../partie-2/repartition-charge.mdx) et 15), annoncés par `Alt-Svc` et par un enregistrement DNS HTTPS pour que le client tente HTTP/3 dès la première connexion. HTTP/3 répond à chaque caractéristique du réseau : 1 RTT d’ouverture au lieu de 2, indépendance des flux face aux 3 % de pertes, migration de connexion lors des passages entre Wi-Fi et mobile, qui coupent sinon toutes les connexions TCP. Entre le point d’entrée et les serveurs d’application, dans le centre de données, HTTP/1.1 ou HTTP/2 suffit : le RTT y est inférieur à la milliseconde.
+*Versions.* Côté application, un client HTTP qui sait faire HTTP/3 et revient à HTTP/2 si QUIC échoue. Côté serveur, HTTP/3 et HTTP/2 sur le point d’entrée public (souvent le CDN ou le répartiteur de charge, [ch. 13](../partie-2/repartition-charge.mdx) et [15](../partie-2/cdn-edge.mdx)), annoncés par `Alt-Svc` et par un enregistrement DNS HTTPS pour que le client tente HTTP/3 dès la première connexion. HTTP/3 répond à chaque caractéristique du réseau : 1 RTT d’ouverture au lieu de 2, indépendance des flux face aux 3 % de pertes, migration de connexion lors des passages entre Wi-Fi et mobile, qui coupent sinon toutes les connexions TCP. Entre le point d’entrée et les serveurs d’application, dans le centre de données, HTTP/1.1 ou HTTP/2 suffit : le RTT y est inférieur à la milliseconde.
 
 *Cache.* Images : URL contenant une empreinte, `public, max-age=31536000, immutable`, servies par un CDN ; après la première visite, elles ne coûtent plus rien. Catalogue des restaurants proches : `public, max-age=60, stale-while-revalidate=300`, mis en cache par le CDN par zone géographique (la clé de cache inclut la zone, pas l’adresse exacte), avec un ETag. Session et adresse : `private, no-cache` avec ETag, revalidées à chaque ouverture, ce qui coûte un aller-retour mais pas de transfert si rien n’a changé. Une meilleure solution consiste à fusionner les deux appels de session et d’adresse en un seul, et à lancer la requête du catalogue en parallèle dès que la zone est connue.
 

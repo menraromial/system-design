@@ -1,0 +1,27 @@
+% Après une mise à jour à l'origine : attendre l'expiration ou purger
+% (mesures de outils/experiences/ch15/cdn.py : TTL de 3 s, copie périmée
+% servie jusqu'à 2,35 s après la mise à jour ; aucune après la purge).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=12.5mm, y=1mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  \foreach \nom/\y in {{sans purge}/0, {avec purge}/-14} \node[axe, anchor=east] at (-3.15,\y) {\nom};
+  % sans purge
+  \fill[DslateBg] (-3,-3) rectangle (0,3); \draw[Dslate, line width=0.8pt] (-3,-3) rectangle (0,3);
+  \node[note] at (-1.5,0) {version 0 en cache};
+  \fill[DredBg] (0,-3) rectangle (2.35,3); \draw[Dred, line width=0.8pt] (0,-3) rectangle (2.35,3);
+  \node[note, text=Dred, align=center] at (1.175,0) {v0 périmée};
+  \fill[DgreenBg] (2.35,-3) rectangle (6,3); \draw[Dgreen, line width=0.8pt] (2.35,-3) rectangle (6,3);
+  \node[note, text=Dgreen] at (4.175,0) {version 1};
+  \node[note, anchor=north] at (2.35,-3.5) {fin du TTL (2,35 s)};
+  % avec purge
+  \fill[DslateBg] (-3,-17) rectangle (0,-11); \draw[Dslate, line width=0.8pt] (-3,-17) rectangle (0,-11);
+  \node[note] at (-1.5,-14) {version 0 en cache};
+  \fill[DgreenBg] (0.03,-17) rectangle (6,-11); \draw[Dgreen, line width=0.8pt] (0.03,-17) rectangle (6,-11);
+  \node[note, text=Dgreen] at (3,-14) {purge en 3 ms, puis version 1};
+  \draw[Dink, line width=1.2pt] (0,7) -- (0,-21);
+  \node[note, anchor=south] at (0,7) {mise à jour à l'origine};
+  \draw[ligne] (-3,-25) -- (6,-25);
+  \foreach \t in {-3,-2,...,6} {\draw[ligne] (\t,-25) -- (\t,-26.5); \node[note, below] at (\t,-26.5) {\t\ s};}
+\end{tikzpicture}
+\end{document}

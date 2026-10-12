@@ -1,0 +1,229 @@
+---
+title: CDN et edge computing
+sidebar_label: 15. CDN et edge computing
+description: "Points de présence, routage par anycast ou par le DNS, modes pull et push, clé de cache, TTL et purge, taux de succès, bouclier d'origine, contenu dynamique ; exécuter du code à la périphérie et ce qui reste difficile ; mesures sur un petit CDN."
+partie: 2
+chapitre: 15
+---
+
+import architecture from '@site/src/figures/cdn-architecture.svg';
+import origine from '@site/src/figures/cdn-origine.svg';
+import fraicheur from '@site/src/figures/cdn-fraicheur.svg';
+
+Un utilisateur à Sydney ouvre la page d’un site hébergé à Paris. La lumière met au moins 85 ms pour aller de l’une à l’autre dans la fibre, 170 ms aller et retour ([ch. 4](../partie-1/transport.mdx)), et la page ne peut pas s’afficher avant trois de ces allers-retours : un pour ouvrir la connexion TCP, un pour TLS 1.3 ([ch. 6](../partie-1/tls.mdx)), un pour la requête elle-même. Plus d’une demi-seconde, avant même que le serveur ait fait quoi que ce soit, et autant pour chaque fichier qui n’est pas déjà dans le navigateur. Le serveur ne peut pas aller plus vite que la lumière ; on peut en revanche rapprocher de l’utilisateur une copie de ce qu’il demande.
+
+Un réseau de diffusion de contenu (content delivery network, CDN) est un ensemble de caches placés dans de nombreuses villes, les points de présence (points of presence, PoP), qui reçoivent les requêtes des utilisateurs proches à la place du site, servent ce qu’ils ont déjà, et vont chercher le reste à l’origine (origin), le serveur du site. Ce chapitre décrit comment un utilisateur est amené au bon PoP, comment un PoP décide de ce qu’il peut servir et pendant combien de temps, comment on évite que l’origine ne soit submergée par les demandes de tous les PoP, ce qu’un CDN apporte aux réponses dynamiques, et ce qu’il devient quand on y exécute aussi du code.
+
+Une expérience a été faite pour ce chapitre, avec le script [`outils/experiences/ch15/cdn.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch15/cdn.py) : un petit CDN écrit en Python, avec une origine, 8 PoP et, selon l’essai, un bouclier d’origine, qui reçoit 40 000 requêtes pour 10 000 objets.
+
+## Amener chaque utilisateur au PoP le plus proche
+
+Deux techniques coexistent, et beaucoup de CDN combinent les deux.
+
+Par le DNS. Le nom du site pointe vers le CDN, et le serveur DNS du CDN répond à chaque résolveur avec l’adresse du PoP qu’il juge le meilleur pour lui, en fonction de sa position et de la charge des PoP ([ch. 3](../partie-1/client-serveur-dns.mdx)). CloudFront, le CDN d’AWS, procède ainsi : le DNS dirige chaque requête vers le PoP qui peut la servir le mieux, en général le plus proche en latence[^cf-fonctionnement]. La méthode est souple, mais elle voit l’adresse du résolveur DNS, pas celle de l’utilisateur, et ses décisions restent en cache le temps du TTL de l’enregistrement.
+
+Par anycast. Tous les PoP annoncent les mêmes adresses IP par BGP ([ch. 13](repartition-charge.mdx)), et le routage d’Internet amène chaque paquet vers le PoP le plus proche au sens du réseau. Matthew Prince décrivait ainsi Cloudflare en 2011 : où que l’on soit dans le monde, on obtient les mêmes adresses, sur lesquelles écoutent les machines de ses douze centres de données de l’époque, et le réseau dirige chaque requête vers le plus proche[^anycast-cf]. Une attaque par déni de service distribuée se trouve en plus répartie entre tous les PoP, chacun en absorbant une part. La méthode exige en revanche de maîtriser son propre réseau et ses annonces BGP, et de veiller à ce que le trafic ne bascule pas d’un PoP à l’autre au milieu d’une connexion TCP[^anycast-cf].
+
+<Figure svg={architecture} num="15.1" alt="Des utilisateurs à Sydney, Paris, São Paulo et Tokyo vont chacun au PoP de leur ville. Les PoP envoient leurs échecs à un bouclier d’origine, qui les regroupe et seul interroge l’origine.">
+Le chemin d’une requête dans un CDN à trois niveaux.
+</Figure>
+
+Chaque utilisateur parle au PoP de sa ville. Une requête que le PoP sait servir (un succès, hit) s’arrête là. Les autres (des échecs, misses) partent vers le bouclier d’origine, en pointillé, un cache intermédiaire placé près de l’origine ; seuls les échecs du bouclier atteignent l’origine. Les sections suivantes expliquent pourquoi ce niveau intermédiaire change autant la charge de l’origine.
+
+## Ce qu’un PoP garde, et combien de temps
+
+### Pull ou push
+
+Le plus souvent, le CDN fonctionne en mode pull : un PoP qui reçoit une requête pour un objet qu’il n’a pas va le chercher à l’origine, le sert, et le garde pour les requêtes suivantes. Rien n’est à faire à l’avance, et seuls les objets réellement demandés occupent le cache. En mode push, le site dépose lui-même ses fichiers dans le stockage du CDN avant qu’on les demande ; c’est utile pour de très gros fichiers (une nouvelle version d’un logiciel, une vidéo attendue à heure fixe) dont on ne veut pas que la première demande de chaque PoP pèse sur l’origine, au prix de gérer soi-même ce qui est déposé et ce qui est retiré.
+
+### La clé de cache
+
+Un cache range chaque réponse sous une clé (cache key), calculée à partir de la requête : par défaut, la méthode et l’URL complète, chaîne de requête comprise[^rfc9111]. Deux requêtes de même clé reçoivent la même réponse. L’en-tête `Vary` de la réponse ajoute à la clé les en-têtes de requête dont elle dépend : avec `Vary: Accept-Encoding`, le cache garde une version gzip, une version zstd et une version non compressée.
+
+Le choix de la clé décide du taux de succès. Une clé trop fine fragmente le cache : si les liens d’une campagne publicitaire ajoutent `?utm_source=campagne123` à l’URL d’une image, chaque valeur crée une entrée distincte pour une réponse identique. Une clé trop grossière sert à un utilisateur ce qui était destiné à un autre : si la page d’accueil dépend de la langue et que la clé l’ignore, tout le monde la reçoit dans la langue du premier visiteur. Les CDN permettent donc de dire, objet par objet, quels paramètres, en-têtes et cookies entrent dans la clé.
+
+### TTL, revalidation et purge
+
+L’origine indique combien de temps une réponse peut être réutilisée, par l’en-tête `Cache-Control`[^rfc9111] : `max-age=600` pour dix minutes, `s-maxage` pour une durée qui ne vaut que pour les caches partagés comme ceux d’un CDN, `private` pour une réponse propre à un utilisateur, que seul son navigateur peut garder, `no-store` pour ne rien garder du tout. Une fois ce TTL écoulé, la copie est périmée (stale) ; le cache doit la revalider auprès de l’origine, qui peut répondre « rien n’a changé » (`304 Not Modified`) sans renvoyer le corps. Deux extensions définies par la RFC 5861 assouplissent la règle[^rfc5861] : `stale-while-revalidate` permet de servir encore la copie périmée pendant qu’une revalidation se fait en arrière-plan, et `stale-if-error` de la servir si l’origine est en erreur, ce qui transforme une panne de l’origine en contenu un peu ancien plutôt qu’en page d’erreur.
+
+Le TTL fixe donc la durée maximale pendant laquelle une modification à l’origine reste invisible. La purge (ou invalidation) raccourcit cette durée : le site demande au CDN de retirer un objet de tous ses caches avant son expiration. Fastly distingue la purge dure, qui rend l’objet inutilisable et force un nouvel appel à l’origine, et la purge douce, qui le marque périmé, de sorte que la requête suivante reçoit encore l’ancienne version pendant que la nouvelle est récupérée ; il permet de purger une URL, ou d’un coup tous les objets qui portent une même clé de substitution (surrogate key), par exemple toutes les pages qui affichent un produit donné[^fastly-purge].
+
+### Ce que mesure l’expérience
+
+`cdn.py` fait tourner, dans un seul processus, une origine et 8 PoP. Chaque PoP est un cache LRU de 2 000 objets qui respecte le `Cache-Control` de l’origine, regroupe les requêtes simultanées pour un même objet en une seule demande vers son amont, et ajoute 80 ms à chaque demande vers l’amont pour imiter la distance entre un PoP et l’origine ; dans un essai, un bouclier d’origine, cache de 10 000 objets situé à 5 ms de l’origine, est intercalé. Le client envoie 40 000 requêtes pour 10 000 objets de 10 Kio dont la popularité suit une loi de Zipf (l’objet de rang $k$ est demandé avec une probabilité proportionnelle à $1/k$ ; Breslau et ses collègues ont relevé des popularités de ce type dans des traces réelles de requêtes web[^breslau]), chacune à un PoP tiré au hasard. Le délai entre le client et son PoP n’est pas simulé.
+
+```text
+8 PoP (LRU de 2 000 objets) ; 40000 requêtes, 10000 objets de 10 Kio, Zipf
+essai                                  succès PoP  origine    part
+PoP seuls                                   65.0 %    13900   34.8 %
+PoP + bouclier d'origine                    65.0 %     6115   15.3 %
+utm_* dans la clé de cache                  28.8 %    28463   71.2 %
+utm_* retirés de la clé                     65.0 %    13953   34.9 %
+
+latence vue par le client (PoP seuls, 80 ms ajoutées vers l'origine)
+  succès   médiane    1.4 ms   99e centile    6.7 ms
+  échec    médiane   84.4 ms   99e centile  117.3 ms
+
+mise à jour d'un objet servi par les 8 PoP, TTL de 3 s
+  attente de l'expiration    dernière réponse périmée demandée à  2354 ms
+  purge des 8 PoP (3 ms)     dernière réponse périmée demandée à     0 ms
+```
+
+<Figure svg={origine} num="15.2" alt="Barres des requêtes reçues par l’origine sur 40 000 : 13 900 avec les PoP seuls, 6 115 avec un bouclier, 28 463 quand un paramètre utm_source entre dans la clé, 13 953 quand on le retire de la clé. Un trait pointillé marque 40 000, la charge sans CDN.">
+Requêtes qui atteignent l’origine selon le montage.
+</Figure>
+
+Chaque barre est le nombre de requêtes que l’origine a reçues, à comparer aux 40 000 qu’elle recevrait sans CDN (trait pointillé). Un second passage a donné les mêmes nombres de requêtes, à 53 près pour la dernière ligne, et des latences à 1 ms près.
+
+Les PoP seuls servent 65 % des requêtes, et l’origine reçoit encore plus d’un tiers des demandes. Ce taux n’est pas limité par la taille des caches mais par leur nombre : chaque PoP doit aller chercher lui-même chaque objet la première fois qu’on le lui demande, si bien que l’origine envoie jusqu’à huit fois le même objet. Avec le bouclier, ces demandes répétées s’arrêtent au bouclier, et l’origine ne reçoit plus que 6 115 requêtes, à peu près une par objet réellement demandé. CloudFront décrit exactement cet effet pour son bouclier (Origin Shield) : toutes les demandes de tous ses niveaux de cache vers l’origine passent par lui, et les demandes simultanées pour un même objet y sont regroupées, parfois en une seule requête vers l’origine[^cf-shield].
+
+Le paramètre `utm_source` montre ce que coûte une clé trop fine : quand la moitié des URL portent l’une de mille valeurs de suivi, le taux de succès tombe de 65 % à 29 % et l’origine reçoit deux fois plus de requêtes, alors que les réponses sont identiques. Retirer ces paramètres de la clé rend exactement le résultat de départ.
+
+La latence explique pourquoi le taux de succès compte autant : un succès coûte 1,4 ms de médiane, un échec 84 ms, soit le délai de 80 ms ajouté vers l’origine. Pour l’utilisateur, un taux de succès de 65 % ou de 95 % fait la différence entre une page souvent lente et une page presque toujours rapide.
+
+<Figure svg={fraicheur} num="15.3" alt="Deux lignes de temps autour d’une mise à jour à l’origine à 0 s. Sans purge, la version 0 reste servie jusqu’à la fin du TTL de la copie, à 2,35 s, puis la version 1. Avec purge, les 8 PoP sont purgés en 3 ms et la version 1 est servie dès la requête suivante.">
+Après une mise à jour à l’origine : attendre l’expiration ou purger.
+</Figure>
+
+Sur la ligne du haut, la copie gardée par un PoP reste servie, en rouge, jusqu’à la fin de son TTL, alors que l’origine a déjà la nouvelle version. Sur celle du bas, la purge envoyée aux 8 PoP immédiatement après la mise à jour supprime cette période. Dans la mesure, avec un TTL de 3 s, la dernière réponse périmée a été demandée 2,35 s après la mise à jour ; avec la purge, aucune.
+
+## Le contenu dynamique
+
+Une page personnalisée, un panier, une réponse d’API propre à chaque utilisateur ne se mettent pas en cache. Le CDN reste utile pour elles, pour deux raisons. Le PoP termine TCP et TLS près de l’utilisateur : les deux allers-retours d’ouverture se font sur quelques millisecondes au lieu de 170, et le PoP garde des connexions ouvertes en permanence vers l’origine, ce que CloudFront indique faire pour récupérer les objets le plus vite possible[^cf-fonctionnement] ; la requête de l’utilisateur ne paie donc qu’un aller-retour long, sur une connexion déjà chaude. Et des réponses très demandées et peu personnalisées (la liste des articles de la page d’accueil, des résultats de recherche populaires) peuvent être gardées quelques secondes seulement : à 1 000 requêtes par seconde, un TTL d’une seconde suffit à ne laisser passer qu’une requête par seconde et par PoP vers l’origine.
+
+## Exécuter du code à la périphérie
+
+L’informatique de périphérie (edge computing) consiste à exécuter du code dans les PoP eux-mêmes : réécrire une requête, vérifier un jeton, choisir une variante d’une page, assembler une réponse à partir de morceaux en cache. L’intérêt est la latence : le code tourne à quelques millisecondes de l’utilisateur.
+
+Le prix est un environnement d’exécution contraint. Cloudflare a décrit en 2018 le choix fait pour ses Workers : plutôt qu’un conteneur ou un processus par client, des isolats V8, contextes légers dont un seul processus peut faire tourner des centaines ou des milliers ; un isolat démarre en 5 ms environ, alors qu’un démarrage à froid de Lambda prend de 500 ms à 10 s, et une fonction Node sans code réel occupe environ 35 Mo dans Lambda contre environ 3 Mo quand le moteur est partagé entre les isolats[^workers]. En contrepartie, le code doit être écrit en JavaScript ou dans un langage compilé vers WebAssembly[^workers]. CloudFront propose de son côté Lambda@Edge, des fonctions qui se déclenchent sur les requêtes et les réponses, côté utilisateur ou côté origine[^cf-shield].
+
+Ce qui reste difficile, c’est l’état. Le code tourne dans des centaines de lieux à la fois ; les données qu’il lit doivent soit être copiées partout, soit rester en un seul lieu et coûter un aller-retour. Workers KV, le magasin clé-valeur de Cloudflare, choisit la copie : il est cohérent à terme ([ch. 12](../partie-1/coherence-cap.mdx)), une modification est en général visible tout de suite là où elle a été faite, mais peut mettre 60 secondes ou plus à l’être ailleurs, le temps que les copies en cache expirent ; Cloudflare le déconseille pour les opérations atomiques et les transactions, et oriente vers ses Durable Objects, qui offrent une cohérence plus forte[^kv]. Un code à la périphérie qui interroge à chaque requête une base située dans une seule région perd tout son avantage : il paie l’aller-retour long que le CDN devait justement éviter. La périphérie convient au code qui n’a besoin que de la requête, de données qui changent rarement, ou de données qu’on accepte de voir en retard.
+
+## Compromis
+
+| Choix | Avantage | Inconvénient | Quand le préférer |
+|---|---|---|---|
+| Routage par le DNS | souple, tient compte de la charge, sans réseau propre | voit le résolveur et non l’utilisateur ; décisions retardées par le TTL du DNS | CDN qui s’appuie sur des réseaux tiers |
+| Anycast | un seul jeu d’adresses, routage par le réseau, attaques réparties entre PoP | exige son propre réseau et la maîtrise de BGP | CDN qui exploite son propre réseau mondial |
+| Pull | rien à préparer, seul ce qui est demandé occupe le cache | la première demande de chaque PoP va à l’origine | presque tout |
+| Push | aucune demande à l’origine, même pour la première requête | il faut gérer soi-même le dépôt et le retrait | gros fichiers attendus à heure fixe |
+| TTL long | taux de succès élevé, origine peu sollicitée | modification invisible jusqu’à l’expiration | contenu versionné (le nom change à chaque version) |
+| TTL court ou purge | modification visible vite | plus de revalidations, ou un appel de purge à chaque modification | contenu qui change sans changer de nom |
+| Bouclier d’origine | origine protégée des demandes répétées de tous les PoP | un niveau et un coût de plus, un aller-retour de plus pour les échecs | origine fragile, PoP nombreux, contenu peu populaire |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la bande passante économisée à l’origine]
+Hypothèses : un site envoie 20 Gbit/s à ses utilisateurs en pointe, et la moitié en moyenne sur le mois ; 95 % des octets sont servis depuis les caches du CDN.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Sortie de l’origine sans CDN | | 20 Gbit/s |
+| Sortie de l’origine avec CDN | $20 \times (1 - 0{,}95)$ | 1 Gbit/s |
+| Volume mensuel évité à l’origine | 19 Gbit/s × 0,5 × 2,6 millions de secondes / 8 | ≈ 3 Po |
+| Si le taux tombe à 90 % | $20 \times 0{,}10$ | 2 Gbit/s |
+
+Conclusion : passer de 95 % à 90 % de succès double la sortie de l’origine. Le taux de succès en octets, et non en requêtes, est le chiffre à surveiller pour la bande passante ; les gros objets pèsent plus que les petits.
+:::
+
+:::calcul[Calcul : ce que coûtent des PoP nombreux sans bouclier]
+Hypothèses : 100 000 objets demandés régulièrement ; un TTL d’une heure ; 50 PoP, et chaque PoP reçoit au moins une demande pour chaque objet pendant l’heure.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Demandes à l’origine par heure, sans bouclier | 50 × 100 000 | 5 millions |
+| Par seconde | 5 000 000 / 3 600 | ≈ 1 400 req/s |
+| Avec un bouclier | 100 000 / 3 600 | ≈ 28 req/s |
+| Rapport | 50 | 50 fois moins |
+
+Conclusion : sans bouclier, chaque PoP ajouté multiplie la charge de l’origine pour les objets peu populaires. La mesure du chapitre, avec 8 PoP, a divisé par 2,3 les requêtes reçues par l’origine ; avec 50 PoP, le rapport approche 50.
+:::
+
+:::calcul[Calcul : un utilisateur à Sydney, une origine à Paris]
+Hypothèses : aller-retour Sydney-Paris de 170 ms au moins ([ch. 4](../partie-1/transport.mdx)) ; aller-retour vers le PoP de Sydney de 10 ms ; le PoP garde des connexions ouvertes vers l’origine ; TLS 1.3.
+
+| Situation | Calcul | Résultat |
+|---|---|---|
+| Sans CDN : TCP, TLS, requête | 3 × 170 ms | ≥ 510 ms |
+| PoP, succès | 3 × 10 ms | ≈ 30 ms |
+| PoP, échec : ouverture près de l’utilisateur, requête vers l’origine sur une connexion ouverte | 3 × 10 + 170 ms | ≈ 200 ms |
+| PoP, contenu dynamique jamais en cache | identique à l’échec | ≈ 200 ms |
+
+Conclusion : même pour une réponse qui n’est jamais en cache, le CDN fait gagner plus de 300 ms en épargnant à l’utilisateur deux allers-retours intercontinentaux.
+:::
+
+## Exemple réel
+
+**Les niveaux de cache de CloudFront.** La documentation de CloudFront décrit trois niveaux[^cf-fonctionnement][^cf-shield]. Les PoP servent directement les utilisateurs, choisis par le DNS selon la latence. Derrière eux, des caches régionaux, plus grands, gardent plus longtemps les objets que les PoP ont dû écarter pour faire de la place, ce qui sert surtout les contenus qui perdent de la popularité avec le temps, comme les photos publiées par les utilisateurs ; les PoP d’une même région partagent ainsi un cache, ce qui évite des requêtes multiples à l’origine. Enfin, le bouclier d’origine, en option, s’intercale entre tous les caches régionaux et l’origine ; il regroupe les requêtes simultanées pour un même objet et peut ne laisser passer qu’une requête vers l’origine. AWS le recommande quand les utilisateurs sont répartis sur plusieurs régions ou quand l’origine a peu de capacité, et le déconseille pour le contenu dynamique, peu cacheable ou rarement demandé. Les méthodes `PUT`, `POST`, `PATCH`, `OPTIONS` et `DELETE` vont directement des PoP à l’origine, sans passer par les caches régionaux.
+
+## Erreurs fréquentes
+
+Mettre un CDN devant un site sans régler le `Cache-Control` de l’origine : beaucoup de réponses partent avec `no-cache` ou sans indication, et le CDN n’en garde rien. Le premier travail est de dire, type de contenu par type de contenu, ce qui peut être gardé et combien de temps.
+
+Laisser dans la clé de cache des paramètres qui ne changent pas la réponse (suivi publicitaire, ordre des paramètres, identifiants de session) : la mesure a montré le taux de succès divisé par plus de deux.
+
+Mettre en cache, dans un cache partagé, une réponse propre à un utilisateur : sa page de compte, servie au suivant. Toute réponse qui dépend d’un cookie ou d’un jeton doit porter `private` ou `no-store`, ou bien la clé doit inclure ce dont elle dépend.
+
+Compter sur la purge pour la cohérence : une purge prend du temps à se propager et peut échouer. Pour les fichiers statiques, mieux vaut changer de nom à chaque version (`app.3f9a2c.js`) avec un TTL très long : une nouvelle version est une nouvelle URL, et rien n’a besoin d’être purgé.
+
+Juger le CDN au seul taux de succès en requêtes, alors que la bande passante et le coût dépendent du taux en octets, et que la charge de l’origine dépend du nombre de PoP qui la sollicitent.
+
+Enfin, placer à la périphérie du code qui appelle une base centrale à chaque requête : il garde la latence de la base et ajoute la complexité de la périphérie.
+
+:::piege[Erreur fréquente : un TTL long sur une URL qui ne change pas de nom]
+« On met un TTL d’un an sur `style.css`, c’est bon pour le cache. » Le jour où l’on modifie la feuille de style, les PoP et les navigateurs gardent l’ancienne pendant un an, et la purge ne touche que les caches du CDN, pas ceux des navigateurs. Un TTL long ne convient qu’à une URL qui change de nom quand son contenu change (`style.8c41d2.css`) ; une URL stable demande un TTL court et une revalidation.
+:::
+
+:::entretien
+Quand le CDN apparaît dans votre schéma, chiffrez-le : « 95 % des octets depuis le CDN, donc 1 Gbit/s à l’origine au lieu de 20 ». Dites ce qui est mis en cache et pour combien de temps (« images et scripts versionnés pour un an ; page d’accueil 30 s avec `stale-while-revalidate` ; panier jamais »), ce qu’il y a dans la clé, comment une modification se propage (nom versionné ou purge), et s’il y a un bouclier devant l’origine.
+:::
+
+## Exercices
+
+**Question 1.** Un site de presse a 60 PoP et une origine fragile. Il publie 2 000 articles par jour, chacun lu surtout dans les deux heures qui suivent sa publication, et met un TTL de 5 minutes sur les pages d’articles pour que les corrections apparaissent vite. Estimez le nombre de requêtes que reçoit l’origine pour les articles du jour avec et sans bouclier, en supposant que chaque PoP reçoit au moins une lecture de chaque article toutes les 5 minutes pendant les deux heures. Que proposez-vous pour les corrections ?
+
+**Question 2.** Dans la mesure, pourquoi les PoP seuls ne servent-ils que 65 % des requêtes, alors que l’ensemble des 40 000 requêtes ne concerne qu’environ 6 100 objets distincts ? Quel taux de succès obtiendrait-on avec un seul PoP assez grand pour tout garder ?
+
+**Question 3.** Une équipe veut déplacer à la périphérie la page « mon compte », qui lit le profil et les commandes de l’utilisateur dans une base PostgreSQL située à Francfort. Qu’en pensez-vous ? Quelle partie du travail gagnerait à s’exécuter à la périphérie ?
+
+**Exercice de conception.** Une plateforme de vidéo à la demande sert 2 millions de spectateurs simultanés en soirée, à 5 Mbit/s en moyenne. Le catalogue compte 50 000 films découpés en segments de 4 secondes, et un nouvel épisode très attendu sort chaque vendredi à 20 h. L’origine est un stockage d’objets dans une région (ch. 29). Concevez la distribution : niveaux de cache, TTL, clé de cache, préparation de la sortie du vendredi, et chiffrez la bande passante à l’origine.
+
+## Corrigés
+
+**Question 1.** Pendant ses deux heures de vie, chaque article est redemandé à l’origine par chaque PoP à chaque expiration, soit $120 / 5 = 24$ fois par PoP. Sans bouclier : $2\,000 \times 60 \times 24 = 2{,}88$ millions de requêtes par jour. À tout instant, environ $2\,000 \times 2 / 24 \approx 170$ articles ont moins de deux heures, et chacun est redemandé par 60 PoP toutes les 5 minutes : $170 \times 60 / 300 \approx 33$ requêtes par seconde, en continu. Avec un bouclier, l’origine ne reçoit plus que les demandes du bouclier : $2\,000 \times 24 = 48\,000$ par jour, environ une toutes les deux secondes, soixante fois moins. Pour les corrections, on peut allonger le TTL des pages d’articles (une heure, par exemple) et purger la page d’un article quand il est corrigé, éventuellement par une clé de substitution qui purge aussi les pages de rubrique où il apparaît ; avec `stale-while-revalidate`, les lecteurs ne voient jamais d’attente pendant les revalidations.
+
+**Question 2.** Chaque PoP a son propre cache : la première demande d’un objet à un PoP est toujours un échec, même si sept autres PoP l’ont déjà. Avec 40 000 requêtes réparties au hasard sur 8 PoP, chacun en reçoit 5 000, dont une bonne partie concerne des objets qu’il voit pour la première fois. Un seul cache assez grand ne ferait d’échec qu’à la première demande de chaque objet, soit environ 6 100 échecs, d’où un taux de succès de $1 - 6\,115 / 40\,000 \approx 85\,\%$. Le bouclier obtient ce résultat pour l’origine tout en gardant les PoP près des utilisateurs.
+
+**Question 3.** La page dépend de données propres à l’utilisateur, stockées à Francfort : exécutée à Sydney, elle ferait plusieurs allers-retours de plusieurs centaines de millisecondes vers la base, plus lents que si toute la page était calculée à Francfort et envoyée en une fois. La périphérie gagnerait à faire ce qui ne dépend que de la requête : vérifier le jeton de session et rejeter tout de suite une requête non authentifiée, servir depuis le cache le squelette de la page et ses ressources statiques, choisir la langue. Le contenu propre à l’utilisateur reste calculé près des données ; si sa latence compte vraiment, c’est la base qu’il faut rapprocher des utilisateurs (ch. 46).
+
+**Exercice de conception.**
+
+*Débit.* $2 \times 10^6 \times 5$ Mbit/s $= 10$ Tbit/s en pointe : aucune origine ne sert cela, tout doit venir des PoP.
+
+*Niveaux.* Des PoP dans les villes des spectateurs, des caches régionaux, et un bouclier devant le stockage d’objets. Les segments vidéo sont des fichiers dont le nom contient le film, la qualité et le numéro du segment, et qui ne changent jamais : TTL très long (un an), aucune purge. Les listes de lecture (playlists) qui décrivent les segments disponibles changent peu pour un film, mais un fichier de quelques kilo-octets avec un TTL de quelques minutes suffit. La clé de cache est le chemin, sans les paramètres de suivi ni les jetons d’accès (que la périphérie vérifie, puis retire).
+
+*Vendredi 20 h.* Des centaines de milliers de spectateurs demandent les mêmes premiers segments dans la même minute. En mode pull seul, chaque PoP rate ces segments au même instant ; le bouclier regroupe les demandes, mais on peut faire mieux en poussant à l’avance l’épisode vers les caches régionaux et les plus gros PoP (mode push, ou requêtes de préchauffage), pendant l’après-midi.
+
+*Bande passante à l’origine.* Avec un taux de succès de 99 % en octets aux PoP et le bouclier, l’origine reçoit au plus 1 % de 10 Tbit/s, soit 100 Gbit/s, et en pratique beaucoup moins : le bouclier ne demande chaque segment qu’une fois par TTL. Pour un épisode de 50 minutes en 5 qualités à 5 Mbit/s en moyenne, il y a $50 \times 60 \times 5 \times 5$ Mbit $\approx 9{,}4$ Go à lire une seule fois à l’origine, quel que soit le nombre de spectateurs.
+
+:::fiche
+- CDN : des caches dans de nombreuses villes (PoP) ; l’utilisateur y est amené par le DNS ou par anycast.
+- Pull : le PoP va chercher à l’origine au premier échec ; push : le site dépose à l’avance.
+- Clé de cache : méthode et URL, plus les en-têtes de `Vary` ; trop fine, elle fragmente (mesuré : 65 % → 29 % de succès avec un `utm_source`) ; trop grossière, elle sert la mauvaise réponse.
+- `Cache-Control` : `max-age`, `s-maxage`, `private`, `no-store` ; `stale-while-revalidate` et `stale-if-error` (RFC 5861).
+- TTL = durée maximale d’une modification invisible (mesuré : 2,35 s sur 3 s) ; purge pour la raccourcir (mesuré : aucune réponse périmée) ; noms versionnés pour les fichiers statiques.
+- Succès 1,4 ms, échec 84 ms (80 ms vers l’origine) : le taux de succès fait la latence.
+- Bouclier d’origine : 13 900 → 6 115 requêtes à l’origine avec 8 PoP (mesuré) ; le gain croît avec le nombre de PoP.
+- Dynamique : le PoP termine TCP et TLS près de l’utilisateur et garde des connexions ouvertes vers l’origine.
+- Périphérie : isolats légers (5 ms au démarrage), mais l’état est difficile (Workers KV : 60 s ou plus pour propager).
+:::
+
+[^cf-fonctionnement]: Amazon Web Services, « How CloudFront delivers content », *Amazon CloudFront Developer Guide*, [docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/HowCloudFrontWorks.html](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/HowCloudFrontWorks.html).
+[^anycast-cf]: Matthew Prince, « A Brief Primer on Anycast », blog de Cloudflare, 21 octobre 2011, [blog.cloudflare.com/a-brief-anycast-primer](https://blog.cloudflare.com/a-brief-anycast-primer/).
+[^rfc9111]: R. Fielding, M. Nottingham et J. Reschke (dir.), « HTTP Caching », RFC 9111, juin 2022, [rfc-editor.org/rfc/rfc9111](https://www.rfc-editor.org/rfc/rfc9111).
+[^rfc5861]: M. Nottingham, « HTTP Cache-Control Extensions for Stale Content », RFC 5861, mai 2010, [rfc-editor.org/rfc/rfc5861](https://www.rfc-editor.org/rfc/rfc5861).
+[^fastly-purge]: Fastly, « Purging », documentation, [fastly.com/documentation/guides/concepts/edge-state/cache/purging](https://www.fastly.com/documentation/guides/concepts/edge-state/cache/purging/).
+[^cf-shield]: Amazon Web Services, « Use Amazon CloudFront Origin Shield », *Amazon CloudFront Developer Guide*, [docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/origin-shield.html](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/origin-shield.html).
+[^workers]: Cloudflare, « Cloud Computing without Containers », blog de Cloudflare, 9 novembre 2018, [blog.cloudflare.com/cloud-computing-without-containers](https://blog.cloudflare.com/cloud-computing-without-containers/).
+[^breslau]: L. Breslau, P. Cao, L. Fan, G. Phillips et S. Shenker, « Web Caching and Zipf-like Distributions: Evidence and Implications », *IEEE INFOCOM '99*, 1999, p. 126-134, [doi:10.1109/INFCOM.1999.749260](https://doi.org/10.1109/INFCOM.1999.749260).
+[^kv]: Cloudflare, « How KV works », documentation de Workers KV, [developers.cloudflare.com/kv/concepts/how-kv-works](https://developers.cloudflare.com/kv/concepts/how-kv-works/).

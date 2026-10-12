@@ -117,7 +117,7 @@ La reprise de session multiplie le nombre de connexions par 4 avec une clé ECDS
 
 ## Où terminer le chiffrement
 
-Dans une architecture réelle, le client ne parle presque jamais directement au serveur d’application : un répartiteur de charge ou un CDN s’intercale ([ch. 13](../partie-2/repartition-charge.mdx) et 15). Il faut décider où la connexion TLS du client se termine, c’est-à-dire où se trouve la clé privée du certificat public.
+Dans une architecture réelle, le client ne parle presque jamais directement au serveur d’application : un répartiteur de charge ou un CDN s’intercale ([ch. 13](../partie-2/repartition-charge.mdx) et [15](../partie-2/cdn-edge.mdx)). Il faut décider où la connexion TLS du client se termine, c’est-à-dire où se trouve la clé privée du certificat public.
 
 <Figure svg={terminaison} num="6.3" alt="Trois architectures : terminaison TLS au répartiteur avec HTTP en clair derrière ; rechiffrement avec TLS de nouveau entre répartiteur et serveur ; passage direct avec TLS de bout en bout jusqu’au serveur.">
 Trois emplacements possibles pour la fin du chiffrement.

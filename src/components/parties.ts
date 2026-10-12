@@ -38,7 +38,7 @@ export const PARTIES: Partie[] = [
     chapitres: [
       {num: 13, titre: 'Répartition de charge', doc: 'partie-2/repartition-charge'},
       {num: 14, titre: 'Reverse proxy et API gateway', doc: 'partie-2/proxy-passerelle'},
-      {num: 15, titre: 'CDN et edge computing'},
+      {num: 15, titre: 'CDN et edge computing', doc: 'partie-2/cdn-edge'},
       {num: 16, titre: 'Cache (1) : placement et stratégies'},
       {num: 17, titre: 'Cache (2) : invalidation, stampede, hot keys'},
       {num: 18, titre: 'Bases relationnelles (1) : transactions et isolation'},

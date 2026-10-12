@@ -25,7 +25,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 2 · Briques de base',
       collapsed: false,
       link: {type: 'doc', id: 'partie-2/index'},
-      items: ['partie-2/repartition-charge', 'partie-2/proxy-passerelle'],
+      items: ['partie-2/repartition-charge', 'partie-2/proxy-passerelle', 'partie-2/cdn-edge'],
     },
   ],
 };

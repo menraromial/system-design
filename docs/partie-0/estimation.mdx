@@ -88,7 +88,7 @@ où $D_{\text{pointe}}$ est le débit de pointe, $C$ la capacité mesurée d’u
 
 ### La conclusion
 
-Un calcul qui ne débouche sur aucune décision a coûté du temps pour rien. Chaque bloc de chiffres doit finir par une phrase de la forme « donc... » : donc une seule base suffit ; donc les images doivent être servies par un réseau de diffusion de contenu (CDN, ch. 15) ; donc le nombre de connexions ouvertes, et non le débit, dimensionne les serveurs. C’est cette phrase qui relie l’étape 2 de la démarche à l’étape 5.
+Un calcul qui ne débouche sur aucune décision a coûté du temps pour rien. Chaque bloc de chiffres doit finir par une phrase de la forme « donc... » : donc une seule base suffit ; donc les images doivent être servies par un réseau de diffusion de contenu (CDN, [ch. 15](../partie-2/cdn-edge.mdx)) ; donc le nombre de connexions ouvertes, et non le débit, dimensionne les serveurs. C’est cette phrase qui relie l’étape 2 de la démarche à l’étape 5.
 
 ## Calculer de tête sans se tromper d’ordre de grandeur
 
@@ -157,7 +157,7 @@ Hypothèses : 10 millions d’utilisateurs actifs par jour ; 10 % d’entre 
 | Cache des photos chaudes | 7 jours × 10⁶ photos × 20 % × 200 Ko | ≈ 280 Go |
 | Serveurs d’application | $\lceil 17\,400 / (1\,000 \times 0{,}7) \rceil + 1$ | 26 |
 
-Conclusions. Les fichiers représentent plus de 99,9 % du volume (16,4 Po contre 1,8 To) : ils iront dans un stockage objet (ch. 29), et les métadonnées dans une base classique, qui tient sur une machine. Les 28 Gbit/s de sortie en pointe ne se servent pas depuis quelques serveurs : un CDN est indispensable (ch. 15). Avec 500 lectures par écriture, le cache est rentable, et 280 Go tiennent dans la mémoire de quelques machines. La grande majorité des requêtes concerne la lecture des métadonnées, une vingtaine de serveurs sans état suffit pour elles.
+Conclusions. Les fichiers représentent plus de 99,9 % du volume (16,4 Po contre 1,8 To) : ils iront dans un stockage objet (ch. 29), et les métadonnées dans une base classique, qui tient sur une machine. Les 28 Gbit/s de sortie en pointe ne se servent pas depuis quelques serveurs : un CDN est indispensable ([ch. 15](../partie-2/cdn-edge.mdx)). Avec 500 lectures par écriture, le cache est rentable, et 280 Go tiennent dans la mémoire de quelques machines. La grande majorité des requêtes concerne la lecture des métadonnées, une vingtaine de serveurs sans état suffit pour elles.
 :::
 
 Le calcul fait aussi ressortir ce qui coûte. Les 820 disques ne sont qu’un point de départ : un stockage objet qui utilise un codage d’effacement (erasure coding) au lieu de trois copies complètes peut ramener le surcoût de ×3 à environ ×1,5, ce que le ch. 29 détaillera, et c’est une décision qui se chiffre en centaines de disques.

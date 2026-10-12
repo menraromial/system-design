@@ -1,0 +1,21 @@
+% Mesures de outils/experiences/ch15/cdn.py : requêtes qui atteignent l'origine
+% sur 40 000, selon le montage.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=2.6mm, y=9mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  \node[titrec, anchor=west] at (0,0.9) {requêtes reçues par l'origine, sur 40 000 envoyées aux PoP};
+  \foreach \i/\nom/\v/\t/\c in {
+      0/{PoP seuls}/13.900/{13 900 (34,8 \%)}/Pbleu,
+      1/{PoP + bouclier}/6.115/{6 115 (15,3 \%)}/Pvert,
+      2/{utm\_* dans la clé}/28.463/{28 463 (71,2 \%)}/Prose,
+      3/{utm\_* retirés de la clé}/13.953/{13 953 (34,9 \%)}/Pbleu} {
+    \node[leg, anchor=east] at (-0.7,-\i) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.27) rectangle (\v,-\i+0.27);
+    \node[note, anchor=west, font=\sffamily\small] at (\v+0.6,-\i) {\t};
+  }
+  \draw[ligne] (0,0.45) -- (0,-3.45);
+  \draw[ligne=Dcloud, dash pattern=on 3pt off 2pt] (40,0.45) -- (40,-3.45);
+  \node[note, anchor=south, font=\sffamily\small] at (40,0.45) {sans CDN};
+\end{tikzpicture}
+\end{document}
