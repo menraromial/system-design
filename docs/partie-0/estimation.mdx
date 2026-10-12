@@ -76,7 +76,7 @@ Le stockage se calcule en multipliant la taille d’un objet par le nombre d’o
 
 La bande passante est le débit multiplié par la taille des réponses, en distinguant l’entrée (ce que les clients envoient) et la sortie (ce qu’on leur renvoie). On la convertit en bits par seconde, parce que c’est l’unité des interfaces réseau et des factures de transit : un octet vaut 8 bits.
 
-La mémoire d’un cache se dimensionne sur les données chaudes (hot data), celles qu’on lit souvent. Une hypothèse fréquente, à vérifier dès qu’on a des mesures, est qu’une petite fraction des objets, par exemple 20 %, reçoit l’essentiel des lectures ; on garde alors en mémoire cette fraction des objets récents. Les ch. 16 et 17 diront comment choisir ce qu’on garde.
+La mémoire d’un cache se dimensionne sur les données chaudes (hot data), celles qu’on lit souvent. Une hypothèse fréquente, à vérifier dès qu’on a des mesures, est qu’une petite fraction des objets, par exemple 20 %, reçoit l’essentiel des lectures ; on garde alors en mémoire cette fraction des objets récents. Les [ch. 16](../partie-2/cache-strategies.mdx) et 17 diront comment choisir ce qu’on garde.
 
 Le nombre de machines, enfin, se déduit de la pointe et de la capacité d’une machine. Cette capacité ne s’invente pas : elle se mesure par un test de charge sur l’application réelle, car elle dépend de ce que fait chaque requête. On ne la consomme pas en entier, parce que la latence grimpe brutalement quand une machine approche de la saturation (le [ch. 9](../partie-1/latence-debit.mdx) explique pourquoi) ; on vise un taux d’utilisation, par exemple 70 %. On ajoute enfin au moins une machine pour pouvoir en perdre une, ou en mettre une à jour, sans passer sous la capacité nécessaire : c’est la règle dite N + 1.
 

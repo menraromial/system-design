@@ -165,7 +165,7 @@ Hypothèses : pointe ordinaire de 500 requêtes par seconde ; trafic multipli
 | Mémoire des sessions (1 million de sessions actives de 1 Ko) | $10^6 \times 1$ Ko | ≈ 1 Go |
 | Connexions vers la base (pool de 20 par serveur) | 16 × 20 | 320 |
 
-Conclusion : la couche applicative passe de 2 à 16 serveurs sans difficulté, puisqu’elle est sans état et que son passage à l’échelle est linéaire. Le problème se déplace vers ce qu’ils partagent : 15 000 requêtes par seconde et 320 connexions sur une même base, qu’on soulage par un cache (ch. 16), par des copies en lecture (ch. 24) ou par une machine plus grosse ; 5 000 lectures de session par seconde et 1 Go de données restent faciles pour un seul Redis, qu’il faut toutefois rendre disponible ([ch. 11](disponibilite.mdx)).
+Conclusion : la couche applicative passe de 2 à 16 serveurs sans difficulté, puisqu’elle est sans état et que son passage à l’échelle est linéaire. Le problème se déplace vers ce qu’ils partagent : 15 000 requêtes par seconde et 320 connexions sur une même base, qu’on soulage par un cache ([ch. 16](../partie-2/cache-strategies.mdx)), par des copies en lecture (ch. 24) ou par une machine plus grosse ; 5 000 lectures de session par seconde et 1 Go de données restent faciles pour un seul Redis, qu’il faut toutefois rendre disponible ([ch. 11](disponibilite.mdx)).
 :::
 
 :::calcul[Calcul : le plafond d’Amdahl]

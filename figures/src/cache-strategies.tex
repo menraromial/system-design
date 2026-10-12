@@ -1,0 +1,43 @@
+% Cinq façons d'organiser lectures et écritures entre l'application, le cache et la base.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\footnotesize},
+    b/.style={soft=#1, minimum width=15mm, minimum height=8mm, font=\sffamily\footnotesize, inner sep=1pt},
+    m/.style={arr=#1, line width=0.9pt}, m/.default=Dslate,
+    e/.style={font=\sffamily\footnotesize, fill=white, inner sep=1pt, text=Dink}]
+  \newcommand{\strat}[4]{% x, y, titre, couleur
+    \begin{scope}[shift={(#1,#2)}]
+      \node[pillo=#4, font=\sffamily\bfseries\footnotesize] at (30,25) {#3};
+      \node[b=Dblue] (A) at (0,0) {appli};
+      \node[b=Dpurple] (C) at (30,0) {cache};
+      \node[b=Dorange] (B) at (60,0) {base};
+    \end{scope}}
+  % cache-aside, lecture
+  \strat{0}{0}{cache-aside (lecture)}{Dblue}
+  \draw[m] ([yshift=2mm]A.east) -- node[e, above] {1 GET} ([yshift=2mm]C.west);
+  \draw[m=Dred, dash pattern=on 2pt off 1.5pt] ([yshift=-2mm]C.west) -- node[e, below] {2 absent} ([yshift=-2mm]A.east);
+  \draw[m] (A.north) to[out=35, in=145] node[e, above] {3 SELECT} (B.north);
+  \draw[m] (A.south) to[out=-40, in=-140] node[e, below] {4 SET} (C.south);
+  % read-through
+  \strat{85}{0}{read-through (lecture)}{Dteal}
+  \draw[m] (A) -- node[e, above] {1 GET} (C);
+  \draw[m] (C) -- node[e, above] {2 SELECT} (B);
+  \node[note, anchor=north, align=center] at (115,-7) {le cache va lui-même à la base\\et garde la réponse};
+  % write-through
+  \strat{0}{-50}{write-through}{Dgreen}
+  \draw[m] (A.north) to[out=35, in=145] node[e, above] {1 UPDATE} (B.north);
+  \draw[m] (A) -- node[e, above] {2 SET} (C);
+  \node[note, anchor=north] at (30,-57) {base puis cache, de façon synchrone};
+  % write-back
+  \strat{85}{-50}{write-back}{Dorange}
+  \draw[m] (A) -- node[e, above] {1 SET} (C);
+  \draw[m=Dorange, dash pattern=on 3pt off 2pt] (C) -- node[e, above] {2 plus tard} (B);
+  \node[note, anchor=north, align=center] at (115,-57) {réponse dès le cache ; la base\\reçoit les écritures par lots};
+  % write-around
+  \strat{42}{-100}{write-around}{Dslate}
+  \draw[m] (A.north) to[out=35, in=145] node[e, above] {1 UPDATE} (B.north);
+  \draw[m=Dred, dash pattern=on 2pt off 1.5pt] (A) -- node[e, above] {2 DEL} (C);
+  \node[note, anchor=north, align=center] at (72,-107) {l'écriture contourne le cache ;\\la lecture suivante le remplit};
+\end{tikzpicture}
+\end{document}

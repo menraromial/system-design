@@ -78,7 +78,7 @@ Une première version de l’expérience montrait 42 ms pour les deuxième et t
 
 ### Protéger l’origine autrement
 
-Le proxy est aussi le bon endroit pour fixer des limites que l’origine n’a pas à connaître : taille maximale d’un corps de requête, durée maximale pour recevoir les en-têtes, nombre de connexions par client, délai au-delà duquel une connexion inactive est fermée. Une attaque qui ouvre de nombreuses connexions et envoie ses en-têtes très lentement, pour occuper les fils de l’origine sans presque rien transmettre, vise exactement ce que le tampon et ces délais neutralisent. Le proxy peut enfin garder en cache des réponses entières (ch. 16) et servir une page d’erreur propre quand l’origine est en panne.
+Le proxy est aussi le bon endroit pour fixer des limites que l’origine n’a pas à connaître : taille maximale d’un corps de requête, durée maximale pour recevoir les en-têtes, nombre de connexions par client, délai au-delà duquel une connexion inactive est fermée. Une attaque qui ouvre de nombreuses connexions et envoie ses en-têtes très lentement, pour occuper les fils de l’origine sans presque rien transmettre, vise exactement ce que le tampon et ces délais neutralisent. Le proxy peut enfin garder en cache des réponses entières ([ch. 16](cache-strategies.mdx)) et servir une page d’erreur propre quand l’origine est en panne.
 
 ## La passerelle d’API
 
@@ -179,7 +179,7 @@ Hypothèses : le catalogue mesuré, 284 Ko non compressé, 58 Ko compressé�
 | Débit sortant du site, compressé | 1 000 × 58 Ko × 8 | ≈ 0,46 Gbit/s |
 | Processeur pour compresser | 1 000 × 3,3 ms | ≈ 3,3 cœurs |
 
-Conclusion : pour 3 ou 4 cœurs de proxy, chaque client gagne 180 ms et le site divise par cinq son débit sortant. Si la même réponse est demandée souvent, la compresser une fois et la garder en cache (ch. 16) supprime l’essentiel de ce calcul.
+Conclusion : pour 3 ou 4 cœurs de proxy, chaque client gagne 180 ms et le site divise par cinq son débit sortant. Si la même réponse est demandée souvent, la compresser une fois et la garder en cache ([ch. 16](cache-strategies.mdx)) supprime l’essentiel de ce calcul.
 :::
 
 ## Exemple réel

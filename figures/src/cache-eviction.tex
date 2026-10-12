@@ -1,0 +1,23 @@
+% Mesures de outils/experiences/ch16/eviction.py : taux de succès de Redis
+% (12 Mo, environ 8 250 clés de 1 Kio sur 100 000) selon la politique d'éviction.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1mm, y=1.4mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  \draw[ligne] (0,50) -- (112,50);
+  \draw[ligne] (0,50) -- (0,78);
+  \foreach \v in {50,55,...,75} {\draw[ligne=Dcloud] (0,\v) -- (-1,\v); \node[note, left] at (-1,\v) {\v\ \%};}
+  \foreach \g/\x/\nom/\a/\b/\c in {0/6/{zipf}/70.5/73.0/67.4, 1/43/{zipf + balayages}/62.6/69.8/60.9, 2/80/{popularité qui change}/68.2/65.3/65.0} {
+    \draw[draw=Dink, line width=0.5pt, fill=Pbleu] (\x,50) rectangle (\x+8,\a);
+    \draw[draw=Dink, line width=0.5pt, fill=Porange] (\x+9,50) rectangle (\x+17,\b);
+    \draw[draw=Dink, line width=0.5pt, fill=Pvert] (\x+18,50) rectangle (\x+26,\c);
+    \node[note, above] at (\x+4,\a) {\pgfmathprintnumber[use comma, fixed, fixed zerofill, precision=1, assume math mode=true]{\a}};
+    \node[note, above] at (\x+13,\b) {\pgfmathprintnumber[use comma, fixed, fixed zerofill, precision=1, assume math mode=true]{\b}};
+    \node[note, above] at (\x+22,\c) {\pgfmathprintnumber[use comma, fixed, fixed zerofill, precision=1, assume math mode=true]{\c}};
+    \node[axe, anchor=north] at (\x+13,49) {\nom};
+  }
+  \foreach \c/\t/\x in {Pbleu/allkeys-lru/10, Porange/allkeys-lfu/45, Pvert/allkeys-random/80} {
+    \node[temoin=\c] at (\x,82) {}; \node[note, anchor=west] at (\x+3,82) {\t};
+  }
+\end{tikzpicture}
+\end{document}

@@ -229,7 +229,7 @@ La plus fréquente consiste à tester sur un poste où la base n’a qu’une co
 
 Une autre est de croire que « cohérence à terme » veut dire « cohérent au bout de quelques millisecondes ». La définition ne donne aucun délai : en temps normal le retard se compte en millisecondes, mais pendant une panne, une surcharge ou une resynchronisation complète, il peut durer des minutes, et l’application doit rester correcte.
 
-Le cache est aussi une copie. Tout ce chapitre s’applique à un cache placé devant une base (ch. 16) : sans invalidation, il sert l’ancienne version exactement comme une réplique en retard.
+Le cache est aussi une copie. Tout ce chapitre s’applique à un cache placé devant une base ([ch. 16](../partie-2/cache-strategies.mdx)) : sans invalidation, il sert l’ancienne version exactement comme une réplique en retard.
 
 Confondre sérialisabilité et linéarisabilité conduit à croire qu’une base configurée en `SERIALIZABLE` empêche les lectures périmées. Elle garantit l’équivalence avec une exécution en série, pas que la lecture voie la dernière écriture confirmée.
 

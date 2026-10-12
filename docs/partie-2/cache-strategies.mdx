@@ -1,0 +1,282 @@
+---
+title: "Cache (1) : placement et stratégies"
+sidebar_label: "16. Cache (1) : placement et stratégies"
+description: "Où placer un cache, du navigateur à la base ; cache-aside, read-through, write-through, write-back, write-around ; politiques d'éviction LRU, LFU, FIFO et aléatoire selon les profils d'accès ; latence moyenne et taux de succès ; mesures avec Redis et PostgreSQL."
+partie: 2
+chapitre: 16
+---
+
+import niveaux from '@site/src/figures/cache-niveaux.svg';
+import strategies from '@site/src/figures/cache-strategies.svg';
+import eviction from '@site/src/figures/cache-eviction.svg';
+import latence from '@site/src/figures/cache-latence.svg';
+
+La requête qui calcule les dix produits les mieux notés d’une catégorie, sur un catalogue de 100 000 produits et 2 millions d’avis, prend 127 ms à PostgreSQL. Lire son résultat dans Redis prend 61 µs, deux mille fois moins. Lire un produit par sa clé primaire dans PostgreSQL prend 70 µs : presque autant que Redis. Ces trois mesures, faites pour ce chapitre sur la même machine, résument ce qu’un cache apporte et ce qu’il n’apporte pas : il évite de refaire un travail coûteux, mais il ne rend pas plus rapide un accès qui était déjà rapide.
+
+Un cache (cache) est une copie d’une partie des données, placée là où elle coûte moins cher à lire que l’original. Une lecture qui y trouve sa donnée est un succès (hit), une lecture qui doit aller à la source est un échec (miss), et la part des succès est le taux de succès (hit rate). Ce chapitre traite des choix de conception : où placer le cache, comment l’organiser avec la base pour les lectures et les écritures, quoi garder quand il est plein, et comment calculer ce qu’il fait gagner. Le ch. 17 traitera de ce qui va mal : l’invalidation, les courses entre cache et base, les avalanches de recalculs et les clés trop populaires.
+
+Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch16/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch16), qui lancent PostgreSQL 18 et Redis 8.8 en conteneurs sur la machine du cours : le coût d’une lecture à chaque niveau ([`niveaux.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch16/niveaux.py)), trois stratégies d’écriture et ce qu’elles perdent quand le processus meurt ([`ecriture.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch16/ecriture.py)), et trois politiques d’éviction de Redis sur trois profils d’accès ([`eviction.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch16/eviction.py)).
+
+## Où placer un cache
+
+Une même donnée peut être mise en cache à cinq endroits entre l’utilisateur et le disque de la base, et un système en utilise souvent plusieurs à la fois.
+
+<Figure svg={niveaux} num="16.1" alt="Cinq niveaux, du haut vers le bas : navigateur, CDN, serveur d’application avec un cache dans le processus, cache distribué Redis, base de données avec shared_buffers et le cache du système. À droite, les latences mesurées : 1,4 ms contre 84 ms pour le CDN, 1 µs pour un dictionnaire en mémoire, 61 µs pour Redis, 70 µs pour une clé primaire, 0,25 ms pour une page produit, 127 ms pour un top 10.">
+Où placer un cache, avec les coûts mesurés à chaque niveau.
+</Figure>
+
+Une requête descend de haut en bas et s’arrête au premier niveau qui a la réponse. Plus le niveau est haut, plus il est rapide et proche de l’utilisateur, mais plus il est étroit : le navigateur ne sert qu’un utilisateur, le cache d’un processus qu’un serveur. Les chiffres de droite viennent de la mesure de ce chapitre, et du [ch. 15](cdn-edge.mdx) pour le CDN.
+
+Le navigateur garde ce que l’en-tête `Cache-Control` l’autorise à garder ([ch. 15](cdn-edge.mdx)) : aucune requête ne part, mais la copie ne sert qu’à cet utilisateur, et le serveur ne peut plus la retirer avant son expiration. Le CDN ([ch. 15](cdn-edge.mdx)) sert les contenus partagés près des utilisateurs.
+
+Le cache dans le processus est une structure en mémoire du serveur d’application, un dictionnaire ou une bibliothèque de cache. C’est de loin le plus rapide : une lecture dans un dictionnaire Python coûte environ une microseconde, calcul de la clé compris. Chaque serveur a cependant sa propre copie : avec vingt serveurs, une donnée populaire est chargée vingt fois, les copies peuvent diverger le temps qu’elles expirent, et tout est perdu au redémarrage.
+
+Le cache distribué, Redis ou Memcached, est un service à part, partagé par tous les serveurs d’application : une donnée n’y est chargée qu’une fois, sa taille se règle indépendamment des serveurs, et il survit à leurs redémarrages. Le prix est un aller-retour réseau à chaque lecture : 61 µs ici, sur la même machine, davantage entre deux machines.
+
+La base de données a enfin son propre cache. PostgreSQL garde des pages de tables et d’index dans une zone de mémoire partagée, `shared_buffers`, 128 Mo par défaut ; sa documentation conseille d’y consacrer environ 25 % de la mémoire d’un serveur dédié, et rarement plus de 40 %, parce que PostgreSQL s’appuie aussi sur le cache de fichiers du système d’exploitation[^pg-shared]. C’est grâce à ces deux caches qu’une lecture par clé primaire ne coûte que 70 µs : les pages utiles sont déjà en mémoire.
+
+### Ce que coûte une lecture à chaque niveau, mesuré
+
+`niveaux.py` remplit PostgreSQL avec 100 000 produits répartis en 10 catégories et 20 avis par produit, met les 100 000 produits dans un dictionnaire et dans Redis, puis répète chaque lecture sur des clés tirées au hasard, 5 000 fois (100 fois pour la plus lourde) :
+
+```text
+une lecture, sur la machine du cours ; 100 000 produits, 2 millions d'avis
+niveau                               médiane   99e centile   rapport
+dictionnaire du processus            1.05 µs       3.09 µs        1x
+Redis local (GET)                   61.06 µs     204.33 µs       58x
+PostgreSQL, clé primaire            70.42 µs     212.38 µs       67x
+PostgreSQL, page produit           246.82 µs     490.43 µs      235x
+PostgreSQL, top 10 catégorie    126583.94 µs  144901.12 µs   120327x
+```
+
+Un second passage a donné les mêmes ordres de grandeur, à 10 % près sur les médianes (62 µs pour Redis, 76 µs pour la clé primaire, 129 ms pour le top 10).
+
+Le dictionnaire du processus est soixante fois plus rapide que Redis : ce qui coûte dans Redis, ce n’est pas Redis, c’est l’aller-retour TCP et le passage par le noyau, comme au [ch. 9](../partie-1/latence-debit.mdx). Redis et une lecture par clé primaire dans PostgreSQL sont en revanche au même niveau : les deux paient un aller-retour, et PostgreSQL trouve la ligne en mémoire grâce à son index. Mettre en cache une lecture de ce type ne gagne presque rien en latence. Ce qui gagne beaucoup, c’est la page produit, qui joint et agrège 20 avis (quatre fois plus chère qu’un GET), et surtout le top 10, qui parcourt 200 000 avis : là, un succès dans le cache évite 127 ms de travail.
+
+Le cache sert donc à deux choses distinctes, qu’il faut séparer dans une conception. Il évite de recalculer des résultats coûteux, et c’est un gain de latence. Il retire aussi des requêtes à la base, même bon marché, et c’est un gain de capacité : une base qui sert 50 000 lectures par seconde par clé primaire est occupée, même si chacune est rapide, et un cache qui en absorbe 95 % lui laisse 2 500 requêtes par seconde.
+
+## Organiser les lectures et les écritures
+
+<Figure svg={strategies} num="16.2" alt="Cinq petits schémas avec l’application, le cache et la base. Cache-aside : GET au cache, absent, SELECT à la base, SET au cache. Read-through : GET au cache, qui fait lui-même le SELECT. Write-through : UPDATE à la base puis SET au cache. Write-back : SET au cache, la base est mise à jour plus tard. Write-around : UPDATE à la base, DEL au cache.">
+Cinq façons d’organiser lectures et écritures entre l’application, le cache et la base.
+</Figure>
+
+Chaque schéma montre les échanges entre l’application, le cache et la base, dans l’ordre de leurs numéros. Les flèches pointillées rouges sont des invalidations ou des absences, la flèche pointillée orange une écriture différée. Les deux du haut décrivent une lecture, les trois autres une écriture.
+
+### Lire : cache-aside et read-through
+
+En cache-aside (ou lazy loading), l’application gère tout : elle demande la donnée au cache ; si elle est absente, elle la lit dans la base, puis la range dans le cache pour les lectures suivantes. Le cache ne connaît pas la base, et ne contient que ce qui a été demandé. C’est la stratégie que décrit Facebook pour son memcache, qu’il utilise comme un cache « look-aside » rempli à la demande : le serveur web demande la valeur à memcache, et si elle n’y est pas, la lit dans la base ou un autre service, puis remplit le cache[^facebook]. Une panne du cache ne casse pas le service, elle le ralentit : toutes les lectures vont à la base, ce qu’elle doit pouvoir tenir.
+
+En read-through, c’est le cache qui va lui-même chercher la donnée absente, et l’application ne parle qu’à lui. Le code de l’application est plus simple, mais le cache doit savoir lire la base : on trouve ce mode dans des bibliothèques de cache en mémoire, à qui l’on donne une fonction de chargement, et dans des produits qui se placent devant une base.
+
+### Écrire : write-through, write-back, write-around
+
+En write-through, chaque écriture va à la base puis au cache, de façon synchrone : le cache est toujours à jour pour les données écrites, et une écriture confirmée est dans la base. Elle coûte une écriture de plus, et remplit le cache de données qui ne seront peut-être jamais relues.
+
+En write-back (ou write-behind), l’écriture va au cache seulement, l’application reçoit la confirmation, et un processus d’arrière-plan reporte les écritures dans la base plus tard, par lots. L’écriture est aussi rapide qu’une écriture dans le cache, et la base reçoit moins de transactions. Mais pendant l’intervalle, la donnée n’existe que dans le cache : si le cache ou le processus qui tient le tampon meurt, les écritures confirmées sont perdues.
+
+En write-around, l’écriture va à la base et contourne le cache, dont on supprime l’ancienne valeur ; la lecture suivante, en cache-aside, rechargera la nouvelle. C’est le complément naturel du cache-aside, et c’est ce que fait Facebook : pour une écriture, le serveur web envoie la requête SQL à la base puis demande à memcache de supprimer la clé, plutôt que de la mettre à jour, parce qu’une suppression est idempotente[^facebook]. Supprimer deux fois revient à supprimer une fois, alors qu’écrire deux valeurs dans le désordre laisse la mauvaise.
+
+### Ce que coûtent et perdent ces stratégies, mesuré
+
+`ecriture.py` met à jour 2 000 fois des comptes tirés au hasard parmi 10 000, avec trois stratégies : cache-aside avec suppression (l’écriture va à la base, puis la clé est supprimée du cache), write-through, et write-back, dont le fil d’arrière-plan reporte les écritures par lots toutes les 200 ms. Puis il lance un processus qui écrit sans arrêt et le tue par `SIGKILL` au bout d’une seconde, et compte les écritures que ce processus avait confirmées mais qui ne sont pas dans la base.
+
+```text
+2 000 écritures ; PostgreSQL et Redis sur la machine du cours
+stratégie           médiane   99e centile  transactions
+cache-aside        3.060 ms      4.432 ms          2000
+write-through      3.134 ms      4.467 ms          2000
+write-back         0.081 ms      0.248 ms             1
+
+panne : l'écrivain est tué au bout d'une seconde (SIGKILL)
+stratégie         confirmées  dans la base   perdues
+write-through            237           238         0
+write-back              8006          5187      2819
+```
+
+Un second passage a donné les mêmes durées à 4 % près, et 3 261 écritures perdues sur 8 944 confirmées en write-back.
+
+Une écriture dans PostgreSQL coûte 3 ms, parce que chaque transaction confirmée attend que son journal soit écrit sur disque (ch. 18) ; cache-aside et write-through paient ce prix, et l’écriture dans Redis qui suit ne compte presque pas. Le write-back répond en 0,08 ms, quarante fois plus vite, et regroupe les 2 000 écritures en une seule transaction. Le prix est dans la seconde partie : en une seconde, l’écrivain en write-back a confirmé 8 006 écritures, dont 2 819 n’étaient pas encore arrivées dans la base quand il a été tué. Ce sont les écritures des derniers lots, environ un tiers de seconde de travail, que le fil d’arrière-plan n’avait pas encore envoyées ou terminé d’envoyer. En write-through, la base contient une écriture de plus que celles confirmées : l’écrivain a été tué entre la validation de la transaction et l’affichage de sa confirmation.
+
+Le write-back n’est donc acceptable que pour des données qu’on peut perdre sur une courte fenêtre (des compteurs de vues, des positions de lecture, des statistiques), ou si le tampon est lui-même durable, ce qui revient à construire une file de messages (ch. 27).
+
+## Quoi garder quand le cache est plein
+
+Un cache est plus petit que les données qu’il copie ; quand il est plein, il doit en écarter une pour en accueillir une autre. La politique d’éviction (eviction policy) choisit laquelle.
+
+LRU (least recently used) écarte la donnée dont le dernier accès est le plus ancien. Elle parie que ce qui a servi récemment resservira bientôt. LFU (least frequently used) écarte la donnée la moins souvent demandée : elle parie sur la popularité accumulée. FIFO (first in, first out) écarte la plus anciennement entrée, quel que soit son usage. Le choix aléatoire écarte n’importe laquelle. Le TTL, enfin, n’est pas une politique d’éviction mais une durée de validité : une donnée expirée disparaît même si le cache n’est pas plein, parce qu’on ne veut plus la servir (ch. 17).
+
+Redis propose ces politiques sous les noms `allkeys-lru`, `allkeys-lfu` et `allkeys-random`, et leurs variantes `volatile-*` qui ne considèrent que les clés munies d’une expiration ; par défaut, la politique est `noeviction`, qui refuse les écritures quand la mémoire est pleine[^redis-eviction]. Redis n’implémente pas ces politiques exactement : pour LRU, il tire un petit échantillon de clés (5 par défaut, réglable par `maxmemory-samples`) et écarte la plus anciennement utilisée, en gardant un réservoir de bons candidats ; pour LFU, il estime la fréquence d’accès de chaque clé par un compteur probabiliste de Morris de quelques bits, qu’il fait décroître avec le temps (d’un cran par minute par défaut) pour que les clés qui ne sont plus demandées finissent par perdre leur rang[^redis-eviction]. Sa documentation conseille `allkeys-lru` par défaut, quand une partie des clés est beaucoup plus demandée que le reste[^redis-eviction].
+
+### Trois profils d’accès, mesurés
+
+`eviction.py` donne à Redis 12 Mo de mémoire, ce qui laisse de la place pour environ 8 250 valeurs de 1 Kio, soit 8 % des 100 000 clés possibles, et rejoue en cache-aside trois suites de 200 000 lectures. Dans la première, la popularité suit une loi de Zipf, comme au [ch. 15](cdn-edge.mdx) : l’objet de rang $k$ est demandé avec une probabilité proportionnelle à $1/k$. Dans la deuxième, ces lectures sont interrompues toutes les 20 000 par un balayage de 15 000 clés froides lues une seule fois, comme le ferait un traitement par lots qui parcourt tout le catalogue. Dans la troisième, l’ensemble des clés populaires change entièrement trois fois. Les mêmes suites sont rejouées dans une simulation exacte de LRU, LFU et FIFO à la même capacité ; seules les lectures ordinaires, hors balayages, comptent dans le taux de succès.
+
+```text
+cache de 12 Mo (Redis), 100000 clés possibles de 1 Kio, 200000 lectures par profil
+profil                       lru     lfu  random   exact :    LRU   LFU  FIFO
+zipf                       70.5%   73.0%   67.4%            70.7% 74.1% 67.4%
+zipf + balayages           62.6%   69.8%   60.9%            62.9% 71.4% 62.9%
+popularité qui change      68.2%   65.3%   65.0%            68.6% 66.0% 66.4%
+capacité observée dans Redis : environ 8252 clés ; SET refusés puis réessayés : 0
+```
+
+<Figure svg={eviction} num="16.3" alt="Barres groupées des taux de succès de Redis. Zipf : LRU 70,5 %, LFU 73,0 %, aléatoire 67,4 %. Zipf avec balayages : 62,6 %, 69,8 %, 60,9 %. Popularité qui change : 68,2 %, 65,3 %, 65,0 %.">
+Taux de succès de Redis selon la politique d’éviction et le profil d’accès.
+</Figure>
+
+Chaque groupe de barres est un profil d’accès ; l’axe vertical commence à 50 % pour rendre visibles des écarts de quelques points. Trois passages complets et un partiel ont donné les mêmes taux à 0,8 point près. Un passage s’est interrompu sur un refus d’écriture de Redis (`OOM`) en cours de route, sans que la cause ait pu être établie ; le script réessaie désormais une écriture refusée et compte les refus, et il n’y en a eu aucun dans les passages publiés.
+
+Sur la popularité de Zipf seule, LFU fait un peu mieux que LRU, 73 % contre 70,5 % : en accumulant les accès, il distingue mieux les clés vraiment populaires d’une clé demandée une seule fois récemment. Avec 8 % des clés en cache, l’une ou l’autre sert déjà 70 % des lectures, conséquence de la loi de Zipf. Les balayages font perdre 8 points à LRU : chacune des 15 000 clés lues une fois devient, pour LRU, la plus récente, et chasse des clés populaires ; LFU, qui voit ces clés à un seul accès, les écarte en premier et ne perd que 3 points. Quand la popularité change, c’est LFU qui perd : les clés populaires de la phase précédente gardent des compteurs élevés et occupent la place, alors que LRU les oublie dès qu’on ne les demande plus. Chaque passage de Redis dure une vingtaine de secondes, moins que la minute de décroissance par défaut de ses compteurs : sur une durée plus longue, cette décroissance corrigerait en partie l’effet. Le choix aléatoire et FIFO font à peu près jeu égal, quelques points derrière, et ne demandent aucune information sur les accès. Enfin, les approximations de Redis restent à moins de deux points des politiques exactes.
+
+Aucune politique n’est la meilleure partout : LFU résiste aux balayages et s’adapte mal aux changements de popularité, LRU l’inverse. La question à se poser est celle du profil réel des accès, et la réponse se mesure, avec les compteurs `keyspace_hits` et `keyspace_misses` que Redis expose[^redis-eviction].
+
+## Ce que le cache fait gagner
+
+En cache-aside, une lecture commence toujours par le cache, qui coûte $t_c$ ; en cas d’échec, elle va aussi à la base, qui coûte $t_b$. Avec un taux de succès $h$, la durée moyenne d’une lecture vaut
+
+$$
+\bar t = t_c + (1 - h)\, t_b ,
+$$
+
+en négligeant l’écriture dans le cache qui suit un échec. Le cache ne fait gagner du temps que si $\bar t < t_b$, c’est-à-dire si
+
+$$
+h > \frac{t_c}{t_b}.
+$$
+
+<Figure svg={latence} num="16.4" alt="Courbes de la latence moyenne en fonction du taux de succès, sur une échelle logarithmique. Pour le top 10 d’une catégorie, la latence passe de 127 ms sans cache à environ 6 ms à 95 % de succès. Pour une clé primaire, la latence avec cache est supérieure aux 70 µs de la base tant que le taux de succès est inférieur à 87 %.">
+Latence moyenne d’une lecture selon le taux de succès, avec les coûts mesurés.
+</Figure>
+
+Les deux courbes utilisent les coûts mesurés : 61 µs pour Redis, 127 ms pour le top 10, 70 µs pour une clé primaire. Les traits pointillés sont les latences sans cache. L’échelle verticale est logarithmique : chaque graduation multiplie la durée par dix.
+
+Pour le top 10, le seuil vaut $61 / 126\,584 \approx 0{,}05\,\%$ : le moindre succès fait gagner. Pour une lecture par clé primaire, il vaut $61 / 70 \approx 87\,\%$ : en dessous, le cache rend les lectures plus lentes en moyenne, puisque chaque échec paie Redis puis la base. La courbe rouge montre une autre propriété : la latence moyenne est dominée par les échecs, et passer de 90 % à 99 % de succès divise encore par dix la durée moyenne du top 10, de 12,7 ms à 1,3 ms. Les derniers points de taux de succès sont ceux qui rapportent le plus.
+
+## Compromis
+
+| Stratégie | Lecture | Écriture | Cohérence avec la base | Si le cache tombe | Quand la choisir |
+|---|---|---|---|---|---|
+| Cache-aside + suppression (write-around) | échec : cache, base, puis remplissage | base, puis suppression de la clé | courte fenêtre de valeur ancienne possible (ch. 17) | tout va à la base, plus lentement | la plupart des cas |
+| Read-through | le cache charge lui-même | selon l’écriture choisie | idem | dépend du produit | bibliothèque ou produit qui sait lire la base |
+| Write-through | toujours à jour après une écriture | base, puis cache : deux écritures synchrones | bonne pour les données écrites | rien n’est perdu | données relues juste après leur écriture |
+| Write-back | à jour dans le cache | cache seulement, base plus tard par lots | la base est en retard | écritures confirmées perdues (mesuré : 2 819 sur 8 006) | compteurs, statistiques, données qu’on peut perdre |
+
+| Politique | Profil favorable | Profil défavorable | Mesuré (Redis) |
+|---|---|---|---|
+| LRU | accès récents qui se répètent, popularité qui change | balayages | 70,5 %, 62,6 % avec balayages, 68,2 % si la popularité change |
+| LFU | popularité stable, balayages | popularité qui change | 73,0 %, 69,8 %, 65,3 % |
+| Aléatoire, FIFO | accès uniformes, cycles | accès concentrés sur peu de clés | 67,4 %, 60,9 %, 65,0 % |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : ce que le cache fait gagner à une page produit]
+Hypothèses : 20 000 affichages de page produit par seconde ; la page coûte 0,25 ms à PostgreSQL et 61 µs à Redis (mesuré) ; taux de succès de 95 %.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Latence moyenne sans cache | | 247 µs |
+| Latence moyenne avec cache | $61 + 0{,}05 \times 247$ | ≈ 73 µs |
+| Requêtes à la base sans cache | | 20 000 /s |
+| Requêtes à la base avec cache | $20\,000 \times 0{,}05$ | 1 000 /s |
+| Seuil de rentabilité en latence | $61 / 247$ | 25 % de succès |
+
+Conclusion : la latence n’est divisée que par 3,4, mais la base reçoit vingt fois moins de requêtes. C’est souvent ce second chiffre qui décide : il permet de garder une seule base là où il en faudrait plusieurs.
+:::
+
+:::calcul[Calcul : dimensionner la mémoire d’un cache Redis]
+Hypothèses : 2 millions de produits, des valeurs de 1 Kio ; la mesure du chapitre : 12 Mo de `maxmemory`, dont environ 1,4 Mo occupés par Redis à vide, contiennent environ 8 250 valeurs de 1 Kio ; avec la popularité de Zipf mesurée, garder 8 % des clés donne environ 70 % de succès.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Mémoire par entrée, mesurée | $(12{,}6 - 1{,}4)$ Mo / 8 250 | ≈ 1,36 Ko |
+| Tous les produits en cache | $2 \times 10^6 \times 1{,}36$ Ko | ≈ 2,7 Go |
+| 8 % des produits, pour environ 70 % de succès | $0{,}08 \times 2{,}7$ Go | ≈ 220 Mo |
+| Surcoût de Redis par rapport aux données | $1{,}36 / 1{,}0$ | ≈ +36 % |
+
+Conclusion : un cache complet du catalogue tient dans quelques gigaoctets ; pour une valeur de 1 Kio, les structures de Redis ajoutent environ un tiers. Le taux de succès visé, et non la taille du catalogue, fixe la mémoire nécessaire : il se mesure en rejouant les accès réels, comme le fait l’expérience.
+:::
+
+:::calcul[Calcul : ce qu’expose le write-back]
+Hypothèses : 5 000 écritures par seconde ; le tampon est envoyé à la base toutes les 200 ms ; envoyer un lot prend jusqu’à 150 ms quand la base est chargée.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Écritures confirmées mais pas encore dans la base, au pire | 5 000 × (0,2 + 0,15) | ≈ 1 750 |
+| Transactions à la base, write-back | 1 / 0,2 s | 5 /s |
+| Transactions à la base, write-through | | 5 000 /s |
+| Durée d’une écriture, write-through (mesuré) | | ≈ 3 ms |
+
+Conclusion : le write-back divise par mille le nombre de transactions et par quarante la latence des écritures, et expose environ un tiers de seconde d’écritures en cas de panne, ce que la mesure a confirmé (2 819 et 3 261 écritures perdues). Pour un solde bancaire, c’est inacceptable ; pour un compteur de vues, c’est un bon compromis.
+:::
+
+## Exemple réel
+
+**Le memcache de Facebook.** L’article publié à NSDI en 2013 décrit un système de cache qui traite des milliards de requêtes par seconde et garde des milliers de milliards d’objets[^facebook]. Facebook l’utilise en cache-aside : un serveur web demande une valeur à memcache par sa clé, et, si elle manque, la lit dans la base ou dans un autre service puis la range dans le cache. Pour une écriture, le serveur envoie la requête SQL à la base, puis une demande de suppression à memcache, et non une mise à jour, parce qu’une suppression est idempotente. memcache n’est pas la source de vérité, et peut donc écarter des données quand il le veut. L’article décrit aussi les baux (leases), des jetons que memcache donne au client qui a eu un échec et qu’il exige pour accepter la valeur qu’il apporte : ils empêchent un client lent d’écrire dans le cache une valeur devenue ancienne, et limitent les avalanches de recalculs (ch. 17).
+
+## Erreurs fréquentes
+
+Mettre en cache ce qui est déjà rapide. Une lecture par clé primaire dans une base dont l’index est en mémoire coûte presque autant qu’un GET Redis (mesuré : 70 µs contre 61) ; le cache n’y gagne que de la capacité, et seulement au-dessus de 87 % de succès en latence.
+
+Juger un cache au taux de succès moyen, alors que la latence est faite par les échecs : passer de 90 % à 99 % divise la latence moyenne par près de dix quand la donnée est coûteuse.
+
+Écrire dans le cache plutôt que supprimer la clé, en cache-aside. Deux écritures concurrentes peuvent arriver au cache dans l’ordre inverse de la base, et y laisser la mauvaise valeur pour toute la durée du TTL ; supprimer est idempotent, et la lecture suivante rechargera la bonne valeur (ch. 17).
+
+Choisir le write-back pour des données qu’on ne peut pas perdre, ou sans savoir combien de temps les écritures restent dans le seul cache.
+
+Garder la politique par défaut sans regarder les accès : `noeviction` dans Redis refuse les écritures quand la mémoire est pleine, ce qui transforme un cache plein en erreurs ; LRU devant un traitement par lots qui balaie tout le catalogue chaque nuit vide le cache de ses clés populaires.
+
+Enfin, oublier que la base doit tenir sans le cache. Après un redémarrage du cache, ou une erreur qui le vide, toutes les lectures vont à la base en même temps ; si elle n’est dimensionnée que pour les 5 % d’échecs habituels, elle tombe.
+
+:::piege[Erreur fréquente : le cache local sur vingt serveurs]
+« On met un cache en mémoire dans chaque serveur, c’est le plus rapide. » Avec vingt serveurs derrière un répartiteur ([ch. 13](repartition-charge.mdx)), chaque donnée est chargée vingt fois, occupe vingt fois la mémoire, et une modification n’est visible sur chaque serveur qu’à l’expiration de sa copie : un utilisateur qui recharge la page peut voir tour à tour l’ancienne et la nouvelle valeur selon le serveur qui lui répond ([ch. 12](../partie-1/coherence-cap.mdx)). Un cache local convient aux données qui changent rarement ou qu’on accepte de voir en retard, souvent en second niveau devant un cache partagé (ch. 17).
+:::
+
+:::entretien
+Quand vous ajoutez un cache, dites ce qu’il cache et pourquoi : « le résultat de la recherche par catégorie, qui coûte 100 ms à la base ; pas les lectures par clé primaire, déjà rapides ». Donnez la stratégie (« cache-aside, suppression de la clé à l’écriture »), le TTL, la politique d’éviction, la taille (« 8 % des clés pour 70 % de succès, mesuré sur nos accès »), le taux de succès attendu et ce qui arrive à la base si le cache est vide.
+:::
+
+## Exercices
+
+**Question 1.** Une lecture dans Memcached coûte 0,3 ms entre deux machines, et la requête qu’elle remplace coûte 1,5 ms à la base. Au-dessus de quel taux de succès le cache fait-il gagner du temps ? Quelle est la latence moyenne à 80 % et à 98 % de succès ? Le cache est-il utile si la requête coûte 0,4 ms ?
+
+**Question 2.** Choisissez une stratégie d’écriture pour chacune des données suivantes, et justifiez : (a) le compteur de vues d’une vidéo ; (b) le solde d’un portefeuille électronique ; (c) le profil d’un utilisateur, lu à chaque page et modifié quelques fois par an ; (d) la position de lecture d’un livre numérique, enregistrée toutes les 10 secondes.
+
+**Question 3.** Chaque nuit, un traitement parcourt tout le catalogue pour recalculer les prix, en lisant chaque produit par le même cache Redis que le site, réglé en `allkeys-lru`. Le matin, le site est lent pendant une heure. Expliquez avec la mesure du chapitre, et proposez deux corrections.
+
+**Exercice de conception.** Une API de catalogue reçoit 30 000 requêtes par seconde en pointe, dont 90 % de lectures de fiches produits (2 millions de produits, 2 Kio par fiche), 9 % de recherches par catégorie et filtre (100 ms à la base), et 1 % de mises à jour de prix et de stock. La fiche coûte 3 ms à la base, parce qu’elle joint cinq tables. L’objectif est un 99e centile de 50 ms. La base tient au plus 3 000 requêtes par seconde. Concevez le cache : niveaux, stratégie de lecture et d’écriture, politique d’éviction, taille, et ce qui se passe au démarrage d’un cache vide.
+
+## Corrigés
+
+**Question 1.** Le seuil vaut $h > 0{,}3 / 1{,}5 = 20\,\%$. À 80 % : $\bar t = 0{,}3 + 0{,}2 \times 1{,}5 = 0{,}6$ ms, deux fois et demie moins que la base seule. À 98 % : $0{,}3 + 0{,}02 \times 1{,}5 = 0{,}33$ ms. Si la requête ne coûte que 0,4 ms, le seuil monte à $0{,}3 / 0{,}4 = 75\,\%$, et même à 98 % on ne gagne que de 0,4 à 0,31 ms : le cache n’est utile que pour soulager la base, pas pour la latence.
+
+**Question 2.** (a) Write-back, ou plus simplement un compteur incrémenté dans Redis et reporté régulièrement dans la base : perdre quelques vues lors d’une panne est sans conséquence, et des milliers d’écritures par seconde sur la même ligne de la base seraient très coûteuses. (b) Jamais de write-back : chaque modification va d’abord à la base dans une transaction (ch. 18) ; le cache, s’il y en a un, est mis à jour par suppression de la clé, et les décisions (« le solde suffit-il ? ») se prennent sur la base, pas sur le cache. (c) Cache-aside avec suppression de la clé à chaque modification, et un TTL long ; write-through conviendrait aussi, puisque le profil est relu aussitôt après sa modification. (d) Write-back ou écriture différée : perdre les 10 dernières secondes de lecture lors d’une panne est acceptable, et cela évite une transaction toutes les 10 secondes par lecteur.
+
+**Question 3.** Le traitement de nuit lit chaque produit une fois : pour LRU, chacune de ces lectures est la plus récente, et elles chassent du cache les produits populaires du site, comme les balayages de la mesure (LRU tombe de 70,5 % à 62,6 % de succès avec des balayages bien plus petits que le catalogue entier). Le matin, le cache ne contient que des produits lus une fois par le traitement, et les utilisateurs déclenchent des échecs jusqu’à ce que les produits populaires reviennent. Corrections : faire lire le traitement directement dans la base, ou mieux dans une réplique (ch. 24), sans passer par le cache ; ou passer le cache en `allkeys-lfu`, qui a perdu moins de 4 points face aux balayages dans la mesure ; ou donner au traitement un cache séparé.
+
+**Exercice de conception.**
+
+*Charge.* Lectures de fiches : 27 000 par seconde ; recherches : 2 700 ; écritures : 300. Sans cache, les fiches seules demandent 27 000 requêtes à une base qui en tient 3 000 : le cache est d’abord une question de capacité.
+
+*Fiches.* Cache-aside dans Redis, suppression de la clé à chaque mise à jour de prix ou de stock (write-around), TTL d’une heure par sécurité. Pour laisser à la base au plus 1 000 requêtes de fiches par seconde, il faut $1 - 1\,000 / 27\,000 \approx 96\,\%$ de succès. Toutes les fiches tiennent en mémoire : $2 \times 10^6 \times (2 + 0{,}4)$ Kio $\approx 5$ Go, en comptant le surcoût mesuré de Redis ; on peut donc viser presque 100 % de succès en régime établi, avec `allkeys-lru` et assez de mémoire pour tout garder. Latence : $61$ µs plus le réseau, environ 0,3 ms, loin des 50 ms.
+
+*Recherches.* Le résultat d’une recherche dépend de la catégorie et des filtres : la clé de cache est la requête normalisée (filtres triés, paramètres inutiles retirés, comme la clé de cache du [ch. 15](cdn-edge.mdx)). TTL court, une minute, parce qu’un changement de prix change l’ordre des résultats ; les recherches populaires seront presque toujours en cache, les autres iront à la base. Si 70 % des recherches sont des succès, la base en reçoit environ 800 par seconde, à 100 ms chacune : il faut une réplique de lecture dédiée aux recherches (ch. 24), ou un moteur de recherche (ch. 22).
+
+*Écritures.* Elles vont à la base, puis suppriment la clé de la fiche ; les recherches en cache se corrigent à l’expiration de leur TTL d’une minute.
+
+*Démarrage à froid.* Un cache vide envoie les 27 000 lectures de fiches à la base, qui en tient 3 000 : il faut le préchauffer avant de lui envoyer du trafic, en chargeant les fiches les plus demandées (la liste vient des journaux de la veille), et ne pas redémarrer tous les nœuds du cache à la fois. Le ch. 17 traite de l’avalanche qui suit l’expiration simultanée de nombreuses clés.
+
+:::fiche
+- Cache : copie d’une partie des données là où elle coûte moins cher à lire ; succès, échec, taux de succès.
+- Niveaux : navigateur, CDN, mémoire du processus (1 µs, une copie par serveur), cache distribué (Redis 61 µs local, une copie partagée), cache de la base (`shared_buffers`, cache du système).
+- Mesuré : clé primaire PostgreSQL 70 µs ≈ Redis ; top 10 d’une catégorie 127 ms. Le cache gagne sur les calculs coûteux, et en capacité pour la base.
+- Latence moyenne $\bar t = t_c + (1-h)\,t_b$ ; utile seulement si $h > t_c / t_b$ (87 % pour une clé primaire, 0,05 % pour le top 10).
+- Cache-aside : l’application lit le cache, puis la base, puis remplit ; écrire en base puis supprimer la clé (idempotent, Facebook).
+- Write-through : base puis cache, rien n’est perdu ; write-back : 40 fois plus rapide, 1 transaction pour 2 000 écritures, mais 2 819 écritures confirmées perdues sur 8 006 à la panne (mesuré).
+- Éviction : LFU meilleur sur Zipf (73 % contre 70,5 %) et face aux balayages (69,8 % contre 62,6 %) ; LRU meilleur quand la popularité change (68,2 % contre 65,3 %).
+- La base doit survivre à un cache vide : préchauffer, redémarrer progressivement.
+:::
+
+[^pg-shared]: PostgreSQL, « 19.4. Resource Consumption », documentation, paramètre `shared_buffers`, [postgresql.org/docs/current/runtime-config-resource.html](https://www.postgresql.org/docs/current/runtime-config-resource.html).
+[^facebook]: Rajesh Nishtala, Hans Fugal, Steven Grimm, Marc Kwiatkowski, Herman Lee, Harry C. Li, Ryan McElroy, Mike Paleczny, Daniel Peek, Paul Saab, David Stafford, Tony Tung et Venkateshwaran Venkataramani, « Scaling Memcache at Facebook », *10th USENIX Symposium on Networked Systems Design and Implementation (NSDI 13)*, 2013, [usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala](https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala).
+[^redis-eviction]: Redis, « Key eviction », documentation, [redis.io/docs/latest/develop/reference/eviction](https://redis.io/docs/latest/develop/reference/eviction/).

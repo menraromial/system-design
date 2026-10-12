@@ -1,0 +1,23 @@
+% Où placer un cache, du client à la base, avec les latences mesurées au ch. 16
+% (outils/experiences/ch16/niveaux.py) et au ch. 15 pour le CDN.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\footnotesize},
+    n/.style={soft=#1, minimum width=34mm, minimum height=11mm, font=\sffamily\small, align=center, inner sep=2pt}]
+  \node[n=Dslate] (nav) at (0,0) {\stack{laptop}{navigateur}};
+  \node[n=Dteal] (cdn) at (0,-20) {\stack{globe}{CDN (ch. 15)}};
+  \node[n=Dblue, minimum width=46mm] (app) at (0,-42) {\stack{server}{serveur d'application}};
+  \node[bloc=Pjaune, font=\sffamily\footnotesize, minimum width=0pt, minimum height=0pt] at ([yshift=-2mm]app.south) {cache dans le processus};
+  \node[n=Dpurple] (red) at (0,-66) {\stack{database}{cache distribué (Redis)}};
+  \node[n=Dorange, minimum width=46mm] (bd) at (0,-88) {\stack{database}{base de données}};
+  \node[bloc=Pjaune, font=\sffamily\footnotesize, minimum width=0pt, minimum height=0pt] at ([yshift=-2mm]bd.south) {shared\_buffers et cache du système};
+  \draw[arr=Dslate] (nav) -- (cdn); \draw[arr=Dslate] (cdn) -- (app);
+  \draw[arr=Dslate] ([yshift=-4mm]app.south) -- (red); \draw[arr=Dslate] (red) -- (bd);
+  \node[note, anchor=west, align=left] at (30,0) {cache HTTP du navigateur :\\aucun réseau, propre à un utilisateur};
+  \node[note, anchor=west, align=left] at (30,-20) {succès servi près de l'utilisateur :\\1,4 ms contre 84 ms (mesuré, ch. 15)};
+  \node[note, anchor=west, align=left] at (30,-42) {dictionnaire en mémoire : 1 µs ;\\une copie par serveur};
+  \node[note, anchor=west, align=left] at (30,-66) {GET Redis local : 61 µs ;\\une copie partagée par tous les serveurs};
+  \node[note, anchor=west, align=left] at (30,-88) {clé primaire 70 µs ; page produit 0,25 ms ;\\top 10 d'une catégorie 127 ms};
+\end{tikzpicture}
+\end{document}
