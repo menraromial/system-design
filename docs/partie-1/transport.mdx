@@ -27,7 +27,7 @@ C’est ce que fait TCP : l’échange préalable est la poignée de main, la n
 
 ## TCP : un flux d’octets fiable
 
-TCP (Transmission Control Protocol), décrit aujourd’hui par la RFC 9293[^rfc9293], offre aux deux extrémités d’une connexion un flux d’octets bidirectionnel : ce qu’une application écrit d’un côté est lu de l’autre, dans le même ordre, sans trou ni doublon, ou bien la connexion échoue. Le mot important est flux : TCP ne connaît pas les messages. Deux écritures de 100 octets peuvent être lues en une lecture de 200 ou en trois lectures de tailles quelconques ; c’est à l’application de délimiter ses messages, par une longueur annoncée en tête ou par un séparateur, ce que fait par exemple HTTP avec ses en-têtes (ch. 5).
+TCP (Transmission Control Protocol), décrit aujourd’hui par la RFC 9293[^rfc9293], offre aux deux extrémités d’une connexion un flux d’octets bidirectionnel : ce qu’une application écrit d’un côté est lu de l’autre, dans le même ordre, sans trou ni doublon, ou bien la connexion échoue. Le mot important est flux : TCP ne connaît pas les messages. Deux écritures de 100 octets peuvent être lues en une lecture de 200 ou en trois lectures de tailles quelconques ; c’est à l’application de délimiter ses messages, par une longueur annoncée en tête ou par un séparateur, ce que fait par exemple HTTP avec ses en-têtes ([ch. 5](http.mdx)).
 
 ### Ouvrir la connexion
 
@@ -37,7 +37,7 @@ Vie d’une connexion TCP courte, de l’ouverture à la fermeture.
 
 Le temps s’écoule vers le bas, et les flèches sont inclinées parce que chaque message met une demi-durée d’aller-retour à traverser le réseau. Les accolades de gauche découpent ce temps en allers-retours (round-trip time, RTT) : le premier sert seulement à ouvrir la connexion, le second porte la requête et la réponse. Le rectangle ocre, en bas à gauche, est la période TIME_WAIT pendant laquelle le client garde une trace de la connexion fermée.
 
-L’ouverture est une poignée de main en trois temps (three-way handshake). Le client envoie un segment SYN avec un numéro de séquence initial tiré au hasard ; le serveur répond SYN-ACK, qui acquitte ce numéro et annonce le sien ; le client acquitte à son tour, et peut joindre sa première requête à cet acquittement. Le tirage aléatoire des numéros initiaux empêche un tiers d’injecter des segments dans une connexion qu’il ne voit pas. Le coût de l’ouverture est d’un RTT complet avant que le serveur reçoive le premier octet de la requête : le premier octet de la réponse arrive donc au bout de deux RTT. Le chiffrement TLS ajoute encore au moins un aller-retour (ch. 6), et c’est l’une des raisons pour lesquelles HTTP/3 a abandonné TCP pour QUIC (ch. 5).
+L’ouverture est une poignée de main en trois temps (three-way handshake). Le client envoie un segment SYN avec un numéro de séquence initial tiré au hasard ; le serveur répond SYN-ACK, qui acquitte ce numéro et annonce le sien ; le client acquitte à son tour, et peut joindre sa première requête à cet acquittement. Le tirage aléatoire des numéros initiaux empêche un tiers d’injecter des segments dans une connexion qu’il ne voit pas. Le coût de l’ouverture est d’un RTT complet avant que le serveur reçoive le premier octet de la requête : le premier octet de la réponse arrive donc au bout de deux RTT. Le chiffrement TLS ajoute encore au moins un aller-retour ([ch. 6](tls.mdx)), et c’est l’une des raisons pour lesquelles HTTP/3 a abandonné TCP pour QUIC ([ch. 5](http.mdx)).
 
 ### Ne rien perdre
 
@@ -97,13 +97,13 @@ Blocage en tête de file : un segment perdu retient ceux qui le suivent.
 
 Chaque ligne est une étape du trajet : ce que l’émetteur envoie, ce que le noyau du destinataire reçoit, ce qu’il remet à l’application. Le segment 2 est perdu ; 3, 4 et 5, en jaune, sont bien arrivés mais l’application ne voit rien après le segment 1. La partie droite montre l’instant où la retransmission de 2 arrive : les quatre segments sont remis ensemble, avec au moins un RTT de retard.
 
-Ce blocage en tête de file (head-of-line blocking) a deux conséquences de conception. Pour une conversation vocale ou un jeu, une donnée en retard est inutile : mieux vaut perdre un échantillon que tout retarder, et ces applications utilisent UDP. Et si plusieurs échanges indépendants partagent une connexion TCP, comme les requêtes multiplexées de HTTP/2, la perte d’un seul paquet les retarde tous ; c’est le défaut que QUIC corrige (ch. 5).
+Ce blocage en tête de file (head-of-line blocking) a deux conséquences de conception. Pour une conversation vocale ou un jeu, une donnée en retard est inutile : mieux vaut perdre un échantillon que tout retarder, et ces applications utilisent UDP. Et si plusieurs échanges indépendants partagent une connexion TCP, comme les requêtes multiplexées de HTTP/2, la perte d’un seul paquet les retarde tous ; c’est le défaut que QUIC corrige ([ch. 5](http.mdx)).
 
 ### Fermer, et TIME_WAIT
 
 La fermeture se fait dans chaque sens séparément : un côté envoie FIN, l’autre acquitte, puis envoie son propre FIN, que le premier acquitte. Le côté qui a fermé le premier ne libère pas la connexion tout de suite : il la garde dans l’état TIME_WAIT pendant deux fois la durée de vie maximale d’un segment sur le réseau (maximum segment lifetime, MSL), pour pouvoir renvoyer le dernier acquittement s’il s’est perdu, et pour qu’un segment en retard d’une ancienne connexion ne soit pas pris pour un segment d’une nouvelle connexion qui réutiliserait le même quintuplet. Linux fixe cette durée à 60 secondes. Pendant ce temps, le quintuplet reste réservé, et donc le port éphémère du client si c’est lui qui a fermé.
 
-C’est là que se trouve la limite annoncée au ch. 3. Avec 28 232 ports éphémères et 60 secondes de TIME_WAIT, un client qui ferme lui-même ses connexions ne peut pas en ouvrir durablement plus de
+C’est là que se trouve la limite annoncée au [ch. 3](client-serveur-dns.mdx). Avec 28 232 ports éphémères et 60 secondes de TIME_WAIT, un client qui ferme lui-même ses connexions ne peut pas en ouvrir durablement plus de
 
 $$
 \frac{28\,232}{60\ \text{s}} \approx 470\ \text{connexions par seconde}
@@ -146,7 +146,7 @@ Quatre requêtes successives, avec une connexion neuve par requête ou une conne
 
 Chaque case dure un aller-retour. En haut, chaque requête paie sa propre ouverture : quatre requêtes coûtent huit RTT. En bas, l’ouverture n’est payée qu’une fois : cinq RTT. Avec TLS, l’écart grandit encore, puisque chaque ouverture coûte alors deux ou trois RTT au lieu d’un.
 
-Trois mécanismes évitent ce coût. HTTP/1.1 garde par défaut la connexion ouverte entre deux requêtes (keep-alive, ch. 5). Les bibliothèques clientes et les pilotes de bases de données entretiennent un pool de connexions (connection pool) : un ensemble de connexions ouvertes à l’avance, qu’on emprunte pour une requête et qu’on rend ensuite. Et HTTP/2, HTTP/3 et gRPC font passer de nombreuses requêtes simultanées sur une seule connexion (ch. 5 et 7).
+Trois mécanismes évitent ce coût. HTTP/1.1 garde par défaut la connexion ouverte entre deux requêtes (keep-alive, [ch. 5](http.mdx)). Les bibliothèques clientes et les pilotes de bases de données entretiennent un pool de connexions (connection pool) : un ensemble de connexions ouvertes à l’avance, qu’on emprunte pour une requête et qu’on rend ensuite. Et HTTP/2, HTTP/3 et gRPC font passer de nombreuses requêtes simultanées sur une seule connexion ([ch. 5](http.mdx) et [7](styles-api.mdx)).
 
 | Option | Avantages | Inconvénients | Quand la choisir |
 |---|---|---|---|
@@ -161,9 +161,9 @@ Deux réglages de TCP touchent aussi la latence des petits messages. L’algorit
 
 UDP (User Datagram Protocol), défini en 1980 par la RFC 768[^rfc768], ajoute très peu à IP : un numéro de port source et destination, une longueur et une somme de contrôle, soit 8 octets d’en-tête, contre au moins 20 pour TCP. Chaque datagramme est indépendant. Il n’y a ni connexion à ouvrir, ni retransmission, ni ordre garanti, ni contrôle de flux ou de congestion : ce que l’application envoie part tel quel, et ce qui se perd est perdu.
 
-Ce dépouillement est un choix délibéré pour plusieurs usages. Le DNS (ch. 3) tient une question et une réponse dans un datagramme chacune, et un aller-retour sans poignée de main lui suffit. La voix et la vidéo en temps réel (les flux RTP de la visioconférence, WebRTC) préfèrent perdre un fragment que de bloquer tout le flux. Les jeux en réseau envoient l’état du monde plusieurs dizaines de fois par seconde, et seul le plus récent compte. Les agents de collecte de métriques envoient des mesures en UDP pour ne jamais ralentir l’application qui les produit. Enfin, QUIC reconstruit au-dessus d’UDP tout ce que fait TCP, plus le chiffrement, sans le blocage en tête de file (ch. 5) : passer par UDP lui permet d’évoluer dans l’application plutôt que dans le noyau des systèmes d’exploitation.
+Ce dépouillement est un choix délibéré pour plusieurs usages. Le DNS ([ch. 3](client-serveur-dns.mdx)) tient une question et une réponse dans un datagramme chacune, et un aller-retour sans poignée de main lui suffit. La voix et la vidéo en temps réel (les flux RTP de la visioconférence, WebRTC) préfèrent perdre un fragment que de bloquer tout le flux. Les jeux en réseau envoient l’état du monde plusieurs dizaines de fois par seconde, et seul le plus récent compte. Les agents de collecte de métriques envoient des mesures en UDP pour ne jamais ralentir l’application qui les produit. Enfin, QUIC reconstruit au-dessus d’UDP tout ce que fait TCP, plus le chiffrement, sans le blocage en tête de file ([ch. 5](http.mdx)) : passer par UDP lui permet d’évoluer dans l’application plutôt que dans le noyau des systèmes d’exploitation.
 
-En contrepartie, une application qui utilise UDP hérite de tout ce que TCP faisait pour elle : détecter les pertes si elle en a besoin, ne pas saturer le réseau, découper ses messages pour qu’ils ne soient pas fragmentés. La taille utile d’un datagramme doit rester sous la taille maximale des paquets du chemin ; QUIC, par exemple, exige que le réseau transporte des datagrammes d’au moins 1 200 octets[^rfc9000], et le DNS recommande 1 232 octets (ch. 3).
+En contrepartie, une application qui utilise UDP hérite de tout ce que TCP faisait pour elle : détecter les pertes si elle en a besoin, ne pas saturer le réseau, découper ses messages pour qu’ils ne soient pas fragmentés. La taille utile d’un datagramme doit rester sous la taille maximale des paquets du chemin ; QUIC, par exemple, exige que le réseau transporte des datagrammes d’au moins 1 200 octets[^rfc9000], et le DNS recommande 1 232 octets ([ch. 3](client-serveur-dns.mdx)).
 
 | | TCP | UDP |
 |---|---|---|
@@ -206,7 +206,7 @@ Ces RTT se combinent avec les autres limites de TCP. Voici trois calculs pour un
 Conclusion : sur une longue distance, le débit d’une connexion TCP est borné par sa fenêtre et par ses pertes bien avant de l’être par le lien. Pour un transfert volumineux entre continents, on ouvre plusieurs connexions en parallèle, on choisit un algorithme moins sensible aux pertes, ou l’on rapproche les données des utilisateurs (CDN, ch. 15). Pour une API, ce sont les RTT qui comptent : chaque aller-retour évité vaut 80 ms.
 :::
 
-Le dernier calcul dimensionne un pool de connexions. Le nombre de connexions occupées en même temps est, en moyenne, le débit des requêtes multiplié par leur durée, une relation que le ch. 9 nommera loi de Little.
+Le dernier calcul dimensionne un pool de connexions. Le nombre de connexions occupées en même temps est, en moyenne, le débit des requêtes multiplié par leur durée, une relation que le [ch. 9](latence-debit.mdx) nommera loi de Little.
 
 :::calcul[Calcul : taille d’un pool vers une base de données]
 Hypothèses : 40 serveurs d’application, chacun envoie 400 requêtes par seconde à la base en moyenne, chaque requête occupe sa connexion 5 ms, pointe égale à 3 fois la moyenne.

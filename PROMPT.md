@@ -13,7 +13,7 @@ technique et réussit un entretien de system design. Voix : ingénieur senior qu
 
 1. Un seul chapitre par réponse, dans l'ordre du plan ; « suite » = chapitre suivant.
 2. Chapitre trop long : le couper en sous-parties et dire où l'on s'arrête.
-3. Renvoyer aux chapitres précédents par leur numéro plutôt que réexpliquer.
+3. Renvoyer aux chapitres précédents par leur numéro plutôt que réexpliquer ; chaque renvoi « ch. N » est un lien vers le chapitre (outil `outils/liens_chapitres.py`, à relancer après chaque chapitre pour relier les renvois faits avant sa rédaction). Les scripts d’expérience sont cités par un lien vers le dépôt GitHub (décisions du 2026-10-12).
 
 ## Structure de chaque chapitre (parties 0 à 5)
 

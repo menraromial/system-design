@@ -29,7 +29,7 @@ En cuisine, entre le chef et le poste des desserts, on ne discute pas : on pass
 
 ## REST : des ressources et des verbes
 
-REST (representational state transfer) est le nom qu’a donné Roy Fielding, dans sa thèse de 2000, au style d’architecture du web[^fielding]. Il le définit par des contraintes : séparation entre client et serveur, échanges sans état (chaque requête porte tout ce qu’il faut pour la traiter, ch. 10), réponses explicitement cacheables ou non, interface uniforme, et architecture en couches où des intermédiaires (caches, répartiteurs) peuvent s’interposer sans que le client le sache. Une API REST, au sens courant, applique ces idées à HTTP : chaque entité du domaine est une ressource, identifiée par une URL, manipulée par les méthodes de HTTP et renvoyée dans une représentation, presque toujours du JSON.
+REST (representational state transfer) est le nom qu’a donné Roy Fielding, dans sa thèse de 2000, au style d’architecture du web[^fielding]. Il le définit par des contraintes : séparation entre client et serveur, échanges sans état (chaque requête porte tout ce qu’il faut pour la traiter, [ch. 10](passer-echelle.mdx)), réponses explicitement cacheables ou non, interface uniforme, et architecture en couches où des intermédiaires (caches, répartiteurs) peuvent s’interposer sans que le client le sache. Une API REST, au sens courant, applique ces idées à HTTP : chaque entité du domaine est une ressource, identifiée par une URL, manipulée par les méthodes de HTTP et renvoyée dans une représentation, presque toujours du JSON.
 
 ```http
 GET    /clients/42                      lire un client
@@ -39,7 +39,7 @@ PATCH  /commandes/9481203557            modifier une partie de la commande
 DELETE /commandes/9481203557            l'annuler
 ```
 
-Tout ce que le ch. 5 a établi s’applique : les méthodes sûres et idempotentes, les codes d’état, le cache HTTP. C’est l’atout principal de REST. Un `GET` sur une URL stable se cache dans le navigateur, dans un CDN (ch. 15) ou dans un proxy sans que personne ait à écrire de code, et chaque outil du web (journaux, répartiteurs, pare-feu applicatifs) comprend ce qui passe. La forme des erreurs a même une norme, les « détails de problème » de la RFC 9457, un objet JSON avec un type, un titre et un détail[^rfc9457]. L’interface se décrit dans un document OpenAPI, à partir duquel on génère la documentation, des clients et des tests.
+Tout ce que le [ch. 5](http.mdx) a établi s’applique : les méthodes sûres et idempotentes, les codes d’état, le cache HTTP. C’est l’atout principal de REST. Un `GET` sur une URL stable se cache dans le navigateur, dans un CDN (ch. 15) ou dans un proxy sans que personne ait à écrire de code, et chaque outil du web (journaux, répartiteurs, pare-feu applicatifs) comprend ce qui passe. La forme des erreurs a même une norme, les « détails de problème » de la RFC 9457, un objet JSON avec un type, un titre et un détail[^rfc9457]. L’interface se décrit dans un document OpenAPI, à partir duquel on génère la documentation, des clients et des tests.
 
 Les limites de REST apparaissent du côté des clients qui affichent des écrans composites. La ressource est définie par le serveur : le client reçoit tous ses champs, même s’il n’en veut qu’un (sur-récupération, over-fetching), et s’il a besoin de plusieurs ressources liées, il doit faire plusieurs appels (sous-récupération, under-fetching), souvent en série parce que le deuxième dépend du premier.
 
@@ -85,7 +85,7 @@ Pour ceux-là, il faut une nouvelle version, et trois façons de l’indiquer se
 
 ## GraphQL : le client décrit ce qu’il veut
 
-GraphQL, utilisé par les applications mobiles de Facebook depuis 2012, publié en 2015 et confié en 2018 à une fondation hébergée par la Linux Foundation[^graphql], est un langage de requête pour API. Le serveur publie un schéma typé (des types, leurs champs, les relations entre eux) ; le client envoie, en général par `POST` sur une seule adresse, une requête qui décrit la forme exacte de la réponse voulue ; le serveur renvoie un document JSON de cette forme. Les modifications passent par des mutations, et les abonnements (subscriptions) permettent de recevoir des mises à jour en continu (ch. 8).
+GraphQL, utilisé par les applications mobiles de Facebook depuis 2012, publié en 2015 et confié en 2018 à une fondation hébergée par la Linux Foundation[^graphql], est un langage de requête pour API. Le serveur publie un schéma typé (des types, leurs champs, les relations entre eux) ; le client envoie, en général par `POST` sur une seule adresse, une requête qui décrit la forme exacte de la réponse voulue ; le serveur renvoie un document JSON de cette forme. Les modifications passent par des mutations, et les abonnements (subscriptions) permettent de recevoir des mises à jour en continu ([ch. 8](pousser-donnees.mdx)).
 
 ```graphql
 query {
@@ -164,7 +164,7 @@ message Commande {
 
 Le client appelle `Obtenir` comme une fonction locale. Quatre formes d’appel existent : unaire (une requête, une réponse), flux serveur (une requête, une suite de réponses, comme le suivi d’une livraison), flux client (une suite de requêtes, une réponse, comme l’envoi d’un fichier en morceaux), et bidirectionnelle. Chaque appel porte une échéance (deadline) que le serveur reçoit et qu’il transmet aux appels qu’il fait lui-même, ce qui permet d’abandonner tout le travail d’une requête dont le client n’attend plus la réponse (ch. 38). Les erreurs ont leurs propres codes, plus précis que ceux de HTTP pour les appels entre services, comme `DEADLINE_EXCEEDED`, `UNAVAILABLE` ou `RESOURCE_EXHAUSTED`.
 
-Le prix de gRPC tient à son public. Les navigateurs ne peuvent pas l’appeler directement, faute d’accès aux trames HTTP/2 : il faut une variante, gRPC-Web, et un proxy qui la traduit. Les messages binaires ne se lisent pas au terminal avec `curl`, il faut des outils dédiés. Et les connexions HTTP/2 durent longtemps et portent tous les appels d’un client : un répartiteur de charge de niveau 4, qui répartit les connexions et non les requêtes, envoie alors tout le trafic d’un client vers le même serveur, et il faut un répartiteur de niveau 7 ou une répartition côté client (ch. 13).
+Le prix de gRPC tient à son public. Les navigateurs ne peuvent pas l’appeler directement, faute d’accès aux trames HTTP/2 : il faut une variante, gRPC-Web, et un proxy qui la traduit. Les messages binaires ne se lisent pas au terminal avec `curl`, il faut des outils dédiés. Et les connexions HTTP/2 durent longtemps et portent tous les appels d’un client : un répartiteur de charge de niveau 4, qui répartit les connexions et non les requêtes, envoie alors tout le trafic d’un client vers le même serveur, et il faut un répartiteur de niveau 7 ou une répartition côté client ([ch. 13](../partie-2/repartition-charge.mdx)).
 
 ## Sérialiser, et faire évoluer les messages
 
@@ -275,7 +275,7 @@ Un `POST /paiements` qu’un client rejoue après un délai d’attente dépass�
 :::
 
 :::entretien
-L’étape 3 de la démarche (ch. 1) attend une API concrète : les ressources ou les opérations, leurs paramètres principaux, la pagination des listes et ce qui garantit qu’une écriture rejouée ne se duplique pas. Annoncez le style et justifiez-le en une phrase (« REST pour l’API publique, cacheable par le CDN ; gRPC entre services »), puis écrivez quatre ou cinq points d’entrée au tableau, avec leurs codes de réponse.
+L’étape 3 de la démarche ([ch. 1](../partie-0/demarche.mdx)) attend une API concrète : les ressources ou les opérations, leurs paramètres principaux, la pagination des listes et ce qui garantit qu’une écriture rejouée ne se duplique pas. Annoncez le style et justifiez-le en une phrase (« REST pour l’API publique, cacheable par le CDN ; gRPC entre services »), puis écrivez quatre ou cinq points d’entrée au tableau, avec leurs codes de réponse.
 :::
 
 ## Exercices

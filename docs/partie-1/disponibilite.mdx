@@ -79,7 +79,7 @@ $$
 
 Deux copies à 99,9 % donnent 99,9999 %, trois copies 99,9999999 %. C’est le principe de la redondance : des composants ordinaires, doublés, donnent un ensemble très disponible.
 
-Tout repose sur le mot indépendantes. Deux serveurs dans la même baie tombent ensemble quand l’alimentation de la baie lâche ; deux copies du même logiciel tombent ensemble quand le même bogue se déclenche ; deux régions tombent ensemble quand une même modification de configuration y est poussée. Dans ces cas, la formule du parallèle est fausse, et la vraie disponibilité est celle de la cause commune. Les dépendances cachées sont la cause commune la plus fréquente : un service redondant qui s’appuie, sans le savoir, sur un composant unique (un DNS, un fournisseur d’identité, un stockage partagé) a la disponibilité de ce composant. On appelle point unique de défaillance (single point of failure, SPOF) tout composant dont la panne arrête le service, et l’étape 7 de la démarche (ch. 1) consiste justement à les chercher.
+Tout repose sur le mot indépendantes. Deux serveurs dans la même baie tombent ensemble quand l’alimentation de la baie lâche ; deux copies du même logiciel tombent ensemble quand le même bogue se déclenche ; deux régions tombent ensemble quand une même modification de configuration y est poussée. Dans ces cas, la formule du parallèle est fausse, et la vraie disponibilité est celle de la cause commune. Les dépendances cachées sont la cause commune la plus fréquente : un service redondant qui s’appuie, sans le savoir, sur un composant unique (un DNS, un fournisseur d’identité, un stockage partagé) a la disponibilité de ce composant. On appelle point unique de défaillance (single point of failure, SPOF) tout composant dont la panne arrête le service, et l’étape 7 de la démarche ([ch. 1](../partie-0/demarche.mdx)) consiste justement à les chercher.
 
 ## Ce que la redondance apporte vraiment, mesuré
 
@@ -103,7 +103,7 @@ Chaque barre compte les requêtes en erreur sur les quelque 965 envoyées pendan
 
 La configuration B est la plus instructive : deux serveurs, mais aucun moyen de savoir que l’un est mort, et le répartiteur continue de lui envoyer une requête sur deux. Elle fait bien pire qu’un serveur unique (62,58 % contre 98,86 %), alors qu’elle a deux fois plus de machines. La redondance sans détection n’apporte rien. La configuration A illustre l’autre terme de la formule MTBF/MTTR : un seul serveur, mais relancé automatiquement en 224 ms, ne perd que 11 requêtes. Le contrôle passif (C) détecte la panne dès la première erreur, puis réessaie le serveur mort une fois quand son exclusion de 10 secondes expire, d’où 2 erreurs ; le contrôle actif (D) met jusqu’à 2 secondes à s’en apercevoir, pendant lesquelles une requête sur deux échoue. Seule la configuration E, qui rejoue sur l’autre serveur la requête qui a échoué, masque complètement la panne. Cette reprise n’est sans danger que pour des requêtes qu’on peut rejouer : ici des lectures, mais pas un paiement (ch. 38).
 
-Le temps de remise en service d’un système redondant n’est donc pas le temps de réparer la machine : c’est le temps de détecter la panne et de cesser de lui envoyer du trafic. La détection des pannes est l’objet du ch. 32, la répartition et ses contrôles de santé celui du ch. 13.
+Le temps de remise en service d’un système redondant n’est donc pas le temps de réparer la machine : c’est le temps de détecter la panne et de cesser de lui envoyer du trafic. La détection des pannes est l’objet du ch. 32, la répartition et ses contrôles de santé celui du [ch. 13](../partie-2/repartition-charge.mdx).
 
 ## SLI, SLO, SLA et budget d’erreur
 
@@ -133,7 +133,7 @@ Les façons d’ajouter de la redondance se distinguent par ce qu’elles coûte
 |---|---|---|---|---|
 | Un exemplaire, relancé automatiquement | plantage du processus | court (224 ms mesurées ici) | aucun matériel en plus | ne couvre pas la panne de la machine |
 | Actif-passif : une copie en attente | panne d’une machine | celui de la détection et de la bascule | la copie attend sans servir | décider qui est actif sans en avoir deux (ch. 32 et 35) |
-| Actif-actif : plusieurs copies servent | panne d’une machine | celui de la détection ; nul avec nouvelle tentative | les copies servent toutes | simple pour l’application sans état (ch. 10), difficile pour les données (ch. 24 et 25) |
+| Actif-actif : plusieurs copies servent | panne d’une machine | celui de la détection ; nul avec nouvelle tentative | les copies servent toutes | simple pour l’application sans état ([ch. 10](passer-echelle.mdx)), difficile pour les données (ch. 24 et 25) |
 | Plusieurs zones de disponibilité | panne d’un centre de données | idem, à quelques millisecondes de distance | trafic entre zones facturé | réplication des données entre zones |
 | Plusieurs régions | panne d’une région entière | de quelques secondes à des heures selon la préparation | infrastructure doublée | latence entre régions et cohérence des données (ch. 46) |
 

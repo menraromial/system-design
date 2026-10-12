@@ -40,7 +40,7 @@ Les dépendances Python de chaque chapitre sont dans son `requirements.txt`. Les
 | 12 | [`ch12/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch12) | lectures périmées sur une réplique Redis, coût de `WAIT`, lectures monotones, partition | Docker, image `redis:8.8-alpine` ; `requirements.txt` | `python3 replique.py` |
 | 13 | [`ch13/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch13) | politiques de répartition sur un parc hétérogène, hachage d’URI, répartition L4 et L7, drainage | Caddy, wrk ; `requirements.txt` | `python3 repartition.py`, `python3 drainage.py` |
 
-Les résultats s’affichent sur la sortie standard. Les fichiers de travail (configurations de Caddy, certificats du ch. 6) vont dans le dossier temporaire du système, sauf les cent petits fichiers que `ch05/mesurer.sh` crée dans `ch05/site/` ; `ch09/latences` crée un fichier de 1 Gio pour mesurer le disque et le supprime à la fin.
+Les résultats s’affichent sur la sortie standard. Les fichiers de travail (configurations de Caddy, certificats du [ch. 6](partie-1/tls.mdx)) vont dans le dossier temporaire du système, sauf les cent petits fichiers que `ch05/mesurer.sh` crée dans `ch05/site/` ; `ch09/latences` crée un fichier de 1 Gio pour mesurer le disque et le supprime à la fin.
 
 ## Après une expérience
 

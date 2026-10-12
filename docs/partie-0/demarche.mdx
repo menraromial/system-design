@@ -49,10 +49,10 @@ Ce qui est hors périmètre compte autant. On décide ici qu’il n’y a ni com
 
 Côté non fonctionnel, chaque qualité reçoit un chiffre ou une règle vérifiable :
 
-- le service est disponible 99,9 % du temps, ce qui autorise au plus $0{,}001 \times 8\,760\ \text{h} = 8{,}76\ \text{h}$ d’indisponibilité par an, soit 8 h 46 min (le calcul des « neuf » est l’objet du ch. 11) ;
-- la page d’un sondage s’affiche en moins de 300 ms pour 99 % des requêtes, mesurées au serveur : c’est une exigence de latence, et les percentiles sont expliqués au ch. 9 ;
+- le service est disponible 99,9 % du temps, ce qui autorise au plus $0{,}001 \times 8\,760\ \text{h} = 8{,}76\ \text{h}$ d’indisponibilité par an, soit 8 h 46 min (le calcul des « neuf » est l’objet du [ch. 11](../partie-1/disponibilite.mdx)) ;
+- la page d’un sondage s’affiche en moins de 300 ms pour 99 % des requêtes, mesurées au serveur : c’est une exigence de latence, et les percentiles sont expliqués au [ch. 9](../partie-1/latence-debit.mdx) ;
 - un vote dont on a confirmé l’enregistrement n’est jamais perdu, même si le serveur tombe une seconde après : c’est la durabilité ;
-- un participant qui vient de voter voit son propre vote dans la page qu’on lui renvoie, alors que les autres peuvent voir le décompte avec quelques secondes de retard (le ch. 12 donne un nom précis à chacune de ces garanties de cohérence) ;
+- un participant qui vient de voter voit son propre vote dans la page qu’on lui renvoie, alors que les autres peuvent voir le décompte avec quelques secondes de retard (le [ch. 12](../partie-1/coherence-cap.mdx) donne un nom précis à chacune de ces garanties de cohérence) ;
 - un même navigateur ne peut pas voter mille fois par seconde, sans qu’on exige pour autant la garantie d’une élection, puisqu’il n’y a pas de comptes ;
 - le service tient les volumes calculés à l’étape 2.
 
@@ -66,7 +66,7 @@ L’examinateur laisse souvent la consigne volontairement vague pour voir si vou
 
 ### Étape 2 : l’estimation de charge
 
-L’estimation transforme les exigences en ordres de grandeur : requêtes par seconde, volume stocké, bande passante. La précision importe peu : on veut savoir si l’on parle de dix requêtes par seconde ou de cent mille, de quelques gigaoctets ou de plusieurs pétaoctets, parce que les architectures qui conviennent ne sont pas les mêmes. Le ch. 2 est consacré à la technique ; voici son application au sondage.
+L’estimation transforme les exigences en ordres de grandeur : requêtes par seconde, volume stocké, bande passante. La précision importe peu : on veut savoir si l’on parle de dix requêtes par seconde ou de cent mille, de quelques gigaoctets ou de plusieurs pétaoctets, parce que les architectures qui conviennent ne sont pas les mêmes. Le [ch. 2](estimation.mdx) est consacré à la technique ; voici son application au sondage.
 
 :::calcul[Calcul : charge du service de sondage]
 Hypothèses (choisies et annoncées) : 200 000 sondages créés par jour, 15 participations par sondage, 40 affichages de la page par sondage (chaque participant l’ouvre avant et après avoir voté, le créateur la consulte souvent, d’autres curieux passent), pointe égale à 5 fois la moyenne parce que l’activité se concentre en journée.
@@ -98,7 +98,7 @@ Le rapport entre lectures et écritures (environ 2,5 lectures par écriture ici)
 
 ### Étape 3 : l’API
 
-L’API (interface de programmation) fixe le contrat entre les clients et le système : quelles opérations existent, ce qu’elles reçoivent, ce qu’elles renvoient. On la dérive directement des exigences fonctionnelles, à raison d’une ou deux opérations par verbe. Le choix du style (REST, GraphQL, gRPC) attend le ch. 7 ; sous forme de requêtes HTTP, l’API du sondage peut s’écrire ainsi :
+L’API (interface de programmation) fixe le contrat entre les clients et le système : quelles opérations existent, ce qu’elles reçoivent, ce qu’elles renvoient. On la dérive directement des exigences fonctionnelles, à raison d’une ou deux opérations par verbe. Le choix du style (REST, GraphQL, gRPC) attend le [ch. 7](../partie-1/styles-api.mdx) ; sous forme de requêtes HTTP, l’API du sondage peut s’écrire ainsi :
 
 ```http
 POST   /sondages
@@ -184,7 +184,7 @@ La version 1 du service et la carte des évolutions possibles, chaque brique ren
 
 Lisez d’abord le cadre de gauche, de haut en bas : le navigateur parle au serveur d’application en HTTPS, le serveur parle à la base en SQL, et c’est tout. Le cadre de droite rassemble les briques qu’on ajoutera le jour où un besoin précis apparaîtra, chacune avec le chapitre où elle est expliquée ; il ne s’agit pas de les construire tout de suite. Le bus horizontal indique que chaque serveur peut joindre chacune des briques du bas.
 
-Le serveur d’application reçoit les requêtes, vérifie les jetons, exécute les requêtes SQL et construit les réponses. Un choix d’architecture est déjà fait, discrètement : ce serveur ne garde rien en mémoire d’une requête à l’autre, tout ce qui doit durer est en base. Un serveur de ce genre est dit sans état (stateless) ; c’est ce qui permettra d’en mettre deux côte à côte le jour venu, comme l’explique le ch. 10. La base est PostgreSQL parce que les données sont fortement reliées (des réponses qui appartiennent à des participations qui appartiennent à des sondages), que le volume tient sur une machine et que l’on veut qu’un vote confirmé soit écrit sur disque. Le ch. 23 donnera une grille pour faire ce choix de façon plus méthodique.
+Le serveur d’application reçoit les requêtes, vérifie les jetons, exécute les requêtes SQL et construit les réponses. Un choix d’architecture est déjà fait, discrètement : ce serveur ne garde rien en mémoire d’une requête à l’autre, tout ce qui doit durer est en base. Un serveur de ce genre est dit sans état (stateless) ; c’est ce qui permettra d’en mettre deux côte à côte le jour venu, comme l’explique le [ch. 10](../partie-1/passer-echelle.mdx). La base est PostgreSQL parce que les données sont fortement reliées (des réponses qui appartiennent à des participations qui appartiennent à des sondages), que le volume tient sur une machine et que l’on veut qu’un vote confirmé soit écrit sur disque. Le ch. 23 donnera une grille pour faire ce choix de façon plus méthodique.
 
 ### Étape 6 : l’approfondissement
 
@@ -220,7 +220,7 @@ Le jeton de participation est stocké par le navigateur. Si le participant chang
 
 On relit maintenant l’architecture avec une seule question en tête : qu’est-ce qui casse en premier, et que se passe-t-il alors ? Un goulet d’étranglement (bottleneck) est le composant qui sature le premier quand la charge monte ; un point unique de défaillance (single point of failure, SPOF) est un composant dont la panne arrête tout le service.
 
-Dans la version 1, les deux SPOF sont évidents : le serveur d’application et la base. Si le serveur tombe, plus rien ne répond ; si la base tombe ou si son disque meurt, on perd en plus les données écrites depuis la dernière sauvegarde. Avec une machine unique, l’objectif de 99,9 % est déjà difficile à tenir, puisqu’une seule mise à jour du système qui prend vingt minutes par mois consomme 4 heures sur les 8 h 46 autorisées par an. La réponse à ces deux SPOF, ce sont respectivement un second serveur derrière un répartiteur (ch. 13) et une copie de la base prête à prendre le relais (ch. 24), plus des sauvegardes testées (ch. 53).
+Dans la version 1, les deux SPOF sont évidents : le serveur d’application et la base. Si le serveur tombe, plus rien ne répond ; si la base tombe ou si son disque meurt, on perd en plus les données écrites depuis la dernière sauvegarde. Avec une machine unique, l’objectif de 99,9 % est déjà difficile à tenir, puisqu’une seule mise à jour du système qui prend vingt minutes par mois consomme 4 heures sur les 8 h 46 autorisées par an. La réponse à ces deux SPOF, ce sont respectivement un second serveur derrière un répartiteur ([ch. 13](../partie-2/repartition-charge.mdx)) et une copie de la base prête à prendre le relais (ch. 24), plus des sauvegardes testées (ch. 53).
 
 Le goulet, lui, apparaît dans un scénario que les moyennes de l’étape 2 cachent : un sondage partagé par un média. Supposons 1 000 000 d’affichages en une heure et 200 000 votes.
 
@@ -233,7 +233,7 @@ Le goulet, lui, apparaît dans un scénario que les moyennes de l’étape 2 cac
 | Lignes parcourues par affichage (comptage à la lecture) | jusqu’à 2 000 000 | 2 × 10⁶ |
 | Lignes parcourues par seconde | 278 × 2 000 000 | ≈ 5,6 × 10⁸ |
 
-Une base qui parcourrait cent millions de lignes par seconde, ce qui est déjà beaucoup pour une seule machine (le ch. 9 donne les débits de référence), resterait 5 à 6 fois trop lente, et ce sondage n’est pas le seul à servir. L’option « compter à la lecture » s’effondre sur lui, alors qu’elle convient parfaitement aux 199 999 autres.
+Une base qui parcourrait cent millions de lignes par seconde, ce qui est déjà beaucoup pour une seule machine (le [ch. 9](../partie-1/latence-debit.mdx) donne les débits de référence), resterait 5 à 6 fois trop lente, et ce sondage n’est pas le seul à servir. L’option « compter à la lecture » s’effondre sur lui, alors qu’elle convient parfaitement aux 199 999 autres.
 :::
 
 La réponse découle du tableau de l’étape 6 : pour un sondage qui dépasse un seuil de participations, on garde le décompte en cache quelques secondes, ce que l’exigence de cohérence autorise (les autres participants peuvent voir le décompte en retard). Ce raisonnement est typique de l’étape 7 : un cas rare se traite là où il apparaît, sans changer toute l’architecture. Le problème plus général d’une donnée unique que tout le monde lit en même temps porte un nom, la clé chaude (hot key), et le ch. 17 lui est consacré.
@@ -388,7 +388,7 @@ UPDATE cours
 
 L’insertion dans `reservation` se fait dans la même transaction, pour que les deux réussissent ou échouent ensemble. Le ch. 18 explique pourquoi cette instruction est sûre et ce que coûtent les autres façons de faire. Deuxième point, tenir la pointe de 8 h. Les consultations (1 440 par seconde) sont dix fois plus nombreuses que les réservations ; elles peuvent tolérer quelques secondes de retard, on sert donc le planning et les places restantes depuis un cache rafraîchi chaque seconde (ch. 16), et seule la réservation touche la base. Une mesure côté produit est souvent plus efficace qu’une mesure technique : ouvrir les réservations à des minutes différentes selon les salles (8 h 00 pour les unes, 8 h 05 pour les autres) divise la pointe par le nombre de créneaux. Enfin, une limitation du nombre de requêtes par membre (ch. 30) empêche un script de rafraîchissement automatique de monopoliser le service.
 
-*Étape 7, goulets et pannes.* Le goulet est la ligne d’un cours très demandé : 200 membres qui essaient de réserver la même séance en même temps se mettent en file sur la même ligne de la table `cours`. Chacune de ces mises à jour est très courte, ce qui reste supportable pour 25 places, mais c’est le point à surveiller ; la billetterie du ch. 73 traite le cas où des dizaines de milliers de personnes visent les mêmes places. Les SPOF sont la base et le répartiteur : copie de la base prête à prendre le relais (ch. 24), répartiteur redondant (ch. 13). Une panne de la base à 8 h 01 est le pire scénario ; il faut au moins afficher un message clair plutôt qu’une erreur générique, et savoir combien de temps la bascule prend.
+*Étape 7, goulets et pannes.* Le goulet est la ligne d’un cours très demandé : 200 membres qui essaient de réserver la même séance en même temps se mettent en file sur la même ligne de la table `cours`. Chacune de ces mises à jour est très courte, ce qui reste supportable pour 25 places, mais c’est le point à surveiller ; la billetterie du ch. 73 traite le cas où des dizaines de milliers de personnes visent les mêmes places. Les SPOF sont la base et le répartiteur : copie de la base prête à prendre le relais (ch. 24), répartiteur redondant ([ch. 13](../partie-2/repartition-charge.mdx)). Une panne de la base à 8 h 01 est le pire scénario ; il faut au moins afficher un message clair plutôt qu’une erreur générique, et savoir combien de temps la bascule prend.
 
 *Étape 8, évolutions.* La liste d’attente (quand une place se libère, le premier en attente la reçoit et un message part) demandera une file de messages (ch. 27). L’ouverture de la chaîne à d’autres pays posera la question des fuseaux horaires (« 8 h » de quelle heure ?) et peut-être de plusieurs régions (ch. 46). Le modèle de données n’empêche aucune de ces évolutions.
 

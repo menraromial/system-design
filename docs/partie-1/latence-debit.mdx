@@ -27,7 +27,7 @@ Le directeur du magasin dispose d’une relation simple : le nombre moyen de cl
 
 ## Latence et débit
 
-La latence (latency) est le temps que met une opération, de la demande à la réponse. Le débit (throughput) est le nombre d’opérations terminées par unité de temps. On confond souvent le débit et la bande passante (bandwidth), qui est la capacité maximale d’un lien ou d’un composant : une liaison de 1 Gbit/s a cette bande passante, mais le débit utile d’une connexion TCP qui la traverse peut être bien plus faible (ch. 4).
+La latence (latency) est le temps que met une opération, de la demande à la réponse. Le débit (throughput) est le nombre d’opérations terminées par unité de temps. On confond souvent le débit et la bande passante (bandwidth), qui est la capacité maximale d’un lien ou d’un composant : une liaison de 1 Gbit/s a cette bande passante, mais le débit utile d’une connexion TCP qui la traverse peut être bien plus faible ([ch. 4](transport.mdx)).
 
 Latence et débit sont liés, mais ne se confondent pas. Un système qui traite les requêtes une par une, chacune en 2 ms, a un débit de 500 requêtes par seconde ; s’il en traite dix en parallèle, toujours en 2 ms chacune, son débit passe à 5 000 par seconde sans que la latence change. Inversement, regrouper les opérations par lots (batching) augmente souvent le débit, parce qu’on paie une seule fois des frais fixes, mais augmente la latence de chaque opération, qui attend que son lot soit complet. La relation exacte entre les trois grandeurs, débit, latence et nombre d’opérations en cours, est la loi de Little, plus bas.
 
@@ -79,7 +79,7 @@ Temps de séjour mesuré selon le taux d’utilisation, et prévision du modèle
 
 L’axe vertical est logarithmique. La courbe en pointillés est le modèle, les points bleus la moyenne mesurée, les rouges le p99 mesuré. Jusqu’à 95 % de charge, la moyenne suit le modèle à 10 % près, et le p99 mesuré à 53 % de charge (19,1 ms) est très proche de la prévision ($4{,}6 \times 4{,}2 \approx 19{,}4$ ms). À 99 %, la mesure s’écarte du modèle par le haut : le modèle décrit un régime établi, et à ce taux la file met plus longtemps à s’établir que les quelques dizaines de secondes de l’expérience ; elle ne fait que grandir.
 
-La conséquence pour le dimensionnement est directe. Un serveur qu’on fait tourner à 90 % de sa capacité ne « garde pas 10 % de marge » : il multiplie ses temps de réponse par cinq par rapport à 50 % de charge. Si l’on veut, dans ce modèle, que le p99 reste sous dix fois le temps de service, il faut $4{,}6 / (1 - \rho) \leq 10$, soit $\rho \leq 0{,}54$. Plusieurs serveurs qui partagent une même file font mieux, parce qu’un pic d’un côté est absorbé par un serveur libre de l’autre ; c’est l’une des raisons de répartir la charge entre plusieurs machines (ch. 13). Mais la forme de la courbe reste la même : près de la saturation, tout système file d’attente s’effondre.
+La conséquence pour le dimensionnement est directe. Un serveur qu’on fait tourner à 90 % de sa capacité ne « garde pas 10 % de marge » : il multiplie ses temps de réponse par cinq par rapport à 50 % de charge. Si l’on veut, dans ce modèle, que le p99 reste sous dix fois le temps de service, il faut $4{,}6 / (1 - \rho) \leq 10$, soit $\rho \leq 0{,}54$. Plusieurs serveurs qui partagent une même file font mieux, parce qu’un pic d’un côté est absorbé par un serveur libre de l’autre ; c’est l’une des raisons de répartir la charge entre plusieurs machines ([ch. 13](../partie-2/repartition-charge.mdx)). Mais la forme de la courbe reste la même : près de la saturation, tout système file d’attente s’effondre.
 
 ### La loi de Little
 
@@ -154,7 +154,7 @@ Les accès « dépendants » suivent une chaîne de pointeurs dans un ordre al
 Échelle des latences, de la nanoseconde à la seconde : mesures du chapitre et bornes physiques de la fibre.
 </Figure>
 
-L’axe horizontal est logarithmique : chaque grande graduation multiplie la durée par mille. Les étiquettes vertes, jaunes et bleues sont mesurées sur la machine du chapitre ; les orange sont les bornes physiques de propagation dans la fibre calculées au ch. 4, qu’aucun réseau réel n’atteint tout à fait. Entre une lecture dans le cache L1 et un aller-retour vers l’Australie, il y a huit ordres de grandeur.
+L’axe horizontal est logarithmique : chaque grande graduation multiplie la durée par mille. Les étiquettes vertes, jaunes et bleues sont mesurées sur la machine du chapitre ; les orange sont les bornes physiques de propagation dans la fibre calculées au [ch. 4](transport.mdx), qu’aucun réseau réel n’atteint tout à fait. Entre une lecture dans le cache L1 et un aller-retour vers l’Australie, il y a huit ordres de grandeur.
 
 | Opération | Mesure du chapitre | Tableau de Norvig | Commentaire |
 |---|---|---|---|
@@ -198,7 +198,7 @@ Dans le modèle M/M/1, $\text{p99} = 4{,}6 \times S / (1 - \rho)$. Avec un temps
 | 0,9 | $4{,}6 \times 2 / 0{,}1$ | 92 ms |
 | 0,99 | $4{,}6 \times 2 / 0{,}01$ | 920 ms |
 
-Conclusion : pour un objectif de p99 à 30 ms, ce serveur ne doit pas dépasser environ 70 % de charge ; c’est l’origine des taux d’utilisation visés de 60 à 70 % qu’on retrouve dans les règles de dimensionnement (ch. 2). Les mesures de l’expérience sont du même ordre : 19,1 ms à 0,53 et 41,5 ms à 0,75.
+Conclusion : pour un objectif de p99 à 30 ms, ce serveur ne doit pas dépasser environ 70 % de charge ; c’est l’origine des taux d’utilisation visés de 60 à 70 % qu’on retrouve dans les règles de dimensionnement ([ch. 2](../partie-0/estimation.mdx)). Les mesures de l’expérience sont du même ordre : 19,1 ms à 0,53 et 41,5 ms à 0,75.
 :::
 
 :::calcul[Calcul : éventail et 99,9e centile]
@@ -238,7 +238,7 @@ Une file sans limite ne rejette jamais rien : quand la charge dépasse la capac
 :::
 
 :::entretien
-Quand vous annoncez une exigence de latence (étape 1 du ch. 1), donnez un centile et un chiffre, « p99 sous 200 ms », jamais une moyenne. Si la conception comporte un appel en éventail, dites-le et chiffrez l’effet sur la queue ($1 - (1-p)^N$) ; si elle impose une charge élevée à un composant, rappelez que l’attente croît comme $1/(1-\rho)$.
+Quand vous annoncez une exigence de latence (étape 1 du [ch. 1](../partie-0/demarche.mdx)), donnez un centile et un chiffre, « p99 sous 200 ms », jamais une moyenne. Si la conception comporte un appel en éventail, dites-le et chiffrez l’effet sur la queue ($1 - (1-p)^N$) ; si elle impose une charge élevée à un composant, rappelez que l’attente croît comme $1/(1-\rho)$.
 :::
 
 ## Exercices

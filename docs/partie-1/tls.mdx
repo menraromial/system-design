@@ -84,7 +84,7 @@ Negotiated TLS1.3 group: X25519MLKEM768
 
 C’est un échange hybride : il combine l’échange classique sur courbe elliptique X25519 et ML-KEM, un mécanisme d’encapsulation de clé conçu pour résister aux ordinateurs quantiques et normalisé par le NIST en août 2024 (FIPS 203)[^fips203]. Le secret de session dépend des deux, si bien qu’il faudrait casser les deux pour le retrouver. La raison de se presser est l’attaque « collecter maintenant, déchiffrer plus tard » : un adversaire qui enregistre aujourd’hui du trafic chiffré pourra le déchiffrer le jour où il disposera d’un ordinateur quantique capable de casser X25519, alors que les signatures, elles, n’ont besoin d’être sûres qu’au moment de la connexion.
 
-Un client qui revient vers un serveur déjà rencontré peut reprendre la session avec une clé pré-partagée que le serveur lui a remise lors de la connexion précédente, sans refaire la vérification du certificat ni la signature, et même envoyer sa requête dans le premier message (0-RTT). Le ch. 5 a montré la contrepartie : ces données peuvent être rejouées, et un serveur ne doit les accepter que pour des requêtes sans effet de bord.
+Un client qui revient vers un serveur déjà rencontré peut reprendre la session avec une clé pré-partagée que le serveur lui a remise lors de la connexion précédente, sans refaire la vérification du certificat ni la signature, et même envoyer sa requête dans le premier message (0-RTT). Le [ch. 5](http.mdx) a montré la contrepartie : ces données peuvent être rejouées, et un serveur ne doit les accepter que pour des requêtes sans effet de bord.
 
 ## Le coût de TLS, mesuré
 
@@ -117,7 +117,7 @@ La reprise de session multiplie le nombre de connexions par 4 avec une clé ECDS
 
 ## Où terminer le chiffrement
 
-Dans une architecture réelle, le client ne parle presque jamais directement au serveur d’application : un répartiteur de charge ou un CDN s’intercale (ch. 13 et 15). Il faut décider où la connexion TLS du client se termine, c’est-à-dire où se trouve la clé privée du certificat public.
+Dans une architecture réelle, le client ne parle presque jamais directement au serveur d’application : un répartiteur de charge ou un CDN s’intercale ([ch. 13](../partie-2/repartition-charge.mdx) et 15). Il faut décider où la connexion TLS du client se termine, c’est-à-dire où se trouve la clé privée du certificat public.
 
 <Figure svg={terminaison} num="6.3" alt="Trois architectures : terminaison TLS au répartiteur avec HTTP en clair derrière ; rechiffrement avec TLS de nouveau entre répartiteur et serveur ; passage direct avec TLS de bout en bout jusqu’au serveur.">
 Trois emplacements possibles pour la fin du chiffrement.
@@ -193,7 +193,7 @@ Hypothèses : un service reçoit en pointe 5 000 nouvelles connexions TLS par
 | Même charge avec 80 % de reprises (RSA-2048) | 1 000 × 0,86 ms + 4 000 × 0,08 ms | ≈ 1,2 cœur |
 | Chiffrement de 10 Gbit/s de trafic, AES-128-GCM | 1,25 Go/s / 4,3 Go/s par cœur | ≈ 0,3 cœur |
 
-Conclusion : avec des certificats ECDSA, les poignées de main de 5 000 nouvelles connexions par seconde tiennent dans un demi-cœur ; avec RSA-2048, il en faut plus de quatre, uniquement pour signer. Chiffrer 10 Gbit/s coûte moins d’un tiers de cœur. La reprise de session, qui en TLS 1.3 garde un échange de clés pour préserver la confidentialité persistante, fait surtout gagner avec RSA. Le coût de TLS se maîtrise donc par le type de clé, la reprise des sessions et la réutilisation des connexions (ch. 4 et 5), bien plus que par le choix de l’algorithme de chiffrement des données.
+Conclusion : avec des certificats ECDSA, les poignées de main de 5 000 nouvelles connexions par seconde tiennent dans un demi-cœur ; avec RSA-2048, il en faut plus de quatre, uniquement pour signer. Chiffrer 10 Gbit/s coûte moins d’un tiers de cœur. La reprise de session, qui en TLS 1.3 garde un échange de clés pour préserver la confidentialité persistante, fait surtout gagner avec RSA. Le coût de TLS se maîtrise donc par le type de clé, la reprise des sessions et la réutilisation des connexions ([ch. 4](transport.mdx) et [5](http.mdx)), bien plus que par le choix de l’algorithme de chiffrement des données.
 :::
 
 :::calcul[Calcul : allers-retours de TLS sur 80 ms de RTT]
@@ -248,7 +248,7 @@ Sur une question de sécurité du transport, structurez la réponse en quatre po
 
 **Question 1.** TLS 1.2 : 1 RTT pour TCP et 2 pour TLS, la requête part après 240 ms et arrive au serveur une demi-durée d’aller-retour plus tard, soit 280 ms. TLS 1.3 : 1 + 1 RTT, la requête part après 160 ms et arrive à 200 ms. Reprise en 0-RTT : la requête part avec le premier message TLS, juste après l’ouverture TCP (80 ms), et arrive à 120 ms ; avec QUIC, elle partirait dès le premier paquet et arriverait à 40 ms. Les données 0-RTT peuvent être rejouées par un attaquant qui les a interceptées : il ne faut jamais y placer une requête qui modifie l’état, comme un `POST` de paiement ou de commande, sauf si le serveur sait la rendre idempotente (ch. 38).
 
-**Question 2.** RSA-2048 : $2\,000 \times 779\ \mu\text{s} \approx 1{,}56$ cœur pour les signatures. ECDSA P-256 : $2\,000 \times 29\ \mu\text{s} \approx 0{,}06$ cœur. En comptant aussi l’échange de clés hybride (environ 78 µs), on arrive à environ 1,7 cœur avec RSA et 0,2 avec ECDSA. Pour réduire encore : passer à un certificat ECDSA ; activer la reprise de session par tickets, qui supprime la signature pour les clients qui reviennent ; et surtout faire en sorte que les clients réutilisent leurs connexions (keep-alive, HTTP/2 et HTTP/3, ch. 5), ce qui diminue le nombre de poignées de main lui-même.
+**Question 2.** RSA-2048 : $2\,000 \times 779\ \mu\text{s} \approx 1{,}56$ cœur pour les signatures. ECDSA P-256 : $2\,000 \times 29\ \mu\text{s} \approx 0{,}06$ cœur. En comptant aussi l’échange de clés hybride (environ 78 µs), on arrive à environ 1,7 cœur avec RSA et 0,2 avec ECDSA. Pour réduire encore : passer à un certificat ECDSA ; activer la reprise de session par tickets, qui supprime la signature pour les clients qui reviennent ; et surtout faire en sorte que les clients réutilisent leurs connexions (keep-alive, HTTP/2 et HTTP/3, [ch. 5](http.mdx)), ce qui diminue le nombre de poignées de main lui-même.
 
 **Question 3.** La cause la plus probable est une chaîne incomplète : le serveur n’envoie pas le certificat intermédiaire. Le navigateur le complète, depuis son cache ou en allant le chercher à l’adresse indiquée dans le certificat ; `curl` et les bibliothèques de l’application mobile n’ont que le certificat de feuille et leur magasin de racines, et ne peuvent pas relier les deux. On le confirme avec `openssl s_client -connect site:443 -servername site -showcerts`, qui montre combien de certificats le serveur envoie, et par l’erreur `unable to get local issuer certificate`. La correction consiste à configurer le serveur pour qu’il envoie la chaîne complète (certificat de feuille suivi des intermédiaires, sans la racine), puis à ajouter ce test à la surveillance.
 

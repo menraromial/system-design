@@ -12,7 +12,7 @@ import puissances from '@site/src/figures/estimation-puissances.svg';
 
 Le 3 août 2013, pendant la diffusion à la télévision japonaise du film d’animation *Le Château dans le ciel*, Twitter a enregistré 143 199 tweets en une seconde. Un jour ordinaire, le service en recevait alors 5 700 par seconde en moyenne[^twitter]. Le pic valait donc 25 fois la moyenne, et le service n’est pas tombé ; trois ans plus tôt, des pics soixante-dix fois plus faibles le rendaient instable. Aucun calcul fait sur la moyenne n’aurait permis de dimensionner ce moment-là, et c’est le sujet de ce chapitre : savoir produire en quelques minutes les ordres de grandeur d’un système (requêtes par seconde, octets stockés, débit réseau, nombre de machines) et savoir lesquels comptent.
 
-L’anglais appelle cet exercice back-of-the-envelope estimation : l’estimation qu’on fait au dos d’une enveloppe, sans tableur. Le ch. 1 s’en est servi à l’étape 2 de la démarche ; on en donne ici la technique complète, les repères à connaître par cœur et la façon de juger si le résultat est vraisemblable.
+L’anglais appelle cet exercice back-of-the-envelope estimation : l’estimation qu’on fait au dos d’une enveloppe, sans tableur. Le [ch. 1](demarche.mdx) s’en est servi à l’étape 2 de la démarche ; on en donne ici la technique complète, les repères à connaître par cœur et la façon de juger si le résultat est vraisemblable.
 
 ## Le traiteur et les coupes de champagne
 
@@ -68,7 +68,7 @@ Profil journalier illustratif d’un service grand public, normalisé par sa moy
 
 L’axe vertical est gradué en multiples de la moyenne de la journée, que matérialise la ligne en pointillés. La bande ocre couvre la fenêtre de 18 h à 23 h, qui concentre 45 % du trafic ; le trait brun donne le débit moyen dans cette fenêtre (2,17 fois la moyenne), le point rouge la pointe instantanée (2,62 fois). La courbe est construite pour l’exemple et ne vient d’aucun service réel ; les trois valeurs ont été calculées sur elle. Elle montre que la formule $24f/H$ donne la moyenne d’une fenêtre, et que la pointe la dépasse : ici de 20 % environ (2,62 / 2,17 ≈ 1,21).
 
-Deux autres effets s’ajoutent au profil quotidien. Les pointes d’événement d’abord, comme celle de Twitter en 2013, qui ne se lisent sur aucun profil moyen. L’amplification ensuite : une requête de l’utilisateur en déclenche plusieurs dans le système (lectures en base, appels à d’autres services), et c’est le débit amplifié que les composants internes doivent tenir. Stack Overflow publiait en 2016 environ 2,4 requêtes SQL par requête HTTP (ch. 1) ; un fil d’actualité qui assemble cinquante publications pour une seule page a une amplification bien plus forte.
+Deux autres effets s’ajoutent au profil quotidien. Les pointes d’événement d’abord, comme celle de Twitter en 2013, qui ne se lisent sur aucun profil moyen. L’amplification ensuite : une requête de l’utilisateur en déclenche plusieurs dans le système (lectures en base, appels à d’autres services), et c’est le débit amplifié que les composants internes doivent tenir. Stack Overflow publiait en 2016 environ 2,4 requêtes SQL par requête HTTP ([ch. 1](demarche.mdx)) ; un fil d’actualité qui assemble cinquante publications pour une seule page a une amplification bien plus forte.
 
 ### Les ressources
 
@@ -78,7 +78,7 @@ La bande passante est le débit multiplié par la taille des réponses, en disti
 
 La mémoire d’un cache se dimensionne sur les données chaudes (hot data), celles qu’on lit souvent. Une hypothèse fréquente, à vérifier dès qu’on a des mesures, est qu’une petite fraction des objets, par exemple 20 %, reçoit l’essentiel des lectures ; on garde alors en mémoire cette fraction des objets récents. Les ch. 16 et 17 diront comment choisir ce qu’on garde.
 
-Le nombre de machines, enfin, se déduit de la pointe et de la capacité d’une machine. Cette capacité ne s’invente pas : elle se mesure par un test de charge sur l’application réelle, car elle dépend de ce que fait chaque requête. On ne la consomme pas en entier, parce que la latence grimpe brutalement quand une machine approche de la saturation (le ch. 9 explique pourquoi) ; on vise un taux d’utilisation, par exemple 70 %. On ajoute enfin au moins une machine pour pouvoir en perdre une, ou en mettre une à jour, sans passer sous la capacité nécessaire : c’est la règle dite N + 1.
+Le nombre de machines, enfin, se déduit de la pointe et de la capacité d’une machine. Cette capacité ne s’invente pas : elle se mesure par un test de charge sur l’application réelle, car elle dépend de ce que fait chaque requête. On ne la consomme pas en entier, parce que la latence grimpe brutalement quand une machine approche de la saturation (le [ch. 9](../partie-1/latence-debit.mdx) explique pourquoi) ; on vise un taux d’utilisation, par exemple 70 %. On ajoute enfin au moins une machine pour pouvoir en perdre une, ou en mettre une à jour, sans passer sous la capacité nécessaire : c’est la règle dite N + 1.
 
 $$
 N = \left\lceil \frac{D_{\text{pointe}}}{C \times u} \right\rceil + 1
@@ -178,7 +178,7 @@ Hypothèses : 50 millions d’utilisateurs actifs par jour ; 40 messages envo
 | Connexions ouvertes à la pointe | 5 × 10⁷ × 20 % | 10 000 000 |
 | Serveurs de connexions | 10⁷ / 10⁵ + 1 | 101 |
 
-Conclusions. Le débit réseau est faible (quelques dizaines de Mbit/s) et le stockage reste modeste pour un service de cette taille. Ce qui dimensionne le système, c’est le nombre de connexions ouvertes en même temps : dix millions, réparties sur une centaine de serveurs. Le ch. 8 décrira ces connexions persistantes et le ch. 65 la conception complète d’une messagerie.
+Conclusions. Le débit réseau est faible (quelques dizaines de Mbit/s) et le stockage reste modeste pour un service de cette taille. Ce qui dimensionne le système, c’est le nombre de connexions ouvertes en même temps : dix millions, réparties sur une centaine de serveurs. Le [ch. 8](../partie-1/pousser-donnees.mdx) décrira ces connexions persistantes et le ch. 65 la conception complète d’une messagerie.
 :::
 
 Cette estimation peut se confronter à un fait publié. En février 2020, WhatsApp annonçait plus de deux milliards d’utilisateurs[^wa-utilisateurs] ; en octobre de la même année, Mark Zuckerberg indiquait que le service remettait environ 100 milliards de messages par jour[^wa-messages]. Cela fait $10^{11}$ / 86 400 ≈ 1,16 million de messages par seconde en moyenne, cinquante fois plus que notre messagerie, et $10^{11}$ / ($2 \times 10^9$) = 50 messages par jour et par utilisateur inscrit. Notre hypothèse de 40 messages par utilisateur actif est donc du bon ordre de grandeur : c’est exactement le genre de vérification qu’on fait avec un chiffre public.
@@ -282,7 +282,7 @@ Annoncez la structure du calcul avant les chiffres : « je calcule le débit d
 | Requêtes de position, pointe | 9 300 × 3,6 | ≈ 33 000 par seconde |
 | Débuts d’écoute | 10⁷ / 86 400 | ≈ 116 par seconde |
 
-La ligne « contrôle » vérifie le débit par un autre chemin : le nombre d’auditeurs simultanés multiplié par le débit d’un flux redonne le débit sortant moyen. Ce raisonnement (écoutes simultanées = durée totale d’écoute / durée de la journée) est un cas particulier de la loi de Little, que le ch. 9 énoncera.
+La ligne « contrôle » vérifie le débit par un autre chemin : le nombre d’auditeurs simultanés multiplié par le débit d’un flux redonne le débit sortant moyen. Ce raisonnement (écoutes simultanées = durée totale d’écoute / durée de la journée) est un cas particulier de la loi de Little, que le [ch. 9](../partie-1/latence-debit.mdx) énoncera.
 
 Conclusions. D’abord, les 128 Gbit/s de pointe imposent de servir l’audio par un CDN ; l’origine ne doit voir qu’une petite partie de ce trafic. Ensuite, le stockage croît de plus de 3 Po par an et ne diminue jamais si l’on garde tout : stockage objet, et classes de stockage moins chères pour les épisodes anciens rarement écoutés (ch. 29). Troisième conclusion, la moins évidente : les requêtes que reçoit l’API ne viennent presque pas des débuts d’écoute (116 par seconde) mais des positions de lecture, 33 000 par seconde en pointe, soit près de 300 fois plus. C’est cette écriture fréquente et minuscule qu’il faut concevoir avec soin : on peut l’envoyer moins souvent (toutes les 60 secondes, et à chaque pause), regrouper plusieurs positions dans une requête, et la ranger dans une base adaptée à beaucoup de petites écritures (ch. 21) plutôt que dans la base relationnelle des épisodes. Perdre la dernière position d’un auditeur coûte peu ; l’exigence de durabilité peut être plus faible pour cette donnée que pour le catalogue.
 
