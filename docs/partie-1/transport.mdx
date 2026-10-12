@@ -113,7 +113,7 @@ vers une même adresse et un même port de serveur.
 
 ## Le coût d’une connexion, mesuré
 
-Pour vérifier ces chiffres, le script `outils/experiences/ch04_time_wait.py` du dépôt du cours lance un serveur et un client sur la même machine Linux. Ils utilisent une adresse qui n’est pas une adresse de boucle locale : pour celles-ci, le réglage par défaut du noyau (`net.ipv4.tcp_tw_reuse = 2`) autorise la réutilisation des ports en TIME_WAIT et masquerait le phénomène. Le client envoie 40 000 requêtes d’un octet, d’abord sur une seule connexion réutilisée, puis en ouvrant une connexion neuve pour chaque requête et en la fermant le premier. Le cœur de la seconde boucle tient en quelques lignes :
+Pour vérifier ces chiffres, le script [`outils/experiences/ch04_time_wait.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch04_time_wait.py) du dépôt du cours lance un serveur et un client sur la même machine Linux. Ils utilisent une adresse qui n’est pas une adresse de boucle locale : pour celles-ci, le réglage par défaut du noyau (`net.ipv4.tcp_tw_reuse = 2`) autorise la réutilisation des ports en TIME_WAIT et masquerait le phénomène. Le client envoie 40 000 requêtes d’un octet, d’abord sur une seule connexion réutilisée, puis en ouvrant une connexion neuve pour chaque requête et en la fermant le premier. Le cœur de la seconde boucle tient en quelques lignes :
 
 ```python
 for _ in range(N):

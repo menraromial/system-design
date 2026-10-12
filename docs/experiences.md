@@ -1,0 +1,56 @@
+---
+title: Reproduire les expériences
+sidebar_label: Reproduire les expériences
+cartouche: Présentation
+description: "Où trouver les scripts des mesures du cours, ce qu'il faut installer pour les relancer, et comment nettoyer après."
+---
+
+Plusieurs chapitres publient des mesures faites pour le cours : le coût d’une poignée de main TLS, la mémoire de dix mille connexions WebSocket, la latence de queue d’une file d’attente, le débit d’un parc de serveurs derrière un répartiteur, ce que renvoie une réplique Redis pendant une coupure du réseau. Les scripts qui les produisent sont publiés dans le dépôt du cours, dans le dossier [`outils/experiences/`](https://github.com/menraromial/system-design/tree/main/outils/experiences), un fichier ou un sous-dossier par chapitre. Chaque script décrit en tête ce qu’il mesure, ce qu’il demande et comment le lancer.
+
+## La machine des mesures
+
+Les chiffres publiés ont été obtenus sur un ordinateur portable : processeur Intel Core Ultra 7 165H (22 fils d’exécution), SSD NVMe Samsung, Linux 7.0, Python 3.14, OpenSSL 3.5.5, Caddy 2.10.2, wrk 4.1.0, Docker 29.3 et gcc 15.2. Toutes les mesures sont locales : serveurs, clients et répartiteurs tournent sur la même machine, et les délais de réseau, quand un chapitre en a besoin, sont ajoutés par un petit relais écrit en Python. Aucune mesure ne passe par Internet.
+
+Sur une autre machine, les valeurs absolues changeront : un processeur plus lent servira moins de requêtes par seconde, un autre disque aura d’autres latences. Les comparaisons doivent tenir, elles : le tourniquet plafonné par le serveur le plus lent, la reprise de session TLS plus rapide qu’une poignée de main complète, la lecture immédiate sur une réplique qui renvoie parfois l’ancienne valeur. Pour des mesures stables, mieux vaut ne rien faire tourner d’autre de lourd pendant l’exécution.
+
+## Installer
+
+```bash
+git clone https://github.com/menraromial/system-design.git
+cd system-design/outils/experiences
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r ch13/requirements.txt    # le fichier du chapitre voulu
+```
+
+Les dépendances Python de chaque chapitre sont dans son `requirements.txt`. Les outils système à installer à part sont indiqués dans le tableau ci-dessous.
+
+## Les expériences, chapitre par chapitre
+
+| Ch. | Scripts | Ce qui est mesuré | À installer en plus de Python | Lancement |
+|---|---|---|---|---|
+| 4 | [`ch04_time_wait.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch04_time_wait.py) | épuisement des ports éphémères par les connexions en `TIME_WAIT` | Linux ; une adresse IP de la machine autre que `127.0.0.1` | `python3 ch04_time_wait.py ADRESSE` |
+| 5 | [`ch05/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch05) | HTTP/1.1 et HTTP/2 avec 50 ms d’aller-retour ajoutées ; taille des en-têtes compressés par HPACK | Caddy, curl avec HTTP/2 ; paquet `hpack` | `./mesurer.sh` ; `python3 hpack_taille.py` |
+| 6 | [`ch06/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch06) | poignées de main TLS complètes et reprises, TLS mutuel | OpenSSL 3.4 ou plus récent | `./experience.sh` |
+| 7 | [`ch07/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch07) | pagination par décalage et par curseur, requêtes N+1 de GraphQL, taille des formats de sérialisation | `requirements.txt` | `python3 pagination.py`, `graphql_n1.py`, `serialisation.py` |
+| 8 | [`ch08/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch08) | mémoire de 10 000 connexions ; trafic du polling, du long polling, de SSE et de WebSocket | `requirements.txt` | `python3 memoire.py` ; `python3 serveur.py PORT` puis `python3 trafic.py PORT` |
+| 9 | [`ch09/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch09) | files d’attente et percentiles, latence de queue d’un éventail de requêtes, latences du processeur, de la mémoire et du disque | gcc, `taskset` | `python3 file_attente.py`, `eventail.py` ; `latences.c` : voir l’en-tête du fichier |
+| 10 | [`ch10/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch10) | débit de 1 à 4 serveurs, emplacement des sessions, loi d’Amdahl | Caddy, wrk, Docker ; `requirements.txt` | `./echelle.sh python3`, `python3 sessions.py`, `amdahl.py` |
+| 11 | [`ch11/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch11) | disponibilité vue par le client quand un serveur tombe, dans cinq architectures | Caddy ; `requirements.txt` ; utilise `ch10/app.py` | `python3 bascule.py` |
+| 12 | [`ch12/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch12) | lectures périmées sur une réplique Redis, coût de `WAIT`, lectures monotones, partition | Docker, image `redis:8.8-alpine` ; `requirements.txt` | `python3 replique.py` |
+| 13 | [`ch13/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch13) | politiques de répartition sur un parc hétérogène, hachage d’URI, répartition L4 et L7, drainage | Caddy, wrk ; `requirements.txt` | `python3 repartition.py`, `python3 drainage.py` |
+
+Les résultats s’affichent sur la sortie standard. Les fichiers de travail (configurations de Caddy, certificats du ch. 6) vont dans le dossier temporaire du système, sauf les cent petits fichiers que `ch05/mesurer.sh` crée dans `ch05/site/` ; `ch09/latences` crée un fichier de 1 Gio pour mesurer le disque et le supprime à la fin.
+
+## Après une expérience
+
+Chaque script arrête à la fin les processus qu’il a lancés (serveurs Python, Caddy, relais) et supprime les conteneurs qu’il a créés. Les conteneurs portent un nom qui commence par `cours-sd-`, et seuls ceux-là sont supprimés : aucun script ne fait de nettoyage global de Docker. Si une exécution est interrompue avant la fin, par Ctrl-C par exemple, il peut rester un conteneur ou un processus :
+
+```bash
+docker ps -a --filter name=cours-sd-          # conteneurs restants du cours
+docker rm -f cours-sd-ch10-redis
+docker rm -f cours-sd-ch12-primaire cours-sd-ch12-replique-a cours-sd-ch12-replique-b
+pgrep -af "caddy run"                         # Caddy lancés par les scripts
+```
+
+Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`) : celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 9802 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.

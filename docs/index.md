@@ -15,7 +15,7 @@ Les chapitres sont numérotés de 1 à 89 sans repartir à zéro à chaque parti
 
 ## Ce que vous trouverez dans un chapitre
 
-Chaque chapitre des parties 0 à 5 suit le même fil. Une analogie de la vie courante donne l’intuition, puis on montre où elle cesse d’être juste. L’explication technique vient ensuite, avec des définitions précises et le fonctionnement pas à pas, illustrée par des schémas qui suivent le thème clair ou sombre du site. Les ordres de grandeur sont toujours accompagnés d’un calcul d’estimation mené ligne par ligne. Quand plusieurs options existent, un tableau les compare. Un exemple d’entreprise n’apparaît que si le fait est documenté, avec sa source en note. Le chapitre se termine par les erreurs fréquentes, trois questions de compréhension, un exercice de conception, les corrigés détaillés et une fiche de révision.
+Chaque chapitre des parties 0 à 5 suit le même fil. Quand une image de la vie courante aide à saisir l’idée, elle vient d’abord, avec l’endroit où elle cesse d’être juste. L’explication technique suit, avec des définitions précises et le fonctionnement pas à pas, illustrée par des schémas qui suivent le thème clair ou sombre du site. Les ordres de grandeur sont toujours accompagnés d’un calcul d’estimation mené ligne par ligne. Quand plusieurs options existent, un tableau les compare. Un exemple d’entreprise n’apparaît que si le fait est documenté, avec sa source en note. Le chapitre se termine par les erreurs fréquentes, trois questions de compréhension, un exercice de conception, les corrigés détaillés et une fiche de révision.
 
 Quelques encadrés reviennent :
 
@@ -34,6 +34,10 @@ Une erreur que font souvent les débutants, ou les candidats en entretien.
 :::entretien
 Ce qu’un examinateur attend sur ce point précis.
 :::
+
+## Les mesures
+
+Beaucoup de chiffres du cours viennent de mesures faites pour lui, sur une seule machine : poignées de main TLS, connexions WebSocket, files d’attente, répartiteurs, répliques. Les scripts sont publiés dans le dépôt du cours, et la page [Reproduire les expériences](experiences.md) explique comment les relancer.
 
 ## Conventions
 

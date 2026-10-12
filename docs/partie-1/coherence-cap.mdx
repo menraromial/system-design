@@ -15,7 +15,7 @@ Une utilisatrice change son nom dans la page de son profil, clique sur « Enreg
 
 Le bouton marche. L’écriture est allée à la base principale, qui l’a enregistrée et confirmée ; la lecture qui a suivi, pour afficher la page, est allée à une copie de la base, une réplique, qui n’avait pas encore reçu la modification. Le service a deux copies de la donnée, et il n’a rien promis sur laquelle des deux versions une lecture renvoie. Ce chapitre donne le vocabulaire de ces promesses, les modèles de cohérence (consistency models), puis les deux résultats qui encadrent ce qu’on peut promettre quand le réseau entre les copies est lent ou coupé : le théorème CAP et sa prolongation, PACELC.
 
-Une expérience a été faite pour ce chapitre, avec le script `outils/experiences/ch12/replique.py` : un Redis principal et deux répliques, en conteneurs sur la machine du cours, reliés par un relais qui retarde la liaison de réplication d’un délai réglable, ou la coupe. On y mesure la part des lectures qui renvoient l’ancienne valeur, le prix d’une écriture qui attend sa réplique, et ce que font les deux côtés pendant une coupure.
+Une expérience a été faite pour ce chapitre, avec le script [`outils/experiences/ch12/replique.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch12/replique.py) : un Redis principal et deux répliques, en conteneurs sur la machine du cours, reliés par un relais qui retarde la liaison de réplication d’un délai réglable, ou la coupe. On y mesure la part des lectures qui renvoient l’ancienne valeur, le prix d’une écriture qui attend sa réplique, et ce que font les deux côtés pendant une coupure.
 
 ## Une écriture, deux copies
 

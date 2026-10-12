@@ -13,7 +13,7 @@ import amdahl from '@site/src/figures/echelle-amdahl.svg';
 
 Un site marchand tient sans difficulté 500 requêtes par seconde aux heures de pointe d’une journée ordinaire. Le premier jour des soldes, le trafic est multiplié par dix dès l’ouverture, et le serveur unique qui suffisait jusque-là sature : la file d’attente du ch. 9 se forme, la latence s’envole, les paniers se vident. Deux réponses sont possibles. On peut acheter une machine plus grosse, ou mettre plusieurs machines côte à côte. Ce chapitre montre ce que coûte chacune, pourquoi la seconde exige que les serveurs ne gardent rien en mémoire d’une requête à l’autre, et jusqu’où ajouter des machines fait vraiment gagner.
 
-Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier `outils/experiences/ch10/` : le débit d’un service quand on passe de 1 à 4 serveurs derrière un répartiteur Caddy, le sort des sessions d’un utilisateur selon l’endroit où elles sont rangées quand un serveur tombe, et l’accélération réelle d’un calcul réparti sur 1 à 6 cœurs, avec une partie séquentielle ou un verrou partagé.
+Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch10/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch10) : le débit d’un service quand on passe de 1 à 4 serveurs derrière un répartiteur Caddy, le sort des sessions d’un utilisateur selon l’endroit où elles sont rangées quand un serveur tombe, et l’accélération réelle d’un calcul réparti sur 1 à 6 cœurs, avec une partie séquentielle ou un verrou partagé.
 
 ## Deux façons de grandir
 

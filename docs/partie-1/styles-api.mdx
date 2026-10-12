@@ -47,7 +47,7 @@ Les limites de REST apparaissent du côté des clients qui affichent des écrans
 
 Une liste peut compter des millions d’éléments ; l’API la renvoie par pages. Deux méthodes s’opposent. La pagination par décalage (offset) demande « 20 éléments à partir du 500 000e » (`?limite=20&decalage=500000`) ; la base doit parcourir et jeter les 500 000 premiers. La pagination par curseur (cursor, ou keyset) demande « 20 éléments après le dernier que j’ai vu » (`?limite=20&apres=eyJpZCI6NTAwMDAwfQ`) ; le curseur encode la valeur de tri du dernier élément, et la base va droit à la bonne position par son index.
 
-Le script `outils/experiences/ch07/pagination.py` du dépôt mesure les deux sur une table SQLite d’un million d’articles, triée par identifiant décroissant, en moyenne sur 50 appels :
+Le script [`outils/experiences/ch07/pagination.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch07/pagination.py) du dépôt mesure les deux sur une table SQLite d’un million d’articles, triée par identifiant décroissant, en moyenne sur 50 appels :
 
 ```text
  position de la page     OFFSET    curseur
@@ -112,7 +112,7 @@ Le gain le plus important est rarement l’économie d’octets : c’est le d�
 
 Le serveur GraphQL construit la réponse en appelant, pour chaque champ, une fonction de résolution (resolver). Écrite naïvement, la fonction qui résout les livres d’un auteur fait une requête en base ; pour une liste de 100 auteurs, cela fait une requête pour la liste, puis une par auteur : 101 requêtes, d’où le nom de problème N+1. La correction classique, popularisée par la bibliothèque DataLoader de Facebook, consiste à différer ces chargements d’un instant pour les regrouper : toutes les résolutions de livres demandées pendant la construction d’un même niveau de la réponse sont rassemblées en une seule requête `WHERE auteur_id IN (...)`.
 
-Le script `outils/experiences/ch07/graphql_n1.py` sert un tel schéma avec la bibliothèque graphql-core au-dessus de SQLite, et compte les requêtes SQL pour la requête `{ auteurs(premiers: 100) { nom livres { titre } } }`. SQLite, en mémoire, ne coûte pas d’aller-retour réseau ; le script ajoute donc, dans un second passage, une attente de 0,5 ms par requête SQL, ordre de grandeur d’un aller-retour vers une base dans le même centre de données.
+Le script [`outils/experiences/ch07/graphql_n1.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch07/graphql_n1.py) sert un tel schéma avec la bibliothèque graphql-core au-dessus de SQLite, et compte les requêtes SQL pour la requête `{ auteurs(premiers: 100) { nom livres { titre } } }`. SQLite, en mémoire, ne coûte pas d’aller-retour réseau ; le script ajoute donc, dans un second passage, une attente de 0,5 ms par requête SQL, ordre de grandeur d’un aller-retour vers une base dans le même centre de données.
 
 ```text
 -- latence simulée par requête SQL : 0.0 ms
@@ -168,7 +168,7 @@ Le prix de gRPC tient à son public. Les navigateurs ne peuvent pas l’appeler 
 
 ## Sérialiser, et faire évoluer les messages
 
-Quel que soit le style, les messages doivent être encodés en octets : c’est la sérialisation. Le script `outils/experiences/ch07/serialisation.py` encode la même commande (un identifiant, un client, une date, un statut, une ville, un code postal et cinq lignes de produits) dans quatre formats : JSON, MessagePack (un JSON binaire, sans schéma), Protobuf et Avro (sans le schéma joint au message), avec les bibliothèques Python correspondantes.
+Quel que soit le style, les messages doivent être encodés en octets : c’est la sérialisation. Le script [`outils/experiences/ch07/serialisation.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch07/serialisation.py) encode la même commande (un identifiant, un client, une date, un statut, une ville, un code postal et cinq lignes de produits) dans quatre formats : JSON, MessagePack (un JSON binaire, sans schéma), Protobuf et Avro (sans le schéma joint au message), avec les bibliothèques Python correspondantes.
 
 ```text
 format                      octets   gzip   encodage   décodage

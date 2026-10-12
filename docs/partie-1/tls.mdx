@@ -103,7 +103,7 @@ Le chiffrement des données elles-mêmes est rapide ; ce qui coûte, ce sont l
 
 Deux lectures s’imposent. Une signature RSA-2048, celle que fait le serveur à chaque poignée de main complète avec un certificat RSA, coûte 27 fois plus cher qu’une signature ECDSA P-256 : le choix du type de clé du certificat décide du nombre de poignées de main qu’un serveur peut faire. Et AES-GCM, accéléré par les instructions dédiées des processeurs, chiffre plus de 4 Go par seconde et par cœur : une fois la connexion établie, le chiffrement est presque gratuit.
 
-Pour mesurer des poignées de main entières, le script `outils/experiences/ch06/experience.sh` du dépôt lance un serveur `openssl s_server` et mesure, avec `openssl s_time`, le nombre de connexions réalisées en six secondes, avec une poignée de main complète à chaque fois (`-new`) ou en reprenant la session (`-reuse`). L’outil ne sait reprendre une session qu’en TLS 1.2, d’où cette version pour la mesure ; client et serveur tournent sur la même machine.
+Pour mesurer des poignées de main entières, le script [`outils/experiences/ch06/experience.sh`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch06/experience.sh) du dépôt lance un serveur `openssl s_server` et mesure, avec `openssl s_time`, le nombre de connexions réalisées en six secondes, avec une poignée de main complète à chaque fois (`-new`) ou en reprenant la session (`-reuse`). L’outil ne sait reprendre une session qu’en TLS 1.2, d’où cette version pour la mesure ; client et serveur tournent sur la même machine.
 
 ```text
 == TLS 1.2, connexions en 6 s de temps réel

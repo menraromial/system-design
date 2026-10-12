@@ -108,7 +108,7 @@ L’horodatage est inclus dans ce qui est signé, si bien qu’un attaquant qui 
 
 ## Tenir des milliers de connexions ouvertes
 
-SSE et WebSocket gardent une connexion par client, souvent pendant des heures. Pour savoir ce que cela coûte, le script `outils/experiences/ch08/memoire.py` du dépôt démarre un serveur neuf (aiohttp, en Python), y ouvre 10 000 connexions qui ne font rien, et compare la mémoire résidente du serveur avant et après, ainsi que la mémoire des tampons TCP du noyau :
+SSE et WebSocket gardent une connexion par client, souvent pendant des heures. Pour savoir ce que cela coûte, le script [`outils/experiences/ch08/memoire.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch08/memoire.py) du dépôt démarre un serveur neuf (aiohttp, en Python), y ouvre 10 000 connexions qui ne font rien, et compare la mémoire résidente du serveur avant et après, ainsi que la mémoire des tampons TCP du noyau :
 
 ```text
 serveur neuf au repos : 42 Mio
@@ -133,7 +133,7 @@ Séparer les connexions de la logique métier a plusieurs raisons. On déploie s
 
 ## Ordres de grandeur, mesurés
 
-Le script `outils/experiences/ch08/trafic.py` fait tourner, pendant 65 secondes, quatre clients du même serveur, qui publie une mise à jour toutes les 10 secondes : un client qui interroge chaque seconde, un en long polling, un en SSE, un en WebSocket. Les clients parlent HTTP directement sur des sockets, ce qui permet de compter exactement les octets échangés au niveau de l’application, en-têtes HTTP compris ; ils envoient des en-têtes modestes (un `User-Agent`, un `Accept`, une langue), bien plus courts que ceux d’un vrai navigateur avec ses cookies.
+Le script [`outils/experiences/ch08/trafic.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch08/trafic.py) fait tourner, pendant 65 secondes, quatre clients du même serveur, qui publie une mise à jour toutes les 10 secondes : un client qui interroge chaque seconde, un en long polling, un en SSE, un en WebSocket. Les clients parlent HTTP directement sur des sockets, ce qui permet de compter exactement les octets échangés au niveau de l’application, en-têtes HTTP compris ; ils envoient des en-têtes modestes (un `User-Agent`, un `Accept`, une langue), bien plus courts que ceux d’un vrai navigateur avec ses cookies.
 
 ```text
 65 s, une mise à jour toutes les 10 s ; délais en ms

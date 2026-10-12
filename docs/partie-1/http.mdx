@@ -189,7 +189,7 @@ Le schéma classique pour les ressources statiques d’un site en découle : ch
 
 ## Ordres de grandeur, mesurés
 
-L’expérience d’ouverture se trouve dans `outils/experiences/ch05/` du dépôt du cours. Un serveur Caddy sert en HTTPS cent fichiers de 1 Ko ; un relais écrit en Python retarde de 25 ms chaque bloc de données dans chaque sens, ce qui ajoute 50 ms à chaque aller-retour applicatif (la poignée de main TCP entre le client et le relais, locale, n’est pas retardée) ; `curl` télécharge les cent fichiers de quatre façons. Deux passages successifs ont donné exactement les mêmes chiffres :
+L’expérience d’ouverture se trouve dans [`outils/experiences/ch05/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch05) du dépôt du cours. Un serveur Caddy sert en HTTPS cent fichiers de 1 Ko ; un relais écrit en Python retarde de 25 ms chaque bloc de données dans chaque sens, ce qui ajoute 50 ms à chaque aller-retour applicatif (la poignée de main TCP entre le client et le relais, locale, n’est pas retardée) ; `curl` télécharge les cent fichiers de quatre façons. Deux passages successifs ont donné exactement les mêmes chiffres :
 
 ```text
 100 fichiers de 1 Ko, aller-retour simulé de 50 ms

@@ -5,6 +5,7 @@ import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
 const sidebars: SidebarsConfig = {
   cours: [
     'index',
+    'experiences',
     {
       type: 'category',
       label: 'Partie 0 · Méthode',
