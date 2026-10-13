@@ -1,0 +1,23 @@
+% Le problème du chapitre : deux clients lisent le même siège libre, puis
+% l'écrivent chacun ; tous deux reçoivent une confirmation.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    lab/.style={font=\sffamily\small, text=#1, fill=white, inner sep=1.5pt}, lab/.default=Dink]
+  \node[seqhead=Dblue] (a) at (0,0) {\stack{user}{Client A}};
+  \node[seqhead=Dorange] (b) at (60,0) {\stack{database}{Base}};
+  \node[seqhead=Dteal] (c) at (120,0) {\stack{user}{Client B}};
+  \seqlife{-82}{a,b,c}
+  \draw[arr=Dblue] (0,-14) -- node[lab, above=1pt] {SELECT siège 12} (60,-14); \node[num=Dblue] at (0,-14) {1};
+  \draw[darr=Dslate, line width=0.9pt] (60,-20) -- node[lab=Dslate, above=1pt] {libre} (0,-20);
+  \draw[arr=Dteal] (120,-28) -- node[lab, above=1pt] {SELECT siège 12} (60,-28); \node[num=Dteal] at (120,-28) {2};
+  \draw[darr=Dslate, line width=0.9pt] (60,-34) -- node[lab=Dslate, above=1pt] {libre} (120,-34);
+  \draw[arr=Dblue] (0,-44) -- node[lab, above=1pt] {UPDATE client = A} (60,-44); \node[num=Dblue] at (0,-44) {3};
+  \draw[arr=Dteal] (120,-54) -- node[lab, above=1pt] {UPDATE client = B} (60,-54); \node[num=Dteal] at (120,-54) {4};
+  \node[note, text=Dred, anchor=north, font=\sffamily\small] at (0,-62) {« réservé »};
+  \node[note, text=Dred, anchor=north, font=\sffamily\small] at (120,-62) {« réservé »};
+  \node[note, text=Dred, anchor=west, align=left, font=\sffamily\small] at (63,-66) {la base garde B ;\\A croit avoir le siège};
+  \node[seqnote, anchor=north, align=left, font=\sffamily\footnotesize] at (60,-86) {UPDATE sieges SET client = A WHERE id = 12 AND client IS NULL :\\vérification et écriture en une seule instruction ; en 4, aucune ligne n'est modifiée};
+\end{tikzpicture}
+\end{document}

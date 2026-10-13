@@ -225,7 +225,7 @@ Passer à une machine plus grosse le jour où la charge sature demande un arrêt
 
 **Exercice de conception.**
 
-*Où va l’état.* Sessions et paniers dans Redis, avec une expiration (30 minutes pour les sessions ; les paniers suivent la durée de réservation des places). Les places elles-mêmes et leur état (libre, réservée jusqu’à telle heure, vendue) sont en base de données, qui est la source de vérité pour éviter de vendre deux fois la même place (ch. 18 et 73). Les billets PDF sont écrits dans un stockage objet, et le lien de téléchargement pointe vers lui. Le fil interne qui libère les places expirées ne peut plus tourner sur chaque serveur : on le remplace par une tâche planifiée unique (ch. 79), ou mieux, on supprime la tâche en stockant pour chaque réservation son heure d’expiration, une place réservée dont l’heure est dépassée étant considérée comme libre par la requête qui cherche des places.
+*Où va l’état.* Sessions et paniers dans Redis, avec une expiration (30 minutes pour les sessions ; les paniers suivent la durée de réservation des places). Les places elles-mêmes et leur état (libre, réservée jusqu’à telle heure, vendue) sont en base de données, qui est la source de vérité pour éviter de vendre deux fois la même place ([ch. 18](../partie-2/transactions-isolation.mdx) et 73). Les billets PDF sont écrits dans un stockage objet, et le lien de téléchargement pointe vers lui. Le fil interne qui libère les places expirées ne peut plus tourner sur chaque serveur : on le remplace par une tâche planifiée unique (ch. 79), ou mieux, on supprime la tâche en stockant pour chaque réservation son heure d’expiration, une place réservée dont l’heure est dépassée étant considérée comme libre par la requête qui cherche des places.
 
 *Dimensionnement.*
 

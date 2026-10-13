@@ -1,0 +1,284 @@
+---
+title: "Bases relationnelles (1) : transactions et isolation"
+sidebar_label: "18. Bases relationnelles (1) : transactions et isolation"
+description: "ACID défini précisément, niveaux d'isolation et anomalies (lecture sale, non répétable, fantôme, mise à jour perdue, write skew), MVCC, sérialisabilité par instantanés, verrouillage pessimiste et optimiste ; mesures sur PostgreSQL 18."
+partie: 2
+chapitre: 18
+---
+
+import course from '@site/src/figures/sieges-course.svg';
+import matrice from '@site/src/figures/isolation-matrice.svg';
+import mvcc from '@site/src/figures/mvcc-versions.svg';
+import verrous from '@site/src/figures/verrous.svg';
+
+Un site de réservation vend 20 places pour un spectacle. Pour chaque demande, l’application lit l’état du siège ; s’il est libre, elle prépare la réservation, ce qui lui prend une milliseconde, puis l’écrit. Le code est juste si un seul client réserve à la fois. Avec 400 clients qui réservent en même temps, comme dans la mesure de ce chapitre, l’application confirme 64 réservations pour 20 places, et 18 des 20 sièges sont promis à plusieurs personnes. La base de données n’a rien fait de faux : chaque instruction a été exécutée correctement, et c’est leur entrelacement qui produit le résultat.
+
+Ce chapitre traite de ce qui protège une base relationnelle de ces entrelacements : les transactions, les niveaux d’isolation et les anomalies que chacun laisse passer, le mécanisme par lequel PostgreSQL fait coexister lecteurs et écrivains (le MVCC), et les deux familles de verrouillage que l’application peut employer. Le ch. 19 traitera des index et de la modélisation.
+
+Trois expériences ont été faites pour ce chapitre sur PostgreSQL 18.6, avec les scripts du dossier [`outils/experiences/ch18/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch18) : les cinq anomalies classiques provoquées à chacun des quatre niveaux d’isolation ([`anomalies.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch18/anomalies.py)), la réservation de sièges avec cinq stratégies ([`sieges.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch18/sieges.py)), et le fonctionnement du MVCC ([`mvcc.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch18/mvcc.py)).
+
+## Le problème : deux clients, un siège
+
+<Figure svg={course} num="18.1" alt="Diagramme de séquence. Le client A lit le siège 12, libre. Le client B lit le siège 12, libre. A écrit client = A, B écrit client = B. Les deux reçoivent « réservé » ; la base garde B. Une note montre l’UPDATE conditionnel qui vérifie et écrit en une instruction.">
+Deux clients lisent le même siège libre, puis l’écrivent chacun.
+</Figure>
+
+Chaque client lit le siège (1 et 2) et le voit libre, parce que l’autre n’a encore rien écrit. Chacun écrit ensuite sa réservation (3 et 4), et l’application lui répond « réservé ». La base ne garde que la dernière écriture, celle de B ; A croit avoir sa place. Le défaut est la séparation entre la vérification et l’écriture : entre les deux, l’état peut changer. La note du bas montre la correction la plus simple, expliquée plus loin : faire de la vérification une condition de l’écriture elle-même.
+
+## Ce que garantit une transaction : ACID
+
+Une transaction est une suite d’instructions que la base traite comme un tout. Le sigle ACID, proposé par Theo Härder et Andreas Reuter en 1983, nomme les quatre propriétés qu’on attend d’elle[^harder].
+
+L’atomicité (atomicity) : une transaction est appliquée entièrement ou pas du tout. Si elle échoue au milieu (erreur, panne, `ROLLBACK`), aucune de ses modifications ne reste. Un virement qui débite un compte sans créditer l’autre est impossible.
+
+La cohérence (consistency) : une transaction fait passer la base d’un état qui respecte ses règles à un autre état qui les respecte. La base vérifie les règles qu’on lui a déclarées : clés primaires, clés étrangères, contraintes `CHECK` et `UNIQUE`. Les autres règles, celles de l’application (« pas plus d’une réservation par siège », « au moins un médecin de garde »), restent à la charge du code, et c’est souvent là qu’elles se perdent. Ce C n’a rien à voir avec celui du théorème CAP ([ch. 12](../partie-1/coherence-cap.mdx)).
+
+L’isolation (isolation) : des transactions qui s’exécutent en même temps ne doivent pas se gêner. Dans sa forme la plus forte, le résultat est le même que si elles s’étaient exécutées l’une après l’autre ; les bases proposent des formes plus faibles, les niveaux d’isolation, qui laissent passer certaines anomalies en échange de moins d’attente et de moins d’échecs.
+
+La durabilité (durability) : une transaction confirmée le reste, même si la machine s’arrête une seconde après. PostgreSQL l’obtient en écrivant d’abord chaque modification dans un journal (le write-ahead log, ch. 20) et en attendant, avant de confirmer, que ce journal soit sur le disque : c’est ce qui coûtait 3 ms par écriture dans la mesure du [ch. 16](cache-strategies.mdx).
+
+## Les anomalies
+
+Hal Berenson, Phil Bernstein, Jim Gray et leurs collègues ont montré en 1995 que les définitions de la norme SQL, fondées sur trois phénomènes, étaient ambiguës et laissaient de côté des anomalies réelles ; leur article définit précisément les phénomènes qu’on utilise encore, dont la mise à jour perdue et le write skew[^berenson]. Voici les cinq dont il est question ici, avec deux transactions A et B.
+
+La lecture sale (dirty read) : B lit une modification que A n’a pas confirmée ; si A l’annule, B a vu une valeur qui n’a jamais existé.
+
+La lecture non répétable (non-repeatable read) : B lit une ligne, A la modifie et confirme, B relit la ligne et trouve une autre valeur, dans la même transaction.
+
+Le fantôme (phantom read) : B compte les lignes qui satisfont une condition, A insère une ligne qui la satisfait et confirme, B recompte et trouve un nombre différent.
+
+La mise à jour perdue (lost update) : A et B lisent le même solde, chacun calcule un nouveau solde dans l’application et l’écrit ; la seconde écriture efface la première, et l’un des deux ajouts disparaît. C’est le défaut du siège.
+
+Le write skew : A et B lisent les mêmes données, chacun en déduit qu’il peut modifier une ligne différente, et ensemble ils violent une règle que chacun respectait seul. L’exemple classique compte deux médecins de garde, avec la règle qu’il en faut au moins un : chacun vérifie que l’autre est de garde, puis se retire, et il n’en reste aucun.
+
+## Les niveaux d’isolation
+
+La norme SQL définit quatre niveaux, du plus permissif au plus strict : `READ UNCOMMITTED`, `READ COMMITTED`, `REPEATABLE READ` et `SERIALIZABLE`. Ce que chacun empêche dépend de la base. Dans PostgreSQL, le niveau par défaut est `READ COMMITTED`, et seuls trois niveaux distincts existent : `READ UNCOMMITTED` s’y comporte comme `READ COMMITTED` ; et `REPEATABLE READ`, que la norme autorise à laisser passer les fantômes, les empêche[^pg-iso].
+
+`anomalies.py` provoque chaque anomalie avec deux connexions dont les instructions sont exécutées dans un ordre imposé, à chacun des quatre niveaux :
+
+```text
+PostgreSQL 18.6 : chaque scénario à chaque niveau d'isolation
+anomalie                 READ UNCOMM.  READ COMMIT.  REPEAT. READ  SERIALIZABLE
+lecture sale                 empêchée      empêchée      empêchée      empêchée
+lecture non répétable      se produit    se produit      empêchée      empêchée
+fantôme                    se produit    se produit      empêchée      empêchée
+mise à jour perdue         se produit    se produit  erreur 40001  erreur 40001
+write skew                 se produit    se produit    se produit  erreur 40001
+```
+
+<Figure svg={matrice} num="18.2" alt="Matrice de cinq anomalies par quatre niveaux d’isolation. Lecture sale empêchée partout. Lecture non répétable et fantôme se produisent en READ UNCOMMITTED et READ COMMITTED, empêchés ensuite. Mise à jour perdue : se produit aux deux premiers niveaux, erreur 40001 aux deux derniers. Write skew : se produit sauf en SERIALIZABLE, où il provoque une erreur 40001.">
+Les anomalies d’isolation à chaque niveau, mesurées sur PostgreSQL 18.6.
+</Figure>
+
+En rouge, l’anomalie se produit ; en vert, elle est empêchée sans que l’application le voie ; en orange, elle est empêchée par une erreur de sérialisation (code SQLSTATE `40001`) : l’une des deux transactions est annulée et l’application doit la rejouer depuis le début, comme le demande la documentation de PostgreSQL[^pg-iso].
+
+Le niveau par défaut, `READ COMMITTED`, laisse passer la mise à jour perdue et le write skew : une application qui garde ce réglage tourne donc à un niveau où le défaut du siège est possible. `REPEATABLE READ` donne à chaque transaction une vue figée de la base, prise à sa première instruction ; il empêche la mise à jour perdue par une erreur, parce qu’une transaction à ce niveau ne peut pas modifier une ligne qu’une autre a modifiée depuis le début de sa propre vue[^pg-iso]. Il laisse passer le write skew, puisque les deux médecins modifient des lignes différentes. Seul `SERIALIZABLE` l’arrête.
+
+### La sérialisabilité par instantanés
+
+PostgreSQL implémente `SERIALIZABLE` par la sérialisabilité par instantanés (serializable snapshot isolation, SSI), une technique proposée par Michael Cahill, Uwe Röhm et Alan Fekete en 2008[^cahill], et dont Dan Ports et Kevin Grittner ont décrit l’implémentation dans PostgreSQL[^ports]. Chaque transaction lit dans son instantané, comme en `REPEATABLE READ`, sans poser de verrou qui bloquerait les autres ; la base suit en plus les dépendances entre les lectures et les écritures des transactions concurrentes, et quand elle détecte une configuration qui pourrait produire un résultat impossible à obtenir en exécution successive, elle annule l’une des transactions. Dans l’exemple des médecins, chaque transaction a lu ce que l’autre modifie : l’une des deux reçoit l’erreur `could not serialize access due to read/write dependencies among transactions`. Le prix est double : des annulations à rejouer, et un suivi des lectures qui coûte un peu de mémoire et de calcul.
+
+## Le MVCC : plusieurs versions de chaque ligne
+
+Comment `REPEATABLE READ` peut-il montrer à une transaction une vue figée sans empêcher les autres d’écrire ? PostgreSQL, comme d’autres bases relationnelles, utilise le contrôle de concurrence par versions multiples (multiversion concurrency control, MVCC) : un `UPDATE` ne modifie pas la ligne en place, il écrit une nouvelle version et marque l’ancienne comme remplacée. Chaque version porte le numéro de la transaction qui l’a créée (`xmin`) et, une fois remplacée, celui de la transaction qui l’a remplacée (`xmax`). Une transaction ne voit que les versions valides pour son instantané : créées par des transactions confirmées avant lui, et pas encore remplacées à ce moment-là.
+
+<Figure svg={mvcc} num="18.3" alt="Trois versions d’une même ligne, reliées par deux UPDATE : v = 0 (ctid (0,1), xmin 756, xmax 757), v = 1 (ctid (442,109), xmin 757, xmax 758), v = 2 (ctid (442,110), xmin 758). Une transaction ouverte avant 757 voit v = 0 ; une nouvelle transaction voit v = 2. Les deux premières versions sont mortes, VACUUM les retire quand plus aucune transaction ne peut les voir.">
+Les versions d’une ligne modifiée deux fois, et ce que voit chaque transaction.
+</Figure>
+
+Chaque case est une version de la même ligne ; `ctid` est son emplacement physique (page, position) et `xmin` la transaction qui l’a créée, deux valeurs relevées par `mvcc.py`. Le `xmax` de chaque version remplacée est celui de la transaction suivante, par définition du mécanisme. Une transaction ouverte avant la transaction 757 voit toujours la première version ; une transaction ouverte maintenant voit la dernière.
+
+Le MVCC a trois conséquences, que `mvcc.py` mesure :
+
+```text
+1. une ligne modifiée deux fois
+   avant          ctid (0,1)      xmin 756    v = 0
+   après UPDATE   ctid (442,109)  xmin 757    v = 1
+   après UPDATE   ctid (442,110)  xmin 758    v = 2
+
+2. 100 000 lignes modifiées une fois chacune
+                                        versions mortes      taille
+   au départ                                          0      3.5 Mo
+   après UPDATE de toute la table                100000      6.9 Mo
+   après VACUUM                                       0      6.9 Mo
+   nouvel UPDATE puis VACUUM                          0      6.9 Mo
+
+3. une transaction ouverte garde son instantané
+   UPDATE puis VACUUM, lecteur ouvert            100000      6.9 Mo
+   le lecteur voit toujours sum(v) = 200002 (il voyait 200002 au début)
+   lecteur fermé, puis VACUUM                         0      6.9 Mo
+
+4. un lecteur ne bloque pas un écrivain
+   UPDATE pendant une lecture ouverte : 2.95 ms
+   UPDATE pendant un SELECT ... FOR UPDATE : bloqué, abandonné après 502 ms (lock_timeout)
+```
+
+Un second passage a donné les mêmes valeurs, à 0,3 ms près pour l’UPDATE pendant une lecture.
+
+Les lecteurs ne bloquent pas les écrivains, et réciproquement : un UPDATE passe en 3 ms pendant qu’une transaction lit la même ligne, parce qu’il crée une version que le lecteur ne verra pas. Seul un verrou explicite (`SELECT ... FOR UPDATE`) fait attendre l’écrivain.
+
+Les anciennes versions occupent de la place. Modifier toutes les lignes d’une table la fait doubler, de 3,5 à 6,9 Mo, et laisse 100 000 versions mortes ; il faut un `VACUUM` pour les retirer. Comme le précise la documentation de PostgreSQL, une version ne peut pas être supprimée tant qu’elle peut encore être visible pour une transaction, et `VACUUM` rend l’espace libéré réutilisable sans le rendre au système d’exploitation[^pg-vacuum] : la table reste à 6,9 Mo, mais une nouvelle modification de toutes les lignes réutilise cet espace au lieu de grandir encore. En production, c’est l’autovacuum qui lance ce nettoyage ; il est désactivé dans l’expérience pour que les mesures ne bougent pas.
+
+Une transaction longue bloque le nettoyage. Pendant qu’une transaction `REPEATABLE READ` reste ouverte, `VACUUM` ne peut retirer aucune des 100 000 versions mortes, puisqu’elle pourrait encore les lire, et elle continue de voir l’état de la table à son début. Un rapport de deux heures, une transaction oubliée ouverte par un client ou une session restée « idle in transaction » suffisent à faire grossir les tables les plus modifiées pendant tout ce temps.
+
+## Verrouiller : pessimiste ou optimiste
+
+L’application qui lit puis écrit, comme celle des sièges, doit empêcher qu’une autre transaction modifie la donnée entre sa lecture et son écriture. Deux familles de techniques le font.
+
+<Figure svg={verrous} num="18.4" alt="En haut, le verrou pessimiste : A lit, verrouille et écrit ; B attend le verrou, puis lit le siège déjà pris. En bas, le verrou optimiste : A lit la version 0 et écrit la version 1 ; B lit la version 0, son écriture ne modifie aucune ligne, il découvre le conflit et rejoue.">
+Verrou pessimiste et verrou optimiste sur le même siège.
+</Figure>
+
+En haut, B attend que A ait fini : il ne se trompe jamais, mais il perd du temps, et tous les clients qui veulent le même siège se mettent en file. En bas, B n’attend pas ; son écriture échoue parce que la version a changé depuis sa lecture, et il doit rejouer ou abandonner.
+
+Le verrou pessimiste suppose que le conflit est probable et le prévient. `SELECT ... FOR UPDATE` verrouille les lignes lues comme si elles allaient être modifiées : les autres transactions qui veulent les modifier, les supprimer ou les verrouiller attendent la fin de la transaction en cours, et réciproquement[^pg-locks]. Il faut garder ces transactions courtes, et toujours verrouiller les lignes dans le même ordre : deux transactions qui verrouillent les mêmes lignes dans des ordres différents s’attendent mutuellement, un interblocage (deadlock) que PostgreSQL détecte et résout en annulant l’une des deux[^pg-locks].
+
+Le verrou optimiste suppose que le conflit est rare et le détecte après coup : la ligne porte un numéro de version, l’application lit la ligne et sa version, puis écrit avec `UPDATE ... SET version = version + 1 WHERE id = ... AND version = v`. Si une autre transaction est passée entre-temps, la version a changé, l'`UPDATE` ne modifie aucune ligne, et l’application le voit au nombre de lignes modifiées. Aucune transaction n’attend, et la lecture peut même avoir eu lieu dans une autre transaction, par exemple dans un formulaire affiché à l’utilisateur.
+
+Le plus souvent, on peut éviter les deux en faisant de la vérification une condition de l’écriture : `UPDATE sieges SET client = ... WHERE id = 12 AND client IS NULL`. La base vérifie et écrit en une seule instruction, atomique ; le nombre de lignes modifiées (1 ou 0) dit si la réservation a réussi. Une contrainte (`UNIQUE` sur le couple événement-siège d’une table de réservations, ou `CHECK (stock >= 0)`) obtient le même résultat : la base refuse l’écriture qui violerait la règle.
+
+### Les sièges, mesurés
+
+`sieges.py` met 400 clients sur 20 sièges, chaque client voulant un siège tiré au hasard, à travers 40 connexions à PostgreSQL ; l’application met 1 ms à préparer chaque réservation entre sa lecture et son écriture. Les stratégies sont la version naïve (lecture, puis écriture si le siège était libre, en `READ COMMITTED`), `SELECT ... FOR UPDATE`, l’UPDATE conditionnel, le verrou optimiste par version, et la version naïve en `SERIALIZABLE` rejouée jusqu’à cinq fois.
+
+```text
+20 sièges, 400 clients, 40 connexions, 1 ms entre lecture et écriture
+stratégie              confirmées   vendus plusieurs fois  conflits    durée
+naïve                          64                      18         0    77 ms
+SELECT ... FOR UPDATE          20                       0         0   162 ms
+UPDATE conditionnel            20                       0         0    64 ms
+optimiste (version)            20                       0        56    78 ms
+SERIALIZABLE + reprise         20                       0        39   127 ms
+```
+
+Quatre passages ont donné de 61 à 64 confirmations et 18 ou 19 sièges vendus plusieurs fois en version naïve ; les quatre autres stratégies ont toujours confirmé exactement 20 réservations, avec de 51 à 57 conflits pour le verrou optimiste et de 37 à 39 reprises pour `SERIALIZABLE`.
+
+Toutes les stratégies correctes donnent le même résultat ; elles diffèrent par ce qu’elles coûtent. `FOR UPDATE` est la plus lente, deux fois et demie plus que l’UPDATE conditionnel, parce que les clients qui visent le même siège attendent son verrou, et l’attente inclut la milliseconde de préparation. L’UPDATE conditionnel est à la fois le plus simple et parmi les plus rapides : une seule instruction, aucun verrou tenu pendant la préparation. Le verrou optimiste est aussi rapide, mais 56 écritures sur 400 ont découvert un conflit : sur 20 sièges très demandés, les collisions sont fréquentes. `SERIALIZABLE` donne le bon résultat sans changer le code naïf, au prix de 39 reprises et d’une durée intermédiaire.
+
+## Compromis
+
+| Technique | Ce qu’elle empêche | Coût | Quand la choisir |
+|---|---|---|---|
+| `READ COMMITTED` (défaut de PostgreSQL) | lecture sale | aucun ; mais mise à jour perdue et write skew possibles | lectures simples ; écritures en une instruction |
+| `REPEATABLE READ` | aussi non répétable, fantôme (dans PostgreSQL), mise à jour perdue par erreur | erreurs 40001 à rejouer ; versions gardées tant que la transaction dure | rapports cohérents, lecture-modification d’une même ligne |
+| `SERIALIZABLE` (SSI) | toutes les anomalies, write skew compris | erreurs 40001 plus fréquentes, suivi des lectures | règles qui portent sur plusieurs lignes, quand le code est difficile à verrouiller à la main |
+| UPDATE conditionnel, contrainte | la règle qu’on encode dans l’instruction | aucun ; ne couvre que ce qui s’écrit en une instruction | réservation, décrément de stock, unicité |
+| `SELECT ... FOR UPDATE` | modification concurrente des lignes lues | attente, interblocages possibles | conflits probables, transactions courtes |
+| Verrou optimiste (version) | modification entre lecture et écriture | conflits à rejouer, d’autant plus que la donnée est demandée | conflits rares, lecture longue (formulaire, édition) |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : le débit d’une ligne verrouillée]
+Hypothèses : une transaction verrouille une ligne très demandée (le stock d’un produit en promotion) par `SELECT ... FOR UPDATE`, puis fait deux autres instructions ; l’application et la base sont dans deux zones de disponibilité, à 1 ms d’aller-retour.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Durée du verrou : 3 instructions + COMMIT | 4 × 1 ms | ≈ 4 ms |
+| Transactions par seconde sur cette ligne | 1 / 0,004 s | 250 /s au plus |
+| Si l’application est dans une autre région (40 ms) | 1 / (4 × 0,040 s) | ≈ 6 /s |
+| UPDATE conditionnel, une instruction | verrou tenu le temps de l’instruction, dans la base | quelques milliers /s |
+
+Conclusion : une ligne verrouillée par un aller-retour réseau limite le débit de tout le système à l’inverse de la durée du verrou. Pour une ligne chaude, on écrit la règle dans une seule instruction, ou on découpe la ligne (le stock en plusieurs lots qu’on décrémente au hasard).
+:::
+
+:::calcul[Calcul : les conflits du verrou optimiste]
+Hypothèses : une ligne reçoit $\lambda$ écritures par seconde ; entre sa lecture et son écriture, une transaction dure $d$ secondes ; on suppose les écritures indépendantes (loi de Poisson).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Probabilité qu’une autre écriture passe pendant $d$ | $1 - e^{-\lambda d}$ | |
+| Profil d’un utilisateur : 1 écriture par jour, $d$ = 30 s | $1 - e^{-30/86\,400}$ | ≈ 0,03 % |
+| Stock d’une promotion : 200 écritures/s, $d$ = 5 ms | $1 - e^{-1}$ | ≈ 63 % |
+| Mesure du chapitre : 400 tentatives sur 20 sièges | 56 conflits / 400 | 14 % |
+
+Conclusion : le verrou optimiste convient aux données rarement modifiées en même temps, et devient une suite de reprises sur une donnée chaude. Le même calcul s’applique aux erreurs 40001 de `SERIALIZABLE`.
+:::
+
+:::calcul[Calcul : ce qu’une transaction longue fait à une table]
+Hypothèses : une table de commandes reçoit 2 000 mises à jour par seconde, de 200 octets par version ; un rapport ouvre une transaction `REPEATABLE READ` qui dure 2 heures.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Versions mortes accumulées pendant le rapport | 2 000 × 7 200 s | 14,4 millions |
+| Place occupée | $14{,}4 \times 10^6 \times 200$ octets | ≈ 2,9 Go |
+| Après la fin du rapport | VACUUM retire les versions, la place est réutilisable | taille du fichier inchangée |
+
+Conclusion : la table grossit de près de 3 Go le temps du rapport, et les lectures parcourent ces versions mortes tant qu’elles ne sont pas retirées. Les rapports longs s’exécutent sur une réplique (ch. 24) ou dans un entrepôt de données (ch. 49).
+:::
+
+## Exemple réel
+
+**ACIDRain.** Todd Warszawski et Peter Bailis ont étudié en 2017 ce qu’un attaquant peut tirer des anomalies d’isolation d’applications web réelles[^acidrain]. Ils rappellent que les transactions s’exécutent souvent à des niveaux d’isolation faibles, ou que les développeurs les emploient mal, et qu’un faible trafic masque ces erreurs en temps normal, alors qu’un attaquant peut les déclencher exprès en envoyant des requêtes simultanées. Leur outil a analysé 12 applications de commerce en ligne populaires, écrites en quatre langages et déployées sur plus de 2 millions de sites ; il a permis d’identifier et de vérifier 22 attaques critiques, qui permettent de corrompre l’inventaire d’une boutique, de dépenser plus que le solde d’une carte cadeau, ou de voler de la marchandise. L’article rapporte aussi qu’une attaque de ce type a déjà mis en faillite une plateforme d’échange de bitcoins. Son exemple d’ouverture est le défaut de ce chapitre : un retrait qui lit le solde, vérifie qu’il suffit, puis écrit le nouveau solde, et qui reste vulnérable même dans une transaction au niveau `READ COMMITTED`, à moins d’un verrou explicite comme `SELECT FOR UPDATE`.
+
+## Erreurs fréquentes
+
+Croire qu’envelopper le code dans une transaction suffit. Au niveau par défaut de PostgreSQL, `READ COMMITTED`, lire puis écrire dans la même transaction laisse passer la mise à jour perdue (mesuré) : la transaction garantit l’atomicité, pas l’isolation qu’on imagine.
+
+Vérifier dans l’application ce que la base pourrait vérifier : « si le siège est libre, je l’écris ». Une contrainte ou une condition dans l'`UPDATE` fait la même vérification au même instant que l’écriture.
+
+Passer en `SERIALIZABLE` ou en `REPEATABLE READ` sans rejouer les transactions annulées : l’erreur 40001 n’est pas une panne, c’est le fonctionnement normal de ces niveaux, et sans reprise l’utilisateur reçoit une erreur à chaque conflit.
+
+Croire que `REPEATABLE READ` empêche toutes les anomalies : il laisse passer le write skew (mesuré), qui touche toutes les règles portant sur plusieurs lignes.
+
+Tenir un verrou pendant un appel réseau, un appel à un service de paiement ou une attente de l’utilisateur : la ligne est bloquée pendant tout ce temps, et le débit de tout ce qui la touche tombe à l’inverse de cette durée.
+
+Laisser des transactions ouvertes : une session « idle in transaction » ou un rapport de plusieurs heures empêche `VACUUM` de nettoyer et fait grossir les tables (mesuré : aucune des 100 000 versions mortes retirée tant que le lecteur est ouvert).
+
+:::piege[Erreur fréquente : le stock décrémenté dans l’application]
+« On lit le stock, on vérifie qu’il est positif, on écrit stock − 1. » Deux acheteurs simultanés lisent 1, écrivent 0, et la boutique a vendu deux articles qu’elle n’a qu’une fois. L’instruction `UPDATE produits SET stock = stock - 1 WHERE id = 42 AND stock > 0` fait le calcul dans la base et ne réussit (une ligne modifiée) que s’il restait du stock ; une contrainte `CHECK (stock >= 0)` garantit en plus qu’aucun autre chemin ne descendra sous zéro.
+:::
+
+:::entretien
+Quand le sujet comporte une ressource rare (siège, stock, créneau, solde), dites comment l’écriture est protégée et à quel niveau d’isolation : « UPDATE conditionnel sur le siège, la réservation n’est confirmée que si une ligne a été modifiée ; contrainte d’unicité sur (événement, siège) en filet ». Puis chiffrez la contention : combien de clients sur la même ligne, combien de temps elle est verrouillée, ce qui arrive aux perdants.
+:::
+
+## Exercices
+
+**Question 1.** Nommez l’anomalie dans chacun des cas suivants, et le niveau d’isolation de PostgreSQL le plus faible qui l’empêche : (a) un rapport additionne les soldes de tous les comptes pendant qu’un virement s’exécute, et trouve un total faux ; (b) deux employés modifient en même temps la fiche d’un client, chacun depuis son formulaire, et les modifications du premier disparaissent ; (c) une salle de réunion ne doit pas avoir deux réservations qui se chevauchent ; deux personnes vérifient chacune qu’aucune réservation ne chevauche la leur, puis insèrent leur réservation.
+
+**Question 2.** Un service de virements débite un compte et en crédite un autre. Écrivez la suite d’instructions SQL, en expliquant comment vous empêchez le découvert et la mise à jour perdue, et comment vous évitez les interblocages entre deux virements de sens opposé entre les mêmes comptes.
+
+**Question 3.** Dans la mesure, pourquoi `SELECT ... FOR UPDATE` est-il plus lent que l’UPDATE conditionnel, alors que tous deux donnent 20 réservations ? Et pourquoi le verrou optimiste a-t-il trouvé 56 conflits sur 400 tentatives ?
+
+**Exercice de conception.** Une salle de concert de 2 000 places ouvre la vente d’un concert à 10 h. Les places sont numérotées ; un client choisit une ou plusieurs places sur un plan, a 10 minutes pour payer, puis la réservation devient définitive ; s’il ne paie pas, les places redeviennent libres. On attend 50 000 clients dans les cinq premières minutes. Concevez le modèle de données et les transactions : comment une place est retenue, comment on évite qu’elle soit vendue deux fois, comment on libère les places non payées, et quel niveau d’isolation vous utilisez. Chiffrez la contention.
+
+## Corrigés
+
+**Question 1.** (a) Une lecture incohérente, que Berenson et ses collègues appellent read skew, cousine de la lecture non répétable : le rapport lit le premier compte avant le virement et le second après. `REPEATABLE READ` l’empêche : le rapport lit tout dans un même instantané. (b) Une mise à jour perdue ; mais comme les deux formulaires ont été lus dans des transactions séparées, aucun niveau d’isolation ne la voit : il faut un verrou optimiste, une version lue avec la fiche et vérifiée à l’enregistrement (`WHERE version = v`). (c) Un write skew, si les deux personnes insèrent des lignes différentes après avoir chacune vérifié l’absence de chevauchement : seul `SERIALIZABLE` l’empêche, ou bien une contrainte d’exclusion de PostgreSQL sur l’intervalle de temps de la salle, qui fait vérifier la règle par la base elle-même.
+
+**Question 2.** Dans une transaction `READ COMMITTED` : `UPDATE comptes SET solde = solde - 100 WHERE id = :source AND solde >= 100` ; si aucune ligne n’est modifiée, le solde est insuffisant et on annule. Puis `UPDATE comptes SET solde = solde + 100 WHERE id = :dest`, et `COMMIT`. Le calcul se fait dans la base et la condition empêche le découvert, donc pas de mise à jour perdue ; une contrainte `CHECK (solde >= 0)` sert de filet. Pour éviter les interblocages, on modifie toujours les deux comptes dans l’ordre de leur identifiant, et non dans l’ordre source puis destination : deux virements de sens opposé verrouillent alors les mêmes lignes dans le même ordre, et l’un attend l’autre sans cycle. On enregistre aussi le virement avec un identifiant unique fourni par le client, pour qu’une requête rejouée ne débite pas deux fois (ch. 38).
+
+**Question 3.** Avec `FOR UPDATE`, le verrou est pris à la lecture et tenu pendant la milliseconde de préparation et jusqu’au `COMMIT` : les clients qui visent le même siège attendent tous, l’un après l’autre, même ceux qui découvriront ensuite que le siège est pris. L’UPDATE conditionnel ne tient le verrou que le temps de son exécution dans la base, et la préparation se fait avant, sans verrou. Le verrou optimiste a trouvé 56 conflits parce que 400 clients se partagent 20 sièges : pendant la milliseconde qui sépare la lecture de l’écriture, un autre client écrit souvent le même siège, surtout au début, quand tous sont libres ; chacun de ces clients a lu le siège libre et découvre à l’écriture qu’il ne l’est plus.
+
+**Exercice de conception.**
+
+*Modèle.* Une table `places (evenement, numero, etat, client, retenue_jusqua, version)`, avec la clé primaire `(evenement, numero)` et un état parmi `libre`, `retenue` et `vendue`. Les 2 000 places sont créées à l’ouverture de la vente.
+
+*Retenir.* Le client choisit ses places ; une seule instruction les retient toutes : `UPDATE places SET etat = 'retenue', client = :c, retenue_jusqua = now() + interval '10 minutes' WHERE evenement = :e AND numero = ANY(:places) AND (etat = 'libre' OR (etat = 'retenue' AND retenue_jusqua < now()))`, dans une transaction. Si le nombre de lignes modifiées n’est pas celui demandé, au moins une place a été prise entre-temps : on annule et on propose d’autres places. Aucune vérification n’est faite dans l’application, et une place retenue dont le délai est écoulé redevient disponible dans la même condition, sans attendre un nettoyage.
+
+*Payer.* Le paiement réussi passe les places de `retenue` à `vendue` par `UPDATE ... WHERE client = :c AND etat = 'retenue' AND retenue_jusqua > now()` : si le délai a expiré entre-temps, aucune ligne n’est modifiée, et le paiement est remboursé. L’appel au service de paiement se fait hors de toute transaction, pour ne pas tenir de verrou pendant plusieurs secondes.
+
+*Libérer.* Une tâche périodique remet à `libre` les places retenues expirées, pour l’affichage du plan ; la correction ne dépend pas d’elle, puisque la condition de retenue accepte déjà les retenues expirées.
+
+*Isolation.* `READ COMMITTED` suffit : chaque règle est écrite dans une instruction unique et conditionnelle. `SERIALIZABLE` serait correct aussi, mais rejouerait de nombreuses transactions sous cette contention.
+
+*Contention.* 50 000 clients en 5 minutes, c’est environ 170 tentatives de retenue par seconde, sur 2 000 places : chaque place reçoit en moyenne moins d’une tentative toutes les dix secondes, mais les meilleures places beaucoup plus. Chaque instruction tient ses verrous le temps de son exécution, quelques millisecondes : une même place peut ainsi encaisser des centaines de tentatives par seconde, et les perdants reçoivent une réponse immédiate. Le plan affiché, lu 50 000 fois, vient d’un cache d’une à deux secondes ([ch. 17](cache-invalidation.mdx)), et c’est la retenue qui fait foi. Le ch. 73 traite la billetterie de bout en bout.
+
+:::fiche
+- ACID (Härder et Reuter, 1983) : atomicité, cohérence (règles déclarées à la base ; le reste est à l’application), isolation, durabilité (journal écrit sur disque avant confirmation).
+- Anomalies : lecture sale, lecture non répétable, fantôme, mise à jour perdue, write skew (Berenson et al., 1995).
+- PostgreSQL : défaut `READ COMMITTED` ; `READ UNCOMMITTED` = `READ COMMITTED` ; `REPEATABLE READ` empêche aussi les fantômes et la mise à jour perdue (erreur 40001), pas le write skew ; `SERIALIZABLE` (SSI) empêche tout, par erreurs 40001 à rejouer (mesuré).
+- MVCC : un UPDATE écrit une nouvelle version ; les lecteurs ne bloquent pas les écrivains ; versions mortes retirées par VACUUM, sauf si une transaction ouverte peut encore les voir (mesuré : table doublée, aucune version retirée tant que le lecteur est ouvert).
+- Sièges, mesuré : naïf 64 confirmations pour 20 places ; FOR UPDATE, UPDATE conditionnel, version, SERIALIZABLE : 20 chacun ; UPDATE conditionnel le plus simple et parmi les plus rapides.
+- Règle : écrire la vérification dans l’instruction (`WHERE ... AND client IS NULL`, `stock > 0`) ou en contrainte ; verrouiller dans un ordre fixe ; ne jamais tenir de verrou pendant un appel réseau.
+:::
+
+[^harder]: Theo Haerder et Andreas Reuter, « Principles of Transaction-Oriented Database Recovery », *ACM Computing Surveys*, vol. 15, n° 4, 1983, p. 287-317, [doi:10.1145/289.291](https://doi.org/10.1145/289.291).
+[^berenson]: Hal Berenson, Phil Bernstein, Jim Gray, Jim Melton, Elizabeth O’Neil et Patrick O’Neil, « A Critique of ANSI SQL Isolation Levels », *SIGMOD '95*, 1995, p. 1-10, [doi:10.1145/223784.223785](https://doi.org/10.1145/223784.223785).
+[^pg-iso]: PostgreSQL, « 13.2. Transaction Isolation », documentation, [postgresql.org/docs/current/transaction-iso.html](https://www.postgresql.org/docs/current/transaction-iso.html).
+[^cahill]: Michael J. Cahill, Uwe Röhm et Alan D. Fekete, « Serializable Isolation for Snapshot Databases », *SIGMOD '08*, 2008, p. 729-738, [doi:10.1145/1376616.1376690](https://doi.org/10.1145/1376616.1376690).
+[^ports]: Dan R. K. Ports et Kevin Grittner, « Serializable Snapshot Isolation in PostgreSQL », *Proceedings of the VLDB Endowment*, vol. 5, n° 12, 2012, p. 1850-1861, [doi:10.14778/2367502.2367523](https://doi.org/10.14778/2367502.2367523).
+[^pg-vacuum]: PostgreSQL, « 24.1. Routine Vacuuming », documentation, [postgresql.org/docs/current/routine-vacuuming.html](https://www.postgresql.org/docs/current/routine-vacuuming.html).
+[^pg-locks]: PostgreSQL, « 13.3. Explicit Locking », documentation, [postgresql.org/docs/current/explicit-locking.html](https://www.postgresql.org/docs/current/explicit-locking.html).
+[^acidrain]: Todd Warszawski et Peter Bailis, « ACIDRain: Concurrency-Related Attacks on Database-Backed Web Applications », *SIGMOD '17*, 2017, p. 5-20, [doi:10.1145/3035918.3064037](https://doi.org/10.1145/3035918.3064037).

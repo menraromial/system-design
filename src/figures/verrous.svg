@@ -1,0 +1,571 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 368.55 170.26">
+<defs>
+<g>
+<g id="verrous-glyph-0-0">
+<path d="M 0.65 1.78 L 1.79 1.78 L 1.79 -0.78 L 1.84 -0.78 C 2.01 -0.25 2.5 0.10 3.12 0.10 C 4.29 0.10 4.95 -0.78 4.95 -2.34 C 4.95 -3.89 4.29 -4.76 3.12 -4.76 C 2.5 -4.76 2 -4.42 1.84 -3.89 L 1.79 -3.89 L 1.79 -4.65 L 0.65 -4.65 Z M 2.75 -0.84 C 2.21 -0.84 1.79 -1.10 1.79 -1.59 L 1.79 -3.07 C 1.79 -3.53 2.21 -3.82 2.75 -3.82 C 3.34 -3.82 3.75 -3.39 3.75 -2.73 L 3.75 -1.92 C 3.75 -1.26 3.34 -0.84 2.75 -0.84 Z M 2.75 -0.84 "/>
+</g>
+<g id="verrous-glyph-0-1">
+<path d="M 2.54 0.10 C 3.40 0.10 4.09 -0.21 4.46 -0.75 L 3.85 -1.43 C 3.56 -1.07 3.23 -0.79 2.67 -0.79 C 1.92 -0.79 1.53 -1.26 1.53 -1.92 L 1.53 -2.04 L 4.62 -2.04 L 4.62 -2.42 C 4.62 -3.68 3.96 -4.76 2.5 -4.76 C 1.14 -4.76 0.34 -3.81 0.34 -2.34 C 0.34 -0.84 1.17 0.10 2.54 0.10 Z M 2.53 -3.90 C 3.10 -3.90 3.43 -3.46 3.43 -2.82 L 3.43 -2.75 L 1.53 -2.75 L 1.53 -2.81 C 1.53 -3.46 1.92 -3.90 2.53 -3.90 Z M 2.53 -3.90 "/>
+</g>
+<g id="verrous-glyph-0-2">
+<path d="M 2.18 0.10 C 3.34 0.10 4.10 -0.51 4.10 -1.42 C 4.10 -2.18 3.60 -2.65 2.59 -2.79 L 2.12 -2.85 C 1.68 -2.92 1.51 -3.06 1.51 -3.37 C 1.51 -3.67 1.73 -3.85 2.21 -3.85 C 2.67 -3.85 3.06 -3.65 3.34 -3.35 L 4 -4.03 C 3.56 -4.5 3.09 -4.76 2.18 -4.76 C 1.12 -4.76 0.42 -4.18 0.42 -3.29 C 0.42 -2.43 0.96 -2 1.96 -1.87 L 2.43 -1.81 C 2.84 -1.76 3 -1.59 3 -1.32 C 3 -1 2.78 -0.79 2.23 -0.79 C 1.70 -0.79 1.29 -1.03 0.95 -1.42 L 0.26 -0.75 C 0.71 -0.21 1.29 0.10 2.18 0.10 Z M 2.18 0.10 "/>
+</g>
+<g id="verrous-glyph-0-3">
+<path d="M 1.23 -5.32 C 1.68 -5.32 1.90 -5.57 1.90 -5.90 L 1.90 -6.07 C 1.90 -6.42 1.68 -6.65 1.23 -6.65 C 0.76 -6.65 0.56 -6.42 0.56 -6.07 L 0.56 -5.90 C 0.56 -5.57 0.76 -5.32 1.23 -5.32 Z M 0.65 0 L 1.79 0 L 1.79 -4.65 L 0.65 -4.65 Z M 0.65 0 "/>
+</g>
+<g id="verrous-glyph-0-4">
+<path d="M 1.79 0 L 1.79 -3.07 C 1.79 -3.57 2.23 -3.82 2.67 -3.82 C 3.17 -3.82 3.42 -3.5 3.42 -2.82 L 3.42 0 L 4.56 0 L 4.56 -3.07 C 4.56 -3.57 4.98 -3.82 5.42 -3.82 C 5.93 -3.82 6.17 -3.5 6.17 -2.82 L 6.17 0 L 7.31 0 L 7.31 -2.93 C 7.31 -4.10 6.79 -4.76 5.89 -4.76 C 5.14 -4.76 4.62 -4.34 4.45 -3.82 L 4.43 -3.82 C 4.21 -4.45 3.73 -4.76 3.09 -4.76 C 2.40 -4.76 2.03 -4.37 1.84 -3.87 L 1.79 -3.87 L 1.79 -4.65 L 0.65 -4.65 L 0.65 0 Z M 1.79 0 "/>
+</g>
+<g id="verrous-glyph-0-5">
+<path d="M 2.10 0 L 2.93 0 L 2.93 -0.90 L 2.04 -0.90 L 2.04 -3.75 L 3 -3.75 L 3 -4.65 L 2.04 -4.65 L 2.04 -5.93 L 1.03 -5.93 L 1.03 -5.14 C 1.03 -4.81 0.92 -4.65 0.57 -4.65 L 0.21 -4.65 L 0.21 -3.75 L 0.90 -3.75 L 0.90 -1.18 C 0.90 -0.42 1.32 0 2.10 0 Z M 2.10 0 "/>
+</g>
+<g id="verrous-glyph-0-6">
+<path d="M 1.42 0.09 C 1.90 0.09 2.12 -0.17 2.12 -0.54 L 2.12 -0.71 C 2.12 -1.09 1.90 -1.37 1.42 -1.37 C 0.93 -1.37 0.70 -1.09 0.70 -0.71 L 0.70 -0.54 C 0.70 -0.17 0.93 0.09 1.42 0.09 Z M 1.42 -3.28 C 1.90 -3.28 2.12 -3.56 2.12 -3.93 L 2.12 -4.09 C 2.12 -4.48 1.90 -4.75 1.42 -4.75 C 0.93 -4.75 0.70 -4.48 0.70 -4.09 L 0.70 -3.93 C 0.70 -3.56 0.93 -3.28 1.42 -3.28 Z M 1.42 -3.28 "/>
+</g>
+<g id="verrous-glyph-0-7">
+<path d="M 2.67 0.10 C 4.15 0.10 5 -0.70 5 -1.87 C 5 -2.90 4.42 -3.46 3.15 -3.68 L 2.57 -3.79 C 1.98 -3.90 1.71 -4.09 1.71 -4.56 C 1.71 -5.03 2.06 -5.29 2.73 -5.29 C 3.39 -5.29 3.81 -5.04 4.12 -4.65 L 4.92 -5.42 C 4.42 -6.01 3.73 -6.32 2.79 -6.32 C 1.40 -6.32 0.53 -5.60 0.53 -4.5 C 0.53 -3.48 1.14 -2.87 2.40 -2.68 L 2.98 -2.59 C 3.64 -2.48 3.84 -2.21 3.84 -1.79 C 3.84 -1.28 3.46 -0.92 2.73 -0.92 C 2.09 -0.92 1.56 -1.20 1.14 -1.68 L 0.34 -0.92 C 0.87 -0.31 1.60 0.10 2.67 0.10 Z M 2.67 0.10 "/>
+</g>
+<g id="verrous-glyph-0-8">
+<path d="M 4.82 0 L 4.82 -1.04 L 1.90 -1.04 L 1.90 -2.62 L 4.5 -2.62 L 4.5 -3.67 L 1.90 -3.67 L 1.90 -5.18 L 4.82 -5.18 L 4.82 -6.23 L 0.73 -6.23 L 0.73 0 Z M 4.82 0 "/>
+</g>
+<g id="verrous-glyph-0-9">
+<path d="M 4.35 0 L 4.35 -1.04 L 1.90 -1.04 L 1.90 -6.23 L 0.73 -6.23 L 0.73 0 Z M 4.35 0 "/>
+</g>
+<g id="verrous-glyph-0-10">
+<path d="M 3.15 0.10 C 4.26 0.10 5 -0.43 5.45 -1.35 L 4.5 -1.92 C 4.29 -1.35 3.85 -0.93 3.15 -0.93 C 2.28 -0.93 1.71 -1.54 1.71 -2.60 L 1.71 -3.59 C 1.71 -4.65 2.28 -5.29 3.15 -5.29 C 3.84 -5.29 4.23 -4.92 4.42 -4.35 L 5.42 -4.89 C 4.98 -5.85 4.26 -6.32 3.15 -6.32 C 1.5 -6.32 0.46 -5.17 0.46 -3.06 C 0.46 -0.96 1.5 0.10 3.15 0.10 Z M 3.15 0.10 "/>
+</g>
+<g id="verrous-glyph-0-11">
+<path d="M 4.93 -5.18 L 4.93 -6.23 L 0.23 -6.23 L 0.23 -5.18 L 2 -5.18 L 2 0 L 3.17 0 L 3.17 -5.18 Z M 4.93 -5.18 "/>
+</g>
+<g id="verrous-glyph-0-12">
+<path d="M 1.32 0.09 C 1.81 0.09 2.04 -0.17 2.04 -0.54 L 2.04 -0.71 C 2.04 -1.09 1.81 -1.37 1.32 -1.37 C 0.84 -1.37 0.60 -1.09 0.60 -0.71 L 0.60 -0.54 C 0.60 -0.17 0.84 0.09 1.32 0.09 Z M 1.32 0.09 "/>
+</g>
+<g id="verrous-glyph-0-13">
+<path d="M 1.90 0 L 1.90 -2.62 L 4.37 -2.62 L 4.37 -3.67 L 1.90 -3.67 L 1.90 -5.18 L 4.73 -5.18 L 4.73 -6.23 L 0.73 -6.23 L 0.73 0 Z M 1.90 0 "/>
+</g>
+<g id="verrous-glyph-0-14">
+<path d="M 3.17 0.10 C 4.81 0.10 5.89 -1.01 5.89 -3.10 C 5.89 -5.21 4.81 -6.32 3.17 -6.32 C 1.54 -6.32 0.46 -5.21 0.46 -3.10 C 0.46 -1.01 1.54 0.10 3.17 0.10 Z M 3.17 -0.93 C 2.28 -0.93 1.71 -1.56 1.71 -2.62 L 1.71 -3.59 C 1.71 -4.65 2.28 -5.29 3.17 -5.29 C 4.06 -5.29 4.64 -4.65 4.64 -3.59 L 4.64 -2.62 C 4.64 -1.56 4.06 -0.93 3.17 -0.93 Z M 3.17 -0.93 "/>
+</g>
+<g id="verrous-glyph-0-15">
+<path d="M 1.90 -2.40 L 3.03 -2.40 L 4.18 0 L 5.5 0 L 4.21 -2.53 C 4.98 -2.79 5.37 -3.43 5.37 -4.29 C 5.37 -5.48 4.67 -6.23 3.54 -6.23 L 0.73 -6.23 L 0.73 0 L 1.90 0 Z M 1.90 -3.39 L 1.90 -5.20 L 3.42 -5.20 C 3.87 -5.20 4.15 -4.95 4.15 -4.5 L 4.15 -4.09 C 4.15 -3.64 3.87 -3.39 3.42 -3.39 Z M 1.90 -3.39 "/>
+</g>
+<g id="verrous-glyph-0-16">
+<path d="M 0.68 -6.23 L 0.68 -2.54 C 0.68 -0.71 1.32 0.10 3.06 0.10 C 4.81 0.10 5.46 -0.71 5.46 -2.54 L 5.46 -6.23 L 4.31 -6.23 L 4.31 -2.40 C 4.31 -1.42 3.96 -0.93 3.07 -0.93 C 2.18 -0.93 1.84 -1.42 1.84 -2.40 L 1.84 -6.23 Z M 0.68 -6.23 "/>
+</g>
+<g id="verrous-glyph-0-17">
+<path d="M 1.90 0 L 1.90 -2.37 L 3.53 -2.37 C 4.68 -2.37 5.37 -3.14 5.37 -4.29 C 5.37 -5.45 4.68 -6.23 3.53 -6.23 L 0.73 -6.23 L 0.73 0 Z M 1.90 -5.20 L 3.42 -5.20 C 3.87 -5.20 4.15 -4.95 4.15 -4.5 L 4.15 -4.09 C 4.15 -3.64 3.87 -3.39 3.42 -3.39 L 1.90 -3.39 Z M 1.90 -5.20 "/>
+</g>
+<g id="verrous-glyph-0-18">
+<path d="M 0.73 0 L 3 0 C 4.62 0 5.68 -1.04 5.68 -3.10 C 5.68 -5.18 4.62 -6.23 3 -6.23 L 0.73 -6.23 Z M 1.90 -1.04 L 1.90 -5.18 L 3 -5.18 C 3.87 -5.18 4.43 -4.67 4.43 -3.60 L 4.43 -2.62 C 4.43 -1.56 3.87 -1.04 3 -1.04 Z M 1.90 -1.04 "/>
+</g>
+<g id="verrous-glyph-0-19">
+<path d="M 5.81 0 L 3.73 -6.23 L 2.28 -6.23 L 0.18 0 L 1.39 0 L 1.87 -1.59 L 4.09 -1.59 L 4.57 0 Z M 3.79 -2.59 L 2.15 -2.59 L 2.95 -5.15 L 3 -5.15 Z M 3.79 -2.59 "/>
+</g>
+<g id="verrous-glyph-0-20">
+<path d="M 2.5 0.10 C 3.84 0.10 4.67 -0.84 4.67 -2.34 C 4.67 -3.82 3.84 -4.76 2.5 -4.76 C 1.17 -4.76 0.34 -3.82 0.34 -2.34 C 0.34 -0.84 1.17 0.10 2.5 0.10 Z M 2.5 -0.81 C 1.92 -0.81 1.54 -1.20 1.54 -1.90 L 1.54 -2.76 C 1.54 -3.46 1.92 -3.84 2.5 -3.84 C 3.10 -3.84 3.48 -3.46 3.48 -2.76 L 3.48 -1.90 C 3.48 -1.20 3.10 -0.81 2.5 -0.81 Z M 2.5 -0.81 "/>
+</g>
+<g id="verrous-glyph-0-21">
+<path d="M 3.01 0 L 3.81 -3.29 L 4.21 -4.93 L 4.23 -4.93 L 4.60 -3.29 L 5.40 0 L 6.73 0 L 8.21 -6.23 L 7.10 -6.23 L 6.46 -3.23 L 6.07 -1.32 L 6.04 -1.32 L 5.60 -3.23 L 4.89 -6.23 L 3.59 -6.23 L 2.87 -3.23 L 2.43 -1.32 L 2.40 -1.32 L 2.03 -3.23 L 1.40 -6.23 L 0.23 -6.23 L 1.67 0 Z M 3.01 0 "/>
+</g>
+<g id="verrous-glyph-0-22">
+<path d="M 4.5 0 L 5.68 0 L 5.68 -6.23 L 4.5 -6.23 L 4.5 -3.67 L 1.90 -3.67 L 1.90 -6.23 L 0.73 -6.23 L 0.73 0 L 1.90 0 L 1.90 -2.62 L 4.5 -2.62 Z M 4.5 0 "/>
+</g>
+<g id="verrous-glyph-0-23">
+<path d="M 3.01 0 L 4.57 -4.65 L 3.48 -4.65 L 2.85 -2.65 L 2.40 -0.98 L 2.34 -0.98 L 1.87 -2.65 L 1.23 -4.65 L 0.10 -4.65 L 1.65 0 Z M 3.01 0 "/>
+</g>
+<g id="verrous-glyph-0-24">
+<path d="M 1.79 0 L 1.79 -2.85 C 1.79 -3.35 2.20 -3.57 2.96 -3.57 L 3.32 -3.57 L 3.32 -4.65 L 3.07 -4.65 C 2.34 -4.65 1.96 -4.18 1.84 -3.68 L 1.79 -3.68 L 1.79 -4.65 L 0.65 -4.65 L 0.65 0 Z M 1.79 0 "/>
+</g>
+<g id="verrous-glyph-0-25">
+<path d="M 1.79 0 L 1.79 -3.07 C 1.79 -3.57 2.25 -3.82 2.73 -3.82 C 3.28 -3.82 3.5 -3.48 3.5 -2.82 L 3.5 0 L 4.64 0 L 4.64 -2.93 C 4.64 -4.10 4.10 -4.76 3.15 -4.76 C 2.42 -4.76 2.03 -4.37 1.84 -3.87 L 1.79 -3.87 L 1.79 -4.65 L 0.65 -4.65 L 0.65 0 Z M 1.79 0 "/>
+</g>
+<g id="verrous-glyph-0-26">
+<path d="M 4.75 -3.25 L 4.75 -4.17 L 0.59 -4.17 L 0.59 -3.25 Z M 4.75 -1.26 L 4.75 -2.18 L 0.59 -2.18 L 0.59 -1.26 Z M 4.75 -1.26 "/>
+</g>
+<g id="verrous-glyph-1-0">
+<path d="M 4.98 0 L 3.03 -6.23 L 2.12 -6.23 L 0.18 0 L 0.90 0 L 1.45 -1.85 L 3.68 -1.85 L 4.25 0 Z M 3.53 -2.45 L 1.62 -2.45 L 2.32 -4.81 L 2.53 -5.59 L 2.60 -5.59 L 2.81 -4.81 Z M 3.53 -2.45 "/>
+</g>
+<g id="verrous-glyph-1-1">
+<path d="M 0.73 0 L 3.34 0 C 4.17 0 4.75 -0.67 4.75 -1.79 C 4.75 -2.89 4.04 -3.21 3.60 -3.21 L 3.60 -3.31 C 4.03 -3.34 4.56 -3.62 4.56 -4.62 C 4.56 -5.70 4.03 -6.23 3.09 -6.23 L 0.73 -6.23 Z M 1.45 -2.90 L 3.12 -2.90 C 3.68 -2.90 3.98 -2.60 3.98 -1.96 L 3.98 -1.56 C 3.98 -0.92 3.68 -0.62 3.12 -0.62 L 1.45 -0.62 Z M 1.45 -5.60 L 3 -5.60 C 3.51 -5.60 3.79 -5.34 3.79 -4.76 L 3.79 -4.35 C 3.79 -3.79 3.51 -3.53 3 -3.53 L 1.45 -3.53 Z M 1.45 -5.60 "/>
+</g>
+<g id="verrous-glyph-2-0">
+<path d="M 2.15 0 L 2.15 -0.62 L 1.46 -0.62 L 1.46 -6.60 L 0.76 -6.60 L 0.76 -0.73 C 0.76 -0.31 1.03 0 1.51 0 Z M 2.15 0 "/>
+</g>
+<g id="verrous-glyph-2-1">
+<path d="M 1.10 -5.68 C 1.42 -5.68 1.54 -5.84 1.54 -6.07 L 1.54 -6.20 C 1.54 -6.43 1.42 -6.60 1.10 -6.60 C 0.81 -6.60 0.67 -6.43 0.67 -6.20 L 0.67 -6.07 C 0.67 -5.84 0.81 -5.68 1.10 -5.68 Z M 0.76 0 L 1.46 0 L 1.46 -4.60 L 0.76 -4.60 Z M 0.76 0 "/>
+</g>
+<g id="verrous-glyph-2-2">
+<path d="M 2.67 0 L 2.67 -0.62 L 1.73 -0.62 L 1.73 -3.98 L 2.73 -3.98 L 2.73 -4.60 L 1.73 -4.60 L 1.73 -5.87 L 1.09 -5.87 L 1.09 -5.01 C 1.09 -4.70 0.98 -4.60 0.68 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 L 1.01 -0.76 C 1.01 -0.31 1.28 0 1.78 0 Z M 2.67 0 "/>
+</g>
+<g id="verrous-glyph-2-3">
+<path d="M 1.21 -1.04 C 0.84 -1.04 0.67 -0.82 0.67 -0.51 L 0.67 -0.39 C 0.67 -0.15 0.78 0.03 1.01 0.07 C 0.92 0.5 0.70 0.81 0.34 1.18 L 0.95 1.18 C 1.45 0.75 1.75 0.09 1.75 -0.39 L 1.75 -0.51 C 1.75 -0.82 1.59 -1.04 1.21 -1.04 Z M 1.21 -1.04 "/>
+</g>
+<g id="verrous-glyph-2-4">
+<path d="M 2.60 0 L 4.23 -4.60 L 3.54 -4.60 L 2.71 -2.31 L 2.21 -0.75 L 2.17 -0.75 L 1.67 -2.31 L 0.87 -4.60 L 0.15 -4.60 L 1.78 0 Z M 2.60 0 "/>
+</g>
+<g id="verrous-glyph-2-5">
+<path d="M 2.48 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.79 -1.31 C 3.56 -0.79 3.10 -0.51 2.53 -0.51 C 1.67 -0.51 1.17 -1.10 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.71 -4.70 2.48 -4.70 C 1.23 -4.70 0.42 -3.76 0.42 -2.29 C 0.42 -0.84 1.23 0.10 2.48 0.10 Z M 2.48 -4.10 C 3.21 -4.10 3.71 -3.56 3.71 -2.75 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.10 2.48 -4.10 Z M 2.48 -4.10 "/>
+</g>
+<g id="verrous-glyph-2-6">
+<path d="M 1.46 0 L 1.46 -3.12 C 1.46 -3.56 1.93 -3.89 2.70 -3.89 L 3.12 -3.89 L 3.12 -4.60 L 2.84 -4.60 C 2.09 -4.60 1.67 -4.18 1.51 -3.75 L 1.46 -3.75 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="verrous-glyph-2-7">
+<path d="M 2.5 0.10 C 3.73 0.10 4.57 -0.84 4.57 -2.29 C 4.57 -3.76 3.73 -4.70 2.5 -4.70 C 1.26 -4.70 0.42 -3.76 0.42 -2.29 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.96 L 1.18 -2.62 C 1.18 -3.60 1.73 -4.07 2.5 -4.07 C 3.26 -4.07 3.81 -3.60 3.81 -2.62 L 3.81 -1.96 C 3.81 -1 3.26 -0.53 2.5 -0.53 Z M 2.5 -0.53 "/>
+</g>
+<g id="verrous-glyph-2-8">
+<path d="M 3.59 0 L 4.31 0 L 4.31 -4.60 L 3.59 -4.60 L 3.59 -1.42 C 3.59 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.42 -0.95 1.42 -1.78 L 1.42 -4.60 L 0.71 -4.60 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.26 0.10 C 3.03 0.10 3.37 -0.31 3.56 -0.75 L 3.59 -0.75 Z M 3.59 0 "/>
+</g>
+<g id="verrous-glyph-2-9">
+<path d="M 2.48 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.79 -1.31 C 3.56 -0.79 3.10 -0.51 2.53 -0.51 C 1.67 -0.51 1.17 -1.10 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.71 -4.70 2.48 -4.70 C 1.23 -4.70 0.42 -3.76 0.42 -2.29 C 0.42 -0.84 1.23 0.10 2.48 0.10 Z M 2.48 -4.10 C 3.21 -4.10 3.71 -3.56 3.71 -2.75 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.10 2.48 -4.10 Z M 3.5 -6.64 L 2.84 -6.95 L 2.09 -5.43 L 2.54 -5.21 Z M 3.5 -6.64 "/>
+</g>
+<g id="verrous-glyph-2-10">
+<path d="M 2.46 0.10 C 3.34 0.10 3.93 -0.32 4.23 -0.98 L 3.71 -1.32 C 3.46 -0.79 3.04 -0.53 2.46 -0.53 C 1.62 -0.53 1.18 -1.10 1.18 -1.90 L 1.18 -2.68 C 1.18 -3.5 1.62 -4.07 2.46 -4.07 C 3.03 -4.07 3.42 -3.79 3.59 -3.32 L 4.18 -3.62 C 3.92 -4.26 3.37 -4.70 2.46 -4.70 C 1.17 -4.70 0.42 -3.78 0.42 -2.29 C 0.42 -0.82 1.17 0.10 2.46 0.10 Z M 2.46 0.10 "/>
+</g>
+<g id="verrous-glyph-2-11">
+<path d="M 4.5 0 L 4.5 -0.62 L 3.98 -0.62 L 3.98 -3.15 C 3.98 -4.12 3.31 -4.70 2.21 -4.70 C 1.39 -4.70 0.82 -4.29 0.57 -3.81 L 1.01 -3.40 C 1.26 -3.82 1.62 -4.09 2.17 -4.09 C 2.90 -4.09 3.26 -3.73 3.26 -3.09 L 3.26 -2.62 L 2.35 -2.62 C 1.01 -2.62 0.39 -2.15 0.39 -1.28 C 0.39 -0.42 0.96 0.10 1.93 0.10 C 2.57 0.10 3.06 -0.18 3.26 -0.75 L 3.31 -0.75 C 3.35 -0.32 3.57 0 4.10 0 Z M 2.04 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.84 1.5 -2.09 2.31 -2.09 L 3.26 -2.09 L 3.26 -1.34 C 3.26 -0.85 2.75 -0.5 2.04 -0.5 Z M 2.04 -0.5 "/>
+</g>
+<g id="verrous-glyph-2-12">
+<path d="M 1.46 0 L 1.46 -3.18 C 1.46 -3.78 2.03 -4.06 2.59 -4.06 C 3.28 -4.06 3.64 -3.65 3.64 -2.82 L 3.64 0 L 4.35 0 L 4.35 -2.95 C 4.35 -4.06 3.75 -4.70 2.81 -4.70 C 2.12 -4.70 1.73 -4.37 1.5 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="verrous-glyph-2-13">
+<path d="M 3.70 0 L 4.42 0 L 4.42 -6.60 L 3.70 -6.60 L 3.70 -3.85 L 3.67 -3.85 C 3.42 -4.43 2.95 -4.70 2.31 -4.70 C 1.17 -4.70 0.45 -3.78 0.45 -2.29 C 0.45 -0.82 1.17 0.10 2.31 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.68 C 1.21 -3.51 1.71 -4.06 2.51 -4.06 C 3.17 -4.06 3.70 -3.68 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="verrous-glyph-2-14">
+<path d="M 1.29 0.10 C 1.67 0.10 1.84 -0.10 1.84 -0.40 L 1.84 -0.53 C 1.84 -0.82 1.67 -1.04 1.29 -1.04 C 0.92 -1.04 0.76 -0.82 0.76 -0.53 L 0.76 -0.40 C 0.76 -0.10 0.92 0.10 1.29 0.10 Z M 1.29 -3.56 C 1.67 -3.56 1.84 -3.78 1.84 -4.07 L 1.84 -4.18 C 1.84 -4.5 1.67 -4.70 1.29 -4.70 C 0.92 -4.70 0.76 -4.5 0.76 -4.18 L 0.76 -4.07 C 0.76 -3.78 0.92 -3.56 1.29 -3.56 Z M 1.29 -3.56 "/>
+</g>
+<g id="verrous-glyph-2-15">
+<path d="M 0.76 1.78 L 1.46 1.78 L 1.46 -0.75 L 1.5 -0.75 C 1.78 -0.17 2.21 0.10 2.85 0.10 C 4 0.10 4.73 -0.82 4.73 -2.29 C 4.73 -3.78 4 -4.70 2.85 -4.70 C 2.21 -4.70 1.75 -4.43 1.5 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 Z M 2.65 -0.53 C 2 -0.53 1.46 -0.87 1.46 -1.46 L 1.46 -3.18 C 1.46 -3.68 2 -4.06 2.65 -4.06 C 3.46 -4.06 3.96 -3.51 3.96 -2.68 L 3.96 -1.90 C 3.96 -1.09 3.46 -0.53 2.65 -0.53 Z M 2.65 -0.53 "/>
+</g>
+<g id="verrous-glyph-2-16">
+<path d="M 2.14 0.10 C 3.18 0.10 3.84 -0.43 3.84 -1.32 C 3.84 -2.03 3.45 -2.46 2.43 -2.62 L 2.07 -2.67 C 1.5 -2.76 1.20 -2.93 1.20 -3.39 C 1.20 -3.82 1.5 -4.10 2.09 -4.10 C 2.68 -4.10 3.07 -3.82 3.28 -3.54 L 3.75 -3.96 C 3.37 -4.43 2.89 -4.70 2.15 -4.70 C 1.21 -4.70 0.51 -4.26 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 1.98 -2.03 L 2.35 -1.96 C 2.96 -1.87 3.15 -1.60 3.15 -1.25 C 3.15 -0.78 2.79 -0.5 2.18 -0.5 C 1.60 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.14 0.10 Z M 2.14 0.10 "/>
+</g>
+<g id="verrous-glyph-2-17">
+<path d="M 0.82 0 L 3.65 0 C 4.57 0 5.26 -0.78 5.26 -1.79 C 5.26 -2.84 4.48 -3.21 4.04 -3.25 L 4.04 -3.29 C 4.45 -3.35 5.04 -3.68 5.04 -4.62 C 5.04 -5.59 4.42 -6.23 3.39 -6.23 L 0.82 -6.23 Z M 1.57 -2.89 L 3.42 -2.89 C 4.06 -2.89 4.45 -2.54 4.45 -1.92 L 4.45 -1.62 C 4.45 -1 4.06 -0.65 3.42 -0.65 L 1.57 -0.65 Z M 1.57 -5.56 L 3.29 -5.56 C 3.89 -5.56 4.25 -5.25 4.25 -4.70 L 4.25 -4.40 C 4.25 -3.84 3.89 -3.53 3.29 -3.53 L 1.57 -3.53 Z M 1.57 -5.56 "/>
+</g>
+<g id="verrous-glyph-2-18">
+<path d="M 1.46 0 L 1.46 -3.18 C 1.46 -3.78 2 -4.06 2.56 -4.06 C 3.25 -4.06 3.56 -3.65 3.56 -2.82 L 3.56 0 L 4.28 0 L 4.28 -3.18 C 4.28 -3.78 4.79 -4.06 5.35 -4.06 C 6.04 -4.06 6.35 -3.64 6.35 -2.82 L 6.35 0 L 7.07 0 L 7.07 -2.95 C 7.07 -4.06 6.51 -4.70 5.57 -4.70 C 4.79 -4.70 4.34 -4.28 4.17 -3.78 L 4.15 -3.78 C 3.90 -4.43 3.35 -4.70 2.75 -4.70 C 2.03 -4.70 1.71 -4.32 1.5 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="verrous-glyph-2-19">
+<path d="M 4.75 -3.31 L 4.75 -3.92 L 0.59 -3.92 L 0.59 -3.31 Z M 4.75 -1.53 L 4.75 -2.14 L 0.59 -2.14 L 0.59 -1.53 Z M 4.75 -1.53 "/>
+</g>
+<g id="verrous-glyph-2-20">
+<path d="M 2.67 0.10 C 4.17 0.10 4.81 -1.07 4.81 -3.10 C 4.81 -5.14 4.17 -6.32 2.67 -6.32 C 1.18 -6.32 0.53 -5.14 0.53 -3.10 C 0.53 -1.07 1.18 0.10 2.67 0.10 Z M 2.67 -0.54 C 1.70 -0.54 1.32 -1.40 1.32 -2.60 L 1.32 -3.62 C 1.32 -4.82 1.70 -5.68 2.67 -5.68 C 3.65 -5.68 4.03 -4.82 4.03 -3.62 L 4.03 -2.60 C 4.03 -1.40 3.65 -0.54 2.67 -0.54 Z M 2.67 -0.54 "/>
+</g>
+<g id="verrous-glyph-2-21">
+<path d="M 4.87 0 L 4.87 -0.65 L 3.28 -0.65 L 3.28 -6.23 L 2.10 -6.23 L 0.45 -4.68 L 0.89 -4.21 L 2.46 -5.67 L 2.53 -5.67 L 2.53 -0.65 L 0.78 -0.65 L 0.78 0 Z M 4.87 0 "/>
+</g>
+<g id="verrous-glyph-2-22">
+<path d="M 4.64 0.51 C 4.64 -0.25 4.15 -0.71 3 -0.71 L 2.03 -0.71 C 1.60 -0.71 1.32 -0.78 1.32 -1.06 C 1.32 -1.34 1.62 -1.5 1.92 -1.57 C 2.06 -1.54 2.21 -1.53 2.37 -1.53 C 3.42 -1.53 4.10 -2.18 4.10 -3.12 C 4.10 -3.60 3.92 -4.03 3.59 -4.31 L 3.59 -4.60 L 4.45 -4.60 L 4.45 -5.23 L 3.78 -5.23 C 3.39 -5.23 3.23 -4.96 3.23 -4.60 L 3.23 -4.53 C 2.98 -4.64 2.68 -4.70 2.35 -4.70 C 1.32 -4.70 0.64 -4.06 0.64 -3.12 C 0.64 -2.48 0.95 -1.96 1.5 -1.71 L 1.5 -1.67 C 1.03 -1.56 0.70 -1.34 0.70 -0.87 C 0.70 -0.56 0.85 -0.35 1.10 -0.23 L 1.10 -0.14 C 0.65 -0.01 0.39 0.26 0.39 0.76 C 0.39 1.48 0.96 1.89 2.40 1.89 C 3.89 1.89 4.64 1.45 4.64 0.51 Z M 3.96 0.56 C 3.96 1.06 3.5 1.31 2.71 1.31 L 2.04 1.31 C 1.32 1.31 1.04 0.98 1.04 0.57 C 1.04 0.29 1.18 0.09 1.48 -0.04 L 3.01 -0.04 C 3.73 -0.04 3.96 0.20 3.96 0.56 Z M 2.37 -2.10 C 1.76 -2.10 1.39 -2.39 1.39 -3 L 1.39 -3.25 C 1.39 -3.85 1.76 -4.14 2.37 -4.14 C 2.98 -4.14 3.35 -3.85 3.35 -3.25 L 3.35 -3 C 3.35 -2.39 2.98 -2.10 2.37 -2.10 Z M 2.37 -2.10 "/>
+</g>
+<g id="verrous-glyph-2-23">
+<path d="M 1.26 -6.68 C 0.89 -6.68 0.71 -6.48 0.71 -6.17 L 0.71 -6.04 C 0.71 -5.79 0.82 -5.62 1.06 -5.56 C 0.96 -5.14 0.75 -4.82 0.39 -4.45 L 0.98 -4.45 C 1.5 -4.89 1.79 -5.56 1.79 -6.04 L 1.79 -6.17 C 1.79 -6.48 1.62 -6.68 1.26 -6.68 Z M 1.26 -6.68 "/>
+</g>
+<g id="verrous-glyph-2-24">
+<path d="M 1.29 -1.04 C 0.92 -1.04 0.76 -0.82 0.76 -0.51 L 0.76 -0.39 C 0.76 -0.15 0.85 0.03 1.10 0.07 C 1.01 0.5 0.79 0.81 0.43 1.18 L 1.03 1.18 C 1.54 0.75 1.84 0.09 1.84 -0.39 L 1.84 -0.51 C 1.84 -0.82 1.67 -1.04 1.29 -1.04 Z M 1.29 -3.56 C 1.67 -3.56 1.84 -3.78 1.84 -4.07 L 1.84 -4.18 C 1.84 -4.5 1.67 -4.70 1.29 -4.70 C 0.92 -4.70 0.76 -4.5 0.76 -4.18 L 0.76 -4.07 C 0.76 -3.78 0.92 -3.56 1.29 -3.56 Z M 1.29 -3.56 "/>
+</g>
+<g id="verrous-glyph-2-25">
+<path d="M 1.01 0 L 1.71 0 L 1.71 -3.98 L 2.71 -3.98 L 2.71 -4.60 L 1.71 -4.60 L 1.71 -5.98 L 2.71 -5.98 L 2.71 -6.60 L 2.01 -6.60 C 1.34 -6.60 1.01 -6.17 1.01 -5.53 L 1.01 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 Z M 1.01 0 "/>
+</g>
+<g id="verrous-glyph-2-26">
+<path d="M 0.76 1.15 L 0.01 1.15 L 0.01 1.78 L 0.46 1.78 C 1.15 1.78 1.46 1.34 1.46 0.71 L 1.46 -4.60 L 0.76 -4.60 Z M 1.10 -5.68 C 1.42 -5.68 1.54 -5.84 1.54 -6.07 L 1.54 -6.20 C 1.54 -6.43 1.42 -6.60 1.10 -6.60 C 0.81 -6.60 0.67 -6.43 0.67 -6.20 L 0.67 -6.07 C 0.67 -5.84 0.81 -5.68 1.10 -5.68 Z M 1.10 -5.68 "/>
+</g>
+</g>
+</defs>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 194.75 46.91 L 32.02 46.91 C 30.37 46.91 29.03 45.57 29.03 43.92 L 29.03 35.44 C 29.03 33.79 30.37 32.45 32.02 32.45 L 194.75 32.45 C 196.40 32.45 197.74 33.79 197.74 35.44 L 197.74 43.92 C 197.74 45.57 196.40 46.91 194.75 46.91 Z M 194.75 46.91 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-0" x="58.43" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-1" x="63.79" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-2" x="68.77" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-2" x="73.16" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-3" x="77.62" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-4" x="80.08" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-3" x="88.01" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-2" x="90.47" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-5" x="94.86" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-1" x="98.16" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-6" x="105.25" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-7" x="110.89" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-8" x="116.35" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-9" x="121.70" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-8" x="126.35" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-10" x="131.71" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-11" x="137.44" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-12" x="144.73" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-12" x="147.39" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-12" x="150.05" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-13" x="155.52" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-14" x="160.45" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-15" x="166.81" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-16" x="174.83" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-17" x="180.99" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-18" x="186.72" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-19" x="192.61" y="16.08"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-11" x="198.03" y="16.08"/>
+<use xlink:href="#verrous-glyph-0-8" x="203.21" y="16.08"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-1-0" x="8.09" y="44.98"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-1-1" x="8.00" y="67.56"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 0.34 2.83 L 85.38 2.83 L 85.38 19.84 L 0.34 19.84 Z M 0.34 2.83 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="27.04" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-1" x="29.47" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-2" x="31.71" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-3" x="34.84" y="44.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-4" x="39.37" y="44.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="43.70" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-6" x="48.60" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-6" x="51.87" y="44.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-7" x="55.11" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-8" x="60.11" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-1" x="65.18" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-0" x="67.41" y="44.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="69.79" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-5" x="72.22" y="44.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-3" x="76.94" y="44.75"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-9" x="81.48" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-10" x="86.38" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-6" x="90.87" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-1" x="94.15" y="44.75"/>
+<use xlink:href="#verrous-glyph-2-2" x="96.38" y="44.75"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-amber-bg);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 0.34 -19.84 L 85.38 -19.84 L 85.38 -2.83 L 0.34 -2.83 Z M 0.34 -19.84 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-11" x="31.57" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-2" x="36.34" y="67.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-2" x="39.39" y="67.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="42.49" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-12" x="47.39" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-13" x="52.46" y="67.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="59.75" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-5" x="62.18" y="67.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-4" x="69.18" y="67.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="73.51" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-6" x="78.41" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-6" x="81.68" y="67.70"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-7" x="84.92" y="67.70"/>
+<use xlink:href="#verrous-glyph-2-8" x="89.92" y="67.70"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 85.38 -19.84 L 130.74 -19.84 L 130.74 -2.83 L 85.38 -2.83 Z M 85.38 -19.84 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="113.02" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-1" x="115.45" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-2" x="117.68" y="66.86"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-14" x="122.92" y="66.86"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-15" x="128.33" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-6" x="133.51" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-1" x="136.79" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-16" x="139.02" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-17" x="157.76" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-11" x="165.70" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-2" x="170.46" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-2" x="173.52" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="176.62" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-12" x="181.52" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-13" x="186.59" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-3" x="191.77" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-18" x="196.30" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-11" x="204.10" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-1" x="208.86" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-16" x="211.10" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-12" x="217.55" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-5" x="222.62" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-16" x="229.63" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-5" x="233.98" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-2" x="240.99" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-6" x="244.12" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-7" x="247.35" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-18" x="252.35" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-15" x="260.15" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-5" x="265.32" y="66.86"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-15" x="272.33" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-11" x="277.51" y="66.86"/>
+<use xlink:href="#verrous-glyph-2-16" x="282.28" y="66.86"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-paper);stroke:var(--fig-orange)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 205.60 -43.79 L 21.16 -43.79 C 19.51 -43.79 18.17 -45.13 18.17 -46.78 L 18.17 -55.26 C 18.17 -56.91 19.51 -58.25 21.16 -58.25 L 205.60 -58.25 C 207.26 -58.25 208.59 -56.91 208.59 -55.26 L 208.59 -46.78 C 208.59 -45.13 207.26 -43.79 205.60 -43.79 Z M 205.60 -43.79 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-20" x="47.62" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-0" x="52.65" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-5" x="57.95" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-3" x="61.29" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-4" x="63.75" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-3" x="71.68" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-2" x="74.14" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-5" x="78.53" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-1" x="81.83" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-6" x="88.92" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-16" x="94.56" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-17" x="100.72" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-18" x="106.45" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-19" x="112.34" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-11" x="117.76" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-8" x="122.94" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-12" x="130.39" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-12" x="133.05" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-12" x="135.71" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-21" x="141.18" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-22" x="149.66" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-8" x="156.08" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-15" x="161.43" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-8" x="167.36" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-23" x="174.82" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-1" x="179.44" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-24" x="184.42" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-2" x="187.93" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-3" x="192.39" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-20" x="194.85" y="106.40"/>
+<use xlink:href="#verrous-glyph-0-25" x="199.88" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-26" x="207.22" y="106.40"/>
+</g>
+<g style="fill:var(--fig-orange)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-0-23" x="214.69" y="106.40"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-1-0" x="8.09" y="135.30"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-1-1" x="8.00" y="157.88"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 0.34 -87.87 L 85.38 -87.87 L 85.38 -70.86 L 0.34 -70.86 Z M 0.34 -87.87 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="26.67" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-1" x="29.10" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-2" x="31.33" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-4" x="36.57" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-19" x="43.07" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-20" x="50.53" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-3" x="55.89" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-9" x="60.43" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-10" x="65.33" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-6" x="69.82" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-1" x="73.10" y="135.07"/>
+<use xlink:href="#verrous-glyph-2-2" x="75.33" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-4" x="80.57" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-19" x="87.07" y="135.07"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-21" x="94.53" y="135.07"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 0.34 -110.55 L 62.71 -110.55 L 62.71 -93.54 L 0.34 -93.54 Z M 0.34 -110.55 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="37.38" y="158.02"/>
+<use xlink:href="#verrous-glyph-2-1" x="39.81" y="158.02"/>
+<use xlink:href="#verrous-glyph-2-2" x="42.04" y="158.02"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-4" x="47.28" y="158.02"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-19" x="53.78" y="158.02"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-20" x="61.24" y="158.02"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 88.22 -110.55 L 150.58 -110.55 L 150.58 -93.54 L 88.22 -93.54 Z M 88.22 -110.55 " transform="matrix(0.995713, 0, 0, -0.995713, 20.59964, 53.161141)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-9" x="113.30" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-10" x="118.20" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-6" x="122.69" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-1" x="125.97" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-2" x="128.20" y="157.30"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-14" x="133.44" y="157.30"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-20" x="138.85" y="157.30"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="146.32" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-1" x="148.75" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-22" x="150.98" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-12" x="155.69" y="157.30"/>
+<use xlink:href="#verrous-glyph-2-5" x="160.76" y="157.30"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-17" x="177.52" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-12" x="185.45" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-23" x="190.44" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-11" x="192.61" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-2" x="197.37" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-2" x="200.43" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="203.52" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-12" x="208.43" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-13" x="213.50" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-15" x="220.78" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-11" x="225.96" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-16" x="230.73" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-24" x="237.18" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-1" x="241.90" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-0" x="244.13" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-13" x="248.66" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-9" x="253.84" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-10" x="258.74" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-7" x="263.18" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-8" x="268.18" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-4" x="273.25" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-6" x="277.64" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="280.88" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-0" x="287.88" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-5" x="290.31" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-10" x="297.32" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-7" x="301.76" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-12" x="306.76" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-25" x="311.83" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-0" x="314.72" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-1" x="317.15" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-2" x="319.38" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="324.62" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-2" x="329.52" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-6" x="334.76" y="157.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#verrous-glyph-2-5" x="338.00" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-26" x="342.90" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-7" x="345.13" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-8" x="350.13" y="157.35"/>
+<use xlink:href="#verrous-glyph-2-5" x="355.20" y="157.35"/>
+</g>
+</svg>

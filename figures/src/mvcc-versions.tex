@@ -1,0 +1,20 @@
+% Le MVCC de PostgreSQL : chaque UPDATE crée une version ; chaque transaction
+% voit la version valide pour son instantané ; VACUUM retire ce que plus
+% personne ne peut voir (valeurs de ctid et xmin mesurées par ch18/mvcc.py).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    v/.style={draw=#1, fill=#1Bg, line width=0.8pt, rounded corners=2pt, minimum width=34mm, minimum height=13mm, font=\sffamily\small, align=center, inner sep=2pt}]
+  \node[v=Dslate] (v0) at (0,0) {v = 0\\{\footnotesize ctid (0,1), xmin 756, xmax 757}};
+  \node[v=Dslate] (v1) at (58,0) {v = 1\\{\footnotesize ctid (442,109), xmin 757, xmax 758}};
+  \node[v=Dgreen] (v2) at (116,0) {v = 2\\{\footnotesize ctid (442,110), xmin 758}};
+  \draw[arr=Dslate] (v0) -- node[lbl, above] {UPDATE} (v1);
+  \draw[arr=Dslate] (v1) -- node[lbl, above] {UPDATE} (v2);
+  \node[pillo=Dblue] (t1) at (25,-22) {transaction ouverte avant 757 : voit v = 0};
+  \node[pillo=Dgreen] (t2) at (110,-22) {nouvelle transaction : voit v = 2};
+  \draw[arr=Dblue, dash pattern=on 2pt off 1.5pt] (t1.north) -- (v0.south);
+  \draw[arr=Dgreen, dash pattern=on 2pt off 1.5pt] (t2.north) -- (v2.south);
+  \node[note, anchor=north, align=center] at (58,-30) {v = 0 et v = 1 sont des versions mortes : VACUUM les retire quand plus aucune\\transaction ouverte ne peut les voir ; tant que la transaction bleue reste ouverte, il ne peut pas};
+\end{tikzpicture}
+\end{document}

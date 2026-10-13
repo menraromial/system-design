@@ -1,0 +1,25 @@
+% Mesures de outils/experiences/ch18/anomalies.py : chaque anomalie provoquée à
+% chaque niveau d'isolation de PostgreSQL 18.6.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    c/.style={draw=#1, fill=#1Bg, line width=0.7pt, minimum width=27mm, minimum height=8mm, font=\sffamily\small, inner sep=1pt}]
+  \foreach \n/\x in {{READ UNCOMMITTED}/0, {READ COMMITTED}/29, {REPEATABLE READ}/58, {SERIALIZABLE}/87}
+    \node[axe, align=center, text width=27mm] at (\x,8) {\n};
+  \foreach \a/\y/\v in {
+      {lecture sale}/0/{0,0,0,0},
+      {lecture non répétable}/-10/{1,1,0,0},
+      {fantôme}/-20/{1,1,0,0},
+      {mise à jour perdue}/-30/{1,1,2,2},
+      {write skew}/-40/{1,1,1,2}} {
+    \node[axe, anchor=east] at (-16,\y) {\a};
+    \foreach \e [count=\i from 0] in \v {
+      \ifcase\e \node[c=Dgreen] at (\i*29,\y) {empêchée};
+      \or \node[c=Dred] at (\i*29,\y) {se produit};
+      \or \node[c=Damber] at (\i*29,\y) {erreur 40001};
+      \fi
+    }
+  }
+\end{tikzpicture}
+\end{document}
