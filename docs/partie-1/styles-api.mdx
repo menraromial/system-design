@@ -11,25 +11,25 @@ import pagination from '@site/src/figures/api-pagination.svg';
 import n1 from '@site/src/figures/api-n1.svg';
 import serialisation from '@site/src/figures/api-serialisation.svg';
 
-Stripe, le service de paiement en ligne, affirmait en 2017 avoir maintenu la compatibilité avec toutes les versions de son API depuis la création de l’entreprise en 2011, alors qu’elle publiait plusieurs dizaines de versions incompatibles par an[^stripe]. Un programme écrit contre l’API de 2011 devait fonctionner encore, sans modification. Cette promesse dit l’essentiel de ce chapitre : une API est un contrat avec des programmes que vous n’avez pas écrits, que vous ne pouvez pas mettre à jour, et qui continueront de l’appeler pendant des années.
+Stripe, le service de paiement en ligne, affirmait en 2017 avoir maintenu la compatibilité avec toutes les versions de son API depuis la création de l’entreprise en 2011, alors qu’elle publiait plusieurs dizaines de versions incompatibles par an[^stripe]. Un programme écrit contre l’API de 2011 devait fonctionner encore, sans modification. Cette promesse dit l’essentiel de ce chapitre. Une API est un contrat avec des programmes que vous n’avez pas écrits, que vous ne pouvez pas mettre à jour, et qui continueront de l’appeler pendant des années.
 
 Ce chapitre compare les trois styles d’API qu’on rencontre en conception : REST, GraphQL et gRPC. Il traite aussi deux questions qui se posent quel que soit le style, la pagination des listes et l’évolution des messages dans le temps. Trois expériences ont été faites pour l’illustrer : la taille d’un même message dans quatre formats de sérialisation, la pagination d’une table d’un million de lignes, et le problème dit N+1 de GraphQL, mesuré en comptant les requêtes SQL.
 
 ## La carte, le buffet et l’interphone
 
 :::analogie[Analogie : trois façons de commander à manger]
-Dans un restaurant à la carte, chaque plat est défini par la cuisine : vous commandez « le plat du jour », et vous recevez l’assiette complète, avec la garniture que vous ne mangerez pas. Pour composer un repas, vous passez plusieurs commandes l’une après l’autre. C’est REST : des ressources définies par le serveur, chacune avec son adresse, renvoyées entières.
+Dans un restaurant à la carte, chaque plat est défini par la cuisine. Vous commandez « le plat du jour », et vous recevez l’assiette complète, avec la garniture que vous ne mangerez pas. Pour composer un repas, vous passez plusieurs commandes l’une après l’autre. C’est REST, avec des ressources définies par le serveur, chacune à son adresse, et renvoyées entières.
 
-Au buffet, vous composez vous-même votre assiette en une seule fois, exactement avec ce que vous voulez. C’est GraphQL : le client décrit précisément les données qu’il veut, et les reçoit en une réponse.
+Au buffet, vous composez vous-même votre assiette en une seule fois, exactement avec ce que vous voulez. C’est GraphQL, où le client décrit précisément les données qu’il veut, et les reçoit en une réponse.
 
-En cuisine, entre le chef et le poste des desserts, on ne discute pas : on passe par l’interphone des commandes codées, dont tout le monde connaît le format par cœur, rapides et sans ambiguïté. C’est gRPC : un contrat strict, compilé, entre programmes qui se connaissent.
+En cuisine, entre le chef et le poste des desserts, on ne discute pas ; on passe par l’interphone des commandes codées, dont tout le monde connaît le format par cœur, rapides et sans ambiguïté. C’est gRPC, un contrat strict et compilé entre programmes qui se connaissent.
 
-**Où l’analogie s’arrête.** Au buffet, le coût d’une assiette pour la cuisine ne dépend pas de ce que vous y mettez ; avec GraphQL, une requête de quelques lignes peut demander à la base des millions d’enregistrements, et le serveur doit limiter ce que chaque client a le droit de demander. Le restaurant peut préparer à l’avance les plats de sa carte, qui sont toujours les mêmes, alors que chaque assiette du buffet est différente : c’est toute la question du cache. Et un restaurant change sa carte quand il veut, alors qu’une API qui retire un plat casse les clients qui le commandaient : l’évolution du contrat est la contrainte qui dure le plus longtemps.
+**Où l’analogie s’arrête.** Au buffet, le coût d’une assiette pour la cuisine ne dépend pas de ce que vous y mettez ; avec GraphQL, une requête de quelques lignes peut demander à la base des millions d’enregistrements, et le serveur doit limiter ce que chaque client a le droit de demander. Le restaurant peut préparer à l’avance les plats de sa carte, qui sont toujours les mêmes, alors que chaque assiette du buffet est différente, et c’est toute la question du cache. Et un restaurant change sa carte quand il veut, alors qu’une API qui retire un plat casse les clients qui le commandaient. L’évolution du contrat est la contrainte qui dure le plus longtemps.
 :::
 
 ## REST : des ressources et des verbes
 
-REST (representational state transfer) est le nom qu’a donné Roy Fielding, dans sa thèse de 2000, au style d’architecture du web[^fielding]. Il le définit par des contraintes : séparation entre client et serveur, échanges sans état (chaque requête porte tout ce qu’il faut pour la traiter, [ch. 10](passer-echelle.mdx)), réponses explicitement cacheables ou non, interface uniforme, et architecture en couches où des intermédiaires (caches, répartiteurs) peuvent s’interposer sans que le client le sache. Une API REST, au sens courant, applique ces idées à HTTP : chaque entité du domaine est une ressource, identifiée par une URL, manipulée par les méthodes de HTTP et renvoyée dans une représentation, presque toujours du JSON.
+REST (representational state transfer) est le nom qu’a donné Roy Fielding, dans sa thèse de 2000, au style d’architecture du web[^fielding]. Il le définit par des contraintes : séparation entre client et serveur, échanges sans état (chaque requête porte tout ce qu’il faut pour la traiter, [ch. 10](passer-echelle.mdx)), réponses explicitement cacheables ou non, interface uniforme, et architecture en couches où des intermédiaires (caches, répartiteurs) peuvent s’interposer sans que le client le sache. Une API REST, au sens courant, applique ces idées à HTTP. Chaque entité du domaine est une ressource, identifiée par une URL, manipulée par les méthodes de HTTP et renvoyée dans une représentation, presque toujours du JSON.
 
 ```http
 GET    /clients/42                      lire un client
@@ -41,7 +41,7 @@ DELETE /commandes/9481203557            l'annuler
 
 Tout ce que le [ch. 5](http.mdx) a établi s’applique : les méthodes sûres et idempotentes, les codes d’état, le cache HTTP. C’est l’atout principal de REST. Un `GET` sur une URL stable se cache dans le navigateur, dans un CDN ([ch. 15](../partie-2/cdn-edge.mdx)) ou dans un proxy sans que personne ait à écrire de code, et chaque outil du web (journaux, répartiteurs, pare-feu applicatifs) comprend ce qui passe. La forme des erreurs a même une norme, les « détails de problème » de la RFC 9457, un objet JSON avec un type, un titre et un détail[^rfc9457]. L’interface se décrit dans un document OpenAPI, à partir duquel on génère la documentation, des clients et des tests.
 
-Les limites de REST apparaissent du côté des clients qui affichent des écrans composites. La ressource est définie par le serveur : le client reçoit tous ses champs, même s’il n’en veut qu’un (sur-récupération, over-fetching), et s’il a besoin de plusieurs ressources liées, il doit faire plusieurs appels (sous-récupération, under-fetching), souvent en série parce que le deuxième dépend du premier.
+Les limites de REST apparaissent du côté des clients qui affichent des écrans composites. La ressource est définie par le serveur. Le client reçoit tous ses champs, même s’il n’en veut qu’un (sur-récupération, over-fetching), et s’il a besoin de plusieurs ressources liées, il doit faire plusieurs appels (sous-récupération, under-fetching), souvent en série parce que le deuxième dépend du premier.
 
 ### Paginer une liste
 
@@ -66,16 +66,16 @@ plan curseur : SEARCH article USING INTEGER PRIMARY KEY (rowid<?)
 Temps mesuré pour une page de 20 lignes, selon sa position dans une table d’un million de lignes.
 </Figure>
 
-L’axe vertical est logarithmique : chaque graduation vaut dix fois la précédente. La courbe rouge, la pagination par décalage, croît proportionnellement à la position de la page, de 0,012 ms au début à 9,6 ms à la fin, parce que la base parcourt toutes les lignes sautées (le plan d’exécution dit `SCAN`). La courbe verte, la pagination par curseur, reste plate à 0,010 ms, parce que la base cherche directement la position dans l’index (`SEARCH`).
+L’axe vertical est logarithmique, et chaque graduation vaut dix fois la précédente. La courbe rouge, la pagination par décalage, croît proportionnellement à la position de la page, de 0,012 ms au début à 9,6 ms à la fin, parce que la base parcourt toutes les lignes sautées (le plan d’exécution dit `SCAN`). La courbe verte, la pagination par curseur, reste plate à 0,010 ms, parce que la base cherche directement la position dans l’index (`SEARCH`).
 
-La seconde partie de la sortie montre un défaut moins connu du décalage. Un client lit la page 1 ; cinq articles sont publiés ; il demande la page 2, c’est-à-dire les éléments 21 à 40. Les cinq nouveaux ont tout décalé, et la page 2 recommence par cinq articles qu’il avait déjà vus. Une suppression ferait l’inverse : des éléments sautés sans que personne s’en aperçoive. Le curseur, qui désigne un élément et non une position, n’a pas ce défaut.
+La seconde partie de la sortie montre un défaut moins connu du décalage. Un client lit la page 1 ; cinq articles sont publiés ; il demande la page 2, c’est-à-dire les éléments 21 à 40. Les cinq nouveaux ont tout décalé, et la page 2 recommence par cinq articles qu’il avait déjà vus. Une suppression ferait l’inverse, avec des éléments sautés sans que personne s’en aperçoive. Le curseur, qui désigne un élément et non une position, n’a pas ce défaut.
 
 | Pagination | Avantages | Inconvénients | Quand la choisir |
 |---|---|---|---|
 | Par décalage | simple ; permet d’aller directement à la page 37 | coût proportionnel à la profondeur ; doublons et trous si la liste change | petites listes stables, interfaces d’administration |
 | Par curseur | coût constant ; stable quand la liste change | pas d’accès direct à une page numérotée ; le tri doit porter sur une clé unique et indexée | flux, fils d’actualité, API publiques, parcours complets |
 
-Un détail de conception : le curseur doit être opaque pour le client, par exemple la valeur de tri encodée en base 64. Le serveur peut ainsi changer sa forme sans casser personne, et le client ne fabrique pas de curseurs à la main. Et si le tri ne porte pas sur une clé unique (une date de publication, par exemple), le curseur combine la date et l’identifiant, pour départager les ex aequo.
+Le curseur doit être opaque pour le client, par exemple la valeur de tri encodée en base 64. Le serveur peut ainsi changer sa forme sans casser personne, et le client ne fabrique pas de curseurs à la main. Et si le tri ne porte pas sur une clé unique (une date de publication, par exemple), le curseur combine la date et l’identifiant, pour départager les ex aequo.
 
 ### Versionner sans casser
 
@@ -104,13 +104,13 @@ query {
 Le même écran construit par trois appels REST ou par une requête GraphQL (schéma illustratif).
 </Figure>
 
-À gauche, chaque appel REST attend le précédent, puisqu’il faut le client pour connaître ses commandes et les commandes pour connaître leurs produits, et chacun renvoie des ressources entières dont l’écran n’utilise que quelques champs. À droite, l’application envoie une seule requête et reçoit une réponse qui ne contient que ce qu’elle a demandé. Le schéma est illustratif : il ne s’appuie sur aucune mesure de taille.
+À gauche, chaque appel REST attend le précédent, puisqu’il faut le client pour connaître ses commandes et les commandes pour connaître leurs produits, et chacun renvoie des ressources entières dont l’écran n’utilise que quelques champs. À droite, l’application envoie une seule requête et reçoit une réponse qui ne contient que ce qu’elle a demandé. Le schéma est illustratif et ne s’appuie sur aucune mesure de taille.
 
-Le gain le plus important est rarement l’économie d’octets : c’est le déplacement des allers-retours. Avec REST, les trois appels traversent le réseau mobile, à 100 ou 150 ms chacun. Avec GraphQL, il n’y a plus qu’un aller-retour sur ce réseau, et les trois lectures se font côté serveur, dans le centre de données, où un aller-retour vers une base coûte moins d’une milliseconde.
+Le gain le plus important est rarement l’économie d’octets ; c’est le déplacement des allers-retours. Avec REST, les trois appels traversent le réseau mobile, à 100 ou 150 ms chacun. Avec GraphQL, il n’y a plus qu’un aller-retour sur ce réseau, et les trois lectures se font côté serveur, dans le centre de données, où un aller-retour vers une base coûte moins d’une milliseconde.
 
 ### Le problème N+1
 
-Le serveur GraphQL construit la réponse en appelant, pour chaque champ, une fonction de résolution (resolver). Écrite naïvement, la fonction qui résout les livres d’un auteur fait une requête en base ; pour une liste de 100 auteurs, cela fait une requête pour la liste, puis une par auteur : 101 requêtes, d’où le nom de problème N+1. La correction classique, popularisée par la bibliothèque DataLoader de Facebook, consiste à différer ces chargements d’un instant pour les regrouper : toutes les résolutions de livres demandées pendant la construction d’un même niveau de la réponse sont rassemblées en une seule requête `WHERE auteur_id IN (...)`.
+Le serveur GraphQL construit la réponse en appelant, pour chaque champ, une fonction de résolution (resolver). Écrite naïvement, la fonction qui résout les livres d’un auteur fait une requête en base ; pour une liste de 100 auteurs, cela fait une requête pour la liste, puis une par auteur, soit 101 requêtes, d’où le nom de problème N+1. La correction classique, popularisée par la bibliothèque DataLoader de Facebook, consiste à différer ces chargements d’un instant pour les regrouper. Toutes les résolutions de livres demandées pendant la construction d’un même niveau de la réponse sont rassemblées en une seule requête `WHERE auteur_id IN (...)`.
 
 Le script [`outils/experiences/ch07/graphql_n1.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch07/graphql_n1.py) sert un tel schéma avec la bibliothèque graphql-core au-dessus de SQLite, et compte les requêtes SQL pour la requête `{ auteurs(premiers: 100) { nom livres { titre } } }`. SQLite, en mémoire, ne coûte pas d’aller-retour réseau ; le script ajoute donc, dans un second passage, une attente de 0,5 ms par requête SQL, ordre de grandeur d’un aller-retour vers une base dans le même centre de données.
 
@@ -133,11 +133,11 @@ La mesure donne deux leçons. Sans latence réseau, la version groupée n’est 
 
 ### Ce que GraphQL rend difficile
 
-Le cache HTTP fonctionne mal avec GraphQL : les requêtes passent par `POST` sur une seule URL, et deux clients qui demandent les mêmes données avec des champs différents n’ont pas la même réponse. On le contourne par des requêtes persistées, enregistrées à l’avance et désignées par un identifiant, qu’on peut alors envoyer en `GET` et mettre en cache, et par des caches côté client qui stockent les objets par type et identifiant.
+Le cache HTTP fonctionne mal avec GraphQL, car les requêtes passent par `POST` sur une seule URL, et deux clients qui demandent les mêmes données avec des champs différents n’ont pas la même réponse. On le contourne par des requêtes persistées, enregistrées à l’avance et désignées par un identifiant, qu’on peut alors envoyer en `GET` et mettre en cache, et par des caches côté client qui stockent les objets par type et identifiant.
 
 Le coût d’une requête est imprévisible. Une requête de dix lignes peut demander les 100 premiers dépôts d’un utilisateur, les 100 premiers tickets de chacun et les 100 premiers commentaires de chaque ticket, soit un million de nœuds. Les serveurs publics limitent donc la profondeur et le coût des requêtes. L’API GraphQL de GitHub, par exemple, attribue à chaque requête un coût en points calculé avant de l’exécuter, accorde 5 000 points par heure à un utilisateur, plafonne les arguments `first` et `last` à 100 et refuse toute requête qui demanderait plus de 500 000 nœuds[^github-graphql].
 
-Enfin, toutes les opérations passent par la même URL et répondent souvent `200` même en cas d’erreur partielle, avec une liste d’erreurs dans le corps : les répartiteurs, les tableaux de bord et les limites de débit fondés sur l’URL et le code d’état n’y voient plus rien, et il faut instrumenter GraphQL lui-même, opération par opération.
+Enfin, toutes les opérations passent par la même URL et répondent souvent `200` même en cas d’erreur partielle, avec une liste d’erreurs dans le corps. Les répartiteurs, les tableaux de bord et les limites de débit fondés sur l’URL et le code d’état n’y voient plus rien, et il faut instrumenter GraphQL lui-même, opération par opération.
 
 ## gRPC : un contrat compilé entre services
 
@@ -164,11 +164,11 @@ message Commande {
 
 Le client appelle `Obtenir` comme une fonction locale. Quatre formes d’appel existent : unaire (une requête, une réponse), flux serveur (une requête, une suite de réponses, comme le suivi d’une livraison), flux client (une suite de requêtes, une réponse, comme l’envoi d’un fichier en morceaux), et bidirectionnelle. Chaque appel porte une échéance (deadline) que le serveur reçoit et qu’il transmet aux appels qu’il fait lui-même, ce qui permet d’abandonner tout le travail d’une requête dont le client n’attend plus la réponse (ch. 38). Les erreurs ont leurs propres codes, plus précis que ceux de HTTP pour les appels entre services, comme `DEADLINE_EXCEEDED`, `UNAVAILABLE` ou `RESOURCE_EXHAUSTED`.
 
-Le prix de gRPC tient à son public. Les navigateurs ne peuvent pas l’appeler directement, faute d’accès aux trames HTTP/2 : il faut une variante, gRPC-Web, et un proxy qui la traduit. Les messages binaires ne se lisent pas au terminal avec `curl`, il faut des outils dédiés. Et les connexions HTTP/2 durent longtemps et portent tous les appels d’un client : un répartiteur de charge de niveau 4, qui répartit les connexions et non les requêtes, envoie alors tout le trafic d’un client vers le même serveur, et il faut un répartiteur de niveau 7 ou une répartition côté client ([ch. 13](../partie-2/repartition-charge.mdx)).
+Le prix de gRPC tient à son public. Les navigateurs ne peuvent pas l’appeler directement, faute d’accès aux trames HTTP/2 ; il faut une variante, gRPC-Web, et un proxy qui la traduit. Les messages binaires ne se lisent pas au terminal avec `curl`, il faut des outils dédiés. Et les connexions HTTP/2 durent longtemps et portent tous les appels d’un client. Un répartiteur de charge de niveau 4, qui répartit les connexions et non les requêtes, envoie alors tout le trafic d’un client vers le même serveur, et il faut un répartiteur de niveau 7 ou une répartition côté client ([ch. 13](../partie-2/repartition-charge.mdx)).
 
 ## Sérialiser, et faire évoluer les messages
 
-Quel que soit le style, les messages doivent être encodés en octets : c’est la sérialisation. Le script [`outils/experiences/ch07/serialisation.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch07/serialisation.py) encode la même commande (un identifiant, un client, une date, un statut, une ville, un code postal et cinq lignes de produits) dans quatre formats : JSON, MessagePack (un JSON binaire, sans schéma), Protobuf et Avro (sans le schéma joint au message), avec les bibliothèques Python correspondantes.
+Quel que soit le style, les messages doivent être encodés en octets, ce qu’on appelle la sérialisation. Le script [`outils/experiences/ch07/serialisation.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch07/serialisation.py) encode la même commande (un identifiant, un client, une date, un statut, une ville, un code postal et cinq lignes de produits) dans quatre formats : JSON, MessagePack (un JSON binaire, sans schéma), Protobuf et Avro (sans le schéma joint au message), avec les bibliothèques Python correspondantes.
 
 ```text
 format                      octets   gzip   encodage   décodage
@@ -184,13 +184,13 @@ Taille mesurée d’une même commande selon le format, brute et compressée.
 
 Chaque format a deux barres : la taille brute, en couleur, et la taille après compression gzip, en pointillés. JSON répète le nom de chaque champ dans chaque objet, d’où ses 565 octets ; Protobuf remplace les noms par des numéros de champ et code les entiers sur un nombre d’octets variable ; Avro va plus loin en ne transmettant même pas les numéros, puisque le lecteur connaît le schéma. La compression réduit beaucoup JSON, mais grossit les formats binaires, déjà compacts, sur un message aussi court.
 
-Les temps se lisent avec prudence : ils mesurent des bibliothèques Python et la construction des objets du langage autant que le format lui-même. Le décodage Protobuf à 0,76 µs vient d’une bibliothèque écrite en C qui ne construit les objets Python qu’à la demande ; l’encodage, qui doit construire le message champ par champ en Python, coûte plus. Dans un autre langage, l’ordre des formats pourrait changer. La taille, elle, ne dépend pas du langage.
+Les temps se lisent avec prudence, car ils mesurent des bibliothèques Python et la construction des objets du langage autant que le format lui-même. Le décodage Protobuf à 0,76 µs vient d’une bibliothèque écrite en C qui ne construit les objets Python qu’à la demande ; l’encodage, qui doit construire le message champ par champ en Python, coûte plus. Dans un autre langage, l’ordre des formats pourrait changer. La taille, elle, ne dépend pas du langage.
 
 ### Évoluer sans tout casser
 
 Un message écrit aujourd’hui sera lu demain par un programme plus récent, et un programme ancien recevra des messages d’un programme plus récent. Une évolution est compatible vers l’arrière (backward compatible) si le nouveau code lit les données anciennes, et compatible vers l’avant (forward compatible) si l’ancien code lit les données nouvelles. Dans un système déployé progressivement, où les deux versions tournent en même temps pendant le déploiement (ch. 52), il faut les deux.
 
-Les formats y arrivent de façons différentes. En JSON, rien n’est imposé : la compatibilité repose sur la discipline des deux côtés (ajouter des champs facultatifs, ignorer les champs inconnus, ne jamais changer le sens d’un champ). En Protobuf, chaque champ est identifié par son numéro, pas par son nom : on peut renommer un champ sans rien casser, ajouter un champ avec un nouveau numéro, et un ancien programme qui reçoit un champ inconnu le garde et le retransmet. La règle absolue est de ne jamais réutiliser le numéro d’un champ supprimé, qu’on déclare `reserved` pour que le compilateur l’interdise ; un ancien client interpréterait sinon les nouvelles données selon l’ancien sens. En Avro, le message ne porte pas de numéros : le lecteur doit connaître le schéma qui a servi à l’écrire, et il résout les différences avec le sien (un champ ajouté doit avoir une valeur par défaut). Il faut donc un registre de schémas qui donne, pour chaque message, le schéma de son auteur, ce que le ch. 27 décrira avec Kafka.
+Les formats y arrivent de façons différentes. En JSON, rien n’est imposé, et la compatibilité repose sur la discipline des deux côtés (ajouter des champs facultatifs, ignorer les champs inconnus, ne jamais changer le sens d’un champ). En Protobuf, chaque champ est identifié par son numéro, pas par son nom. On peut donc renommer un champ sans rien casser, ajouter un champ avec un nouveau numéro, et un ancien programme qui reçoit un champ inconnu le garde et le retransmet. La règle absolue est de ne jamais réutiliser le numéro d’un champ supprimé, qu’on déclare `reserved` pour que le compilateur l’interdise ; un ancien client interpréterait sinon les nouvelles données selon l’ancien sens. En Avro, le message ne porte pas de numéros. Le lecteur doit connaître le schéma qui a servi à l’écrire, et il résout les différences avec le sien (un champ ajouté doit avoir une valeur par défaut). Il faut donc un registre de schémas qui donne, pour chaque message, le schéma de son auteur, ce que le ch. 27 décrira avec Kafka.
 
 | Format | Taille | Schéma | Évolution | Lisible par un humain | Quand le choisir |
 |---|---|---|---|---|---|
@@ -225,7 +225,7 @@ Conclusion : le gain de GraphQL, ou d’un serveur dédié à l’écran, vient
 :::
 
 :::calcul[Calcul : parcourir toute une table par pages de 20]
-Hypothèses : la table d’un million de lignes de l’expérience ; un robot la parcourt entièrement, page après page. Coût mesuré par ligne sautée : $9{,}561 \text{ ms} / 990\,000 \approx 9{,}7$ ns ; coût mesuré d’une page par curseur : 0,010 ms.
+Hypothèses : la table d’un million de lignes de l’expérience ; un robot la parcourt entièrement, page après page. Chaque ligne sautée coûte $9{,}561 \text{ ms} / 990\,000 \approx 9{,}7$ ns, et une page par curseur 0,010 ms (mesurés).
 
 | Grandeur | Calcul | Résultat |
 |---|---|---|
@@ -254,21 +254,21 @@ Conclusion : le format binaire divise ici le volume par 2,9. C’est utile sur 
 
 **Les versions datées de Stripe.** Dans le billet de 2017 cité en ouverture, Brandur Leach décrit le système de Stripe. Chaque changement incompatible crée une version nommée par sa date, comme `2017-02-14`, et chaque compte reste attaché à la version en vigueur lors de sa première requête, sauf s’il demande explicitement une version plus récente par un en-tête. En interne, le code ne connaît que la dernière version ; chaque changement incompatible est encapsulé dans un petit module qui sait transformer une réponse de la nouvelle forme vers l’ancienne, et la réponse destinée à un client ancien traverse ces modules à rebours, du plus récent au plus ancien, jusqu’à sa version[^stripe]. Le coût de la compatibilité est ainsi concentré dans un endroit précis du code, au lieu d’être réparti dans toutes les fonctions.
 
-**Les points de l’API GraphQL de GitHub.** L’API GraphQL de GitHub illustre la réponse au coût imprévisible des requêtes : chaque requête est évaluée avant exécution, son coût en points dépend du nombre de connexions qu’elle peut parcourir, et le quota se compte en points (5 000 par heure pour un utilisateur) et non en nombre de requêtes[^github-graphql]. Une requête qui demande peu coûte peu, une requête qui pourrait parcourir des centaines de milliers de nœuds coûte cher ou est refusée.
+**Les points de l’API GraphQL de GitHub.** L’API GraphQL de GitHub illustre la réponse au coût imprévisible des requêtes. Chaque requête est évaluée avant exécution, son coût en points dépend du nombre de connexions qu’elle peut parcourir, et le quota se compte en points (5 000 par heure pour un utilisateur) et non en nombre de requêtes[^github-graphql]. Une requête qui demande peu coûte peu, une requête qui pourrait parcourir des centaines de milliers de nœuds coûte cher ou est refusée.
 
 ## Erreurs fréquentes
 
 La plus répandue en entretien est de choisir un style par goût (« GraphQL, c’est plus moderne ») sans le relier aux clients : qui appelle l’API, depuis quel réseau, avec quel besoin de cache ? Un style se justifie par une contrainte.
 
-La pagination par décalage sur une grande liste qui change est une erreur courante dans les API publiques : elle coûte de plus en plus cher à mesure qu’on avance, et renvoie doublons et trous. Une variante est de renvoyer le nombre total d’éléments avec chaque page, ce qui force la base à les compter tous, à chaque appel.
+La pagination par décalage sur une grande liste qui change est une erreur courante dans les API publiques, car elle coûte de plus en plus cher à mesure qu’on avance, et renvoie doublons et trous. Une variante est de renvoyer le nombre total d’éléments avec chaque page, ce qui force la base à les compter tous, à chaque appel.
 
 Côté évolution, les erreurs se paient longtemps : renommer un champ JSON en croyant qu’aucun client ne l’utilise, réutiliser un numéro de champ Protobuf supprimé, ajouter à une API publique un paramètre obligatoire. On ne sait jamais qui appelle une API publique, et un changement incompatible doit passer par une nouvelle version et une date de retrait annoncée.
 
-Exposer directement le modèle de la base dans l’API (une ressource par table, les noms de colonnes en champs JSON) lie tous les clients au schéma interne : la moindre réorganisation des tables devient un changement incompatible. L’API doit décrire le domaine tel que les clients le voient.
+Exposer directement le modèle de la base dans l’API (une ressource par table, les noms de colonnes en champs JSON) lie tous les clients au schéma interne, et la moindre réorganisation des tables devient un changement incompatible. L’API doit décrire le domaine tel que les clients le voient.
 
 En GraphQL, ouvrir un schéma public sans limite de profondeur ni de coût expose la base à des requêtes qui la saturent, volontairement ou non. Et ne pas mesurer le nombre de requêtes en base par opération laisse s’installer des problèmes N+1 que personne ne voit dans le code.
 
-En gRPC, l’erreur classique est de placer les services derrière un répartiteur de niveau 4 : les connexions HTTP/2 persistantes concentrent le trafic sur quelques serveurs, et l’ajout de serveurs n’y change rien.
+En gRPC, l’erreur classique est de placer les services derrière un répartiteur de niveau 4, car les connexions HTTP/2 persistantes concentrent le trafic sur quelques serveurs, et l’ajout de serveurs n’y change rien.
 
 :::piege[Erreur fréquente : des opérations non idempotentes sans clé]
 Un `POST /paiements` qu’un client rejoue après un délai d’attente dépassé peut débiter deux fois. Une API qui accepte des écritures doit permettre au client d’envoyer une clé d’idempotence (un identifiant unique de l’opération, choisi par le client) que le serveur mémorise pour reconnaître et ignorer les doublons. Stripe en fait un en-tête de son API ; le ch. 38 détaille le mécanisme.
@@ -286,11 +286,11 @@ L’étape 3 de la démarche ([ch. 1](../partie-0/demarche.mdx)) attend une API 
 
 **Question 3.** Pourquoi la version groupée de l’expérience GraphQL est-elle un peu plus lente que la version naïve quand il n’y a pas de latence, et pourquoi cela ne justifie-t-il pas de garder la version naïve en production ?
 
-**Exercice de conception.** Une plateforme de location de vélos en libre-service expose : une application mobile qui affiche la carte des stations proches avec, pour chacune, le nombre de vélos et de places libres ; un site public pour les partenaires (offices de tourisme, applications de transport) qui veulent la liste des stations et leur état ; et une trentaine de services internes (paiement, maintenance, rééquilibrage par camion). La ville compte 1 500 stations ; l’état de chaque station change en moyenne toutes les 30 secondes ; 200 000 utilisateurs ouvrent l’application aux heures de pointe, sur un réseau mobile à 120 ms de RTT. Choisissez un style d’API pour chacun des trois publics, écrivez les principaux points d’entrée ou opérations, choisissez la pagination et la stratégie de cache, et estimez le trafic que le cache évite sur l’API publique.
+**Exercice de conception.** Une plateforme de location de vélos en libre-service a trois sortes de clients : une application mobile qui affiche la carte des stations proches avec, pour chacune, le nombre de vélos et de places libres ; un site public pour les partenaires (offices de tourisme, applications de transport) qui veulent la liste des stations et leur état ; et une trentaine de services internes (paiement, maintenance, rééquilibrage par camion). La ville compte 1 500 stations ; l’état de chaque station change en moyenne toutes les 30 secondes ; 200 000 utilisateurs ouvrent l’application aux heures de pointe, sur un réseau mobile à 120 ms de RTT. Choisissez un style d’API pour chacun des trois publics, écrivez les principaux points d’entrée ou opérations, choisissez la pagination et la stratégie de cache, et estimez le trafic que le cache évite sur l’API publique.
 
 ## Corrigés
 
-**Question 1.** Les pages 1 à 3 ont montré les messages 1 à 150 dans l’ordre de l’époque. Après 12 publications, la page 4 (`decalage=150`) renvoie les éléments 151 à 200 de la nouvelle liste, qui correspondent aux anciens éléments 139 à 188 : le client revoit 12 messages de la page 3, puis 38 nouveaux pour lui, et les 12 qu’il aurait dû voir en fin de page 4 passent en page 5. Avec 12 suppressions parmi les messages déjà lus, la page 4 commencerait à l’ancien élément 163 : les messages 151 à 162 ne seraient jamais montrés. Avec un curseur, la page 4 demande « les 50 messages plus anciens que le dernier de la page 3 » : les publications et suppressions survenues avant ce message n’ont aucun effet, il n’y a ni doublon ni trou. Les messages publiés pendant la lecture n’apparaissent pas en page 4, ce qui est le comportement attendu d’un fil ; l’application les montre par une notification « 12 nouveaux messages » en haut.
+**Question 1.** Les pages 1 à 3 ont montré les messages 1 à 150 dans l’ordre de l’époque. Après 12 publications, la page 4 (`decalage=150`) renvoie les éléments 151 à 200 de la nouvelle liste, qui correspondent aux anciens éléments 139 à 188. Le client revoit 12 messages de la page 3, puis 38 nouveaux pour lui, et les 12 qu’il aurait dû voir en fin de page 4 passent en page 5. Avec 12 suppressions parmi les messages déjà lus, la page 4 commencerait à l’ancien élément 163, et les messages 151 à 162 ne seraient jamais montrés. Avec un curseur, la page 4 demande « les 50 messages plus anciens que le dernier de la page 3 ». Les publications et suppressions survenues avant ce message n’ont aucun effet, il n’y a ni doublon ni trou. Les messages publiés pendant la lecture n’apparaissent pas en page 4, ce qui est le comportement attendu d’un fil ; l’application les montre par une notification « 12 nouveaux messages » en haut.
 
 **Question 2.**
 
@@ -299,7 +299,7 @@ L’étape 3 de la démarche ([ch. 1](../partie-0/demarche.mdx)) attend une API 
 3. Renommer `statut` en `etat` dans Protobuf : compatible pour les messages, puisque le format transporte le numéro 4 et pas le nom ; seul le code source des programmes qui utilisent le champ doit changer lors de leur prochaine compilation. (En JSON, le même renommage serait incompatible.)
 4. Réutiliser le numéro 6 : incompatible et dangereux. Un ancien programme qui connaît encore le numéro 6 comme l’ancien champ lira la remise comme une valeur de ce champ, sans aucune erreur. Il faut déclarer `reserved 6;` lors de la suppression et donner un nouveau numéro à `remise`.
 
-**Question 3.** Sans latence, une requête SQLite en mémoire coûte quelques microsecondes : 101 petites requêtes coûtent moins que le mécanisme de regroupement lui-même (futures, tour supplémentaire de la boucle d’événements, construction de la clause `IN`). En production, la base est sur une autre machine : chaque requête coûte au moins un aller-retour réseau, de l’ordre de 0,5 ms dans un même centre de données, et la base doit analyser et exécuter chacune. Avec 0,5 ms par requête, la mesure passe de 66 ms à 11 ms en faveur du regroupement, et l’écart croît avec le nombre d’éléments de la liste. L’expérience sans latence mesure surtout la machine de test ; c’est celle avec latence qui représente un déploiement.
+**Question 3.** Sans latence, une requête SQLite en mémoire coûte quelques microsecondes, et 101 petites requêtes coûtent moins que le mécanisme de regroupement lui-même (futures, tour supplémentaire de la boucle d’événements, construction de la clause `IN`). En production, la base est sur une autre machine. Chaque requête coûte au moins un aller-retour réseau, de l’ordre de 0,5 ms dans un même centre de données, et la base doit analyser et exécuter chacune. Avec 0,5 ms par requête, la mesure passe de 66 ms à 11 ms en faveur du regroupement, et l’écart croît avec le nombre d’éléments de la liste. L’expérience sans latence mesure surtout la machine de test ; c’est celle avec latence qui représente un déploiement.
 
 **Exercice de conception.**
 
@@ -307,7 +307,7 @@ L’étape 3 de la démarche ([ch. 1](../partie-0/demarche.mdx)) attend une API 
 
 *Points d’entrée.* Mobile : `GET /v1/carte?lat=45.76&lon=4.84&rayon=800` renvoie les stations proches avec leur état, en une seule réponse. Partenaires : `GET /v1/stations?limite=100&apres=<curseur>` pour la liste, `GET /v1/stations/{id}` pour une station, et `GET /v1/etat-stations` qui renvoie l’état de toutes les stations (1 500 éléments, quelques dizaines de kilooctets compressés), le plus utile en pratique. Interne : `rpc ReserverVelo(ReserverVelo) returns (Reservation)`, `rpc SuivreCamion(Camion) returns (stream Position)`, avec des clés d’idempotence sur les réservations et les paiements.
 
-*Pagination et cache.* La liste des stations change rarement : pagination par curseur sur l’identifiant, cache longue durée. L’état change toutes les 30 secondes en moyenne par station : `GET /v1/etat-stations` est servi avec `Cache-Control: public, max-age=15, stale-while-revalidate=15` et un ETag, depuis un CDN ; un partenaire qui le demande toutes les 10 secondes reçoit souvent un 304. La carte mobile est découpée en tuiles géographiques fixes (par exemple des carrés de 500 m) plutôt qu’en cercles autour de chaque position, pour que deux utilisateurs proches demandent la même URL et que le CDN puisse la mettre en cache 15 secondes.
+*Pagination et cache.* La liste des stations change rarement ; elle est paginée par curseur sur l’identifiant et mise en cache longtemps. L’état change toutes les 30 secondes en moyenne par station, et `GET /v1/etat-stations` est servi avec `Cache-Control: public, max-age=15, stale-while-revalidate=15` et un ETag, depuis un CDN ; un partenaire qui le demande toutes les 10 secondes reçoit souvent un 304. La carte mobile est découpée en tuiles géographiques fixes (par exemple des carrés de 500 m) plutôt qu’en cercles autour de chaque position, pour que deux utilisateurs proches demandent la même URL et que le CDN puisse la mettre en cache 15 secondes.
 
 *Trafic évité.*
 
@@ -321,11 +321,11 @@ L’étape 3 de la démarche ([ch. 1](../partie-0/demarche.mdx)) attend une API 
 L’origine ne voit plus qu’une trentaine de requêtes par seconde au lieu de plus de 3 000, et la fraîcheur des données reste de l’ordre de 15 secondes, inférieure à l’intervalle moyen de 30 secondes entre deux changements d’une station.
 
 :::fiche
-- Une API est un contrat avec des programmes qu’on ne contrôle pas : la compatibilité dure plus longtemps que tout le reste.
+- Une API est un contrat avec des programmes qu’on ne contrôle pas ; la compatibilité dure plus longtemps que tout le reste.
 - REST : ressources, méthodes et codes de HTTP, cache HTTP natif ; sur- et sous-récupération pour les écrans composites.
-- Pagination : par curseur pour les grandes listes qui changent (mesuré : 0,010 ms à toute profondeur contre 9,6 ms par OFFSET à 990 000 lignes, et ni doublon ni trou).
+- Pagination : par curseur pour les grandes listes qui changent (0,010 ms mesuré à toute profondeur contre 9,6 ms par OFFSET à 990 000 lignes, ni doublon ni trou).
 - Versionner : changements additifs + lecteur tolérant ; sinon nouvelle version (chemin, en-tête ou date comme Stripe) et retrait annoncé.
-- GraphQL : un aller-retour par écran, champs choisis ; problème N+1 (mesuré : 101 requêtes, 66 ms, contre 2 requêtes, 11 ms, à 0,5 ms par requête), cache difficile, coût à borner (GitHub : 5 000 points par heure).
+- GraphQL : un aller-retour par écran, champs choisis ; problème N+1 (101 requêtes et 66 ms mesurés, contre 2 requêtes et 11 ms, à 0,5 ms par requête), cache difficile, coût à borner (5 000 points par heure chez GitHub).
 - gRPC : Protobuf compilé, HTTP/2, flux, échéances ; pas de navigateur sans gRPC-Web ; répartition de niveau 7.
 - Sérialisation mesurée : JSON 565 o, MessagePack 455, Protobuf 195, Avro 161.
 - Évolution : en Protobuf, jamais réutiliser un numéro de champ ; en Avro, registre de schémas.

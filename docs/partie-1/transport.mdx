@@ -11,23 +11,23 @@ import fenetre from '@site/src/figures/tcp-fenetre.svg';
 import hol from '@site/src/figures/tcp-hol.svg';
 import reutilisation from '@site/src/figures/tcp-reutilisation.svg';
 
-En octobre 1986, le débit entre le laboratoire de Lawrence Berkeley et le campus de l’université de Berkeley, distants de 400 yards (moins de 400 mètres), est tombé de 32 kbit/s à 40 bit/s, soit un facteur mille. Van Jacobson et Michael Karels ont raconté dans un article de 1988 qu’ils avaient cherché pourquoi, et que la réponse tenait dans la façon dont les implémentations de TCP réagissaient à un réseau encombré : en renvoyant davantage, elles l’encombraient encore plus[^jacobson]. Les sept algorithmes qu’ils ont ajoutés à TCP, dont le démarrage lent (slow start) et l’estimation de la variance du temps d’aller-retour, sont, pour la plupart, encore dans votre noyau.
+En octobre 1986, le débit entre le laboratoire de Lawrence Berkeley et le campus de l’université de Berkeley, distants de 400 yards (moins de 400 mètres), est tombé de 32 kbit/s à 40 bit/s, soit un facteur mille. Van Jacobson et Michael Karels ont raconté dans un article de 1988 qu’ils avaient cherché pourquoi, et que la réponse tenait dans la façon dont les implémentations de TCP réagissaient à un réseau encombré, car en renvoyant davantage, elles l’encombraient encore plus[^jacobson]. Les sept algorithmes qu’ils ont ajoutés à TCP, dont le démarrage lent (slow start) et l’estimation de la variance du temps d’aller-retour, sont, pour la plupart, encore dans votre noyau.
 
-Ce chapitre décrit ce que fait la couche de transport, entre l’application et le réseau : TCP, qui transforme un réseau capable de perdre et de désordonner les paquets en un flux d’octets fiable, et UDP, qui se contente de livrer des datagrammes au bon port. Les deux ont des coûts que le concepteur paie à chaque requête, et une expérience menée pour ce chapitre montre jusqu’où peut aller le coût d’une mauvaise habitude : ouvrir une connexion par requête.
+Ce chapitre décrit ce que fait la couche de transport, entre l’application et le réseau : TCP, qui transforme un réseau capable de perdre et de désordonner les paquets en un flux d’octets fiable, et UDP, qui se contente de livrer des datagrammes au bon port. Les deux ont des coûts que le concepteur paie à chaque requête, et une expérience menée pour ce chapitre montre jusqu’où peut aller le coût d’une mauvaise habitude, celle d’ouvrir une connexion par requête.
 
 ## Les fascicules et les cartes postales
 
 :::analogie[Analogie : envoyer un manuscrit par la poste]
 Vous devez envoyer un manuscrit de trois cents pages par la poste, en fascicules de dix pages. Avant le premier envoi, vous écrivez au destinataire pour vérifier l’adresse et convenir de la numérotation, il vous répond, vous confirmez. Vous numérotez chaque fascicule et vous gardez une copie de tout ce qui n’a pas encore été accusé. Le destinataire vous renvoie régulièrement « j’ai tout reçu jusqu’au fascicule 12 » ; si le 13 n’arrive pas, vous le renvoyez. Il ne lit pas le 14 avant d’avoir le 13, même si le 14 est arrivé, parce que le texte doit se lire dans l’ordre. Et si les accusés reviennent de plus en plus lentement, vous ralentissez vos envois pour ne pas noyer le bureau de poste.
 
-C’est ce que fait TCP : l’échange préalable est la poignée de main, la numérotation et les accusés sont les numéros de séquence et les acquittements, la lecture dans l’ordre est la cause du blocage en tête de file, et le ralentissement est le contrôle de congestion. UDP, lui, envoie des cartes postales : chacune part seule, sans prise de contact préalable, sans numéro ni accusé ; certaines se perdent, d’autres arrivent dans le désordre, et c’est au destinataire de s’en accommoder.
+C’est ce que fait TCP. L’échange préalable est la poignée de main, la numérotation et les accusés sont les numéros de séquence et les acquittements, la lecture dans l’ordre est la cause du blocage en tête de file, et le ralentissement est le contrôle de congestion. UDP, lui, envoie des cartes postales. Chacune part seule, sans prise de contact préalable, sans numéro ni accusé ; certaines se perdent, d’autres arrivent dans le désordre, et c’est au destinataire de s’en accommoder.
 
-**Où l’analogie s’arrête.** La poste ne vous dit jamais qu’elle est encombrée, et le réseau non plus : TCP le devine, à partir des pertes ou de l’allongement des délais, et ce qu’il devine peut être faux, par exemple sur un lien radio qui perd des paquets sans être saturé. Le courrier met des jours ; sur un réseau, le délai est fixé par la vitesse de la lumière dans la fibre, et à l’échelle d’un continent il se compte en dizaines de millisecondes qu’aucune optimisation logicielle ne supprime. Enfin, l’échange préalable de lettres paraît une formalité ; pour TCP, c’est un aller-retour complet payé avant le premier octet utile, et pour une requête courte ce coût double la durée totale.
+**Où l’analogie s’arrête.** La poste ne vous dit jamais qu’elle est encombrée, et le réseau non plus ; TCP le devine, à partir des pertes ou de l’allongement des délais, et ce qu’il devine peut être faux, par exemple sur un lien radio qui perd des paquets sans être saturé. Le courrier met des jours ; sur un réseau, le délai est fixé par la vitesse de la lumière dans la fibre, et à l’échelle d’un continent il se compte en dizaines de millisecondes qu’aucune optimisation logicielle ne supprime. Enfin, l’échange préalable de lettres paraît une formalité ; pour TCP, c’est un aller-retour complet payé avant le premier octet utile, et pour une requête courte ce coût double la durée totale.
 :::
 
 ## TCP : un flux d’octets fiable
 
-TCP (Transmission Control Protocol), décrit aujourd’hui par la RFC 9293[^rfc9293], offre aux deux extrémités d’une connexion un flux d’octets bidirectionnel : ce qu’une application écrit d’un côté est lu de l’autre, dans le même ordre, sans trou ni doublon, ou bien la connexion échoue. Le mot important est flux : TCP ne connaît pas les messages. Deux écritures de 100 octets peuvent être lues en une lecture de 200 ou en trois lectures de tailles quelconques ; c’est à l’application de délimiter ses messages, par une longueur annoncée en tête ou par un séparateur, ce que fait par exemple HTTP avec ses en-têtes ([ch. 5](http.mdx)).
+TCP (Transmission Control Protocol), décrit aujourd’hui par la RFC 9293[^rfc9293], offre aux deux extrémités d’une connexion un flux d’octets bidirectionnel. Ce qu’une application écrit d’un côté est lu de l’autre, dans le même ordre, sans trou ni doublon, ou bien la connexion échoue. Le mot important est flux, car TCP ne connaît pas les messages. Deux écritures de 100 octets peuvent être lues en une lecture de 200 ou en trois lectures de tailles quelconques ; c’est à l’application de délimiter ses messages, par une longueur annoncée en tête ou par un séparateur, ce que fait par exemple HTTP avec ses en-têtes ([ch. 5](http.mdx)).
 
 ### Ouvrir la connexion
 
@@ -35,23 +35,23 @@ TCP (Transmission Control Protocol), décrit aujourd’hui par la RFC 9293[^rfc9
 Vie d’une connexion TCP courte, de l’ouverture à la fermeture.
 </Figure>
 
-Le temps s’écoule vers le bas, et les flèches sont inclinées parce que chaque message met une demi-durée d’aller-retour à traverser le réseau. Les accolades de gauche découpent ce temps en allers-retours (round-trip time, RTT) : le premier sert seulement à ouvrir la connexion, le second porte la requête et la réponse. Le rectangle ocre, en bas à gauche, est la période TIME_WAIT pendant laquelle le client garde une trace de la connexion fermée.
+Le temps s’écoule vers le bas, et les flèches sont inclinées parce que chaque message met une demi-durée d’aller-retour à traverser le réseau. Les accolades de gauche découpent ce temps en allers-retours (round-trip time, RTT) ; le premier sert seulement à ouvrir la connexion, le second porte la requête et la réponse. Le rectangle ocre, en bas à gauche, est la période TIME_WAIT pendant laquelle le client garde une trace de la connexion fermée.
 
-L’ouverture est une poignée de main en trois temps (three-way handshake). Le client envoie un segment SYN avec un numéro de séquence initial tiré au hasard ; le serveur répond SYN-ACK, qui acquitte ce numéro et annonce le sien ; le client acquitte à son tour, et peut joindre sa première requête à cet acquittement. Le tirage aléatoire des numéros initiaux empêche un tiers d’injecter des segments dans une connexion qu’il ne voit pas. Le coût de l’ouverture est d’un RTT complet avant que le serveur reçoive le premier octet de la requête : le premier octet de la réponse arrive donc au bout de deux RTT. Le chiffrement TLS ajoute encore au moins un aller-retour ([ch. 6](tls.mdx)), et c’est l’une des raisons pour lesquelles HTTP/3 a abandonné TCP pour QUIC ([ch. 5](http.mdx)).
+L’ouverture est une poignée de main en trois temps (three-way handshake). Le client envoie un segment SYN avec un numéro de séquence initial tiré au hasard ; le serveur répond SYN-ACK, qui acquitte ce numéro et annonce le sien ; le client acquitte à son tour, et peut joindre sa première requête à cet acquittement. Le tirage aléatoire des numéros initiaux empêche un tiers d’injecter des segments dans une connexion qu’il ne voit pas. Le coût de l’ouverture est d’un RTT complet avant que le serveur reçoive le premier octet de la requête, et le premier octet de la réponse arrive donc au bout de deux RTT. Le chiffrement TLS ajoute encore au moins un aller-retour ([ch. 6](tls.mdx)), et c’est l’une des raisons pour lesquelles HTTP/3 a abandonné TCP pour QUIC ([ch. 5](http.mdx)).
 
 ### Ne rien perdre
 
-Chaque octet du flux a un numéro de séquence. Le destinataire renvoie des acquittements cumulatifs (« j’ai tout reçu jusqu’à l’octet n ») et l’émetteur garde en mémoire tout ce qui n’a pas été acquitté. Un segment est retransmis dans deux cas. Si l’acquittement n’arrive pas avant l’expiration d’un délai de retransmission (retransmission timeout, RTO), calculé à partir des RTT mesurés : la RFC 6298 en donne la formule[^rfc6298],
+Chaque octet du flux a un numéro de séquence. Le destinataire renvoie des acquittements cumulatifs (« j’ai tout reçu jusqu’à l’octet n ») et l’émetteur garde en mémoire tout ce qui n’a pas été acquitté. Un segment est retransmis dans deux cas. Si l’acquittement n’arrive pas avant l’expiration d’un délai de retransmission (retransmission timeout, RTO), calculé à partir des RTT mesurés, dont la RFC 6298 donne la formule[^rfc6298],
 
 $$
 \text{RTO} = \text{SRTT} + 4 \times \text{RTTVAR},
 $$
 
-où SRTT est une moyenne lissée des RTT et RTTVAR une estimation de leur variation ; Linux impose en plus un minimum de 200 ms. Et, plus vite, si l’émetteur reçoit trois acquittements identiques de suite : le destinataire signale ainsi qu’il reçoit des segments postérieurs à un trou, et l’émetteur renvoie le segment manquant sans attendre le délai (fast retransmit).
+où SRTT est une moyenne lissée des RTT et RTTVAR une estimation de leur variation ; Linux impose en plus un minimum de 200 ms. Et, plus vite, si l’émetteur reçoit trois acquittements identiques de suite. Le destinataire signale ainsi qu’il reçoit des segments postérieurs à un trou, et l’émetteur renvoie le segment manquant sans attendre le délai (fast retransmit).
 
 ### Ne pas noyer le destinataire
 
-Le destinataire annonce dans chaque acquittement la place libre dans son tampon de réception : c’est la fenêtre de réception, que l’émetteur ne doit pas dépasser. Ce contrôle de flux (flow control) protège un destinataire lent. Il fixe aussi une limite de débit souvent oubliée : l’émetteur ne peut pas avoir plus d’une fenêtre de données en vol, et chaque fenêtre met un RTT à être acquittée, d’où un débit maximal
+Le destinataire annonce dans chaque acquittement la place libre dans son tampon de réception ; c’est la fenêtre de réception, que l’émetteur ne doit pas dépasser. Ce contrôle de flux (flow control) protège un destinataire lent. Il fixe aussi une limite de débit souvent oubliée. L’émetteur ne peut pas avoir plus d’une fenêtre de données en vol, et chaque fenêtre met un RTT à être acquittée, d’où un débit maximal
 
 $$
 D_{\max} = \frac{W}{\text{RTT}}.
@@ -61,7 +61,7 @@ Pour remplir un lien de débit $D$, la fenêtre doit au moins valoir le produit 
 
 ### Ne pas noyer le réseau
 
-Le contrôle de congestion (congestion control) répond au problème de 1986 : l’émetteur limite en plus ses envois par une fenêtre de congestion qu’il ajuste selon ce qu’il observe du réseau. Le schéma de base, celui de Jacobson, a deux phases. En démarrage lent, la fenêtre part d’une petite valeur, 10 segments depuis la RFC 6928[^rfc6928], et double à chaque RTT tant que tout est acquitté. Au-delà d’un seuil, en évitement de congestion, elle n’augmente plus que d’un segment par RTT ; et à chaque perte détectée, elle est divisée par deux. Ce comportement, croissance additive et décroissance multiplicative (additive increase, multiplicative decrease, AIMD), fait converger les connexions qui partagent un lien vers un partage à peu près équitable.
+Le contrôle de congestion (congestion control) répond au problème de 1986. L’émetteur limite en plus ses envois par une fenêtre de congestion qu’il ajuste selon ce qu’il observe du réseau. Le schéma de base, celui de Jacobson, a deux phases. En démarrage lent, la fenêtre part d’une petite valeur, 10 segments depuis la RFC 6928[^rfc6928], et double à chaque RTT tant que tout est acquitté. Au-delà d’un seuil, en évitement de congestion, elle n’augmente plus que d’un segment par RTT ; et à chaque perte détectée, elle est divisée par deux. Ce comportement, croissance additive et décroissance multiplicative (additive increase, multiplicative decrease, AIMD), fait converger les connexions qui partagent un lien vers un partage à peu près équitable.
 
 <Figure svg={fenetre} num="4.2" alt="Courbe de la fenêtre de congestion : montée rapide de 10 à 80 segments en trois allers-retours, puis croissance lente jusqu’à 100, chute à 50 après une perte, puis nouvelle croissance lente.">
 Évolution illustrative de la fenêtre de congestion d’une connexion de type Reno.
@@ -69,7 +69,7 @@ Le contrôle de congestion (congestion control) répond au problème de 1986 : 
 
 L’axe horizontal compte les allers-retours, l’axe vertical la taille de la fenêtre en segments. Les trois premiers RTT montrent le démarrage lent, qui n’a de lent que le nom : 10, 20, 40, 80 segments. La pente douce qui suit est l’évitement de congestion, jusqu’à la perte marquée en rouge, où la fenêtre tombe à la moitié et repart. La courbe est construite pour l’exemple ; une connexion réelle a une forme plus irrégulière, et les algorithmes récents ne suivent pas exactement ce schéma.
 
-Le démarrage lent a une conséquence directe sur les petites requêtes : une connexion neuve ne peut pas envoyer d’un coup une réponse de 1 Mo. Avec 10 segments de 1 460 octets au départ, elle envoie environ 14 Ko pendant le premier RTT, 29 Ko pendant le deuxième, 58 Ko pendant le troisième ; il lui faut environ sept RTT pour atteindre 1 Mo cumulé. Une connexion déjà ouverte depuis longtemps, dont la fenêtre a grandi, envoie la même réponse en un ou deux RTT. C’est une seconde raison, après la poignée de main, de réutiliser les connexions.
+Le démarrage lent a une conséquence directe sur les petites requêtes, car une connexion neuve ne peut pas envoyer d’un coup une réponse de 1 Mo. Avec 10 segments de 1 460 octets au départ, elle envoie environ 14 Ko pendant le premier RTT, 29 Ko pendant le deuxième, 58 Ko pendant le troisième ; il lui faut environ sept RTT pour atteindre 1 Mo cumulé. Une connexion déjà ouverte depuis longtemps, dont la fenêtre a grandi, envoie la même réponse en un ou deux RTT. C’est une seconde raison, après la poignée de main, de réutiliser les connexions.
 
 Trois algorithmes de congestion dominent aujourd’hui.
 
@@ -85,23 +85,23 @@ $$
 D \approx \frac{\text{MSS}}{\text{RTT}} \cdot \frac{C}{\sqrt{p}}, \qquad C = \sqrt{3/2} \approx 1{,}22,
 $$
 
-où MSS est la taille maximale d’un segment et $p$ le taux de perte. Le débit est inversement proportionnel au RTT et à la racine du taux de perte : à distance égale, diviser les pertes par 100 multiplie le débit par 10. On s’en servira dans les ordres de grandeur.
+où MSS est la taille maximale d’un segment et $p$ le taux de perte. Le débit est inversement proportionnel au RTT et à la racine du taux de perte ; à distance égale, diviser les pertes par 100 multiplie le débit par 10. On s’en servira dans les ordres de grandeur.
 
 ### Le blocage en tête de file
 
 TCP livre les octets dans l’ordre. Si un segment se perd, ceux qui le suivent peuvent être arrivés, ils restent dans le tampon du noyau jusqu’à ce que le manquant soit retransmis.
 
 <Figure svg={hol} num="4.3" alt="Cinq segments envoyés ; le segment 2 est perdu ; 3, 4 et 5 arrivent mais ne sont pas remis à l’application ; après la retransmission de 2, les quatre sont remis d’un coup.">
-Blocage en tête de file : un segment perdu retient ceux qui le suivent.
+Blocage en tête de file, où un segment perdu retient ceux qui le suivent.
 </Figure>
 
-Chaque ligne est une étape du trajet : ce que l’émetteur envoie, ce que le noyau du destinataire reçoit, ce qu’il remet à l’application. Le segment 2 est perdu ; 3, 4 et 5, en jaune, sont bien arrivés mais l’application ne voit rien après le segment 1. La partie droite montre l’instant où la retransmission de 2 arrive : les quatre segments sont remis ensemble, avec au moins un RTT de retard.
+Chaque ligne est une étape du trajet : ce que l’émetteur envoie, ce que le noyau du destinataire reçoit, ce qu’il remet à l’application. Le segment 2 est perdu ; 3, 4 et 5, en jaune, sont bien arrivés mais l’application ne voit rien après le segment 1. La partie droite montre l’instant où la retransmission de 2 arrive ; les quatre segments sont alors remis ensemble, avec au moins un RTT de retard.
 
-Ce blocage en tête de file (head-of-line blocking) a deux conséquences de conception. Pour une conversation vocale ou un jeu, une donnée en retard est inutile : mieux vaut perdre un échantillon que tout retarder, et ces applications utilisent UDP. Et si plusieurs échanges indépendants partagent une connexion TCP, comme les requêtes multiplexées de HTTP/2, la perte d’un seul paquet les retarde tous ; c’est le défaut que QUIC corrige ([ch. 5](http.mdx)).
+Ce blocage en tête de file (head-of-line blocking) a deux conséquences de conception. Pour une conversation vocale ou un jeu, une donnée en retard est inutile. Mieux vaut perdre un échantillon que tout retarder, et ces applications utilisent UDP. Et si plusieurs échanges indépendants partagent une connexion TCP, comme les requêtes multiplexées de HTTP/2, la perte d’un seul paquet les retarde tous ; c’est le défaut que QUIC corrige ([ch. 5](http.mdx)).
 
 ### Fermer, et TIME_WAIT
 
-La fermeture se fait dans chaque sens séparément : un côté envoie FIN, l’autre acquitte, puis envoie son propre FIN, que le premier acquitte. Le côté qui a fermé le premier ne libère pas la connexion tout de suite : il la garde dans l’état TIME_WAIT pendant deux fois la durée de vie maximale d’un segment sur le réseau (maximum segment lifetime, MSL), pour pouvoir renvoyer le dernier acquittement s’il s’est perdu, et pour qu’un segment en retard d’une ancienne connexion ne soit pas pris pour un segment d’une nouvelle connexion qui réutiliserait le même quintuplet. Linux fixe cette durée à 60 secondes. Pendant ce temps, le quintuplet reste réservé, et donc le port éphémère du client si c’est lui qui a fermé.
+La fermeture se fait dans chaque sens séparément. Un côté envoie FIN, l’autre acquitte, puis envoie son propre FIN, que le premier acquitte. Le côté qui a fermé le premier ne libère pas la connexion tout de suite. Il la garde dans l’état TIME_WAIT pendant deux fois la durée de vie maximale d’un segment sur le réseau (maximum segment lifetime, MSL), pour pouvoir renvoyer le dernier acquittement s’il s’est perdu, et pour qu’un segment en retard d’une ancienne connexion ne soit pas pris pour un segment d’une nouvelle connexion qui réutiliserait le même quintuplet. Linux fixe cette durée à 60 secondes. Pendant ce temps, le quintuplet reste réservé, et donc le port éphémère du client si c’est lui qui a fermé.
 
 C’est là que se trouve la limite annoncée au [ch. 3](client-serveur-dns.mdx). Avec 28 232 ports éphémères et 60 secondes de TIME_WAIT, un client qui ferme lui-même ses connexions ne peut pas en ouvrir durablement plus de
 
@@ -113,7 +113,7 @@ vers une même adresse et un même port de serveur.
 
 ## Le coût d’une connexion, mesuré
 
-Pour vérifier ces chiffres, le script [`outils/experiences/ch04_time_wait.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch04_time_wait.py) du dépôt du cours lance un serveur et un client sur la même machine Linux. Ils utilisent une adresse qui n’est pas une adresse de boucle locale : pour celles-ci, le réglage par défaut du noyau (`net.ipv4.tcp_tw_reuse = 2`) autorise la réutilisation des ports en TIME_WAIT et masquerait le phénomène. Le client envoie 40 000 requêtes d’un octet, d’abord sur une seule connexion réutilisée, puis en ouvrant une connexion neuve pour chaque requête et en la fermant le premier. Le cœur de la seconde boucle tient en quelques lignes :
+Pour vérifier ces chiffres, le script [`outils/experiences/ch04_time_wait.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch04_time_wait.py) du dépôt du cours lance un serveur et un client sur la même machine Linux. Ils utilisent une adresse qui n’est pas une adresse de boucle locale, car pour celles-ci, le réglage par défaut du noyau (`net.ipv4.tcp_tw_reuse = 2`) autorise la réutilisation des ports en TIME_WAIT et masquerait le phénomène. Le client envoie 40 000 requêtes d’un octet, d’abord sur une seule connexion réutilisée, puis en ouvrant une connexion neuve pour chaque requête et en la fermant le premier. Le cœur de la seconde boucle tient en quelques lignes :
 
 ```python
 for _ in range(N):
@@ -138,15 +138,15 @@ TIME_WAIT vers 192.168.122.1 juste après : 28228
 TIME_WAIT vers 192.168.122.1 62 s plus tard : 2023
 ```
 
-Trois résultats se lisent directement. Sur une même machine, sans aucune latence réseau, ouvrir et fermer une connexion multiplie par 18 le coût d’une requête (427 µs contre 23 µs) ; sur un vrai réseau, il faudrait ajouter un RTT par requête. Au bout de 28 227 requêtes, les ports éphémères sont tous occupés par des connexions en TIME_WAIT, et la suivante échoue avec l’erreur `EADDRNOTAVAIL` : le client ne peut plus ouvrir de connexion vers ce serveur, alors que le serveur et le réseau sont parfaitement sains. Enfin, une minute plus tard, la plupart des TIME_WAIT ont disparu ; il en restait encore 2 023 après 62 secondes, le noyau les retirant par lots et non à la seconde près.
+Trois résultats se lisent directement. Sur une même machine, sans aucune latence réseau, ouvrir et fermer une connexion multiplie par 18 le coût d’une requête (427 µs contre 23 µs) ; sur un vrai réseau, il faudrait ajouter un RTT par requête. Au bout de 28 227 requêtes, les ports éphémères sont tous occupés par des connexions en TIME_WAIT, et la suivante échoue avec l’erreur `EADDRNOTAVAIL`. Le client ne peut plus ouvrir de connexion vers ce serveur, alors que le serveur et le réseau sont parfaitement sains. Enfin, une minute plus tard, la plupart des TIME_WAIT ont disparu ; il en restait encore 2 023 après 62 secondes, le noyau les retirant par lots et non à la seconde près.
 
 <Figure svg={reutilisation} num="4.4" alt="Deux lignes du temps : quatre requêtes avec une connexion neuve chacune prennent 8 allers-retours ; sur une connexion réutilisée, elles en prennent 5.">
 Quatre requêtes successives, avec une connexion neuve par requête ou une connexion réutilisée.
 </Figure>
 
-Chaque case dure un aller-retour. En haut, chaque requête paie sa propre ouverture : quatre requêtes coûtent huit RTT. En bas, l’ouverture n’est payée qu’une fois : cinq RTT. Avec TLS, l’écart grandit encore, puisque chaque ouverture coûte alors deux ou trois RTT au lieu d’un.
+Chaque case dure un aller-retour. En haut, chaque requête paie sa propre ouverture, et quatre requêtes coûtent huit RTT. En bas, l’ouverture n’est payée qu’une fois, soit cinq RTT. Avec TLS, l’écart grandit encore, puisque chaque ouverture coûte alors deux ou trois RTT au lieu d’un.
 
-Trois mécanismes évitent ce coût. HTTP/1.1 garde par défaut la connexion ouverte entre deux requêtes (keep-alive, [ch. 5](http.mdx)). Les bibliothèques clientes et les pilotes de bases de données entretiennent un pool de connexions (connection pool) : un ensemble de connexions ouvertes à l’avance, qu’on emprunte pour une requête et qu’on rend ensuite. Et HTTP/2, HTTP/3 et gRPC font passer de nombreuses requêtes simultanées sur une seule connexion ([ch. 5](http.mdx) et [7](styles-api.mdx)).
+Trois mécanismes évitent ce coût. HTTP/1.1 garde par défaut la connexion ouverte entre deux requêtes (keep-alive, [ch. 5](http.mdx)). Les bibliothèques clientes et les pilotes de bases de données entretiennent un pool de connexions (connection pool), un ensemble de connexions ouvertes à l’avance, qu’on emprunte pour une requête et qu’on rend ensuite. Et HTTP/2, HTTP/3 et gRPC font passer de nombreuses requêtes simultanées sur une seule connexion ([ch. 5](http.mdx) et [7](styles-api.mdx)).
 
 | Option | Avantages | Inconvénients | Quand la choisir |
 |---|---|---|---|
@@ -159,9 +159,9 @@ Deux réglages de TCP touchent aussi la latence des petits messages. L’algorit
 
 ## UDP : des datagrammes, et rien d’autre
 
-UDP (User Datagram Protocol), défini en 1980 par la RFC 768[^rfc768], ajoute très peu à IP : un numéro de port source et destination, une longueur et une somme de contrôle, soit 8 octets d’en-tête, contre au moins 20 pour TCP. Chaque datagramme est indépendant. Il n’y a ni connexion à ouvrir, ni retransmission, ni ordre garanti, ni contrôle de flux ou de congestion : ce que l’application envoie part tel quel, et ce qui se perd est perdu.
+UDP (User Datagram Protocol), défini en 1980 par la RFC 768[^rfc768], ajoute très peu à IP : un numéro de port source et destination, une longueur et une somme de contrôle, soit 8 octets d’en-tête, contre au moins 20 pour TCP. Chaque datagramme est indépendant. Il n’y a ni connexion à ouvrir, ni retransmission, ni ordre garanti, ni contrôle de flux ou de congestion ; ce que l’application envoie part tel quel, et ce qui se perd est perdu.
 
-Ce dépouillement est un choix délibéré pour plusieurs usages. Le DNS ([ch. 3](client-serveur-dns.mdx)) tient une question et une réponse dans un datagramme chacune, et un aller-retour sans poignée de main lui suffit. La voix et la vidéo en temps réel (les flux RTP de la visioconférence, WebRTC) préfèrent perdre un fragment que de bloquer tout le flux. Les jeux en réseau envoient l’état du monde plusieurs dizaines de fois par seconde, et seul le plus récent compte. Les agents de collecte de métriques envoient des mesures en UDP pour ne jamais ralentir l’application qui les produit. Enfin, QUIC reconstruit au-dessus d’UDP tout ce que fait TCP, plus le chiffrement, sans le blocage en tête de file ([ch. 5](http.mdx)) : passer par UDP lui permet d’évoluer dans l’application plutôt que dans le noyau des systèmes d’exploitation.
+Ce dépouillement est un choix délibéré pour plusieurs usages. Le DNS ([ch. 3](client-serveur-dns.mdx)) tient une question et une réponse dans un datagramme chacune, et un aller-retour sans poignée de main lui suffit. La voix et la vidéo en temps réel (les flux RTP de la visioconférence, WebRTC) préfèrent perdre un fragment que de bloquer tout le flux. Les jeux en réseau envoient l’état du monde plusieurs dizaines de fois par seconde, et seul le plus récent compte. Les agents de collecte de métriques envoient des mesures en UDP pour ne jamais ralentir l’application qui les produit. Enfin, QUIC reconstruit au-dessus d’UDP tout ce que fait TCP, plus le chiffrement, sans le blocage en tête de file ([ch. 5](http.mdx)). Passer par UDP lui permet d’évoluer dans l’application plutôt que dans le noyau des systèmes d’exploitation.
 
 En contrepartie, une application qui utilise UDP hérite de tout ce que TCP faisait pour elle : détecter les pertes si elle en a besoin, ne pas saturer le réseau, découper ses messages pour qu’ils ne soient pas fragmentés. La taille utile d’un datagramme doit rester sous la taille maximale des paquets du chemin ; QUIC, par exemple, exige que le réseau transporte des datagrammes d’au moins 1 200 octets[^rfc9000], et le DNS recommande 1 232 octets ([ch. 3](client-serveur-dns.mdx)).
 
@@ -177,10 +177,10 @@ En contrepartie, une application qui utilise UDP hérite de tout ce que TCP fais
 
 ## Ordres de grandeur
 
-Le RTT a une borne inférieure physique : la lumière se propage dans la fibre à environ deux tiers de sa vitesse dans le vide (indice de réfraction proche de 1,47), soit à peu près 200 km par milliseconde, ou 5 µs par kilomètre. Les câbles ne suivent pas le grand cercle et les routeurs ajoutent leur part, si bien que les RTT réels sont plus élevés que ces bornes, souvent de 30 à 50 %.
+Le RTT a une borne inférieure physique, car la lumière se propage dans la fibre à environ deux tiers de sa vitesse dans le vide (indice de réfraction proche de 1,47), soit à peu près 200 km par milliseconde, ou 5 µs par kilomètre. Les câbles ne suivent pas le grand cercle et les routeurs ajoutent leur part, si bien que les RTT réels sont plus élevés que ces bornes, souvent de 30 à 50 %.
 
 :::calcul[Calcul : RTT minimal imposé par la distance]
-Un aller-retour parcourt deux fois la distance : $\text{RTT}_{\min} = 2d / v$, avec $v \approx 200$ km/ms.
+Un aller-retour parcourt deux fois la distance, d’où $\text{RTT}_{\min} = 2d / v$, avec $v \approx 200$ km/ms.
 
 | Trajet | Distance à vol d’oiseau | RTT minimal |
 |---|---|---|
@@ -203,7 +203,7 @@ Ces RTT se combinent avec les autres limites de TCP. Voici trois calculs pour un
 | Débit de Reno avec 0,1 % de pertes (formule de Mathis, MSS de 1 460 o) | 1 460 × 8 / 0,08 × 1,22 / √0,001 | ≈ 5,6 Mbit/s |
 | Même chose avec 0,001 % de pertes | p divisé par 100, débit × 10 | ≈ 56 Mbit/s |
 
-Conclusion : sur une longue distance, le débit d’une connexion TCP est borné par sa fenêtre et par ses pertes bien avant de l’être par le lien. Pour un transfert volumineux entre continents, on ouvre plusieurs connexions en parallèle, on choisit un algorithme moins sensible aux pertes, ou l’on rapproche les données des utilisateurs (CDN, [ch. 15](../partie-2/cdn-edge.mdx)). Pour une API, ce sont les RTT qui comptent : chaque aller-retour évité vaut 80 ms.
+Conclusion : sur une longue distance, le débit d’une connexion TCP est borné par sa fenêtre et par ses pertes bien avant de l’être par le lien. Pour un transfert volumineux entre continents, on ouvre plusieurs connexions en parallèle, on choisit un algorithme moins sensible aux pertes, ou l’on rapproche les données des utilisateurs (CDN, [ch. 15](../partie-2/cdn-edge.mdx)). Pour une API, ce sont les RTT qui comptent, et chaque aller-retour évité vaut 80 ms.
 :::
 
 Le dernier calcul dimensionne un pool de connexions. Le nombre de connexions occupées en même temps est, en moyenne, le débit des requêtes multiplié par leur durée, une relation que le [ch. 9](latence-debit.mdx) nommera loi de Little.
@@ -224,7 +224,7 @@ Conclusion : la base voit 480 connexions ouvertes dont la moitié au plus trava
 
 ## Exemple réel : BBR chez Google
 
-En juillet 2017, Google a annoncé la mise à disposition de BBR sur sa plateforme cloud, après l’avoir déployé pour le trafic de son moteur de recherche et de YouTube. L’équipe indiquait que BBR avait augmenté le débit réseau de YouTube de 4 % en moyenne sur l’ensemble du monde, et de plus de 14 % dans certains pays[^bbr-gcp]. La formule de Mathis aide à comprendre d’où peut venir un tel gain : sur un réseau qui perd des paquets sans être saturé, comme beaucoup de liaisons mobiles, un algorithme qui interprète chaque perte comme de la congestion divise sa fenêtre pour rien, alors que BBR continue d’envoyer au débit qu’il a mesuré. Pour le concepteur, l’intérêt de l’exemple tient en une phrase : le choix d’un algorithme de congestion, qui ne coûte qu’un réglage du noyau sur les serveurs, change le débit perçu par des centaines de millions d’utilisateurs.
+En juillet 2017, Google a annoncé la mise à disposition de BBR sur sa plateforme cloud, après l’avoir déployé pour le trafic de son moteur de recherche et de YouTube. L’équipe indiquait que BBR avait augmenté le débit réseau de YouTube de 4 % en moyenne sur l’ensemble du monde, et de plus de 14 % dans certains pays[^bbr-gcp]. La formule de Mathis aide à comprendre d’où peut venir un tel gain. Sur un réseau qui perd des paquets sans être saturé, comme beaucoup de liaisons mobiles, un algorithme qui interprète chaque perte comme de la congestion divise sa fenêtre pour rien, alors que BBR continue d’envoyer au débit qu’il a mesuré. Pour le concepteur, l’intérêt de l’exemple tient en une phrase. Le choix d’un algorithme de congestion, qui ne coûte qu’un réglage du noyau sur les serveurs, change le débit perçu par des centaines de millions d’utilisateurs.
 
 ## Erreurs fréquentes
 
@@ -238,14 +238,14 @@ Il faut aussi se méfier de ce que garantit TCP. Un acquittement TCP dit que le 
 
 Les délais d’inactivité mal accordés causent des erreurs intermittentes difficiles à diagnostiquer. Si un serveur ferme une connexion inactive avant le répartiteur de charge qui la lui réutilise, le répartiteur envoie une requête sur une connexion que le serveur vient de fermer, et le client reçoit une erreur 502 de temps en temps. La règle est que le côté qui réutilise les connexions doit les abandonner avant que l’autre ne les ferme.
 
-En entretien, on attend du candidat qu’il compte les allers-retours. Dire « on garde les connexions ouvertes » ne suffit pas : il faut savoir que cela économise un RTT par requête (deux ou trois avec TLS) et le démarrage lent, et chiffrer ce que vaut un RTT sur le trajet en question.
+En entretien, on attend du candidat qu’il compte les allers-retours. Dire « on garde les connexions ouvertes » ne suffit pas. Il faut savoir que cela économise un RTT par requête (deux ou trois avec TLS) et le démarrage lent, et chiffrer ce que vaut un RTT sur le trajet en question.
 
 :::piege[Erreur fréquente : UDP « parce que c’est plus rapide »]
-UDP n’est pas plus rapide que TCP pour transférer des données qu’il faut recevoir en entier : dès qu’on rajoute la détection des pertes, les retransmissions et l’ordre, on a réécrit TCP, en général moins bien. UDP est utile quand une donnée en retard ne vaut plus rien (voix, jeu), quand l’échange tient en un aller-retour (DNS), ou quand on reconstruit un transport complet en connaissance de cause (QUIC).
+UDP n’est pas plus rapide que TCP pour transférer des données qu’il faut recevoir en entier, car dès qu’on rajoute la détection des pertes, les retransmissions et l’ordre, on a réécrit TCP, en général moins bien. UDP est utile quand une donnée en retard ne vaut plus rien (voix, jeu), quand l’échange tient en un aller-retour (DNS), ou quand on reconstruit un transport complet en connaissance de cause (QUIC).
 :::
 
 :::entretien
-Si l’examinateur demande pourquoi une page lente à New York est rapide à Paris, partez de la physique : environ 58 ms de RTT minimal entre les deux villes, multipliés par le nombre d’allers-retours de la page (DNS, TCP, TLS, requêtes successives). Chaque solution (CDN, réutilisation des connexions, HTTP/3, moins de requêtes en série) se justifie alors par le nombre de RTT qu’elle supprime.
+Si l’examinateur demande pourquoi une page lente à New York est rapide à Paris, partez de la physique, avec environ 58 ms de RTT minimal entre les deux villes, multipliés par le nombre d’allers-retours de la page (DNS, TCP, TLS, requêtes successives). Chaque solution (CDN, réutilisation des connexions, HTTP/3, moins de requêtes en série) se justifie alors par le nombre de RTT qu’elle supprime.
 :::
 
 ## Exercices
@@ -256,38 +256,38 @@ Si l’examinateur demande pourquoi une page lente à New York est rapide à Par
 
 **Question 3.** Pourquoi un paquet perdu retarde-t-il les données suivantes dans une connexion TCP mais pas dans un flux UDP ? Donnez une application pour laquelle ce comportement de TCP est un défaut, et une pour laquelle il est indispensable.
 
-**Exercice de conception.** Une application de suivi de colis compte 60 serveurs d’application, qui interrogent une base PostgreSQL principale et appellent chacun un service de géolocalisation situé dans un autre centre de données, à 30 ms de RTT. Chaque serveur traite 250 requêtes par seconde en moyenne (pointe : 3 fois plus). Chaque requête fait 2 requêtes SQL de 4 ms chacune et un appel au service de géolocalisation, qui met 10 ms à répondre une fois la requête reçue. Concevez la gestion des connexions : taille des pools, nombre de connexions vues par la base et par le service de géolocalisation, réglages de délais d’inactivité, et estimez le temps gagné par requête en réutilisant les connexions vers le service distant, sachant que ce service exige TLS (comptez un RTT de plus pour l’ouverture d’une session TLS 1.3).
+**Exercice de conception.** Une application de suivi de colis compte 60 serveurs d’application, qui interrogent une base PostgreSQL principale et appellent chacun un service de géolocalisation situé dans un autre centre de données, à 30 ms de RTT. Chaque serveur traite 250 requêtes par seconde en moyenne, trois fois plus en pointe. Chaque requête fait 2 requêtes SQL de 4 ms chacune et un appel au service de géolocalisation, qui met 10 ms à répondre une fois la requête reçue. Concevez la gestion des connexions : taille des pools, nombre de connexions vues par la base et par le service de géolocalisation, réglages de délais d’inactivité, et estimez le temps gagné par requête en réutilisant les connexions vers le service distant, sachant que ce service exige TLS (comptez un RTT de plus pour l’ouverture d’une session TLS 1.3).
 
 ## Corrigés
 
-**Question 1.** Sur une connexion neuve, une requête coûte 2 RTT (ouverture, puis requête et réponse), soit 100 ms ; trois requêtes successives coûtent 300 ms. Sur une connexion réutilisée, la première coûte 100 ms et les deux suivantes 50 ms chacune, soit 200 ms au total. Le gain d’un tiers s’accroît avec le nombre de requêtes : pour $n$ requêtes, $2n$ RTT contre $n + 1$. Avec TLS, l’écart serait de $3n$ contre $n + 2$ RTT.
+**Question 1.** Sur une connexion neuve, une requête coûte 2 RTT (ouverture, puis requête et réponse), soit 100 ms ; trois requêtes successives coûtent 300 ms. Sur une connexion réutilisée, la première coûte 100 ms et les deux suivantes 50 ms chacune, soit 200 ms au total. Le gain d’un tiers s’accroît avec le nombre de requêtes ; pour $n$ requêtes, on compte $2n$ RTT contre $n + 1$. Avec TLS, l’écart serait de $3n$ contre $n + 2$ RTT.
 
 **Question 2.** Chaque connexion fermée par le client occupe son port éphémère pendant 60 s. À 1 000 ouvertures par seconde, les 28 232 ports sont épuisés en $28\,232 / 1\,000 \approx 28$ secondes ; ensuite, seules les connexions dont le TIME_WAIT expire libèrent des ports, soit environ 470 par seconde, et les autres ouvertures échouent avec `EADDRNOTAVAIL`. Les corrections, par ordre de préférence :
 
-1. Un pool de connexions dans le client : quelques connexions ouvertes en permanence suffisent (1 000 requêtes de quelques millisecondes occupent quelques connexions à la fois), il n’y a plus de TIME_WAIT et chaque requête économise un RTT.
-2. Si l’on ne peut pas modifier le client, faire fermer les connexions par le serveur : le TIME_WAIT passe de son côté, où il ne consomme pas de ports éphémères (toutes les connexions arrivent sur le même port d’écoute), au prix d’un peu de mémoire. Ou bien activer `net.ipv4.tcp_tw_reuse = 1` sur le client, qui permet de réutiliser un port en TIME_WAIT pour une nouvelle connexion sortante quand les horodatages TCP sont actifs.
-3. Élargir la plage de ports éphémères ou donner plusieurs adresses source au client : cela repousse la limite sans supprimer le coût d’une ouverture par requête.
+1. Un pool de connexions dans le client règle le problème. Quelques connexions ouvertes en permanence suffisent (1 000 requêtes de quelques millisecondes occupent quelques connexions à la fois), il n’y a plus de TIME_WAIT et chaque requête économise un RTT.
+2. Si l’on ne peut pas modifier le client, on fait fermer les connexions par le serveur. Le TIME_WAIT passe alors de son côté, où il ne consomme pas de ports éphémères (toutes les connexions arrivent sur le même port d’écoute), au prix d’un peu de mémoire. Ou bien activer `net.ipv4.tcp_tw_reuse = 1` sur le client, qui permet de réutiliser un port en TIME_WAIT pour une nouvelle connexion sortante quand les horodatages TCP sont actifs.
+3. Élargir la plage de ports éphémères ou donner plusieurs adresses source au client repousse la limite sans supprimer le coût d’une ouverture par requête.
 
-**Question 3.** TCP garantit l’ordre du flux : les octets qui suivent un trou ne sont remis à l’application qu’une fois le trou comblé par une retransmission, au moins un RTT plus tard. UDP remet chaque datagramme dès qu’il arrive, indépendamment des autres ; un datagramme perdu est simplement absent. Pour une visioconférence, ce comportement de TCP est un défaut : une image en retard de 200 ms gèle la vidéo alors qu’il aurait mieux valu sauter l’image perdue. Pour le transfert d’un fichier ou une transaction bancaire, il est indispensable : un octet manquant ou déplacé rend le résultat faux.
+**Question 3.** TCP garantit l’ordre du flux. Les octets qui suivent un trou ne sont remis à l’application qu’une fois le trou comblé par une retransmission, au moins un RTT plus tard. UDP remet chaque datagramme dès qu’il arrive, indépendamment des autres ; un datagramme perdu est simplement absent. Pour une visioconférence, ce comportement de TCP est un défaut, car une image en retard de 200 ms gèle la vidéo alors qu’il aurait mieux valu sauter l’image perdue. Pour le transfert d’un fichier ou une transaction bancaire, il est indispensable, car un octet manquant ou déplacé rend le résultat faux.
 
 **Exercice de conception.**
 
-*Base de données.* Par serveur, la base est occupée en moyenne $250 \times 2 \times 0{,}004 = 2$ connexions, 6 en pointe. Un pool de 10 à 12 connexions par serveur laisse de la marge pour les requêtes lentes ; la base voit alors 60 × 12 = 720 connexions ouvertes, dont 360 au plus travaillent en même temps. C’est beaucoup pour PostgreSQL, qui consacre un processus à chaque connexion : on place un concentrateur de connexions devant la base ([ch. 19](../partie-2/index-modelisation.mdx)), qui partage par exemple 100 connexions réelles entre les 720 connexions des serveurs, ou l’on réduit le pool de chaque serveur à 8 en acceptant une courte attente en pointe.
+*Base de données.* Par serveur, la base est occupée en moyenne $250 \times 2 \times 0{,}004 = 2$ connexions, 6 en pointe. Un pool de 10 à 12 connexions par serveur laisse de la marge pour les requêtes lentes ; la base voit alors 60 × 12 = 720 connexions ouvertes, dont 360 au plus travaillent en même temps. C’est beaucoup pour PostgreSQL, qui consacre un processus à chaque connexion. On place donc un concentrateur de connexions devant la base ([ch. 19](../partie-2/index-modelisation.mdx)), qui partage par exemple 100 connexions réelles entre les 720 connexions des serveurs, ou l’on réduit le pool de chaque serveur à 8 en acceptant une courte attente en pointe.
 
-*Service de géolocalisation.* Vu d’un serveur, un appel occupe sa connexion pendant un RTT plus le temps de traitement, soit 30 + 10 = 40 ms. Connexions occupées en moyenne : $250 \times 0{,}04 = 10$, 30 en pointe. Un pool de 40 connexions par serveur suffit, soit 60 × 40 = 2 400 connexions TLS ouvertes sur le service distant, qui doit pouvoir les tenir (ou les servir derrière un répartiteur). Si le service accepte HTTP/2 ou gRPC, quelques connexions multiplexées par serveur remplacent ce pool, au prix du blocage en tête de file en cas de perte sur le lien entre les deux centres.
+*Service de géolocalisation.* Vu d’un serveur, un appel occupe sa connexion pendant un RTT plus le temps de traitement, soit 30 + 10 = 40 ms. Il y a en moyenne $250 \times 0{,}04 = 10$ connexions occupées, 30 en pointe. Un pool de 40 connexions par serveur suffit, soit 60 × 40 = 2 400 connexions TLS ouvertes sur le service distant, qui doit pouvoir les tenir (ou les servir derrière un répartiteur). Si le service accepte HTTP/2 ou gRPC, quelques connexions multiplexées par serveur remplacent ce pool, au prix du blocage en tête de file en cas de perte sur le lien entre les deux centres.
 
-*Temps gagné.* Une connexion neuve vers le service coûte un RTT pour TCP et un pour TLS 1.3 avant d’envoyer la requête, soit 60 ms de plus. L’appel passe de $30 + 30 + 30 + 10 = 100$ ms (ouverture TCP, TLS, requête, traitement) à $30 + 10 = 40$ ms sur une connexion réutilisée : 60 ms gagnés par requête, sur un total qui comprend aussi les 8 ms de SQL. À 250 requêtes par seconde et par serveur, la réutilisation évite en outre 250 poignées de main TLS par seconde, coûteuses en calcul pour le service distant, et 15 000 sur l’ensemble des serveurs.
+*Temps gagné.* Une connexion neuve vers le service coûte un RTT pour TCP et un pour TLS 1.3 avant d’envoyer la requête, soit 60 ms de plus. L’appel passe de $30 + 30 + 30 + 10 = 100$ ms (ouverture TCP, TLS, requête, traitement) à $30 + 10 = 40$ ms sur une connexion réutilisée, soit 60 ms gagnés par requête, sur un total qui comprend aussi les 8 ms de SQL. À 250 requêtes par seconde et par serveur, la réutilisation évite en outre 250 poignées de main TLS par seconde, coûteuses en calcul pour le service distant, et 15 000 sur l’ensemble des serveurs.
 
-*Délais d’inactivité.* Les pools doivent abandonner une connexion inactive avant que le serveur d’en face ne la ferme : si le service de géolocalisation ferme après 60 s d’inactivité, on règle le pool pour fermer après 50 s. Pour les connexions qui traversent un pare-feu ou un NAT entre les deux centres, on active le keepalive TCP avec un délai bien inférieur aux 7 200 s par défaut (par exemple 60 s), ou des requêtes de vérification au niveau de l’application, pour que l’équipement intermédiaire n’oublie pas une connexion silencieuse.
+*Délais d’inactivité.* Les pools doivent abandonner une connexion inactive avant que le serveur d’en face ne la ferme. Si le service de géolocalisation ferme après 60 s d’inactivité, on règle le pool pour fermer après 50 s. Pour les connexions qui traversent un pare-feu ou un NAT entre les deux centres, on active le keepalive TCP avec un délai bien inférieur aux 7 200 s par défaut (par exemple 60 s), ou des requêtes de vérification au niveau de l’application, pour que l’équipement intermédiaire n’oublie pas une connexion silencieuse.
 
 :::fiche
 - TCP : flux d’octets fiable et ordonné, sans notion de message ; ouverture en 1 RTT, premier octet de réponse au bout de 2 RTT (plus TLS).
 - Fiabilité : numéros de séquence, acquittements cumulatifs, RTO = SRTT + 4 × RTTVAR (200 ms au moins sous Linux), retransmission rapide après 3 acquittements dupliqués.
 - Débit borné par la fenêtre : $D_{\max} = W / \text{RTT}$ ; remplir un lien exige $W \geq D \times \text{RTT}$.
-- Congestion : démarrage lent depuis 10 segments, puis AIMD ; CUBIC par défaut, BBR chez Google ; Mathis : débit en $1 / (\text{RTT}\sqrt{p})$.
+- Congestion : démarrage lent depuis 10 segments, puis AIMD ; CUBIC par défaut, BBR chez Google ; selon Mathis, débit en $1 / (\text{RTT}\sqrt{p})$.
 - Blocage en tête de file : une perte retarde tout ce qui suit d’au moins un RTT.
-- TIME_WAIT : 60 s sous Linux chez celui qui ferme en premier ; 28 232 ports / 60 s ≈ 470 connexions par seconde vers un même serveur ; mesuré : épuisement après 28 227 connexions.
-- Réutiliser les connexions (keep-alive, pool, multiplexage) : un RTT et un démarrage lent économisés par requête ; mesuré en local : 23 µs contre 427 µs.
+- TIME_WAIT : 60 s sous Linux chez celui qui ferme en premier ; 28 232 ports / 60 s ≈ 470 connexions par seconde vers un même serveur ; épuisement mesuré après 28 227 connexions.
+- Réutiliser les connexions (keep-alive, pool, multiplexage) : un RTT et un démarrage lent économisés par requête (23 µs contre 427 µs, mesurés en local).
 - UDP : 8 octets d’en-tête, ni connexion ni garantie ; DNS, temps réel, jeux, métriques, QUIC.
 - RTT minimal ≈ 2 × distance / 200 km/ms : Paris - New York ≥ 58 ms.
 :::
