@@ -10,14 +10,17 @@ permissions:
   pages: write
   id-token: write
 
-# Un seul déploiement à la fois ; on n'annule pas un déploiement en cours
+# Un seul déploiement à la fois. Un nouveau push annule le déploiement en cours :
+# pour un site statique, le suivant republie tout, et un déploiement resté bloqué
+# (job « deploy » en attente) ne peut plus retenir les suivants indéfiniment.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +45,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
