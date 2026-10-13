@@ -11,7 +11,7 @@ Ce cours s’adresse à des personnes qui savent programmer, ont peut-être déj
 
 La partie 0 donne la méthode et l’outil de calcul dont tout le reste se sert. La partie 1 pose les fondamentaux (réseau, protocoles, latence, disponibilité, cohérence), la partie 2 les briques que l’on assemble (répartiteurs, caches, bases de données, files de messages), la partie 3 ce qui rend les systèmes distribués difficiles (pannes partielles, horloges, consensus). Les parties 4 et 5 traitent des styles d’architecture et de l’exploitation en production. La partie 6 applique tout cela à vingt-six systèmes conçus de bout en bout, et la partie 7, facultative, prépare aux entretiens de conception objet.
 
-Les chapitres sont numérotés de 1 à 89 sans repartir à zéro à chaque partie : un renvoi comme « [ch. 17](partie-2/cache-invalidation.mdx) » désigne toujours le même chapitre. Une notion n’est jamais utilisée avant d’avoir été expliquée ; quand un chapitre a besoin d’une idée traitée plus loin, il le dit et renvoie vers elle.
+Les chapitres sont numérotés de 1 à 89 sans repartir à zéro à chaque partie, si bien qu’un renvoi comme « [ch. 17](partie-2/cache-invalidation.mdx) » désigne toujours le même chapitre. Une notion n’est jamais utilisée avant d’avoir été expliquée ; quand un chapitre a besoin d’une idée traitée plus loin, il le dit et renvoie vers elle.
 
 ## Ce que vous trouverez dans un chapitre
 
@@ -41,6 +41,6 @@ Beaucoup de chiffres du cours viennent de mesures faites pour lui, sur une seule
 
 ## Conventions
 
-Le vocabulaire anglais est celui de l’industrie et des entretiens : il est donné entre parenthèses à la première occurrence, par exemple « mise en cache (caching) », puis le terme le plus courant est employé. Les chiffres viennent de sources citées en notes de bas de page ; quand une valeur est une hypothèse de calcul, elle est présentée comme telle. Le code est en Python, les requêtes en SQL standard (PostgreSQL quand un dialecte est nécessaire).
+Le vocabulaire anglais est celui de l’industrie et des entretiens. Il est donné entre parenthèses à la première occurrence, par exemple « mise en cache (caching) », puis le terme le plus courant est employé. Les chiffres viennent de sources citées en notes de bas de page ; quand une valeur est une hypothèse de calcul, elle est présentée comme telle. Le code est en Python, les requêtes en SQL standard (PostgreSQL quand un dialecte est nécessaire).
 
-Faites les exercices avant de lire les corrigés, et refaites les calculs vous-même : c’est en entretien, sans corrigé sous les yeux, que l’habitude de chiffrer fait la différence.
+Faites les exercices avant de lire les corrigés, et refaites les calculs vous-même, car c’est en entretien, sans corrigé sous les yeux, que l’habitude de chiffrer fait la différence.

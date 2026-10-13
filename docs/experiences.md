@@ -9,9 +9,9 @@ Plusieurs chapitres publient des mesures faites pour le cours : le coût d’un
 
 ## La machine des mesures
 
-Les chiffres publiés ont été obtenus sur un ordinateur portable : processeur Intel Core Ultra 7 165H (22 fils d’exécution), SSD NVMe Samsung, Linux 7.0, Python 3.14, OpenSSL 3.5.5, Caddy 2.10.2, wrk 4.1.0, Docker 29.3 et gcc 15.2. Toutes les mesures sont locales : serveurs, clients et répartiteurs tournent sur la même machine, et les délais de réseau, quand un chapitre en a besoin, sont ajoutés par un petit relais écrit en Python. Aucune mesure ne passe par Internet.
+Les chiffres publiés ont été obtenus sur un ordinateur portable : processeur Intel Core Ultra 7 165H (22 fils d’exécution), SSD NVMe Samsung, Linux 7.0, Python 3.14, OpenSSL 3.5.5, Caddy 2.10.2, wrk 4.1.0, Docker 29.3 et gcc 15.2. Toutes les mesures sont locales. Serveurs, clients et répartiteurs tournent sur la même machine, et les délais de réseau, quand un chapitre en a besoin, sont ajoutés par un petit relais écrit en Python. Aucune mesure ne passe par Internet.
 
-Sur une autre machine, les valeurs absolues changeront : un processeur plus lent servira moins de requêtes par seconde, un autre disque aura d’autres latences. Les comparaisons doivent tenir, elles : le tourniquet plafonné par le serveur le plus lent, la reprise de session TLS plus rapide qu’une poignée de main complète, la lecture immédiate sur une réplique qui renvoie parfois l’ancienne valeur. Pour des mesures stables, mieux vaut ne rien faire tourner d’autre de lourd pendant l’exécution.
+Sur une autre machine, les valeurs absolues changeront ; un processeur plus lent servira moins de requêtes par seconde, un autre disque aura d’autres latences. Les comparaisons doivent tenir, elles, comme le tourniquet plafonné par le serveur le plus lent, la reprise de session TLS plus rapide qu’une poignée de main complète, la lecture immédiate sur une réplique qui renvoie parfois l’ancienne valeur. Pour des mesures stables, mieux vaut ne rien faire tourner d’autre de lourd pendant l’exécution.
 
 ## Installer
 
@@ -51,7 +51,7 @@ Les résultats s’affichent sur la sortie standard. Les fichiers de travail (co
 
 ## Après une expérience
 
-Chaque script arrête à la fin les processus qu’il a lancés (serveurs Python, Caddy, relais) et supprime les conteneurs qu’il a créés. Les conteneurs portent un nom qui commence par `cours-sd-`, et seuls ceux-là sont supprimés : aucun script ne fait de nettoyage global de Docker. Si une exécution est interrompue avant la fin, par Ctrl-C par exemple, il peut rester un conteneur ou un processus :
+Chaque script arrête à la fin les processus qu’il a lancés (serveurs Python, Caddy, relais) et supprime les conteneurs qu’il a créés. Les conteneurs portent un nom qui commence par `cours-sd-`, et seuls ceux-là sont supprimés ; aucun script ne fait de nettoyage global de Docker. Si une exécution est interrompue avant la fin, par Ctrl-C par exemple, il peut rester un conteneur ou un processus :
 
 ```bash
 docker ps -a --filter name=cours-sd-          # conteneurs restants du cours
@@ -65,4 +65,4 @@ rm -rf ~/.cache/cours-sd-ch20                # données du ch. 20 si moteurs.py 
 pgrep -af "caddy run"                         # Caddy lancés par les scripts
 ```
 
-Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`) : celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 9932 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.
+Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`). Celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 9932 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.
