@@ -46,7 +46,7 @@ const config: Config = {
           remarkPlugins: [remarkMath],
           rehypePlugins: [rehypeKatex],
           admonitions: {
-            keywords: ['analogie', 'calcul', 'piege', 'entretien', 'fiche'],
+            keywords: ['calcul', 'piege', 'entretien', 'fiche'],
             extendDefaults: true,
           },
         },

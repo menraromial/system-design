@@ -15,18 +15,6 @@ Stripe, le service de paiement en ligne, affirmait en 2017 avoir maintenu la com
 
 Ce chapitre compare les trois styles d’API qu’on rencontre en conception : REST, GraphQL et gRPC. Il traite aussi deux questions qui se posent quel que soit le style, la pagination des listes et l’évolution des messages dans le temps. Trois expériences ont été faites pour l’illustrer : la taille d’un même message dans quatre formats de sérialisation, la pagination d’une table d’un million de lignes, et le problème dit N+1 de GraphQL, mesuré en comptant les requêtes SQL.
 
-## La carte, le buffet et l’interphone
-
-:::analogie[Analogie : trois façons de commander à manger]
-Dans un restaurant à la carte, chaque plat est défini par la cuisine. Vous commandez « le plat du jour », et vous recevez l’assiette complète, avec la garniture que vous ne mangerez pas. Pour composer un repas, vous passez plusieurs commandes l’une après l’autre. C’est REST, avec des ressources définies par le serveur, chacune à son adresse, et renvoyées entières.
-
-Au buffet, vous composez vous-même votre assiette en une seule fois, exactement avec ce que vous voulez. C’est GraphQL, où le client décrit précisément les données qu’il veut, et les reçoit en une réponse.
-
-En cuisine, entre le chef et le poste des desserts, on ne discute pas ; on passe par l’interphone des commandes codées, dont tout le monde connaît le format par cœur, rapides et sans ambiguïté. C’est gRPC, un contrat strict et compilé entre programmes qui se connaissent.
-
-**Où l’analogie s’arrête.** Au buffet, le coût d’une assiette pour la cuisine ne dépend pas de ce que vous y mettez ; avec GraphQL, une requête de quelques lignes peut demander à la base des millions d’enregistrements, et le serveur doit limiter ce que chaque client a le droit de demander. Le restaurant peut préparer à l’avance les plats de sa carte, qui sont toujours les mêmes, alors que chaque assiette du buffet est différente, et c’est toute la question du cache. Et un restaurant change sa carte quand il veut, alors qu’une API qui retire un plat casse les clients qui le commandaient. L’évolution du contrat est la contrainte qui dure le plus longtemps.
-:::
-
 ## REST : des ressources et des verbes
 
 REST (representational state transfer) est le nom qu’a donné Roy Fielding, dans sa thèse de 2000, au style d’architecture du web[^fielding]. Il le définit par des contraintes : séparation entre client et serveur, échanges sans état (chaque requête porte tout ce qu’il faut pour la traiter, [ch. 10](passer-echelle.mdx)), réponses explicitement cacheables ou non, interface uniforme, et architecture en couches où des intermédiaires (caches, répartiteurs) peuvent s’interposer sans que le client le sache. Une API REST, au sens courant, applique ces idées à HTTP. Chaque entité du domaine est une ressource, identifiée par une URL, manipulée par les méthodes de HTTP et renvoyée dans une représentation, presque toujours du JSON.

@@ -28,16 +28,6 @@ www.example.com. 300  IN  A   172.66.147.243
 
 Trois serveurs, dans trois organisations différentes, ont été interrogés l’un après l’autre : un serveur racine, un serveur du domaine `.com`, puis un serveur de Cloudflare qui connaît la réponse. Chaque étape a coûté entre 160 et 230 ms depuis le poste utilisé, relié au réseau par un VPN qui allonge chaque trajet. Si chaque visite d’un site coûtait une demi-seconde de recherche avant le premier octet, le web serait inutilisable ; il ne l’est pas, grâce aux caches et aux durées de vie que montre la deuxième colonne de cette sortie. Ce chapitre explique cette mécanique, et avant elle le modèle dans lequel elle s’inscrit, celui d’un client qui demande et d’un serveur qui répond.
 
-## L’annuaire et le standard
-
-:::analogie[Analogie : appeler quelqu’un dans une grande entreprise]
-Pour joindre une personne dans une entreprise que vous ne connaissez pas, vous cherchez le nom de l’entreprise dans un annuaire, qui vous donne le numéro du standard. Vous appelez ce numéro et demandez le poste de la personne. Le standard reçoit des dizaines d’appels en même temps et ne les confond pas, parce que chaque appel relie un numéro appelant à un poste précis. Si vous rappelez souvent, vous notez le numéro dans votre carnet et vous ne rouvrez plus l’annuaire.
-
-La correspondance avec ce chapitre est directe. Le nom de l’entreprise est le nom de domaine, le numéro du standard est l’adresse IP, le poste est le port, l’annuaire est le DNS et votre carnet est un cache. L’annuaire lui-même est hiérarchique, car l’annuaire national ne liste pas tous les employés, il renvoie vers l’annuaire de chaque entreprise.
-
-**Où l’analogie s’arrête.** Votre carnet ne se périme pas tout seul, alors qu’une réponse du DNS porte une date d’expiration, et c’est là que se joue presque tout ce qui fait souffrir les équipes. L’annuaire donne le même numéro à tout le monde, alors que le DNS peut répondre une adresse différente selon d’où vient la question, ce qui en fait un outil de répartition du trafic. Plusieurs centaines de personnes peuvent appeler depuis le même numéro, celui du standard de leur propre entreprise ; sur Internet aussi, beaucoup de clients partagent une adresse, et un serveur qui identifie ses clients par leur adresse se trompe. Enfin, un appel téléphonique occupe une ligne de bout en bout, alors qu’Internet transporte des paquets indépendants qui peuvent se perdre ou arriver dans le désordre ; le [ch. 4](transport.mdx) montre comment TCP reconstruit une conversation fiable par-dessus.
-:::
-
 ## Le modèle client-serveur
 
 Dans le modèle client-serveur, un programme, le serveur, attend des demandes ; d’autres programmes, les clients, prennent l’initiative de le contacter, lui envoient une requête (request) et reçoivent une réponse (response). La distinction porte sur les rôles, pas sur les machines. Un serveur d’application est le serveur des navigateurs et, dans la même seconde, le client de sa base de données. Elle s’oppose au modèle pair-à-pair (peer-to-peer), où chaque participant joue les deux rôles envers les autres, comme dans BitTorrent.

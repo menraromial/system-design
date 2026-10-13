@@ -15,16 +15,6 @@ En octobre 1986, le débit entre le laboratoire de Lawrence Berkeley et le campu
 
 Ce chapitre décrit ce que fait la couche de transport, entre l’application et le réseau : TCP, qui transforme un réseau capable de perdre et de désordonner les paquets en un flux d’octets fiable, et UDP, qui se contente de livrer des datagrammes au bon port. Les deux ont des coûts que le concepteur paie à chaque requête, et une expérience menée pour ce chapitre montre jusqu’où peut aller le coût d’une mauvaise habitude, celle d’ouvrir une connexion par requête.
 
-## Les fascicules et les cartes postales
-
-:::analogie[Analogie : envoyer un manuscrit par la poste]
-Vous devez envoyer un manuscrit de trois cents pages par la poste, en fascicules de dix pages. Avant le premier envoi, vous écrivez au destinataire pour vérifier l’adresse et convenir de la numérotation, il vous répond, vous confirmez. Vous numérotez chaque fascicule et vous gardez une copie de tout ce qui n’a pas encore été accusé. Le destinataire vous renvoie régulièrement « j’ai tout reçu jusqu’au fascicule 12 » ; si le 13 n’arrive pas, vous le renvoyez. Il ne lit pas le 14 avant d’avoir le 13, même si le 14 est arrivé, parce que le texte doit se lire dans l’ordre. Et si les accusés reviennent de plus en plus lentement, vous ralentissez vos envois pour ne pas noyer le bureau de poste.
-
-C’est ce que fait TCP. L’échange préalable est la poignée de main, la numérotation et les accusés sont les numéros de séquence et les acquittements, la lecture dans l’ordre est la cause du blocage en tête de file, et le ralentissement est le contrôle de congestion. UDP, lui, envoie des cartes postales. Chacune part seule, sans prise de contact préalable, sans numéro ni accusé ; certaines se perdent, d’autres arrivent dans le désordre, et c’est au destinataire de s’en accommoder.
-
-**Où l’analogie s’arrête.** La poste ne vous dit jamais qu’elle est encombrée, et le réseau non plus ; TCP le devine, à partir des pertes ou de l’allongement des délais, et ce qu’il devine peut être faux, par exemple sur un lien radio qui perd des paquets sans être saturé. Le courrier met des jours ; sur un réseau, le délai est fixé par la vitesse de la lumière dans la fibre, et à l’échelle d’un continent il se compte en dizaines de millisecondes qu’aucune optimisation logicielle ne supprime. Enfin, l’échange préalable de lettres paraît une formalité ; pour TCP, c’est un aller-retour complet payé avant le premier octet utile, et pour une requête courte ce coût double la durée totale.
-:::
-
 ## TCP : un flux d’octets fiable
 
 TCP (Transmission Control Protocol), décrit aujourd’hui par la RFC 9293[^rfc9293], offre aux deux extrémités d’une connexion un flux d’octets bidirectionnel. Ce qu’une application écrit d’un côté est lu de l’autre, dans le même ordre, sans trou ni doublon, ou bien la connexion échoue. Le mot important est flux, car TCP ne connaît pas les messages. Deux écritures de 100 octets peuvent être lues en une lecture de 200 ou en trois lectures de tailles quelconques ; c’est à l’application de délimiter ses messages, par une longueur annoncée en tête ou par un séparateur, ce que fait par exemple HTTP avec ses en-têtes ([ch. 5](http.mdx)).

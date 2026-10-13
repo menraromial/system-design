@@ -15,16 +15,6 @@ Le tableau de bord de l’équipe affiche un temps de réponse moyen de 50 ms, 
 
 Ce chapitre donne les outils pour raisonner sur la latence : les percentiles, les files d’attente qui se forment quand un serveur approche de la saturation, la loi de Little, et la latence de queue qui s’aggrave quand une requête attend plusieurs serveurs. Il se termine par les chiffres de référence, du cache du processeur au trajet entre continents. Ceux-ci ne sont pas recopiés d’un tableau ancien ; ils ont été mesurés pour ce chapitre sur une machine réelle, avec les programmes du dossier [`outils/experiences/ch09/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch09) du dépôt.
 
-## La caisse du supermarché
-
-:::analogie[Analogie : une caisse, des clients qui arrivent au hasard]
-Un supermarché n’a qu’une caisse ouverte. Les clients arrivent au hasard, et chacun met un temps variable à passer, selon la taille de son panier. Tant que la caissière est occupée la moitié du temps, la file reste courte. À 90 %, il suffit de trois clients arrivés coup sur coup pour qu’une file se forme, et elle met longtemps à se résorber ; à 99 %, elle ne se résorbe plus. La plupart des clients passent vite, mais celui qui arrive derrière un caddie plein attend dix fois plus que la moyenne. Et si vous devez passer à la boucherie, à la fromagerie et à la boulangerie avant de partir, c’est le plus lent des trois comptoirs qui fixe l’heure à laquelle vous sortez.
-
-Le directeur du magasin dispose d’une relation simple : le nombre moyen de clients dans la file est égal au nombre de clients qui arrivent par minute multiplié par le temps moyen qu’ils y passent. C’est la loi de Little.
-
-**Où l’analogie s’arrête.** Une file de supermarché se voit, et un client qui la trouve trop longue s’en va ; une file de requêtes est invisible, cachée dans les tampons d’un serveur, d’une bibliothèque ou d’un répartiteur, et les requêtes y attendent sans limite si personne n’en a fixé une. Pire, un client logiciel qui attend trop longtemps abandonne puis recommence, ce qui ajoute une requête à la file au lieu d’en retirer une (le ch. 38 y revient). Les durées de service, enfin, ne dépendent pas seulement du panier. Un serveur peut s’arrêter d’un coup pendant une collecte de mémoire ou une compaction de disque, et ralentir tous les clients en même temps, ce qu’une caissière fait rarement.
-:::
-
 ## Latence et débit
 
 La latence (latency) est le temps que met une opération, de la demande à la réponse. Le débit (throughput) est le nombre d’opérations terminées par unité de temps. On confond souvent le débit et la bande passante (bandwidth), qui est la capacité maximale d’un lien ou d’un composant. Une liaison de 1 Gbit/s a cette bande passante, mais le débit utile d’une connexion TCP qui la traverse peut être bien plus faible ([ch. 4](transport.mdx)).

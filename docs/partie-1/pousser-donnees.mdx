@@ -16,15 +16,9 @@ Un tableau de bord affiche un chiffre qui change de temps en temps : le cours d
 
 Trois mesures ont été faites pour ce chapitre avec un petit serveur Python qui publie une mise à jour toutes les dix secondes : le nombre de requêtes et d’octets échangés et le délai de livraison pour quatre clients différents, puis la mémoire qu’occupent 10 000 connexions ouvertes et inactives.
 
-## La boîte aux lettres et le téléphone
-
-:::analogie[Analogie : attendre une lettre importante]
-Vous attendez une lettre. Vous pouvez descendre à la boîte toutes les cinq minutes. C’est le polling, et la plupart du temps la boîte est vide. Vous pouvez attendre devant la boîte jusqu’au passage du facteur, qui vous remet la lettre en main propre, puis vous recommencez à attendre. C’est le long polling. Vous pouvez demander à la poste de sonner chez vous à chaque nouvelle lettre. C’est un abonnement à sens unique, le Server-Sent Events. Vous pouvez garder une ligne téléphonique ouverte en permanence avec le bureau de poste, où chacun parle quand il veut. C’est le WebSocket. Et si vous êtes une entreprise, vous donnez votre adresse à vos fournisseurs, qui vous écrivent quand ils ont du nouveau. C’est le webhook.
-
-**Où l’analogie s’arrête.** Une ligne téléphonique ouverte ne coûte presque rien au bureau de poste qui n’en a qu’une ; un serveur qui en garde un million doit en payer la mémoire et la surveillance, et c’est la principale contrainte de conception de ce chapitre. Une ligne peut aussi être coupée sans que personne raccroche, car un répartiteur de charge ou un routeur domestique oublie une connexion silencieuse au bout de quelques dizaines de secondes, et aucune des deux extrémités n’en est prévenue. Quand on rappelle, il faut savoir quelles lettres sont arrivées pendant la coupure, ce que le téléphone ne dit pas. Enfin, le facteur ne peut pas sonner chez quelqu’un qui n’a pas d’adresse. Un navigateur ou un téléphone, derrière un NAT ([ch. 3](client-serveur-dns.mdx)), ne peut recevoir aucune connexion entrante, et c’est toujours lui qui doit ouvrir le canal.
-:::
-
 ## Quatre mécanismes côté navigateur, un entre serveurs
+
+Dans les quatre mécanismes côté navigateur, c’est le client qui ouvre la connexion. Un navigateur ou un téléphone se trouve presque toujours derrière un NAT ([ch. 3](client-serveur-dns.mdx)) et ne peut recevoir aucune connexion entrante ; le serveur ne peut donc lui parler que sur une requête ou une connexion que le client a ouverte et garde ouverte. Seul le webhook, entre deux serveurs joignables à une adresse publique, inverse le sens.
 
 <Figure svg={modes} num="8.1" alt="Quatre lignes du temps sur 8 secondes, avec deux événements E1 et E2 : polling avec une requête par seconde, long polling avec une requête en attente, SSE avec une réponse ouverte, WebSocket avec des trames dans les deux sens.">
 Comment chacun des quatre mécanismes livre deux événements survenus à 2,3 s et 6,7 s.

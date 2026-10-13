@@ -18,7 +18,7 @@ technique et réussit un entretien de system design. Voix : ingénieur senior qu
 ## Structure de chaque chapitre (parties 0 à 5)
 
 - Problème de départ : facultatif (décision du 2026-10-11), à mettre quand il éclaire.
-- Intuition : plus d’encadré « analogie » systématique depuis le ch. 10 (décision du 2026-10-11) ; une image de la vie courante seulement si elle est nécessaire, dans la prose, avec sa limite.
+- Pas d’analogie : ni encadré « analogie », ni section d’image de la vie courante, ni « où l’analogie s’arrête » (décision de Romial du 2026-10-13, encadrés retirés des ch. 1 à 9). On entre directement dans le mécanisme réel.
 - Explication technique : définitions précises, fonctionnement pas à pas.
 - Au moins un schéma TikZ, suivi de 2 ou 3 phrases qui disent comment le lire. Registre
   `diagramme.sty` (architectures à icônes) ou `papier.sty` (mécanismes, chronogrammes, matrices)

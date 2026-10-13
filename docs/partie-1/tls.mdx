@@ -15,18 +15,6 @@ Le 6 décembre 2018, à partir de cinq heures du matin, les abonnés de l’opé
 
 Les certificats et le chiffrement des échanges relèvent de la sécurité, que la partie 5 traite plus largement. Ce chapitre s’en tient à ce qu’en voit un concepteur sur le chemin d’une requête : ce que TLS (Transport Layer Security) protège, ce qu’il coûte en allers-retours et en processeur, où placer la fin du chiffrement, comment authentifier des services entre eux, et comment éviter que le 6 décembre 2018 se reproduise chez vous. Plusieurs mesures ont été faites pour ce chapitre, sur de vrais sites et sur une infrastructure de certificats montée en local.
 
-## La carte d’identité et le mélange de peinture
-
-:::analogie[Analogie : vérifier une identité, puis convenir d’un secret]
-Un inconnu se présente à votre porte et prétend être le technicien de votre banque. Vous lui demandez une pièce d’identité, et vous vérifiez qu’elle porte bien son nom, qu’elle n’est pas périmée, et qu’elle a été émise par une autorité que vous reconnaissez, l’État, dont vous savez reconnaître le tampon. Vous ne connaissez pas cet homme, mais vous faites confiance à celui qui a émis sa carte.
-
-Il faut ensuite convenir d’un code secret alors que quelqu’un écoute sur le palier. L’image classique est celle des peintures. Chacun choisit en secret une couleur, la mélange avec une couleur commune connue de tous, et envoie le mélange à l’autre. Chacun ajoute alors sa couleur secrète au mélange reçu, et les deux obtiennent la même teinte finale. L’espion a vu passer la couleur commune et les deux mélanges, mais séparer un mélange en ses composants est trop difficile pour lui.
-
-La pièce d’identité est le certificat, l’État est l’autorité de certification, le tampon est une signature numérique, et le mélange des peintures est l’échange de clés de Diffie-Hellman qui donne aux deux côtés une clé de session que personne d’autre ne connaît.
-
-**Où l’analogie s’arrête.** Une carte d’identité dure dix ou quinze ans ; un certificat de serveur dure aujourd’hui au plus 200 jours, souvent 90, et c’est ce qui fait de son renouvellement un problème d’exploitation permanent. Une autorité compromise peut produire de vraies fausses cartes pour n’importe quel nom, et le client n’a aucun moyen de les distinguer des bonnes ; c’est arrivé, comme on le verra. La difficulté de « séparer les peintures » repose sur une hypothèse mathématique, que les ordinateurs quantiques menacent pour les échanges actuels, d’où les échanges hybrides observés plus bas. Enfin, l’analogie ne dit rien du coût. Vérifier une carte prend une seconde, alors que les signatures et les échanges de clés coûtent du temps de processeur que l’on mesure en microsecondes et qui se compte par millions chaque jour.
-:::
-
 ## Ce que TLS garantit, et ce qu’il ne garantit pas
 
 TLS, dont la version actuelle est décrite par la RFC 8446[^rfc8446], apporte trois garanties à une connexion. La confidentialité : un observateur du réseau ne peut pas lire les données échangées. L’intégrité : il ne peut pas les modifier sans que la modification soit détectée. L’authentification du serveur : le client a la preuve qu’il parle au détenteur du nom qu’il a demandé, et pas à un intermédiaire. L’authentification du client est possible aussi, c’est le TLS mutuel décrit plus bas. HTTPS est simplement HTTP transporté dans une connexion TLS.

@@ -5,8 +5,8 @@ réel, justifier chaque choix, réussir un entretien de system design. Un chapit
 dans l'ordre ; « suite » = chapitre suivant. Les numéros de chapitre sont continus d'une partie à
 l'autre pour permettre les renvois (« voir ch. 17 »).
 
-Structure imposée de chaque chapitre (parties 0 à 5) : problème de départ, intuition (analogie
-puis sa limite), explication technique, schéma(s) TikZ adaptés au thème clair/sombre suivis de
+Structure imposée de chaque chapitre (parties 0 à 5) : problème de départ (facultatif), explication technique
+(sans analogie, décision du 2026-10-13), schéma(s) TikZ adaptés au thème clair/sombre suivis de
 2-3 phrases de lecture, ordres de grandeur + calcul d'estimation ligne par ligne, compromis
 (tableau), exemple réel (seulement si sûr), erreurs fréquentes (débutant et entretien),
 exercices (3 questions de compréhension + 1 exercice de conception, corrigés en fin de

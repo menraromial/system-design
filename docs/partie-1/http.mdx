@@ -16,16 +16,6 @@ Cent fichiers de 1 Ko, servis par le même serveur, à travers un réseau où c
 
 HTTP est le protocole de presque tout ce qu’on conçoit dans ce cours : les pages web, les API, les appels entre services, la vidéo à la demande. Ce chapitre en décrit les éléments qui comptent pour la conception (méthodes, codes, en-têtes, cache), puis les trois versions en usage, chacune née des limites de la précédente.
 
-## Le guichet, les tickets et le tapis roulant
-
-:::analogie[Analogie : un guichet de retrait de colis]
-Avec HTTP/1.1, le guichet sert un client à la fois. Vous posez une question, vous attendez la réponse complète, puis vous posez la suivante. Pour aller plus vite, vous faites la queue à six guichets en même temps, ce qui encombre la salle. Avec HTTP/2, il n’y a plus qu’un guichet, mais vous remettez toutes vos demandes d’un coup, chacune avec un numéro de ticket, et l’employé vous rend les colis au fur et à mesure qu’ils sont prêts, en piles entremêlées que vous triez grâce aux tickets. L’employé vous connaît, en plus, et vous n’avez pas à redonner votre nom et votre adresse à chaque demande, seulement ce qui change.
-
-Mais les colis arrivent tous par le même tapis roulant. Si l’un d’eux tombe, le tapis s’arrête jusqu’à ce qu’on le remplace, et tous les autres colis attendent derrière lui, même ceux qui ne vous concernent pas. HTTP/3 remplace ce tapis unique par un tapis par ticket, si bien qu’un colis tombé ne retient que les colis de son ticket.
-
-**Où l’analogie s’arrête.** Le tapis roulant n’est pas un choix d’architecture du bureau de poste, c’est TCP lui-même, que HTTP/2 ne pouvait pas changer parce qu’il vit dans le noyau des systèmes d’exploitation. Il a fallu construire un nouveau transport, QUIC, au-dessus d’UDP. L’analogie oublie aussi l’arrivée au guichet. Avant toute demande, il faut ouvrir la connexion et la chiffrer, ce qui coûte un, deux ou trois allers-retours selon la version, et cela compte souvent plus que le traitement des demandes. Enfin, le meilleur colis est celui qu’on n’a pas besoin d’aller chercher. HTTP décrit précisément quand une copie déjà reçue peut resservir, et ce cache n’a pas d’équivalent au guichet.
-:::
-
 ## HTTP : des requêtes et des réponses
 
 HTTP (Hypertext Transfer Protocol) suit le modèle client-serveur du [ch. 3](client-serveur-dns.mdx), où le client envoie une requête et le serveur renvoie une réponse. Sa sémantique, commune aux trois versions, est décrite par la RFC 9110[^rfc9110] ; chaque version ne change que la façon de transporter les messages. En HTTP/1.1, un message est du texte : une ligne de départ, des en-têtes (headers) sous la forme `Nom: valeur`, une ligne vide, puis un corps éventuel.

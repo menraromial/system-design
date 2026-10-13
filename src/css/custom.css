@@ -332,12 +332,6 @@ body {
 .theme-admonition-warning,
 .theme-admonition-danger { --sd-adm: var(--sd-vermillon); --sd-adm-fond: var(--sd-vermillon-doux); }
 
-/* Analogie : l'image et sa limite, en italique de texte */
-.theme-admonition-analogie {
-  --sd-adm: var(--sd-ambre);
-  --sd-adm-fond: var(--sd-ambre-doux);
-}
-
 /* Erreur fréquente : vermillon de correction */
 .theme-admonition-piege {
   --sd-adm: var(--sd-vermillon);

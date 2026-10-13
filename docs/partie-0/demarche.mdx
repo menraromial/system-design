@@ -15,16 +15,6 @@ import modele from '@site/src/figures/sondage-modele.svg';
 
 Le service de sondage sert d’exemple d’un bout à l’autre. Il est volontairement simple, un serveur et une base de données suffisent à le faire fonctionner, ce qui permet de voir la méthode sans être distrait par des techniques que le cours n’a pas encore présentées. La partie 6 appliquera la même démarche à des systèmes beaucoup plus gros.
 
-## L’architecte avant les plans
-
-:::analogie[Analogie : la maison]
-Un architecte à qui l’on demande « une maison » ne dessine pas l’escalier en premier. Il demande combien de personnes y vivront, si quelqu’un travaille à domicile, quel est le budget, quelle est la forme du terrain, quelles règles d’urbanisme s’appliquent. Il en tire un programme chiffré (quatre chambres, 140 m², un bureau isolé du bruit), puis un plan de masse où chaque pièce n’est qu’un rectangle. Il ne détaille ensuite que ce qui est délicat sur ce projet : la charpente s’il y a une grande portée, l’isolation phonique du bureau. Enfin il vérifie que l’ensemble respecte les normes et tient sur le terrain, et il anticipe l’extension que la famille voudra peut-être dans dix ans.
-
-Les étapes de la conception d’un système suivent le même ordre : questions, chiffres, plan grossier, détails choisis, vérification, évolutions.
-
-**Où l’analogie s’arrête.** Une maison est construite une fois, puis habitée. Un logiciel est reconstruit pendant qu’on s’en sert. On conçoit la prochaine version et la façon d’y passer sans coupure, et l’état final n’existe jamais. La charge d’une maison est bornée par le nombre de ses occupants, alors que le trafic d’un service peut être multiplié par cent en une heure parce qu’un lien a circulé. Enfin une maison ne tombe pas « à moitié », alors qu’un système fait de plusieurs machines peut avoir une machine morte, une lente et une qui répond des données périmées, en même temps (on y consacre le ch. 32).
-:::
-
 ## Les huit étapes
 
 <Figure svg={etapes} num="1.1" alt="Huit étapes en serpentin : exigences, estimation, API, modèle de données, architecture haut niveau, approfondissement, goulets et pannes, évolutions, avec deux flèches de retour en arrière.">

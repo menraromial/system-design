@@ -4,7 +4,6 @@ import AdmonitionLayout from '@theme/Admonition/Layout';
 import type {Props} from '@theme/Admonition';
 
 // Encadrés propres au cours, en plus de note, tip, info, warning, danger :
-//   :::analogie   l'image de la vie courante et l'endroit où elle cesse d'être juste
 //   :::calcul     une estimation menée ligne par ligne
 //   :::piege      une erreur fréquente, chez le débutant ou en entretien
 //   :::entretien  ce que l'examinateur attend sur ce point
@@ -25,7 +24,6 @@ function encadre(type: string, titreParDefaut: string) {
 
 const AdmonitionTypes = {
   ...DefaultAdmonitionTypes,
-  analogie: encadre('analogie', 'Analogie'),
   calcul: encadre('calcul', 'Calcul d’estimation'),
   piege: encadre('piege', 'Erreur fréquente'),
   entretien: encadre('entretien', 'En entretien'),
