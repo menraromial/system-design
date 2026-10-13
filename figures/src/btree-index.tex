@@ -1,0 +1,34 @@
+% Un index B-tree de PostgreSQL à trois niveaux (hauteur mesurée par
+% ch19/index.py pour 2 millions de lignes) et le chemin d'une recherche.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    pg/.style={draw=#1, fill=#1Bg, line width=0.8pt, rounded corners=1.5pt, minimum height=7mm, inner xsep=4pt, font=\ttfamily\small},
+    lien/.style={draw=Dslate, line width=0.6pt},
+    chemin/.style={arr=Dblue, line width=1.1pt}]
+  \node[pg=Dblue] (r) at (75,30) {30000 | 60000};
+  \node[pg=Dslate] (i1) at (30,15) {10000 | 20000};
+  \node[pg=Dblue] (i2) at (75,15) {40000 | 50000};
+  \node[pg=Dslate] (i3) at (120,15) {70000 | 80000};
+  \draw[lien] (r.south) -- (i1.north); \draw[lien] (r.south) -- (i3.north);
+  \draw[chemin] (r.south) -- (i2.north);
+  \node[pg=Dslate] (f1) at (45,0) {38116 … 39998};
+  \node[pg=Dblue] (f2) at (75,0) {40002 … 41870};
+  \node[pg=Dslate] (f3) at (105,0) {41873 … 43910};
+  \draw[lien] (i2.south) -- (f1.north); \draw[lien] (i2.south) -- (f3.north);
+  \draw[chemin] (i2.south) -- (f2.north);
+  \node at (24,0) {…};
+  \draw[lien, <->, >=stealth] (f1.east) -- (f2.west); \draw[lien, <->, >=stealth] (f2.east) -- (f3.west);
+  \node[pg=Dgreen, font=\ttfamily\small] (e) at (75,-17) {40417 → (1203,7)};
+  \draw[chemin] (f2.south) -- (e.north);
+  \node[pg=Damber, font=\sffamily\small] (t) at (75,-32) {table : page 1203, ligne 7};
+  \draw[chemin, dash pattern=on 2pt off 1.5pt] (e.south) -- (t.north);
+  \node[leg, anchor=east] at (12,30) {racine};
+  \node[leg, anchor=east] at (12,15) {pages internes};
+  \node[leg, anchor=east] at (12,0) {feuilles};
+  \node[leg, anchor=east] at (12,-17) {entrée (clé → ctid)};
+  \node[leg, anchor=east] at (12,-32) {tas};
+  \node[note, anchor=west, align=left] at (100,-17) {recherche de 40417 :\\3 pages d'index, puis 1 page de table};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,22 @@
+% Mesures de outils/experiences/ch19/ecritures.py (premier passage).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1mm, y=8mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  \node[titrec, anchor=west] at (0,0.95) {insertions par seconde (milliers)};
+  \foreach \i/\n/\v/\t in {0/0/67.3/{67,3}, 1/1/64.5/{64,5}, 2/3/50.2/{50,2}, 3/5/36.4/{36,4}} {
+    \node[leg, anchor=east] at (-2,-\i) {\n\ index secondaire\ifnum\n>1 s\fi};
+    \draw[draw=Dink, line width=0.5pt, fill=Pvert] (0,-\i-0.27) rectangle ({\v},-\i+0.27);
+    \node[note, anchor=west] at ({\v+1},-\i) {\t};
+  }
+  \draw[ligne] (0,0.45) -- (0,-3.45);
+  \begin{scope}[xshift=95mm]
+    \node[titrec, anchor=west] at (0,0.95) {journal écrit (Mo)};
+    \foreach \i/\v/\t in {0/31.6/{31,6}, 1/46.2/{46,2}, 2/76.2/{76,2}, 3/104.8/{104,8}} {
+      \draw[draw=Dink, line width=0.5pt, fill=Porange] (0,-\i-0.27) rectangle ({0.55*\v},-\i+0.27);
+      \node[note, anchor=west] at ({0.55*\v+1},-\i) {\t};
+    }
+    \draw[ligne] (0,0.45) -- (0,-3.45);
+  \end{scope}
+\end{tikzpicture}
+\end{document}

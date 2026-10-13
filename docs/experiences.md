@@ -44,6 +44,7 @@ Les dépendances Python de chaque chapitre sont dans son `requirements.txt`. Les
 | 16 | [`ch16/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch16) | coût d’une lecture à chaque niveau (mémoire, Redis, PostgreSQL), stratégies d’écriture et pertes du write-back à la panne, politiques d’éviction de Redis | Docker, images `postgres:18-alpine` et `redis:8.8-alpine` ; `requirements.txt` | `python3 niveaux.py`, `ecriture.py`, `eviction.py` |
 | 17 | [`ch17/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch17) | avalanche de recalculs (naïve, verrou, XFetch, stale-while-revalidate), course entre cache et base (double suppression, baux), débit d’une clé chaude | Docker, images `postgres:18-alpine` et `redis:8.8-alpine` ; `requirements.txt` | `python3 stampede.py`, `course.py`, `chaudes.py` |
 | 18 | [`ch18/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch18) | les cinq anomalies d’isolation à chaque niveau, cinq façons de réserver un siège, MVCC (versions, VACUUM, transaction longue) | Docker, image `postgres:18-alpine` ; `requirements.txt` | `python3 anomalies.py`, `sieges.py`, `mvcc.py` |
+| 19 | [`ch19/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch19) | effet de différents index sur trois requêtes (2 millions de lignes), hauteur des B-tree, coût des index à l’insertion, mises à jour HOT, connexions avec et sans pool | Docker, image `postgres:18-alpine` ; `requirements.txt` | `python3 index.py`, `ecritures.py`, `pool.py` |
 
 Les résultats s’affichent sur la sortie standard. Les fichiers de travail (configurations de Caddy, certificats du [ch. 6](partie-1/tls.mdx)) vont dans le dossier temporaire du système, sauf les cent petits fichiers que `ch05/mesurer.sh` crée dans `ch05/site/` ; `ch09/latences` crée un fichier de 1 Gio pour mesurer le disque et le supprime à la fin.
 
@@ -58,7 +59,8 @@ docker rm -f cours-sd-ch12-primaire cours-sd-ch12-replique-a cours-sd-ch12-repli
 docker rm -f cours-sd-ch16-pg cours-sd-ch16-redis
 docker rm -f cours-sd-ch17-pg cours-sd-ch17-redis cours-sd-ch17-n1 cours-sd-ch17-n2 cours-sd-ch17-n3 cours-sd-ch17-n4
 docker rm -f cours-sd-ch18-pg
+docker rm -f cours-sd-ch19-pg
 pgrep -af "caddy run"                         # Caddy lancés par les scripts
 ```
 
-Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`) : celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 9802 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.
+Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`) : celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 9932 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.

@@ -219,7 +219,7 @@ Hypothèses : 40 serveurs d’application, chacun envoie 400 requêtes par seco
 | Connexions ouvertes sur la base | 40 × 12 | 480 |
 | Connexions réellement occupées en pointe | 40 × 6 | 240 |
 
-Conclusion : la base voit 480 connexions ouvertes dont la moitié au plus travaille. Si elle limite le nombre de connexions (PostgreSQL en accepte 100 par défaut, réglage `max_connections`), il faut soit relever cette limite, ce qui coûte de la mémoire par connexion, soit placer devant elle un concentrateur de connexions qui partage un petit nombre de connexions réelles entre tous les serveurs ; le ch. 19 y reviendra.
+Conclusion : la base voit 480 connexions ouvertes dont la moitié au plus travaille. Si elle limite le nombre de connexions (PostgreSQL en accepte 100 par défaut, réglage `max_connections`), il faut soit relever cette limite, ce qui coûte de la mémoire par connexion, soit placer devant elle un concentrateur de connexions qui partage un petit nombre de connexions réelles entre tous les serveurs ; le [ch. 19](../partie-2/index-modelisation.mdx) y reviendra.
 :::
 
 ## Exemple réel : BBR chez Google
@@ -272,7 +272,7 @@ Si l’examinateur demande pourquoi une page lente à New York est rapide à Par
 
 **Exercice de conception.**
 
-*Base de données.* Par serveur, la base est occupée en moyenne $250 \times 2 \times 0{,}004 = 2$ connexions, 6 en pointe. Un pool de 10 à 12 connexions par serveur laisse de la marge pour les requêtes lentes ; la base voit alors 60 × 12 = 720 connexions ouvertes, dont 360 au plus travaillent en même temps. C’est beaucoup pour PostgreSQL, qui consacre un processus à chaque connexion : on place un concentrateur de connexions devant la base (ch. 19), qui partage par exemple 100 connexions réelles entre les 720 connexions des serveurs, ou l’on réduit le pool de chaque serveur à 8 en acceptant une courte attente en pointe.
+*Base de données.* Par serveur, la base est occupée en moyenne $250 \times 2 \times 0{,}004 = 2$ connexions, 6 en pointe. Un pool de 10 à 12 connexions par serveur laisse de la marge pour les requêtes lentes ; la base voit alors 60 × 12 = 720 connexions ouvertes, dont 360 au plus travaillent en même temps. C’est beaucoup pour PostgreSQL, qui consacre un processus à chaque connexion : on place un concentrateur de connexions devant la base ([ch. 19](../partie-2/index-modelisation.mdx)), qui partage par exemple 100 connexions réelles entre les 720 connexions des serveurs, ou l’on réduit le pool de chaque serveur à 8 en acceptant une courte attente en pointe.
 
 *Service de géolocalisation.* Vu d’un serveur, un appel occupe sa connexion pendant un RTT plus le temps de traitement, soit 30 + 10 = 40 ms. Connexions occupées en moyenne : $250 \times 0{,}04 = 10$, 30 en pointe. Un pool de 40 connexions par serveur suffit, soit 60 × 40 = 2 400 connexions TLS ouvertes sur le service distant, qui doit pouvoir les tenir (ou les servir derrière un répartiteur). Si le service accepte HTTP/2 ou gRPC, quelques connexions multiplexées par serveur remplacent ce pool, au prix du blocage en tête de file en cas de perte sur le lien entre les deux centres.
 

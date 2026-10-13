@@ -193,7 +193,7 @@ Les sessions collantes utilisées comme solution plutôt que comme optimisation 
 
 Les tâches planifiées exécutées par chaque exemplaire du service en est une autre : avec 16 serveurs, le courriel du récapitulatif quotidien part 16 fois.
 
-Multiplier les serveurs sans recalculer les pools de connexions fait dépasser la limite de la base : 16 serveurs avec chacun un pool de 50 connexions font 800 connexions, au-delà de ce que la base accepte ([ch. 4](transport.mdx) et 19).
+Multiplier les serveurs sans recalculer les pools de connexions fait dépasser la limite de la base : 16 serveurs avec chacun un pool de 50 connexions font 800 connexions, au-delà de ce que la base accepte ([ch. 4](transport.mdx) et [19](../partie-2/index-modelisation.mdx)).
 
 Enfin, supposer un passage à l’échelle linéaire sans l’avoir mesuré. Un test de charge avec 1, 2 et 4 instances, comme celui du chapitre, révèle tout de suite si le débit suit.
 
@@ -217,7 +217,7 @@ Passer à une machine plus grosse le jour où la charge sature demande un arrêt
 
 ## Corrigés
 
-**Question 1.** Capacité utile par serveur : $300 \times 0{,}65 = 195$ requêtes par seconde. Serveurs : $\lceil 7\,000 / 195 \rceil + 1 = 36 + 1 = 37$. Connexions : $37 \times 25 = 925$, ce qui dépasse probablement la limite d’une base comme PostgreSQL (100 connexions par défaut, [ch. 4](transport.mdx)) et sa capacité raisonnable : il faut réduire le pool de chaque serveur, en le dimensionnant par la loi de Little à partir des requêtes en base réellement en cours, ou placer un concentrateur de connexions devant la base (ch. 19).
+**Question 1.** Capacité utile par serveur : $300 \times 0{,}65 = 195$ requêtes par seconde. Serveurs : $\lceil 7\,000 / 195 \rceil + 1 = 36 + 1 = 37$. Connexions : $37 \times 25 = 925$, ce qui dépasse probablement la limite d’une base comme PostgreSQL (100 connexions par défaut, [ch. 4](transport.mdx)) et sa capacité raisonnable : il faut réduire le pool de chaque serveur, en le dimensionnant par la loi de Little à partir des requêtes en base réellement en cours, ou placer un concentrateur de connexions devant la base ([ch. 19](../partie-2/index-modelisation.mdx)).
 
 **Question 2.** Sur 8 cœurs, la durée se décompose en une partie séquentielle et une partie parallèle. Exprimons tout en temps sur un seul cœur : si $T_1$ est la durée sur un cœur, $8 = T_1 (0{,}15 + 0{,}85/8) = T_1 \times 0{,}256$, donc $T_1 \approx 31{,}2$ heures. Sur 32 cœurs : $31{,}2 \times (0{,}15 + 0{,}85/32) = 31{,}2 \times 0{,}177 \approx 5{,}5$ heures. Quadrupler les cœurs ne gagne que 2,5 heures. Même avec une infinité de cœurs, la durée ne descendrait pas sous $31{,}2 \times 0{,}15 \approx 4{,}7$ heures, la partie séquentielle seule. Pour descendre sous 2 heures, il faut s’attaquer à l’étape séquentielle : la paralléliser (la découper par lots indépendants), la rendre plus rapide, ou la sortir du traitement nocturne.
 

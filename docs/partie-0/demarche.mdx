@@ -172,7 +172,7 @@ CREATE INDEX ON choix (sondage_id);
 CREATE INDEX ON participation (sondage_id);
 ```
 
-La requête la plus fréquente est l’affichage d’un sondage : 93 fois par seconde en moyenne d’après l’étape 2. Elle lit le sondage par son identifiant, puis ses choix et ses participations par `sondage_id`, d’où les deux index (leur fonctionnement interne est l’objet du ch. 19). On aurait pu ranger toutes les réponses d’un participant dans une seule colonne de texte, du genre `"oui,non,oui"`. La table `reponse` coûte une jointure de plus, mais elle permet de compter les « oui » d’un choix par une requête SQL ordinaire et de supprimer un choix sans réécrire toutes les participations.
+La requête la plus fréquente est l’affichage d’un sondage : 93 fois par seconde en moyenne d’après l’étape 2. Elle lit le sondage par son identifiant, puis ses choix et ses participations par `sondage_id`, d’où les deux index (leur fonctionnement interne est l’objet du [ch. 19](../partie-2/index-modelisation.mdx)). On aurait pu ranger toutes les réponses d’un participant dans une seule colonne de texte, du genre `"oui,non,oui"`. La table `reponse` coûte une jointure de plus, mais elle permet de compter les « oui » d’un choix par une requête SQL ordinaire et de supprimer un choix sans réécrire toutes les participations.
 
 ### Étape 5 : l’architecture haut niveau
 

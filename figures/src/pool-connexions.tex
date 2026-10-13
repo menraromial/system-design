@@ -1,0 +1,21 @@
+% Sans pool, chaque client tient une connexion et le serveur refuse au-delà de
+% max_connections ; avec un pool, les requêtes attendent une des 20 connexions.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=30mm, minimum height=9mm, font=\sffamily\small, inner sep=3pt}]
+  \node[pillo=Dred] at (70,22) {sans pool : une connexion par client};
+  \node[b=Dslate] (c1) at (-16,8) {300 clients};
+  \node[b=Damber, minimum width=40mm] (p1) at (124,8) {PostgreSQL\\{\footnotesize 100 processus au plus}};
+  \draw[arr=Dgreen] (c1.east) ++(0,2) -- node[lbl, above] {100 connexions acceptées} ($(p1.west)+(0,2)$);
+  \draw[arr=Dred] (c1.east) ++(0,-2) -- node[lbl, below] {200 refusées : « too many clients »} ($(p1.west)+(0,-2)$);
+  \node[pillo=Dblue] at (70,-8) {avec pool : 20 connexions partagées};
+  \node[b=Dslate] (c2) at (-16,-22) {300 clients};
+  \node[b=Dblue] (f) at (44,-22) {file d'attente\\{\footnotesize premier arrivé, premier servi}};
+  \node[b=Damber, minimum width=40mm] (p2) at (124,-22) {PostgreSQL\\{\footnotesize 20 processus}};
+  \draw[arr=Dslate] (c2) -- node[lbl, above] {3 000 requêtes} (f);
+  \draw[arr=Dblue] (f) -- node[lbl, above] {20 connexions} node[lbl, below] {ouvertes une fois} (p2);
+  \node[note, anchor=north, align=center] at (60,-30) {chaque requête prend une connexion libre et la rend aussitôt après :\\l'attente se fait dans l'application, pas dans le serveur};
+\end{tikzpicture}
+\end{document}
