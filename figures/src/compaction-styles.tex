@@ -1,0 +1,23 @@
+% Compaction par niveaux (leveled) et par paliers (tiered, « universal » dans
+% RocksDB) : où les données sont réécrites, et combien de suites triées.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    r/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum height=5.5mm, inner sep=0pt}]
+  \node[pillo=Dblue] at (30,22) {par niveaux (leveled)};
+  \foreach \y/\w/\t in {12/6/{L1}, 4/18/{L2}, -4/54/{L3}} {
+    \node[leg, anchor=east] at (-2,\y) {\t};
+    \node[r=Dblue, minimum width=\w mm, anchor=west] at (0,\y) {};
+  }
+  \node[note, anchor=north west, align=left] at (0,-10) {une suite triée par niveau ;\\chaque donnée est réécrite\\à chaque niveau, fusionnée avec\\la partie qui la chevauche (×10)};
+  \begin{scope}[xshift=80mm]
+    \node[pillo=Dorange] at (30,22) {par paliers (tiered)};
+    \foreach \y/\w/\n in {12/6/4, 4/18/3, -4/54/1} {
+      \foreach \i in {1,...,\n} \node[r=Dorange, minimum width=\w mm, anchor=west] at ({(\i-1)*(\w+1.5)},{\y+0*\i}) {};
+    }
+    \node[leg, anchor=east] at (-2,12) {palier 1}; \node[leg, anchor=east] at (-2,4) {palier 2}; \node[leg, anchor=east] at (-2,-4) {palier 3};
+    \node[note, anchor=north west, align=left] at (0,-10) {plusieurs suites de taille voisine,\\fusionnées ensemble quand\\elles sont assez nombreuses :\\moins de réécritures, plus de fichiers à lire};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

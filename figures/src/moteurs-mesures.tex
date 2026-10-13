@@ -1,0 +1,23 @@
+% Mesures de outils/experiences/ch20/moteurs.py (troisième passage, clés aléatoires).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[papier, x=1mm, y=8mm, every node/.append style={font=\sffamily\small}, note/.append style={font=\sffamily\small}]
+  \node[titrec, anchor=west] at (0,0.95) {octets écrits sur le disque / octets utiles};
+  \foreach \i/\nom/\v/\t/\c in {0/{LMDB (B+-tree)}/48.6/{48,6}/Prose, 1/{SQLite (B-tree)}/110.9/{110,9}/Prose,
+                               2/{RocksDB, niveaux}/7.5/{7,5}/Pvert, 3/{RocksDB, sans Bloom}/7.5/{7,5}/Pvert, 4/{RocksDB, paliers}/6.5/{6,5}/Pvert} {
+    \node[leg, anchor=east] at (-2,-\i) {\nom};
+    \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.27) rectangle ({0.42*\v},-\i+0.27);
+    \node[note, anchor=west] at ({0.42*\v+1},-\i) {\t};
+  }
+  \draw[ligne] (0,0.45) -- (0,-4.45);
+  \begin{scope}[xshift=72mm]
+    \node[titrec, anchor=west] at (0,0.95) {lecture d'une clé absente (µs)};
+    \foreach \i/\v/\t/\c in {0/1.5/{1,5}/Pvert, 1/6.1/{6,1}/Porange, 2/2.1/{2,1}/Pvert, 3/10.1/{10,1}/Prose, 4/2.2/{2,2}/Pvert} {
+      \draw[draw=Dink, line width=0.5pt, fill=\c] (0,-\i-0.27) rectangle ({4*\v},-\i+0.27);
+      \node[note, anchor=west] at ({4*\v+1},-\i) {\t};
+    }
+    \draw[ligne] (0,0.45) -- (0,-4.45);
+  \end{scope}
+\end{tikzpicture}
+\end{document}

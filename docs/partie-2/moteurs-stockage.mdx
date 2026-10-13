@@ -1,0 +1,312 @@
+---
+title: "Moteurs de stockage : B-tree, LSM, SSTables"
+sidebar_label: "20. Moteurs de stockage : B-tree, LSM, SSTables"
+description: "Le journal d'écriture anticipée et la validation groupée, le B-tree modifié en place ou en copie sur écriture, l'arbre LSM (memtable, SSTables, compaction par niveaux et par paliers), les amplifications en écriture, en lecture et en espace, le filtre de Bloom ; mesures avec LMDB, SQLite et RocksDB."
+partie: 2
+chapitre: 20
+---
+
+import wal from '@site/src/figures/wal-principe.svg';
+import lsm from '@site/src/figures/lsm-architecture.svg';
+import styles from '@site/src/figures/compaction-styles.svg';
+import mesures from '@site/src/figures/moteurs-mesures.svg';
+
+Sur le portable qui a servi aux mesures de ce cours, un programme qui ajoute des enregistrements de 200 octets à la fin d’un fichier en écrit près d’un million par seconde. S’il demande au système, après chacun, de garantir qu’il est sur le disque (`fdatasync`), il n’en écrit plus que 139 : chaque garantie coûte 7 ms. Une base de données qui confirme une transaction doit payer cette garantie, sinon une coupure de courant efface ce qu’elle a confirmé. Tout ce chapitre tourne autour de cette contrainte : comment écrire de façon durable sans payer 7 ms par écriture, et quelle structure donner aux données sur le disque pour que les écritures et les lectures restent rapides.
+
+Deux familles de moteurs se partagent les bases de données. Les B-tree, présentés au [ch. 19](index-modelisation.mdx), gardent les données triées dans des pages qu’on modifie ; PostgreSQL, MySQL (InnoDB), SQLite et LMDB en font partie. Les arbres LSM (log-structured merge-trees) n’écrivent jamais en place : ils accumulent les écritures en mémoire, les vident dans des fichiers triés et immuables, et fusionnent ces fichiers en arrière-plan ; RocksDB, LevelDB, Cassandra, ScyllaDB et HBase en font partie. Le ch. 21 présentera les bases qui les utilisent ; ce chapitre décrit les mécanismes et ce qu’ils coûtent.
+
+Deux expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch20/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch20), sur le SSD NVMe du portable et non dans `/tmp`, qui est un système de fichiers en mémoire sur cette machine : le coût de la durabilité d’un journal ([`journal.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch20/journal.py)), et la même charge écrite dans deux B-tree, LMDB et SQLite, et dans un arbre LSM, RocksDB ([`moteurs.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch20/moteurs.py)).
+
+## Le journal d’écriture anticipée
+
+Une transaction modifie des pages dispersées : la ligne dans la table, une entrée dans chaque index. Écrire et synchroniser toutes ces pages avant de confirmer coûterait plusieurs synchronisations par transaction. Le journal d’écriture anticipée (write-ahead log, WAL) l’évite. La règle, dans les mots de la documentation de PostgreSQL : les modifications des fichiers de données ne doivent être écrites qu’après avoir été journalisées, c’est-à-dire après que les enregistrements du journal qui les décrivent ont été écrits sur un stockage permanent[^pg-wal]. ARIES, la méthode de reprise décrite par C. Mohan et ses collègues d’IBM en 1992, a fixé la forme qu’utilisent encore la plupart des bases relationnelles[^aries].
+
+<Figure svg={wal} num="20.1" alt="Une transaction modifie des pages en mémoire (1) et ajoute un enregistrement à la fin du journal (2). Après le fsync du journal, la base confirme au client (3). Les pages modifiées sont écrites dans les fichiers de données plus tard, au point de contrôle. Après une panne, on rejoue le journal depuis le dernier point de contrôle.">
+Le journal d’écriture anticipée : la confirmation attend le journal, pas les pages de données.
+</Figure>
+
+La transaction modifie les pages dans la mémoire de la base (1) et décrit ses modifications dans le journal (2). Seul le journal est synchronisé avant la confirmation (3). Les pages modifiées, dites « sales », sont écrites dans les fichiers de données plus tard, lors d’un point de contrôle (checkpoint). Si la machine s’arrête entre-temps, la base relit le journal depuis le dernier point de contrôle et refait les modifications qui manquent aux pages[^pg-wal].
+
+Dans PostgreSQL, un point de contrôle écrit toutes les pages sales sur le disque et marque le journal ; il a lieu toutes les 5 minutes, ou plus tôt si le journal approche 1 Go, d’après les réglages par défaut. La première modification d’une page après un point de contrôle écrit la page entière dans le journal, pour pouvoir la reconstruire même si une panne l’a laissée à moitié écrite[^pg-walconf] : rapprocher les points de contrôle augmente donc le volume du journal.
+
+### Ce que coûte une synchronisation
+
+`journal.py` ajoute 5 000 enregistrements de 200 octets à un fichier, sans synchronisation, puis avec un `fdatasync` après chaque enregistrement, tous les 10 et tous les 100 ; puis il réécrit 5 000 pages de 4 Kio à des endroits tirés au hasard d’un fichier de 256 Mio, avec un `fdatasync` après chacune, comme un moteur qui modifierait ses pages en place sans journal. La latence d’un enregistrement va de son écriture à la fin de la synchronisation qui le couvre :
+
+```text
+5000 enregistrements de 200 octets ; latence d'un enregistrement
+                                       par seconde      médiane        p99
+ajout, sans fsync                          978 477         1 µs       3 µs
+ajout, fdatasync à chaque fois                 139     7 207 µs   7 868 µs
+ajout, fdatasync tous les 10                 1 378     7 184 µs   7 934 µs
+ajout, fdatasync tous les 100               13 214     7 390 µs   7 929 µs
+page de 4 Kio en place, fdatasync              146     6 947 µs   8 397 µs
+```
+
+Un second passage a donné les mêmes valeurs à 11 % près.
+
+Sans synchronisation, l’écriture s’arrête dans le cache du système : un million par seconde, mais rien n’est garanti. Avec une synchronisation par enregistrement, le débit tombe à 139 par seconde, l’inverse des 7 ms que dure un `fdatasync` sur ce SSD. Ce qui change tout est la validation groupée (group commit) : quand plusieurs transactions attendent en même temps, une seule synchronisation les couvre toutes. Avec 100 enregistrements par synchronisation, le débit est multiplié par 95, et la latence de chacun reste celle d’une synchronisation. PostgreSQL groupe ainsi les transactions qui arrivent pendant qu’une synchronisation est en cours, et le réglage `commit_delay` permet d’attendre un peu plus pour en grouper davantage[^pg-walconf].
+
+La dernière ligne nuance une idée répandue. La documentation de PostgreSQL explique l’intérêt du journal par l’écriture séquentielle, moins chère que l’écriture de pages dispersées[^pg-wal] ; c’est vrai sur un disque magnétique, où chaque écriture dispersée coûte un déplacement de la tête. Sur ce SSD, réécrire une page à un endroit quelconque coûte le même temps qu’un ajout en fin de fichier : c’est la synchronisation qui coûte, pas la position. Le journal reste avantageux pour deux raisons qui tiennent sur tout support : une synchronisation couvre beaucoup de transactions, et une page modifiée dix fois entre deux points de contrôle n’est écrite qu’une fois dans les fichiers de données.
+
+## Le B-tree sur le disque
+
+Le B-tree du [ch. 19](index-modelisation.mdx) est fait de pages de taille fixe, 4 à 16 Kio selon les moteurs. Insérer une clé, c’est trouver sa feuille, l’y ajouter à sa place dans l’ordre, et, si la feuille est pleine, la couper en deux et ajouter un séparateur dans la page parente. Le moteur écrit ensuite la page entière, même pour une clé de 16 octets. Deux façons de le faire coexistent.
+
+La modification en place, avec journal : PostgreSQL, InnoDB et SQLite modifient la page à son emplacement, après avoir décrit la modification dans le journal. SQLite, en mode WAL, écrit les pages modifiées à la fin du fichier journal et les recopie dans le fichier de la base lors d’un point de contrôle, automatique quand le journal atteint 1 000 pages ; en `synchronous = FULL`, il synchronise le journal à chaque validation[^sqlite-wal].
+
+La copie sur écriture (copy-on-write), sans journal : LMDB ne réécrit jamais une page en service. Il écrit la nouvelle version de la feuille ailleurs, puis une nouvelle version de chaque page sur le chemin jusqu’à la racine, puis une nouvelle racine ; la transaction est validée quand la page de métadonnées désigne la nouvelle racine. Sa documentation résume ce choix : les pages de données utilisent une stratégie de copie sur écriture, si bien qu’aucune page active n’est jamais écrasée, et LMDB ne demande ni journal ni procédure de reprise ; les écritures sont sérialisées, une seule transaction d’écriture à la fois, et les lecteurs ne prennent aucun verrou[^lmdb].
+
+Dans les deux cas, une écriture de quelques octets coûte au moins une page. Si les clés arrivent dans un ordre aléatoire, 1 000 clés insérées dans un grand arbre tombent dans environ 1 000 feuilles différentes : le moteur écrit 1 000 pages de 4 Kio, 4 Mio, pour 116 Ko de données. C’est l’amplification en écriture (write amplification) : le rapport entre les octets écrits sur le disque et les octets que l’application a demandé d’écrire.
+
+## L’arbre LSM
+
+Patrick O’Neil, Edward Cheng, Dieter Gawlick et Elizabeth O’Neil ont proposé en 1996 l’arbre LSM pour les tables qui reçoivent beaucoup plus d’insertions que de lectures, comme un historique de transactions : il diffère et regroupe les modifications de l’index, et les fait descendre d’un composant en mémoire vers un ou plusieurs composants sur disque, d’une façon qui rappelle le tri par fusion[^oneil]. Bigtable, décrit par Google en 2006, en a fixé le vocabulaire : les écritures récentes sont gardées en mémoire dans un tampon trié, la memtable, et les plus anciennes dans une suite de fichiers triés et immuables, les SSTables (sorted string tables)[^bigtable]. RocksDB, développé chez Facebook à partir de LevelDB, est aujourd’hui le moteur LSM le plus répandu.
+
+<Figure svg={lsm} num="20.2" alt="Une écriture est ajoutée au journal (1) puis insérée dans la memtable, triée et en mémoire (2). Quand la memtable est pleine, elle est figée puis vidée dans une SSTable du niveau L0, où les fichiers se chevauchent. La compaction fait descendre les données vers L1, une suite triée de taille cible T, puis L2 (10 × T) et L3 (100 × T). Une lecture consulte la memtable, chaque fichier de L0, puis un seul fichier par niveau ; le filtre de Bloom de chaque fichier écarte presque tous ceux qui n’ont pas la clé.">
+Un arbre LSM organisé par niveaux : chemin d’une écriture et chemin d’une lecture.
+</Figure>
+
+Une écriture coûte un ajout au journal (1), qui sert seulement à reconstruire la memtable après une panne, et une insertion dans la memtable (2), en mémoire. Rien n’est modifié sur le disque. Quand la memtable atteint sa taille (64 Mio par défaut dans RocksDB), elle est figée et vidée (flush) dans une SSTable : un fichier écrit d’un seul trait, dans l’ordre des clés, qui ne sera plus jamais modifié. Ces fichiers arrivent au niveau L0, où ils se chevauchent, chacun couvrant toutes les clés écrites pendant sa période.
+
+La compaction fusionne ensuite les fichiers en arrière-plan, comme un tri par fusion : elle lit des fichiers triés, garde pour chaque clé la version la plus récente, retire les clés supprimées, et écrit de nouveaux fichiers triés. Une suppression est elle-même une écriture : un marqueur, la pierre tombale (tombstone), qui masque les versions plus anciennes jusqu’à ce que la compaction les ait toutes retirées.
+
+Une lecture doit trouver la version la plus récente d’une clé : elle consulte la memtable, puis les fichiers du plus récent au plus ancien, et s’arrête à la première version trouvée. Pour une clé absente, elle devrait les consulter tous ; c’est le travail du filtre de Bloom (plus loin).
+
+### Compacter par niveaux ou par paliers
+
+La façon de fusionner décide de presque tout le comportement du moteur.
+
+<Figure svg={styles} num="20.3" alt="À gauche, la compaction par niveaux : trois niveaux L1, L2, L3 de tailles croissantes, une seule suite triée par niveau ; chaque donnée est réécrite à chaque niveau, fusionnée avec la partie qui la chevauche. À droite, la compaction par paliers : quatre petites suites au palier 1, trois moyennes au palier 2, une grande au palier 3 ; des suites de taille voisine sont fusionnées ensemble quand elles sont assez nombreuses.">
+Compaction par niveaux et par paliers.
+</Figure>
+
+À gauche, chaque niveau est une seule suite triée, dix fois plus grande que la précédente ; à droite, chaque palier contient plusieurs suites de taille voisine. Une clé, à gauche, est réécrite une fois à chaque niveau, et chaque fois avec la partie du niveau suivant qui chevauche son fichier ; à droite, elle est réécrite une fois par palier, avec des suites de même taille.
+
+Par niveaux (leveled compaction, le défaut de RocksDB) : hors L0, chaque niveau est une suite triée unique ; quand un niveau dépasse sa taille cible, la compaction choisit un de ses fichiers et le fusionne avec les fichiers du niveau suivant qui couvrent le même intervalle de clés ; chaque niveau a une taille cible dix fois plus grande que le précédent, par défaut[^rocks-leveled]. Une lecture ne consulte qu’un fichier par niveau, et l’espace perdu en versions périmées est faible, puisque presque toutes les données sont dans le dernier niveau. Le prix est l’écriture : pour descendre d’un niveau, une donnée est réécrite avec jusqu’à dix fois son volume du niveau suivant.
+
+Par paliers (tiered compaction, appelée universal dans RocksDB, et size-tiered dans Cassandra) : on attend d’avoir plusieurs suites triées de taille voisine et on les fusionne ensemble. La documentation de RocksDB la décrit comme destinée aux usages qui demandent une amplification en écriture plus faible, au prix de l’amplification en lecture et en espace ; elle prévient qu’une compaction complète doit garder à la fois les fichiers lus et le fichier écrit, si bien que la base occupe temporairement le double de sa place sur le disque[^rocks-universal].
+
+## Trois amplifications
+
+Manos Athanassoulis et ses collègues ont formulé en 2016 la conjecture RUM : une méthode d’accès aux données ne peut pas minimiser à la fois ce qu’elle coûte à la lecture (read), à la mise à jour (update) et en mémoire ou en espace (memory) ; borner deux de ces coûts impose un minimum au troisième[^rum]. Les moteurs de stockage se comparent ainsi par trois rapports :
+
+- l’amplification en écriture : octets écrits sur le disque pour un octet écrit par l’application ; elle limite le débit d’écriture et use les SSD, dont chaque cellule supporte un nombre fini d’écritures ;
+- l’amplification en lecture : pages ou fichiers consultés pour une lecture ;
+- l’amplification en espace : place occupée sur le disque pour un octet de données.
+
+Le B-tree a une amplification en lecture faible (une page par niveau) mais réécrit une page pour chaque modification, et ses pages ne sont pas pleines : après des insertions dans un ordre aléatoire, une page coupée en deux garde de la place libre. L’arbre LSM écrit d’un seul trait de gros fichiers pleins, mais réécrit chaque donnée à chaque compaction et doit, pour lire, chercher dans plusieurs fichiers.
+
+## Le filtre de Bloom
+
+Une lecture dans un arbre LSM consulte plusieurs fichiers ; pour une clé absente, elle les consulterait tous. Burton Bloom a décrit en 1970 une structure qui répond à la question « cet ensemble contient-il peut-être cette clé ? » avec peu de mémoire et un taux d’erreur choisi : elle peut répondre « peut-être » à tort, jamais « non » à tort[^bloom]. Bigtable l’utilisait déjà ainsi : un filtre de Bloom par SSTable permet de demander si le fichier peut contenir des données pour une ligne, et la plupart des recherches de lignes inexistantes n’ont alors pas besoin de toucher le disque[^bigtable].
+
+RocksDB construit un filtre pour chaque SSTable quand on le lui demande. Sa documentation indique qu’avec environ 10 bits par clé, le filtre se trompe dans 1 % des cas, et qu’un filtre de 9,9 bits par clé est presque aussi efficace qu’un filtre de 100 bits ; ces filtres vivent sur le disque et, pour être utiles, en mémoire[^rocks-bloom]. Pour un milliard de clés, cela fait 1,25 Go de mémoire. Le filtre ne sert qu’aux recherches d’une clé précise : il ne dit rien d’un intervalle de clés. Son fonctionnement (fonctions de hachage, calcul du taux d’erreur) est l’objet du ch. 40.
+
+## Deux B-tree et un arbre LSM, mesurés
+
+`moteurs.py` écrit 2 millions de paires clé-valeur, des clés de 16 octets et des valeurs de 100 octets tirées au hasard, donc incompressibles : 221 Mo de données. Les écritures sont faites par lots de 1 000, et chaque lot est durable avant le suivant : LMDB synchronise à chaque transaction, SQLite est en mode WAL avec `synchronous = FULL`, RocksDB écrit chaque lot avec l’option `sync`. Les réglages de RocksDB sont réduits 16 fois (memtable de 4 Mio, niveau L1 de 16 Mio, facteur 10 entre niveaux) pour que 2 millions de clés occupent plusieurs niveaux, comme 32 millions de clés le feraient avec les réglages par défaut. Les octets écrits sont lus dans le compteur que le noyau tient pour le volume du disque, qui compte aussi les écritures du système de fichiers et, en petite quantité, celles des autres programmes du poste ; le compteur propre au processus s’est révélé faux pour LMDB, qu’il surestimait d’un facteur 5. Les lectures portent sur 100 000 clés présentes et 100 000 clés absentes, alors que les données sont dans le cache du système : elles mesurent le calcul de chaque moteur, pas le disque.
+
+```text
+2 000 000 clés de 16 o, valeurs de 100 o : 221 Mo ; lots durables de 1 000
+
+1. clés aléatoires
+   écr./s : écritures par seconde ; écrit : octets écrits sur le disque
+   / octets utiles ; espace : place finale / octets utiles ; pic : place
+   maximale pendant l'écriture / octets utiles
+   moteur                       écr./s   écrit  taille espace    pic
+   LMDB                         34 020   48.6×  374 Mo  1.69×  1.69×
+   SQLite                       23 121  110.9×  267 Mo  1.21×  1.24×
+   RocksDB niveaux              70 364    7.5×  244 Mo  1.10×  1.10×
+   RocksDB niveaux sans Bloom   93 019    7.5×  242 Mo  1.09×  1.11×
+   RocksDB paliers              82 965    6.5×  245 Mo  1.11×  1.88×
+
+   durée moyenne d'une lecture, données dans le cache du système
+   moteur                      clé présente   clé absente
+   LMDB                              2.0 µs        1.5 µs
+   SQLite                            7.1 µs        6.1 µs
+   RocksDB niveaux                  11.1 µs        2.1 µs
+   RocksDB niveaux sans Bloom        9.8 µs       10.1 µs
+   RocksDB paliers                   9.8 µs        2.2 µs
+
+   RocksDB : fichiers par niveau (L0 à L6) ; filtre : fichiers écartés
+   par le filtre de Bloom ; interne : octets écrits comptés par RocksDB
+   (journal, vidages, compactions) / octets utiles
+   moteur                      niveaux           filtre  interne
+   RocksDB niveaux             0 4 42 20 0 0 0   247 637     7.0×
+   RocksDB niveaux sans Bloom  0 5 41 21 0 0 0         0     7.0×
+   RocksDB paliers             1 0 0 0 2 7 50   667 633     6.0×
+```
+
+<Figure svg={mesures} num="20.4" alt="Deux diagrammes en barres. À gauche, les octets écrits sur le disque pour un octet utile : LMDB 48,6, SQLite 110,9, RocksDB par niveaux 7,5, sans filtre de Bloom 7,5, par paliers 6,5. À droite, la durée d’une lecture d’une clé absente en microsecondes : LMDB 1,5, SQLite 6,1, RocksDB par niveaux 2,1, sans filtre de Bloom 10,1, par paliers 2,2.">
+Amplification en écriture et lecture d’une clé absente, clés aléatoires.
+</Figure>
+
+Deux passages précédents ont donné les mêmes amplifications et les mêmes tailles à 1 % près, des débits à 15 % près, et des lectures de clés présentes de 8 à 26 µs pour RocksDB : la durée d’une lecture en mémoire dépend de l’état des caches du processeur et de la charge du poste, et seuls les écarts entre moteurs d’un même passage sont à comparer.
+
+Les B-tree écrivent 48,6 et 111 fois plus que les données. Le calcul du début du chapitre donnait environ 35 : chaque lot de 1 000 clés aléatoires touche presque 1 000 feuilles différentes. LMDB y ajoute les pages de branche recopiées jusqu’à la racine et sa liste de pages libres ; SQLite écrit chaque page modifiée deux fois, une fois dans le journal et une fois dans la base au point de contrôle. RocksDB écrit 7,5 fois les données : une fois dans le journal, une fois au vidage de la memtable, et le reste dans les compactions qui font descendre les données jusqu’à L3. Il compte lui-même 7,0 fois ; l’écart vient du système de fichiers. La compaction par paliers écrit un peu moins, 6,5 fois. L’écart de débit est plus faible : RocksDB écrit 2,1 à 3,6 fois plus de clés par seconde que les B-tree, et ses 2 000 synchronisations de 7 ms font à peu près la moitié de sa durée.
+
+La place occupée suit la même logique. RocksDB occupe 1,10 fois les données : des fichiers pleins, plus leurs index et leurs filtres. SQLite occupe 1,21 fois : ses pages, coupées en deux au hasard des insertions, ne sont pas pleines. LMDB occupe 1,69 fois : ses pages sont aussi partiellement remplies, et la copie sur écriture garde des pages libérées pour les transactions suivantes. La colonne du pic montre ce qu’annonce la documentation de RocksDB pour la compaction par paliers : pendant l’écriture, la base a occupé jusqu’à 1,88 fois les données, presque le double.
+
+Les lectures de clés présentes sont les plus rapides avec LMDB, 2 µs, qui renvoie la valeur directement depuis la mémoire projetée ; RocksDB, qui doit chercher dans plusieurs niveaux, prend environ cinq fois plus. Pour une clé absente, le filtre de Bloom change tout : 2,1 µs avec, 10,1 µs sans, parce que sans filtre RocksDB doit chercher dans un fichier de chacun des trois niveaux. Le compteur de RocksDB montre que le filtre a écarté 247 637 consultations de fichiers pour 200 000 lectures. La compaction par paliers laisse ici quatre suites triées (un fichier de L0 et trois paliers) au lieu de trois, et son filtre a écarté 667 633 consultations, 2,7 fois plus : sans filtre, ses lectures seraient plus lentes encore.
+
+Deux charges complètent la comparaison : les mêmes 2 millions de clés écrites dans l’ordre croissant, puis la réécriture de toutes les clés avec de nouvelles valeurs, dans un ordre aléatoire.
+
+```text
+2. clés croissantes
+   LMDB                         96 578    1.6×  254 Mo  1.15×  1.15×
+   RocksDB niveaux             107 278    2.3×  222 Mo  1.00×  1.00×
+
+3. réécriture de toutes les clés (nouvelles valeurs, ordre aléatoire)
+   LMDB                         47 957   57.5×  374 Mo  1.69×  1.69×
+   RocksDB niveaux              95 789    9.3×  400 Mo  1.81×  1.98×
+   RocksDB paliers              81 940   10.1×  464 Mo  2.10×  2.37×
+```
+
+Avec des clés croissantes, le B-tree n’écrit presque rien de trop, 1,6 fois les données : toutes les insertions tombent dans la dernière feuille, et chaque page est écrite à peu près une fois, pleine. L’arbre LSM écrit encore deux fois chaque donnée, dans le journal puis au vidage, mais les fichiers ne se chevauchent pas et la compaction n’a presque rien à fusionner. Les deux passages précédents avaient donné les mêmes valeurs. L’ordre d’arrivée des clés décide donc du coût d’un B-tree : une clé tirée au hasard, comme un UUID de version 4, le fait écrire 30 fois plus qu’une clé croissante (ch. 31).
+
+La réécriture fait apparaître l’amplification en espace de l’arbre LSM. LMDB remplace les valeurs sans grandir. RocksDB, après la fin des compactions, occupe 1,81 fois les données par niveaux et 2,10 fois par paliers : les anciennes versions restent dans les niveaux inférieurs tant qu’aucune compaction n’a fusionné leur intervalle de clés avec les nouvelles. Par paliers, la compaction complète qui les retirerait n’est lancée que si l’espace supplémentaire dépasse 200 % des données, le réglage par défaut, qui laisse une base de 100 octets en occuper jusqu’à 300[^rocks-univ-h]. Dans ce passage, la compaction par paliers a aussi écrit plus que celle par niveaux (10,1 contre 9,3 fois) : son avantage en écriture dépend de la charge. Les deux passages précédents ont donné les mêmes valeurs à 2 % près ; dans le premier, la compaction par paliers n’avait pas pu être mesurée, le script attendant sans fin un indicateur de compaction resté levé, ce que corrige la version publiée.
+
+## Pourquoi les bases orientées écriture choisissent le LSM
+
+Les mesures donnent les raisons. Un arbre LSM transforme des écritures dispersées en écritures de gros fichiers d’un seul trait ; il écrit sur le disque 6 à 17 fois moins qu’un B-tree pour des clés aléatoires, ce qui use moins les SSD et laisse plus de bande passante ; ses fichiers pleins et immuables se compressent bloc par bloc et se copient, se sauvegardent et se répliquent facilement, puisqu’ils ne changent plus : Bigtable garde ses SSTables et son journal dans le système de fichiers distribué de Google[^bigtable]. Les bases faites pour absorber beaucoup d’écritures (Cassandra, ScyllaDB, HBase, et les moteurs construits sur RocksDB) en ont fait leur structure.
+
+Le prix est triple. Les lectures consultent plusieurs fichiers : une lecture d’intervalle doit fusionner une suite triée par niveau là où un B-tree fait une seule recherche, ce que les auteurs de MyRocks citent parmi leurs difficultés[^myrocks]. La place occupée varie avec l’état des compactions, jusqu’au double. Et la compaction est un travail de fond qui doit suivre le rythme des écritures : quand les vidages ou les compactions ne suivent plus, RocksDB ralentit puis arrête les écritures (write stall), par exemple quand trop de fichiers s’accumulent dans L0 ou quand le volume en attente de compaction dépasse un seuil[^rocks-stall]. Sous une charge d’écriture soutenue, ces ralentissements rendent la latence des écritures irrégulière.
+
+Le B-tree garde l’avantage quand les lectures dominent, quand les requêtes portent sur des intervalles, et quand les clés arrivent à peu près dans l’ordre. C’est le cas de la plupart des bases transactionnelles, qui gardent PostgreSQL ou InnoDB ; le choix d’un moteur LSM se justifie par une mesure de la charge d’écriture et de la place occupée.
+
+## Compromis
+
+| Moteur | Écriture (mesurée, clés aléatoires) | Lecture | Espace (mesuré) | Quand le choisir |
+|---|---|---|---|---|
+| B-tree en place avec journal (PostgreSQL, InnoDB, SQLite) | une page par modification, deux avec le point de contrôle (SQLite : 111 fois) | une page par niveau ; intervalles en une recherche | pages en partie vides (1,21 fois) | lectures dominantes, intervalles, transactions |
+| B-tree en copie sur écriture (LMDB) | une page et son chemin (48,6 fois) | la plus rapide mesurée (2 µs), lecteurs sans verrou | 1,69 fois | lectures très majoritaires, un seul écrivain à la fois |
+| LSM par niveaux (défaut de RocksDB) | 7,5 fois | un fichier par niveau, filtre de Bloom pour les clés absentes ; intervalles par fusion | 1,10 fois, 1,81 après une réécriture complète | écritures intenses, place disque comptée |
+| LSM par paliers | 6,5 fois (10,1 en réécriture) | plus de fichiers à consulter | jusqu’à 1,88 à 2,37 fois pendant l’écriture | écritures massives de données qui ne changent plus |
+| Validation groupée | débit × 95 pour 100 transactions par synchronisation | aucun effet | aucun effet | dès que plusieurs clients écrivent en même temps |
+| Filtre de Bloom | aucun effet | clé absente 5 fois plus rapide (mesuré) | 10 bits par clé, en mémoire | recherches de clés précises, pas d’intervalles |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la validation groupée nécessaire]
+Hypothèses : un service doit confirmer 5 000 transactions par seconde, chacune durable ; une synchronisation du journal dure 7 ms, comme mesuré sur le SSD du portable.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Synchronisations possibles par seconde | 1 / 0,007 s | ≈ 143 |
+| Transactions par synchronisation, au moins | 5 000 / 143 | 35 |
+| Transactions en attente à chaque instant (loi de Little) | 5 000 /s × 0,007 s | 35 |
+| Latence de confirmation | au moins une synchronisation | ≥ 7 ms |
+
+Conclusion : 5 000 confirmations par seconde sont possibles sur ce disque, à condition qu’au moins 35 transactions attendent en même temps la même synchronisation, ce qui est le cas quand 35 clients ou plus écrivent en parallèle. Un seul client qui confirme ses écritures l’une après l’autre ne dépassera jamais 143 par seconde, quel que soit le moteur.
+:::
+
+:::calcul[Calcul : l’usure d’un SSD selon le moteur]
+Hypothèses : une application écrit en continu 20 000 paires de 116 octets par seconde, en clés aléatoires ; le SSD de 1 To est garanti pour 600 To écrits (hypothèse, à lire dans la fiche du modèle) ; les amplifications sont celles mesurées.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Octets utiles par jour | 20 000 × 116 o × 86 400 s | ≈ 200 Go |
+| Écrits sur le disque, B-tree en copie sur écriture (× 48,6) | 200 Go × 48,6 | ≈ 9,7 To par jour |
+| Durée de la garantie | 600 To / 9,7 To | ≈ 62 jours |
+| Écrits sur le disque, LSM par niveaux (× 7,5) | 200 Go × 7,5 | ≈ 1,5 To par jour |
+| Durée de la garantie | 600 To / 1,5 To | ≈ 400 jours |
+
+Conclusion : à charge d’écriture égale, l’amplification décide de la durée de vie du disque, à un facteur 6 près ici. C’est l’une des deux raisons, avec la place occupée, qui ont fait passer la base principale de Facebook à un moteur LSM (plus loin).
+:::
+
+:::calcul[Calcul : ce qu’évite le filtre de Bloom]
+Hypothèses : un arbre LSM d’un milliard de clés, dont une recherche d’une clé absente consulte, sans filtre, la memtable, 4 fichiers de L0 et un fichier dans chacun des 5 niveaux suivants ; un fichier consulté hors du cache coûte une lecture aléatoire de 4 Kio sur le SSD, 49 µs d’après la mesure du [ch. 9](../partie-1/latence-debit.mdx) ; filtre de 10 bits par clé, 1 % de faux positifs.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Fichiers consultés sans filtre | 4 + 5 | 9, soit ≈ 440 µs |
+| Fichiers lus à tort avec filtre | 9 × 0,01 | 0,09, soit ≈ 4 µs |
+| Mémoire des filtres | $10^9 \times 10$ bits / 8 | 1,25 Go |
+
+Conclusion : pour 1,25 Go de mémoire, une recherche de clé absente passe de neuf lectures sur le disque à presque aucune. C’est ce qui rend acceptable, pour un arbre LSM, la recherche de clés qui n’existent pas (vérifier qu’un identifiant est libre, dédupliquer des événements).
+:::
+
+## Exemple réel
+
+**Facebook, de InnoDB à MyRocks.** Yoshinori Matsunobu, Siying Dong et Herman Lee ont décrit en 2020 la migration de la principale base de Facebook, l’User Database (UDB), qui garde les mentions « j’aime », les commentaires et les partages, de InnoDB, le B+-tree de MySQL, vers MyRocks, un moteur MySQL construit sur RocksDB[^myrocks]. Le passage aux SSD avait déplacé la limite du nombre d’opérations par seconde vers la capacité de stockage. Les auteurs citent trois défauts d’InnoDB sur ce point : la fragmentation des index, qui laissait environ 25 à 30 % de chaque page vide ; une compression mal adaptée, puisqu’une page de 16 Ko compressée devait tenir dans une taille fixée d’avance (une page compressée à 5 Ko occupait quand même 8 Ko), ce qui plafonnait le gain à 50 % ; et 13 octets par ligne pour les transactions. Un arbre LSM n’a pas ces défauts : il écrit des fichiers pleins, qui se compressent bloc par bloc, et son équivalent de la fragmentation, les versions mortes pas encore retirées, pouvait être ramené à 10 % en réglant la compaction.
+
+La migration s’est achevée en août 2017. Pour les mêmes données, MyRocks a réduit la taille des instances de 62,3 % par rapport à InnoDB compressé, et les octets écrits sur le stockage flash de 75 % ; la base a pu fonctionner sur moins de la moitié des serveurs[^myrocks]. Les auteurs ne présentent pas ce gain comme gratuit : une lecture d’intervalle doit fusionner plusieurs fichiers là où un B-tree fait une seule recherche, et ils ont ajouté des filtres de Bloom sur des préfixes de clés et un nouveau type de suppression pour réduire ce coût. Le choix s’est fait sur la capacité et l’usure du stockage, deux grandeurs que les mesures de ce chapitre font apparaître à petite échelle.
+
+## Erreurs fréquentes
+
+Croire qu’un arbre LSM est plus rapide en tout. Il écrit moins pour des clés aléatoires, mais il lit plus lentement (cinq fois plus pour une clé présente, mesuré), et pour des clés croissantes un B-tree écrit moins que lui (1,6 contre 2,3 fois les données, mesuré).
+
+Désactiver la synchronisation pour gagner du débit : `fsync = off`, `synchronous_commit = off` dans PostgreSQL, `synchronous = OFF` dans SQLite. La base confirme alors des transactions qui disparaissent à la coupure suivante. Le débit se gagne par la validation groupée, qui garde la durabilité (mesuré : 95 fois plus de confirmations avec 100 transactions par synchronisation).
+
+Mesurer un moteur dans un système de fichiers en mémoire (`/tmp` sur beaucoup de distributions), ou sans synchronisation : on mesure alors la mémoire, un million d’écritures par seconde, et non le disque.
+
+Dimensionner le disque d’une base LSM d’après la taille des données. Les versions anciennes et les compactions en cours en demandent davantage (mesuré : jusqu’à 2,37 fois les données pendant une réécriture), et un disque plein empêche justement la compaction qui libérerait de la place.
+
+Supprimer en masse ligne par ligne dans un arbre LSM. Chaque suppression écrit une pierre tombale, et les lectures d’intervalle doivent les parcourir tant que la compaction ne les a pas retirées ; les auteurs de MyRocks ont dû ajouter un type de suppression pour ce problème[^myrocks]. On supprime plutôt des partitions entières (un fichier ou une table par jour), ou un intervalle de clés d’un seul coup (`DeleteRange` dans RocksDB).
+
+Choisir une clé primaire aléatoire pour une table très écrite dans un B-tree : un UUID de version 4 envoie chaque insertion dans une page différente (mesuré : 30 fois plus d’octets écrits qu’avec une clé croissante). Le ch. 31 présente des identifiants uniques triés par date.
+
+:::piege[Erreur fréquente : « nos écritures sont lentes, passons à un moteur LSM »]
+Mesurez d’abord combien de synchronisations le moteur fait par seconde. Une application qui confirme ses écritures une par une, depuis un seul client, plafonne à l’inverse de la durée d’une synchronisation (139 par seconde sur le SSD mesuré), quel que soit le moteur. Grouper les écritures dans une transaction, ou laisser plusieurs clients écrire en parallèle pour profiter de la validation groupée, change le débit d’un facteur 100 sans changer de base. Le choix d’un moteur LSM se pose ensuite, si l’amplification en écriture ou la place occupée deviennent la limite.
+:::
+
+:::entretien
+Quand un sujet a une forte charge d’écriture (journaux, métriques, messages, événements), donnez le débit d’écriture en octets par seconde et nommez la structure : « 100 000 écritures par seconde de 60 octets, soit 6 Mo/s ; arbre LSM, compaction par paliers, une partition par jour supprimée en bloc ». Ajoutez l’amplification en écriture et la marge de disque que demandent les compactions. Pour une base surtout lue, dites pourquoi un B-tree suffit.
+:::
+
+## Exercices
+
+**Question 1.** Un service de paiement confirme chaque opération après l’avoir écrite de façon durable dans PostgreSQL. Il reçoit 3 000 opérations par seconde aux pics, envoyées par 8 instances de l’application, chacune avec un pool de 4 connexions. Une synchronisation du journal dure 2 ms sur les disques du serveur. La base peut-elle tenir ce débit ? Que changeriez-vous, et que ne faut-il surtout pas faire ?
+
+**Question 2.** Dans la mesure, pourquoi SQLite écrit-il plus du double de LMDB pour la même charge, alors que les deux sont des B-tree ? Et pourquoi LMDB n’écrit-il presque rien de trop quand les clés arrivent dans l’ordre croissant ?
+
+**Question 3.** Une table de 500 millions de lignes de 100 octets, stockée dans un arbre LSM à compaction par niveaux, reçoit surtout des recherches d’identifiants qui n’existent pas (un service vérifie qu’un identifiant proposé est libre avant de le créer). Que coûte une recherche avec et sans filtre de Bloom ? Et si le service cherchait plutôt « tous les identifiants qui commencent par ab » ?
+
+**Exercice de conception.** Une plateforme reçoit les mesures d’un million de capteurs, une mesure de 50 octets toutes les 10 secondes par capteur, et doit les garder 30 jours. Les lectures sont rares : les dernières 24 heures d’un capteur, à la demande d’un tableau de bord, quelques centaines de fois par seconde. Choisissez le moteur, la clé, la compaction et la façon de supprimer les données de plus de 30 jours ; chiffrez le débit d’écriture, la place occupée et les octets écrits sur le disque par jour.
+
+## Corrigés
+
+**Question 1.** Une synchronisation de 2 ms permet 500 synchronisations par seconde ; 3 000 opérations par seconde demandent donc au moins 6 opérations par synchronisation en moyenne. Avec 32 connexions, il y a souvent plus de 6 transactions qui attendent en même temps : par la loi de Little, 3 000 /s × 2 ms font 6 transactions en cours de synchronisation en moyenne, et la validation groupée de PostgreSQL les réunit. La base tient, avec une marge faible ; on peut l’augmenter avec `commit_delay`, qui attend quelques dizaines de microsecondes pour grouper davantage, au prix d’autant de latence. Ce qu’il ne faut pas faire : passer `synchronous_commit` à `off` ou désactiver `fsync` pour « gagner du débit ». Le premier fait confirmer des opérations qui peuvent disparaître si le serveur s’arrête, ce qui, pour un paiement, est une perte d’argent ; le second peut en plus corrompre la base.
+
+**Question 2.** En mode WAL, SQLite écrit chaque page modifiée deux fois : une fois à la fin du journal, à la validation, et une fois dans le fichier de la base, au point de contrôle, tous les 1 000 pages de journal. LMDB écrit chaque page modifiée une seule fois, à un nouvel emplacement, plus les pages de branche recopiées jusqu’à la racine. Avec des clés croissantes, toutes les insertions d’un lot tombent dans la dernière feuille de l’arbre : un lot de 1 000 clés remplit une trentaine de pages neuves au lieu d’en modifier mille, et chaque page n’est écrite que lorsqu’elle se remplit, d’où une amplification proche de 1,6.
+
+**Question 3.** Sans filtre, une recherche de clé absente consulte la memtable, tous les fichiers de L0 et un fichier par niveau : 500 millions de clés de 100 octets font 50 Go, soit quatre ou cinq niveaux avec les réglages par défaut (L1 de 256 Mo, facteur 10), donc 6 à 9 fichiers, autant de lectures de blocs si le cache ne les a pas. Avec 10 bits par clé, chaque fichier n’est lu à tort qu’une fois sur 100, et la recherche ne lit presque jamais le disque ; les filtres occupent 625 Mo de mémoire. Une recherche de préfixe est une recherche d’intervalle : le filtre ordinaire, construit sur des clés entières, ne sert à rien, et chaque niveau doit être consulté. RocksDB propose des filtres sur un préfixe de longueur fixe (prefix bloom filter) pour ce cas, à condition que le préfixe ait une longueur connue à l’avance.
+
+**Exercice de conception.**
+
+*Débit.* Un million de capteurs, une mesure toutes les 10 s : 100 000 écritures par seconde, de 50 octets plus une clé d’environ 16 octets, soit 6,6 Mo/s et 570 Go par jour. Sur 30 jours : 17 To de données. C’est une charge d’écriture pure, en continu, avec des lectures rares : un arbre LSM convient, et un B-tree modifié en place paierait une page par mesure.
+
+*Clé.* `(capteur, horodatage)` : les mesures d’un capteur sont contiguës dans chaque fichier, et la lecture des dernières 24 heures d’un capteur est une recherche d’intervalle sur un préfixe. L’ordre d’arrivée, par horodatage, n’est pas l’ordre des clés : la memtable trie, et la compaction fusionne.
+
+*Suppression.* Supprimer les mesures une à une ajouterait 100 000 pierres tombales par seconde, qu’il faudrait compacter. On partitionne plutôt par jour : une base, une famille de colonnes ou une table par jour, et l’on supprime le jour le plus ancien d’un bloc, ce qui supprime des fichiers entiers sans rien réécrire. Le ch. 22 montre que les bases de séries temporelles s’organisent de cette façon.
+
+*Compaction.* Les données d’un jour ne sont plus modifiées une fois le jour passé : une compaction par paliers réécrit moins souvent que la compaction par niveaux, et l’espace temporaire qu’elle demande reste borné à une partition. Avec une amplification de 6 à 7 comme mesurée, le disque reçoit 3,5 à 4 To par jour : il faut des SSD dont l’endurance le permet, ou plusieurs machines (ch. 26) ; la compression, efficace sur des mesures voisines, réduit à la fois la place et les écritures.
+
+*Lectures.* Quelques centaines de lectures d’intervalle par seconde, chacune d’environ 8 640 mesures (24 heures) ; elles consultent un fichier par niveau, et le filtre de Bloom ne les aide pas. C’est le prix accepté pour des écritures peu chères.
+
+:::fiche
+- Journal d’écriture anticipée : la confirmation attend la synchronisation du journal, pas des pages ; reprise en rejouant le journal depuis le point de contrôle.
+- Une synchronisation coûte 7 ms sur ce SSD (mesuré), qu’on écrive en fin de fichier ou au milieu : 139 confirmations par seconde une à une, 13 000 avec 100 par synchronisation (validation groupée).
+- B-tree : une page écrite par modification ; en place avec journal (PostgreSQL, InnoDB, SQLite) ou en copie sur écriture (LMDB).
+- LSM (O’Neil 1996, Bigtable 2006) : journal + memtable, vidage en SSTables immuables, compaction ; suppression = pierre tombale.
+- Compaction par niveaux : une suite triée par niveau, lectures et espace faibles, plus d’écritures ; par paliers : moins d’écritures, plus de fichiers à lire, jusqu’au double de place pendant une compaction complète.
+- Trois amplifications (conjecture RUM) : écriture, lecture, espace ; on ne peut pas minimiser les trois.
+- Filtre de Bloom : 10 bits par clé, 1 % de faux positifs ; utile pour les clés absentes, inutile pour les intervalles.
+:::
+
+[^pg-wal]: PostgreSQL, « Write-Ahead Logging (WAL) », documentation, [postgresql.org/docs/current/wal-intro.html](https://www.postgresql.org/docs/current/wal-intro.html).
+[^aries]: C. Mohan, Don Haderle, Bruce Lindsay, Hamid Pirahesh et Peter Schwarz, « ARIES: A Transaction Recovery Method Supporting Fine-Granularity Locking and Partial Rollbacks Using Write-Ahead Logging », *ACM Transactions on Database Systems*, vol. 17, n° 1, 1992, p. 94-162, [doi:10.1145/128765.128770](https://doi.org/10.1145/128765.128770).
+[^pg-walconf]: PostgreSQL, « WAL Configuration », documentation, [postgresql.org/docs/current/wal-configuration.html](https://www.postgresql.org/docs/current/wal-configuration.html).
+[^sqlite-wal]: SQLite, « Write-Ahead Logging », [sqlite.org/wal.html](https://www.sqlite.org/wal.html).
+[^lmdb]: LMDB, commentaire d’introduction du fichier `lmdb.h`, [github.com/LMDB/lmdb](https://github.com/LMDB/lmdb/blob/mdb.master/libraries/liblmdb/lmdb.h).
+[^oneil]: Patrick O’Neil, Edward Cheng, Dieter Gawlick et Elizabeth O’Neil, « The Log-Structured Merge-Tree (LSM-Tree) », *Acta Informatica*, vol. 33, n° 4, 1996, p. 351-385, [doi:10.1007/s002360050048](https://doi.org/10.1007/s002360050048).
+[^bigtable]: Fay Chang, Jeffrey Dean, Sanjay Ghemawat et al., « Bigtable: A Distributed Storage System for Structured Data », *OSDI '06*, 2006 ; version longue dans *ACM Transactions on Computer Systems*, vol. 26, n° 2, 2008, [doi:10.1145/1365815.1365816](https://doi.org/10.1145/1365815.1365816), sections 5.3, 5.4 et 6.
+[^rocks-leveled]: RocksDB, « Leveled Compaction », wiki, [github.com/facebook/rocksdb/wiki/Leveled-Compaction](https://github.com/facebook/rocksdb/wiki/Leveled-Compaction).
+[^rocks-universal]: RocksDB, « Universal Compaction », wiki, [github.com/facebook/rocksdb/wiki/Universal-Compaction](https://github.com/facebook/rocksdb/wiki/Universal-Compaction).
+[^rocks-univ-h]: RocksDB, `include/rocksdb/universal_compaction.h`, option `max_size_amplification_percent`, [github.com/facebook/rocksdb](https://github.com/facebook/rocksdb/blob/main/include/rocksdb/universal_compaction.h).
+[^rum]: Manos Athanassoulis, Michael S. Kester, Lukas M. Maas, Radu Stoica, Stratos Idreos, Anastasia Ailamaki et Mark Callaghan, « Designing Access Methods: The RUM Conjecture », *EDBT 2016*, [doi:10.5441/002/edbt.2016.42](https://doi.org/10.5441/002/edbt.2016.42).
+[^bloom]: Burton H. Bloom, « Space/Time Trade-offs in Hash Coding with Allowable Errors », *Communications of the ACM*, vol. 13, n° 7, 1970, p. 422-426, [doi:10.1145/362686.362692](https://doi.org/10.1145/362686.362692).
+[^rocks-bloom]: RocksDB, « RocksDB Bloom Filter », wiki, [github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter](https://github.com/facebook/rocksdb/wiki/RocksDB-Bloom-Filter).
+[^rocks-stall]: RocksDB, « Write Stalls », wiki, [github.com/facebook/rocksdb/wiki/Write-Stalls](https://github.com/facebook/rocksdb/wiki/Write-Stalls).
+[^myrocks]: Yoshinori Matsunobu, Siying Dong et Herman Lee, « MyRocks: LSM-Tree Database Storage Engine Serving Facebook’s Social Graph », *Proceedings of the VLDB Endowment*, vol. 13, n° 12, 2020, p. 3217-3230, [doi:10.14778/3415478.3415546](https://doi.org/10.14778/3415478.3415546).

@@ -35,7 +35,7 @@ La cohérence (consistency) : une transaction fait passer la base d’un état 
 
 L’isolation (isolation) : des transactions qui s’exécutent en même temps ne doivent pas se gêner. Dans sa forme la plus forte, le résultat est le même que si elles s’étaient exécutées l’une après l’autre ; les bases proposent des formes plus faibles, les niveaux d’isolation, qui laissent passer certaines anomalies en échange de moins d’attente et de moins d’échecs.
 
-La durabilité (durability) : une transaction confirmée le reste, même si la machine s’arrête une seconde après. PostgreSQL l’obtient en écrivant d’abord chaque modification dans un journal (le write-ahead log, ch. 20) et en attendant, avant de confirmer, que ce journal soit sur le disque : c’est ce qui coûtait 3 ms par écriture dans la mesure du [ch. 16](cache-strategies.mdx).
+La durabilité (durability) : une transaction confirmée le reste, même si la machine s’arrête une seconde après. PostgreSQL l’obtient en écrivant d’abord chaque modification dans un journal (le write-ahead log, [ch. 20](moteurs-stockage.mdx)) et en attendant, avant de confirmer, que ce journal soit sur le disque : c’est ce qui coûtait 3 ms par écriture dans la mesure du [ch. 16](cache-strategies.mdx).
 
 ## Les anomalies
 

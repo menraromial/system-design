@@ -1,0 +1,19 @@
+% Le journal d'écriture anticipée : la confirmation attend le journal, pas les
+% pages de données, qui sont écrites plus tard (point de contrôle).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=30mm, minimum height=10mm, font=\sffamily\small, inner sep=3pt}]
+  \node[b=Dslate] (tx) at (0,0) {transaction\\{\footnotesize UPDATE ... ; COMMIT}};
+  \node[b=Dblue] (mem) at (52,0) {pages en mémoire\\{\footnotesize modifiées, « sales »}};
+  \node[b=Dorange, minimum width=60mm] (wal) at (52,-24) {journal : ajout en fin de fichier};
+  \node[b=Dgreen] (ok) at (112,-24) {confirmation\\{\footnotesize au client}};
+  \node[b=Damber] (data) at (112,0) {fichiers de données\\{\footnotesize pages en place}};
+  \draw[arr=Dslate] (tx) -- node[num=Dslate, above=1mm] {1} (mem);
+  \draw[arr=Dslate] (tx.south) |- node[num=Dslate, pos=0.75, above=1mm] {2} (wal.west);
+  \draw[arr=Dorange] (wal) -- node[lbl, above] {fsync} node[num=Dorange, below=1mm] {3} (ok);
+  \draw[arr=Dblue, dash pattern=on 3pt off 2pt] (mem) -- node[lbl, above] {plus tard} node[lbl, below] {point de contrôle} (data);
+  \node[note, anchor=north, align=center] at (56,-34) {après une panne, on rejoue le journal depuis le dernier point de contrôle :\\les pages qui n'avaient pas encore été écrites sont reconstruites};
+\end{tikzpicture}
+\end{document}
