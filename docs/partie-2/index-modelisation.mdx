@@ -102,7 +102,7 @@ Requête C. Un index n’aide que si la condition retient peu de lignes, ou des 
 
 ## L’ordre des colonnes d’un index composite
 
-Un index composite (multicolumn index) porte sur plusieurs colonnes, et ses entrées sont triées sur la première colonne, puis, à valeur égale, sur la deuxième, comme un annuaire trié par nom puis par prénom. La documentation de PostgreSQL donne la règle exacte : les conditions d’égalité sur les premières colonnes, plus une condition d’inégalité sur la première colonne qui n’a pas de condition d’égalité, servent toujours à limiter la partie de l’index parcourue[^pg-multi].
+Un index composite (multicolumn index) porte sur plusieurs colonnes, et ses entrées sont triées sur la première colonne, puis, à valeur égale, sur la deuxième : l’index `(client_id, cree_le)` range toutes les entrées du client 1, dans l’ordre des dates, puis toutes celles du client 2, et ainsi de suite. La documentation de PostgreSQL donne la règle exacte : les conditions d’égalité sur les premières colonnes, plus une condition d’inégalité sur la première colonne qui n’a pas de condition d’égalité, servent toujours à limiter la partie de l’index parcourue[^pg-multi].
 
 <Figure svg={composite} num="19.2" alt="Deux listes d’entrées triées. À gauche, l’index (cree_le, client_id), trié par date : les entrées du client 42, en bleu, sont dispersées parmi celles des autres clients, et une accolade rouge indique que tout l’intervalle de 90 jours est parcouru, 952 pages lues. À droite, l’index (client_id, cree_le), trié par client puis par date : les trois entrées du client 42 sur 90 jours sont contiguës, 5 pages lues.">
 Les mêmes entrées dans deux index composites dont l’ordre des colonnes diffère.

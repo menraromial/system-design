@@ -54,7 +54,7 @@ Un serveur, sa socket d’écoute et trois connexions distinguées par leur quin
 
 Ce découpage a une limite chiffrée qu’on retrouvera au [ch. 4](transport.mdx). Entre une adresse cliente et un même couple (adresse, port) de serveur, seul le port source peut varier, ce qui borne le nombre de connexions simultanées à la taille de la plage éphémère, soit $60\,999 - 32\,768 + 1 = 28\,232$ avec la plage par défaut de Linux. Un client ordinaire n’en approche jamais ; un serveur d’application qui ouvre une connexion par requête vers sa base peut l’atteindre.
 
-## Le DNS : un annuaire en arbre
+## Le DNS : une base de noms en arbre
 
 Le système de noms de domaine (Domain Name System, DNS) associe des noms lisibles (`www.example.com`) à des informations, au premier rang desquelles des adresses IP. Il a été défini en 1987 par les RFC 1034 et 1035[^rfc1034], et son principe n’a pas changé depuis. C’est une base de données répartie entre des centaines de milliers de serveurs, dont aucun ne connaît tout, et que chacun peut interroger.
 

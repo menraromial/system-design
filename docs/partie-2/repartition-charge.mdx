@@ -247,7 +247,7 @@ La plus fréquente est de laisser le tourniquet par défaut devant un parc de ma
 
 Une autre est de placer un service gRPC, ou n’importe quel trafic HTTP/2 avec peu de clients, derrière un répartiteur L4 ou une répartition par connexion. Un serveur reçoit tout, les autres ne font rien, et ajouter des répliques ne change rien.
 
-Choisir « moins de connexions » sans contrôle de santé rapide transforme la panne d’un serveur en trou noir. Il échoue vite, il a donc toujours zéro requête en cours, et il attire le trafic. La mesure l’a montré, avec cent fois plus d’erreurs qu’en tourniquet pendant la même demi-seconde.
+Choisir « moins de connexions » sans contrôle de santé rapide envoie presque tout le trafic au serveur en panne. Il échoue vite, il a donc toujours zéro requête en cours, et il attire le trafic. La mesure l’a montré, avec cent fois plus d’erreurs qu’en tourniquet pendant la même demi-seconde.
 
 Arrêter un serveur sans drainage, même « proprement » au sens de son cadriciel, fait échouer les requêtes qui arrivent entre sa fermeture et le contrôle de santé suivant. Le serveur doit d’abord prévenir le répartiteur, ou être retiré du groupe, puis attendre la fin des requêtes en cours.
 
