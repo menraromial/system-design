@@ -133,7 +133,7 @@ Les façons d’ajouter de la redondance se distinguent par ce qu’elles coûte
 |---|---|---|---|---|
 | Un exemplaire, relancé automatiquement | plantage du processus | court (224 ms mesurées ici) | aucun matériel en plus | ne couvre pas la panne de la machine |
 | Actif-passif : une copie en attente | panne d’une machine | celui de la détection et de la bascule | la copie attend sans servir | décider qui est actif sans en avoir deux (ch. 32 et 35) |
-| Actif-actif : plusieurs copies servent | panne d’une machine | celui de la détection ; nul avec nouvelle tentative | les copies servent toutes | simple pour l’application sans état ([ch. 10](passer-echelle.mdx)), difficile pour les données ([ch. 24](../partie-2/replication-leader.mdx) et 25) |
+| Actif-actif : plusieurs copies servent | panne d’une machine | celui de la détection ; nul avec nouvelle tentative | les copies servent toutes | simple pour l’application sans état ([ch. 10](passer-echelle.mdx)), difficile pour les données ([ch. 24](../partie-2/replication-leader.mdx) et [25](../partie-2/replication-multi.mdx)) |
 | Plusieurs zones de disponibilité | panne d’un centre de données | idem, à quelques millisecondes de distance | trafic entre zones facturé | réplication des données entre zones |
 | Plusieurs régions | panne d’une région entière | de quelques secondes à des heures selon la préparation | infrastructure doublée | latence entre régions et cohérence des données (ch. 46) |
 

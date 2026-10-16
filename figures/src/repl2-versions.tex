@@ -1,0 +1,21 @@
+% L'exemple des vecteurs de version de l'article sur Dynamo (DeCandia et al.,
+% 2007, figure 3) : D3 et D4 sont concurrents, le client les fusionne en D5.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    v/.style={draw=#1, fill=#1Bg, line width=0.7pt, rounded corners=2pt, minimum width=30mm, minimum height=10mm, font=\sffamily\footnotesize, align=center}]
+  \node[v=Dslate] (d1) at (-20,30) {D1\\{[Sx:1]}};
+  \node[v=Dslate] (d2) at (38,30) {D2\\{[Sx:2]}};
+  \node[v=Dblue] (d3) at (80,44) {D3\\{[Sx:2, Sy:1]}};
+  \node[v=Dorange] (d4) at (80,16) {D4\\{[Sx:2, Sz:1]}};
+  \node[v=Dgreen] (d5) at (126,30) {D5\\{[Sx:3, Sy:1, Sz:1]}};
+  \draw[arr=Dslate] (d1) -- node[lbl, above] {écrit par Sx} (d2);
+  \draw[arr=Dblue] (d2.east) -- node[lblc=Dblue, above, sloped] {écrit par Sy} (d3.west);
+  \draw[arr=Dorange] (d2.east) -- node[lblc=Dorange, below, sloped] {écrit par Sz} (d4.west);
+  \draw[arr=Dgreen] (d3.east) -- (d5.west);
+  \draw[arr=Dgreen] (d4.east) -- (d5.west);
+  \node[note, anchor=south, text=Dgreen, align=center] at (126,37) {le client lit D3 et D4,\\les fusionne ; Sx écrit D5};
+  \node[note, anchor=north west, align=left] at (-35,6) {D2 descend de D1 : chaque compteur de D2 est supérieur ou égal à celui de D1, et D2 remplace D1.\\D3 et D4 sont concurrents : D3 a Sy:1 que D4 n'a pas, D4 a Sz:1 que D3 n'a pas ; les deux sont gardés\\et rendus au client, dont la fusion D5 domine les deux.};
+\end{tikzpicture}
+\end{document}

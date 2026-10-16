@@ -1,0 +1,298 @@
+---
+title: "Réplication (2) : multi-leader, sans leader, quorums"
+sidebar_label: "25. Réplication (2) : multi-leader, sans leader, quorums"
+description: "Réplication à plusieurs leaders (multi-région, édition hors ligne) et ses conflits, réplication sans leader à la Dynamo, quorums R + W > N et ce qu'ils ne garantissent pas, quorum relâché et indications différées, réparation à la lecture et anti-entropie, résolution des conflits (dernier écrivain gagne, vecteurs de version, fusion applicative) ; mesures avec deux PostgreSQL 18 abonnés l'un à l'autre et une grappe Cassandra de trois nœuds."
+partie: 2
+chapitre: 25
+---
+
+import croisement from '@site/src/figures/repl2-croisement.svg';
+import quorum from '@site/src/figures/repl2-quorum.svg';
+import versions from '@site/src/figures/repl2-versions.svg';
+
+Deux bases PostgreSQL acceptent chacune des écritures et s’envoient l’une à l’autre ce qu’elles ont écrit. Cent fois, la même ligne est modifiée en même temps sur les deux, avec la valeur « A » sur la première et « B » sur la seconde. Trois secondes plus tard, la réplication a fait son travail sans erreur, et les cent lignes sont différentes sur les deux bases, la première contenant « B » partout et la seconde « A ». Dans une grappe Cassandra, huit clients ajoutent 1 à un compteur, 200 fois chacun, en lisant la valeur puis en écrivant la suivante ; à la fin, le compteur vaut 332 au lieu de 1 600, toujours sans la moindre erreur.
+
+Ces deux résultats sont le prix de la réplication sans leader unique. Le [ch. 24](replication-leader.mdx) a décrit la réplication à un leader, où un seul nœud accepte les écritures et les ordonne dans un journal que les répliques rejouent. Ce chapitre traite des deux autres formes. Avec plusieurs leaders, chaque leader accepte des écritures et les transmet aux autres, ce qui sert surtout entre régions et pour l’édition hors ligne. Sans leader, à la manière de Dynamo et de Cassandra, le client écrit sur plusieurs répliques à la fois et lit sur plusieurs, et la cohérence vient du recouvrement de ces ensembles, les quorums. Dans les deux cas, deux écritures concurrentes sur la même donnée peuvent être acceptées par deux nœuds différents, et il faut décider ce qu’on en fait.
+
+Deux expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch25/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch25) : deux PostgreSQL 18 abonnés l’un à l’autre par réplication logique ([`multileader.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch25/multileader.py)), et une grappe Cassandra 5 de trois nœuds où le client choisit le nœud coordinateur de chaque requête ([`quorum.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch25/quorum.py)).
+
+## Plusieurs leaders
+
+### Pourquoi plusieurs leaders
+
+Avec un seul leader, toute écriture traverse le réseau jusqu’à lui. Pour une application servie depuis l’Europe et l’Amérique, une écriture faite à Paris vers un leader en Virginie paie un aller-retour transatlantique, au moins 58 ms d’après la vitesse de la lumière dans la fibre ([ch. 9](../partie-1/latence-debit.mdx)), et la perte de la liaison entre les deux régions arrête les écritures européennes. Un leader par région écrit localement et transmet ses écritures aux autres régions en asynchrone. La latence d’écriture est alors celle de la région, et chaque région continue d’écrire quand elle est isolée.
+
+Le même schéma se retrouve, à une autre échelle, dans les applications qui fonctionnent hors ligne. Un agenda ou une application de notes sur un téléphone accepte des modifications sans réseau, puis les synchronise avec le serveur et les autres appareils au retour de la connexion. Chaque appareil est alors un leader, avec un retard de réplication qui peut durer des jours. CouchDB et sa réplication vers PouchDB dans le navigateur sont construits sur ce modèle. L’édition collaborative en temps réel, où plusieurs personnes modifient le même document, en est un cas extrême, avec des conflits à chaque frappe.
+
+Les leaders s’échangent leurs écritures selon une topologie : en anneau, en étoile, ou chacun vers tous. Une écriture doit être appliquée une fois par nœud et ne pas revenir à son origine. Dans PostgreSQL, l’option `origin = none` d’un abonnement ne transmet que les modifications faites localement, et non celles reçues d’un autre nœud, ce qui évite qu’une écriture tourne indéfiniment entre deux leaders[^pg-sub].
+
+### Deux leaders PostgreSQL, mesurés
+
+`multileader.py` lance deux PostgreSQL 18, A et B, avec la même table. Chacun publie la table et s’abonne à la publication de l’autre, avec `origin = none`. Les deux acceptent des écritures, et chacun applique celles de l’autre par réplication logique, qui transmet les lignes modifiées et non les octets des pages ([ch. 24](replication-leader.mdx)).
+
+```text
+PostgreSQL 18.6, deux leaders A et B abonnés l'un à l'autre (origin = none)
+
+1. une écriture sur A, visible sur B après (200 essais)
+   médiane 0.7 ms, maximum 3.0 ms
+
+2. 100 lignes modifiées en même temps sur A et sur B
+   lignes identiques sur A et B : 0
+   lignes croisées (A a « B », B a « A ») : 100
+   conflits notés par A : {'confl_update_origin_differs': 100}
+   conflits notés par B : {'confl_update_origin_differs': 100}
+
+3. 50 fois, en même temps, A ajoute 10 et B ajoute 20 au même solde
+   attendu 1 500 ; A a 750, B a 750
+
+4. la clé 1000 insérée sur A et sur B en même temps
+   la clé 2000, insérée ensuite sur A seul, arrive sur B : non (15 s)
+   A : apply_error_count 5, confl_insert_exists 5
+   B : apply_error_count 5, confl_insert_exists 5
+   journal de B :
+      conflict detected on relation "public.comptes"
+      conflict=insert_exists
+   ligne 1000 supprimée à la main sur A et sur B :
+   la clé 2000 arrive sur B 4.0 s plus tard
+   ligne 1000 ensuite : A a rien, B a rien
+```
+
+Les trois passages ont donné les mêmes résultats aux parties 2 à 4, et une médiane de 0,6 à 0,7 ms à la partie 1.
+
+<Figure svg={croisement} num="25.1" alt="Deux lignes de vie, leader A et leader B, partent de la même ligne (solde 0, « init »). A écrit solde 1, « A » ; B écrit en même temps solde 2, « B ». Chacun envoie sa nouvelle ligne à l’autre ; les flèches se croisent. A finit avec solde 2, « B », et B avec solde 1, « A » ; chacun a noté un conflit update_origin_differs et appliqué la ligne reçue.">
+Deux leaders modifient la même ligne en même temps, et finissent croisés.
+</Figure>
+
+En temps normal, une écriture sur A arrive sur B en moins d’une milliseconde, puisque les deux bases sont sur la même machine. Mais ce délai, même court, suffit à créer des conflits. Quand la même ligne est modifiée sur les deux leaders avant que chacun ait reçu l’écriture de l’autre, chacun applique ensuite la ligne reçue par-dessus la sienne. A garde la valeur de B, B celle de A, et la figure 25.1 montre le croisement. PostgreSQL 18 détecte ces cas et les compte (`update_origin_differs`, qui demande `track_commit_timestamp`), mais sa documentation précise que la mise à jour reçue est toujours appliquée[^pg-conflits]. Les 100 lignes ont été croisées, et elles le resteront, puisque plus rien ne les modifie.
+
+La troisième partie montre une perte plus sournoise. A ajoute 10 au solde, B ajoute 20, en même temps, cinquante fois. La réplication logique transmet la nouvelle ligne, et non l’opération, si bien que B reçoit « le solde vaut 10 » et non « ajoute 10 ». À chaque tour, chaque leader écrase son addition par celle de l’autre, et les deux bases ne se retrouvent égales qu’un tour sur deux. Elles finissent à 750 au lieu de 1 500, la moitié des additions perdue.
+
+La quatrième partie montre le conflit qui arrête tout. La même clé primaire est insérée sur les deux leaders. Chacun reçoit l’insertion de l’autre, qui viole sa contrainte d’unicité, et le processus qui applique les modifications reçues s’arrête sur une erreur (`insert_exists`), redémarre cinq secondes plus tard et échoue de nouveau, cinq fois en quinze secondes. Pendant ce temps, plus rien ne passe d’un leader à l’autre, et la clé 2000, insérée ensuite sur A seul, n’arrive pas sur B. D’après la documentation, un conflit qui produit une erreur arrête la réplication, et il doit être résolu à la main, en modifiant les données ou en sautant la transaction fautive (`ALTER SUBSCRIPTION ... SKIP`)[^pg-conflits]. Supprimer la ligne en conflit sur les deux bases débloque la réplication, et la clé 2000 arrive quatre secondes plus tard. Mais chaque suppression est elle-même répliquée et efface, sur l’autre base, la ligne qui venait d’y être appliquée. La clé 1000 a disparu des deux bases, alors que deux clients avaient reçu la confirmation de son insertion.
+
+### Éviter les conflits
+
+La façon la plus sûre de gérer les conflits de plusieurs leaders est de ne pas en avoir. Si toutes les écritures sur un même enregistrement passent par le même leader, son leader d’attache (les données d’un client par la région où il habite, un document par le serveur qui l’a créé), il n’y a jamais deux écritures concurrentes sur le même enregistrement, et chaque leader ne fait que recopier les enregistrements des autres. Le conflit ne réapparaît que pendant une bascule, quand un enregistrement change de leader d’attache, ou pour les utilisateurs qui voyagent. Les identifiants générés sans coordination (UUID, intervalles réservés par leader, ch. 31) évitent aussi les conflits d’insertion de la quatrième partie.
+
+## Sans leader
+
+### Le principe
+
+Dans une base sans leader, aucun nœud n’ordonne les écritures. Le client, ou un nœud coordinateur qui agit pour lui, envoie chaque écriture aux $N$ répliques de la donnée, et la considère comme réussie dès que $W$ d’entre elles ont répondu. Pour lire, il interroge les répliques et attend $R$ réponses, puis garde la plus récente. Giuseppe DeCandia et ses collègues ont décrit ce schéma en 2007 pour Dynamo, la base clé-valeur interne d’Amazon, en précisant que choisir $R + W > N$ donne un système proche d’un quorum, et que la latence d’une opération est celle de la plus lente des $R$ ou $W$ répliques attendues[^dynamo]. Cassandra, Riak et Voldemort en ont repris le principe. Cassandra exprime $R$ et $W$ par un niveau de cohérence choisi à chaque requête, `ONE`, `QUORUM` (la majorité des $N$ répliques) ou `ALL`.
+
+<Figure svg={quorum} num="25.2" alt="Deux schémas de trois répliques. À gauche, N = 3, W = 2, R = 2 : l’écriture v = 7 atteint les répliques 1 et 2, la lecture interroge les répliques 2 et 3 et rencontre la réplique 2, à jour ; R + W = 4 > 3. À droite, N = 3, W = 1, R = 1 : l’écriture n’atteint que la réplique 1, la lecture n’interroge que la réplique 3, qui a encore v = 0 ; R + W = 2 ≤ 3.">
+Quand $R + W > N$, l’ensemble lu et l’ensemble écrit ont toujours une réplique en commun.
+</Figure>
+
+Si $R + W > N$, tout ensemble de $R$ répliques lues contient au moins une réplique qui a reçu la dernière écriture confirmée, puisque les deux ensembles ne peuvent pas être disjoints. La configuration courante est $N = 3$, $W = 2$, $R = 2$, celle que l’article sur Dynamo donne comme la plus utilisée par ses instances. Elle supporte la perte d’une réplique en lecture comme en écriture. Avec $W = 1$ et $R = 1$, les opérations sont plus rapides et supportent la perte de deux répliques, mais une lecture peut tomber sur une réplique qui n’a pas encore reçu l’écriture.
+
+### Une grappe Cassandra, mesurée
+
+`quorum.py` lance trois nœuds Cassandra 5, c1, c2 et c3, avec un facteur de réplication de 3, si bien que chaque nœud a une copie de chaque ligne. Le client choisit, pour chaque requête, le nœud qui la coordonne et le niveau de cohérence. Pour savoir ce que contient la copie d’un nœud précis, le script suspend les deux autres le temps de la lire ; sinon, le coordinateur choisit lui-même la réplique qu’il interroge, et ce n’est pas forcément la sienne.
+
+```text
+Cassandra 5.0.9, 3 nœuds prêts en 38 s
+
+1. latence médiane sur 300, en ms (coordinateur c1, réplication 3)
+   niveau      écriture   lecture
+   ONE             1.70      2.87
+   QUORUM          1.90      2.52
+   ALL             1.83      2.40
+
+2. c3 suspendu, indications différées désactivées
+   1 000 écritures en QUORUM (2 réponses sur 3) : réussies
+   une écriture en ALL : refusée (Unavailable)
+   c3 revenu ; clés absentes de sa copie (lue seule, c1 et c2 suspendus) :
+      après son retour : 1000 sur 1 000
+      lecture des 1 000 clés en QUORUM par c3 : 0 absentes
+      après ces lectures en QUORUM : 129 sur 1 000
+      après nodetool repair (2 s) : 0 sur 1 000
+
+3. c3 suspendu, indications différées actives
+   1 000 écritures en QUORUM : réussies
+   c3 vu de nouveau UP par c1 après 1 s ; clés absentes de sa copie :
+      aussitôt : 1000 sur 1 000
+      60 s après son retour : 0 sur 1 000
+
+4. dernier écrivain gagne
+   a) 100 écrit, puis 200 écrit 0,5 s plus tard par un client
+      dont l'horloge retarde de 2 s :
+      valeur lue 100, aucune erreur
+   b) 8 clients x 200 incréments, lecture puis écriture QUORUM :
+      332 au lieu de 1 600 (2.7 s)
+   c) même chose avec UPDATE ... IF v = ancienne valeur :
+      1608 (11.5 s), 3402 tentatives,
+      médiane 4.1 ms, p99 206 ms par tentative,
+      39 au résultat inconnu (« CAS operation result is unknown »)
+```
+
+Sur une seule machine, les trois niveaux coûtent à peu près la même chose, 2 ms environ, car les répliques répondent toutes en même temps, et attendre la deuxième ou la troisième ne change presque rien. Sur des machines séparées, `ONE` répondrait au rythme de la réplique la plus rapide et `ALL` à celui de la plus lente, et l’écart grandirait avec la charge et la distance. La différence entre niveaux est ailleurs, dans ce qui se passe quand une réplique manque.
+
+Avec c3 suspendu, les écritures en `QUORUM` réussissent, puisque deux répliques sur trois répondent, et l’écriture en `ALL` est refusée aussitôt (`Unavailable`), parce que le coordinateur sait déjà c3 hors service. Au retour de c3, sa copie ne contient aucune des 1 000 écritures, car la réplication sans leader ne rattrape rien d’elle-même. Une lecture en `QUORUM` trouve pourtant les 1 000 valeurs, puisqu’au moins une des deux répliques lues les a.
+
+### Réparer les répliques
+
+Trois mécanismes remettent à jour une réplique qui a manqué des écritures. Le premier est la réparation à la lecture (read repair). Quand une lecture en `QUORUM` reçoit des réponses différentes, le coordinateur renvoie la valeur la plus récente aux répliques en retard avant de répondre. La documentation de Cassandra précise qu’il ne répare que les répliques qui ont participé à la lecture[^cass-rr], ce que la mesure confirme. Après les 1 000 lectures, la copie de c3 n’a été réparée que pour les clés où c3 faisait partie des deux répliques interrogées, 871 clés dans le passage reproduit, de 91 à 1 000 selon les passages, car c’est le coordinateur qui choisit les répliques qu’il interroge. Une donnée qu’on ne lit jamais n’est jamais réparée ainsi.
+
+Le deuxième est l’anti-entropie. Un processus de fond compare les répliques et recopie ce qui manque. Dynamo compare des arbres de Merkle, des arbres de hachages où l’égalité de deux racines prouve l’égalité de tout un intervalle de clés, ce qui évite de transférer les données pour les comparer[^dynamo] ; le ch. 41 les décrit. Dans Cassandra, c’est `nodetool repair`, qu’il faut lancer régulièrement ; dans la mesure, il a remis la copie de c3 à jour en 2 à 3 s.
+
+Le troisième intervient au moment de l’écriture. Quand une réplique est indisponible, le coordinateur garde l’écriture qui lui était destinée, avec l’indication de son destinataire (hint), et la lui livre à son retour. Ce sont les indications différées (hinted handoff). La documentation de Cassandra précise qu’elles sont gardées pendant `max_hint_window`, trois heures par défaut, et qu’au-delà, la réplique ne sera remise à jour que par une réparation[^cass-hints]. Dans la troisième partie de la mesure, avec les indications actives, la copie de c3 n’a encore aucune des 1 000 écritures juste après son retour, et les a toutes 60 s plus tard. Deux passages antérieurs, qui suivaient les indications en attente par `nodetool listpendinghints`, ont vu leur livraison s’achever 13 s après le retour de c3.
+
+### Quorum relâché
+
+Dynamo va plus loin, avec un quorum relâché (sloppy quorum). Quand une des $N$ répliques normales d’une clé est injoignable, l’écriture est envoyée à un autre nœud, le suivant sur l’anneau, qui la garde avec une indication et la rendra à la réplique d’origine à son retour. Les $W$ réponses peuvent donc venir de nœuds qui ne sont pas les répliques de la clé. L’article justifie ce choix par la disponibilité, puisqu’un quorum strict serait indisponible pendant les pannes de serveurs et les partitions du réseau[^dynamo]. Le prix est que $R + W > N$ ne garantit plus le recouvrement, puisque les $W$ nœuds écrits et les $R$ nœuds lus ne sont plus pris dans le même ensemble. Cassandra ne compte pas les indications dans le quorum, sauf au niveau `ANY`, où une écriture réussit dès qu’une indication est enregistrée quelque part, même si aucune réplique n’a la donnée[^cass-hints].
+
+### Ce que les quorums ne garantissent pas
+
+$R + W > N$ ne fait pas d’une base sans leader une base linéarisable ([ch. 12](../partie-1/coherence-cap.mdx)). Martin Kleppmann énumère les cas où une lecture en quorum renvoie quand même une valeur ancienne[^ddia]. Avec un quorum relâché, les ensembles lus et écrits peuvent être disjoints. Deux écritures concurrentes sur la même clé sont résolues par une règle, souvent le dernier écrivain, qui peut perdre l’une d’elles (section suivante). Une écriture qui n’a réussi que sur une partie des répliques, moins de $W$, est signalée en échec au client, mais n’est pas retirée des répliques qui l’ont reçue ; elle peut apparaître dans des lectures ultérieures. Une lecture concurrente d’une écriture en cours peut voir la nouvelle valeur sur une réplique puis l’ancienne sur une autre. Une réplique restaurée à partir d’une copie ancienne fait baisser le nombre de répliques à jour sous $W$. Enfin, le niveau de cohérence se choisit par requête, et une seule requête en `ONE` suffit à lire une valeur ancienne.
+
+## Résoudre les conflits
+
+### Dernier écrivain gagne
+
+La règle la plus simple consiste à attacher à chaque écriture une estampille et à garder, pour chaque clé, la valeur de plus grande estampille. C’est la règle du dernier écrivain gagne (last write wins, LWW). C’est la règle de Cassandra, où l’estampille est l’heure, en microsecondes, du coordinateur ou du client qui écrit[^cass-dml]. Elle fait converger toutes les répliques vers la même valeur, mais elle perd des écritures, et la quatrième partie de `quorum.py` en mesure deux façons.
+
+Dans la première, un client écrit 100, puis un autre client écrit 200 une demi-seconde plus tard, mais son horloge retarde de 2 s. L’estampille de la seconde écriture est plus petite que celle de la première, et Cassandra garde 100, sans aucune erreur ni avertissement. « Dernier » veut dire « de plus grande estampille », et non « arrivé le plus tard » ; deux horloges qui s’écartent de quelques millisecondes suffisent à inverser l’ordre de deux écritures rapprochées (ch. 33).
+
+Dans la seconde, huit clients incrémentent un compteur par une lecture puis une écriture, 200 fois chacun. Deux clients qui lisent la même valeur écrivent la même valeur suivante, et l’une des deux incrémentations disparaît ; le compteur finit entre 320 et 333 selon les passages, au lieu de 1 600. Le niveau `QUORUM` n’y change rien, puisque chaque écriture est bien répliquée ; c’est la lecture puis l’écriture qui n’est pas atomique ([ch. 18](transactions-isolation.mdx)).
+
+Cassandra offre pour ces cas des transactions légères (lightweight transactions), `UPDATE ... IF v = ancienne_valeur`, que la documentation décrit comme ayant un coût non négligeable parce qu’elles passent par Paxos[^cass-dml] (ch. 34). Avec elles, chaque incrémentation n’est appliquée que si personne n’a modifié la valeur entre-temps, sinon le client relit et recommence. La mesure en a demandé environ 3 400 tentatives pour 1 600 incrémentations, à 4,1 à 4,4 ms de médiane et 200 à 230 ms au 99e centile par tentative, quatre fois plus de temps au total. Le compteur a fini entre 1 608 et 1 619 selon les passages, et non à 1 600, parce que 39 à 62 tentatives ont reçu la réponse « CAS operation result is unknown », le client ne pouvant savoir si l’écriture avait été appliquée, et en recommençant il en a appliqué certaines deux fois. Une opération dont le résultat est inconnu doit pouvoir être rejouée sans effet de bord, ce qu’une incrémentation n’est pas (ch. 38).
+
+### Vecteurs de version
+
+Pour ne rien perdre, il faut savoir distinguer deux écritures dont l’une suit l’autre de deux écritures concurrentes. Dynamo le fait avec des horloges vectorielles, ou vecteurs de version. Chaque version d’une valeur porte une liste de paires (nœud, compteur), et un nœud qui écrit une nouvelle version incrémente son propre compteur dans la liste de la version qu’il remplace[^dynamo].
+
+<Figure svg={versions} num="25.3" alt="Cinq versions d’un objet. D1 [Sx:1], écrite par Sx, puis D2 [Sx:2]. Depuis D2, Sy écrit D3 [Sx:2, Sy:1] et Sz écrit D4 [Sx:2, Sz:1]. Un client lit D3 et D4, les fusionne, et Sx écrit D5 [Sx:3, Sy:1, Sz:1], qui domine les deux.">
+L’exemple de vecteurs de version de l’article sur Dynamo.
+</Figure>
+
+L’article déroule l’exemple de la figure 25.3. Un client écrit un objet par l’intermédiaire du nœud Sx, qui crée D1 avec le vecteur [Sx:1], puis le modifie par le même nœud, D2 [Sx:2], qui remplace D1. Le même client modifie D2 par le nœud Sy, ce qui donne D3 [Sx:2, Sy:1] ; un autre client, qui a lu D2, le modifie par le nœud Sz, ce qui donne D4 [Sx:2, Sz:1]. Une version en remplace une autre si chacun de ses compteurs est supérieur ou égal ; D3 et D4 ne se comparent pas, car D3 a un compteur que D4 n’a pas et inversement, et elles sont donc concurrentes. Le système les garde toutes les deux et les rend au client qui lit, avec le vecteur qui les résume ; le client les fusionne, et l’écriture de la fusion par Sx crée D5 [Sx:3, Sy:1, Sz:1], qui remplace D3 et D4. L’article signale que les vecteurs grandissent quand beaucoup de nœuds écrivent la même clé, et que Dynamo retire la paire la plus ancienne au-delà de dix paires, au risque de prendre pour concurrentes deux versions qui ne le sont pas. Le ch. 33 généralise ces vecteurs.
+
+### Fusion applicative
+
+Quand les versions sont concurrentes, seule l’application sait les fusionner. Le panier d’Amazon fusionne deux paniers en prenant l’union de leurs articles, et l’article sur Dynamo en tire la conséquence qu’une opération « ajouter au panier » n’est jamais perdue, mais des articles supprimés peuvent réapparaître[^dynamo], puisque la suppression faite dans une version disparaît dans l’union avec l’autre. D’autres fusions sont naturelles : le maximum pour un « vu pour la dernière fois », la somme des différences pour un compteur, l’union pour un ensemble d’étiquettes. Les types de données répliqués sans conflit (CRDT), décrits au ch. 41, sont des structures dont la fusion est définie une fois pour toutes, comme un compteur où chaque réplique tient sa propre part ; Cassandra en fournit un proche, le type `counter`, dont chaque mise à jour transmet une différence et non une nouvelle valeur.
+
+## Compromis
+
+| Forme | Latence d’écriture | Disponibilité des écritures | Conflits | À utiliser pour |
+|---|---|---|---|---|
+| Un leader, asynchrone ([ch. 24](replication-leader.mdx)) | locale au leader, distante pour les autres régions | arrêtée sans leader, bascule nécessaire | aucun, l’ordre est celui du leader | la plupart des bases |
+| Plusieurs leaders | locale dans chaque région | chaque région continue isolée | fréquents sur les données partagées ; lignes croisées (100 sur 100 mesurées), additions perdues, réplication arrêtée sur une clé dupliquée | données à leader d’attache par région, édition hors ligne |
+| Sans leader, $R + W > N$ ($N = 3$, $R = W = 2$) | la plus lente de $W$ répliques | supporte la perte d’une réplique sur trois | concurrents résolus par estampille, ou rendus au client | gros volumes, écritures toujours acceptées |
+| Sans leader, $R = W = 1$ | la plus rapide des répliques | supporte la perte de deux répliques | lectures anciennes en plus | données qui tolèrent l’ancienneté |
+| Dernier écrivain gagne | aucun surcoût | celle du niveau de cohérence choisi | écritures perdues sans erreur (une écriture effacée par 2 s de décalage d’horloge, plus de 1 260 incréments sur 1 600, mesurés) | valeurs qu’on remplace en entier et qu’on peut perdre |
+| Transaction légère (Paxos) | plusieurs allers-retours (4,1 ms médiane, 206 ms p99 mesurés) | celle d’une majorité | aucun, mais résultats inconnus à rejouer | opérations rares qui exigent l’unicité |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la disponibilité selon le niveau de cohérence]
+Hypothèses : $N = 3$ répliques, chacune disponible avec une probabilité $p = 0{,}99$, indépendamment des autres ; une opération réussit si au moins $k$ répliques répondent.
+
+| Niveau | Probabilité de succès | Résultat | Indisponibilité par an |
+|---|---|---|---|
+| `ONE` ($k = 1$) | $1 - (1 - p)^3$ | 99,9999 % | 32 s |
+| `QUORUM` ($k = 2$) | $p^3 + 3p^2(1 - p)$ | 99,97 % | 2,6 h |
+| `ALL` ($k = 3$) | $p^3$ | 97,03 % | 260 h |
+
+Conclusion : `ALL` est moins disponible qu’une seule réplique, puisqu’il échoue dès qu’une machine sur trois manque. `QUORUM` perd un peu de disponibilité par rapport à `ONE` et garantit en échange de lire la dernière écriture confirmée ; c’est pourquoi $R = W = 2$ sur $N = 3$ est la configuration courante.
+:::
+
+:::calcul[Calcul : combien de conflits entre deux leaders]
+Hypothèses : deux régions, chacune avec un leader ; le retard de réplication entre les régions est de 200 ms ; un document partagé reçoit 2 modifications par minute dans chaque région, au hasard ; deux modifications sont en conflit si elles tombent à moins de 200 ms l’une de l’autre.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Taux de modifications par région | 2 / 60 | 0,033 /s |
+| Probabilité qu’une modification de A ait une modification de B dans la fenêtre de ± 0,2 s | 0,033 × 0,4 | 1,3 % |
+| Conflits par jour pour ce document | 2 880 modifications de A × 0,013 | ≈ 38 |
+| Avec un leader d’attache par document | | 0 |
+
+Conclusion : même des modifications rares produisent des dizaines de conflits par jour sur une donnée partagée, et chacun croise les valeurs ou perd une modification si rien ne le traite. Attacher chaque donnée à un leader supprime ces conflits.
+:::
+
+:::calcul[Calcul : la place des indications différées]
+Hypothèses : un nœud Cassandra reçoit 20 000 écritures par seconde de 500 octets, dont un tiers est destiné à une réplique en maintenance pendant 2 heures, moins que les 3 heures de `max_hint_window`.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Écritures destinées à la réplique absente | 20 000 / 3 × 7 200 | 48 millions |
+| Volume des indications | 48 × 10⁶ × 500 o | ≈ 24 Go |
+| Au-delà de 3 heures | | indications abandonnées, réparation complète nécessaire |
+
+Conclusion : une maintenance de quelques heures laisse des dizaines de gigaoctets d’indications sur les autres nœuds, qu’ils devront livrer en plus de leur charge au retour de la réplique ; une maintenance plus longue que la fenêtre impose une réparation, qui compare et recopie des intervalles entiers.
+:::
+
+## Exemple réel
+
+**Le panier d’Amazon dans Dynamo.** L’article de Giuseppe DeCandia et ses collègues[^dynamo] décrit Dynamo comme la base de plusieurs services centraux d’Amazon, dont le service des paniers, qui a servi en une seule journée des dizaines de millions de requêtes, pour plus de 3 millions de commandes. L’exigence du panier est qu’un ajout ne soit jamais oublié ni refusé, même quand des disques tombent, que le réseau se coupe ou que des centres de données sont détruits. Dynamo accepte donc toujours les écritures, avec un quorum relâché et des indications différées, et garde les versions concurrentes avec leurs vecteurs ; l’application du panier les fusionne, au prix d’articles supprimés qui réapparaissent. La configuration $(N, R, W)$ la plus utilisée par les instances de Dynamo était $(3, 2, 2)$. L’article mesure aussi combien de versions concurrentes le service du panier a vu sur 24 heures : 99,94 % des requêtes n’ont vu qu’une version, 0,00057 % en ont vu deux, 0,00047 % trois et 0,00009 % quatre. Les conflits existent, mais ils sont rares, et c’est ce qui rend acceptable une fusion applicative imparfaite. L’article remarque aussi que la durabilité et la disponibilité ne vont pas toujours ensemble, puisqu’augmenter $W$ réduit la fenêtre de perte, mais augmente la probabilité de refuser une écriture.
+
+## Erreurs fréquentes
+
+Mettre deux leaders sur les mêmes données sans règle de conflit. Les mises à jour concurrentes se croisent (100 lignes sur 100 dans la mesure) et les bases restent différentes, sans erreur.
+
+Répliquer des incréments entre leaders. La réplication transmet les nouvelles valeurs, et la moitié des additions a disparu dans la mesure ; un compteur se réplique par opérations ou par CRDT.
+
+Laisser deux leaders générer les mêmes clés. Une seule clé dupliquée arrête toute la réplication jusqu’à une intervention manuelle (cinq échecs en quinze secondes, plus rien ne passe).
+
+Lire en `ONE` des données écrites en `ONE`. $R + W = 2$ n’assure aucun recouvrement sur trois répliques.
+
+Croire qu’un nœud revenu a rattrapé ce qu’il a manqué. La copie de c3 n’avait aucune des 1 000 écritures à son retour ; seules les indications, la réparation à la lecture et `nodetool repair` la remettent à jour.
+
+Compter sur la réparation à la lecture pour toutes les données. Elle ne répare que ce qu’on lit, et seulement sur les répliques interrogées.
+
+Utiliser le dernier écrivain gagne avec des horloges non synchronisées, ou pour une lecture puis une écriture. Une horloge en retard de 2 s a effacé l’écriture suivante, et des incrémentations concurrentes ont perdu quatre écritures sur cinq.
+
+Rejouer une transaction légère au résultat inconnu comme si elle avait échoué. Le compteur a fini entre 1 608 et 1 619 au lieu de 1 600.
+
+:::piege[Erreur fréquente : « QUORUM, donc cohérence forte »]
+$R + W > N$ garantit qu’une lecture rencontre une réplique qui a la dernière écriture confirmée, à condition que les quorums soient stricts, que les écritures ne soient pas concurrentes et que les horloges classent correctement les estampilles. La mesure en donne deux contre-exemples avec des écritures toutes en `QUORUM`. Une écriture faite par un client à l’horloge en retard a disparu, et des incrémentations concurrentes se sont écrasées. Pour une opération qui doit être linéarisable (un identifiant unique, une réservation), il faut une transaction légère ou une base à consensus (ch. 34 et 35).
+:::
+
+:::entretien
+Pour une base sans leader, donnez $N$, $R$ et $W$, et dites ce qu’ils achètent : « $N = 3$, $R = W = 2$ ; la perte d’une réplique ne bloque rien, la lecture voit la dernière écriture confirmée ». Puis dites comment les conflits sont résolus (estampilles, vecteurs, fusion) et comment les répliques sont réparées (indications, réparation régulière). Pour plusieurs leaders, dites quelle donnée appartient à quel leader, et ce qui se passe quand une donnée est modifiée des deux côtés.
+:::
+
+## Exercices
+
+**Question 1.** Une grappe Cassandra a cinq nœuds et un facteur de réplication de 3. Quelles combinaisons de niveaux d’écriture et de lecture garantissent qu’une lecture voit la dernière écriture confirmée ? Laquelle choisir pour un service qui lit dix fois plus qu’il n’écrit, et qui doit continuer d’écrire si une réplique tombe ?
+
+**Question 2.** Dans la mesure de `multileader.py`, pourquoi les deux bases sont-elles égales à 750 à la fin de la troisième partie, alors qu’elles étaient croisées après chaque tour de la deuxième partie ? Que vaudraient-elles après 51 tours ?
+
+**Question 3.** Un panier fusionné par union des articles fait réapparaître les articles supprimés. Proposez une représentation du panier qui permette de fusionner deux versions concurrentes sans faire réapparaître une suppression, et dites ce qu’elle coûte.
+
+**Exercice de conception.** Une application de notes est utilisée sur téléphone, sur ordinateur et dans le navigateur, avec ou sans réseau ; un utilisateur a en moyenne trois appareils, et modifie parfois la même note sur deux appareils sans réseau. Le service a 10 millions d’utilisateurs, répartis entre l’Europe et l’Amérique du Nord. Proposez la réplication (entre appareils et serveurs, entre les deux régions), la détection des modifications concurrentes, et la fusion de deux versions d’une note. Chiffrez la taille des métadonnées de version par note.
+
+## Corrigés
+
+**Question 1.** Il faut $R + W > 3$. Les combinaisons sont `ONE` et `ALL` (1 + 3), `QUORUM` et `QUORUM` (2 + 2), `QUORUM` et `ALL`, `ALL` et `ONE`, et toutes celles qui ont plus de répliques. Le nombre total de nœuds, cinq, ne compte pas, car seules les trois répliques de chaque clé interviennent. Écrire en `ALL` empêche d’écrire quand une réplique tombe, ce que l’énoncé exclut. Restent `QUORUM` et `QUORUM`, ou `QUORUM` en écriture et `ALL` en lecture. Pour un service qui lit dix fois plus qu’il n’écrit, `ALL` en lecture rendrait les lectures indisponibles à la perte d’une réplique et lentes au rythme de la plus lente ; on choisit `QUORUM` pour les deux.
+
+**Question 2.** À chaque tour, A calcule $x + 10$ et B calcule $x + 20$ à partir de la même valeur $x$, puis chacun reçoit et applique la ligne de l’autre. A finit à $x + 20$ et B à $x + 10$, croisés. Au tour suivant, A ajoute 10 à $x + 20$ et B ajoute 20 à $x + 10$, si bien que les deux calculent $x + 30$, s’échangent la même valeur, et sont égaux. Tous les deux tours, le solde a augmenté de 30 au lieu de 60, d’où 25 × 30 = 750 après 50 tours. Après 51 tours, les bases seraient croisées, à 750 + 20 = 770 sur A et 750 + 10 = 760 sur B.
+
+**Question 3.** On représente le panier comme deux ensembles, les ajouts et les suppressions, chaque opération portant un identifiant unique (un ensemble observé-supprimé, OR-Set, ch. 41). Un article est dans le panier s’il a un ajout dont l’identifiant n’est pas dans les suppressions. La fusion fait l’union des deux ensembles d’ajouts et l’union des deux ensembles de suppressions ; une suppression faite dans une version efface les ajouts qu’elle avait vus, mais pas un ajout concurrent fait dans l’autre version, qui reste visible, ce qui est le comportement attendu. Le coût est la place des identifiants et des suppressions, qu’il faut garder tant qu’une version concurrente peut encore arriver, puis nettoyer.
+
+**Exercice de conception.**
+
+*Réplication.* Chaque appareil est un leader, avec une copie locale des notes de l’utilisateur ; il envoie ses modifications au serveur quand il a du réseau, et reçoit celles des autres appareils. Côté serveur, chaque utilisateur a une région d’attache, et toutes ses notes y sont écrites ; l’autre région en a une copie asynchrone pour la reprise. Il n’y a donc pas de conflit entre régions, seulement entre appareils.
+
+*Détection.* Chaque note porte un vecteur de version avec une paire par appareil qui l’a modifiée. Quand le serveur reçoit une version, il la compare à la sienne : si elle la domine, elle la remplace ; si elle est dominée, elle est ignorée ; si elles sont concurrentes, la note a deux versions à fusionner.
+
+*Fusion.* Pour du texte, une fusion à trois voies à partir de l’ancêtre commun, comme celle d’un gestionnaire de versions ; quand elle échoue sur un même paragraphe, les deux versions sont gardées et l’utilisateur choisit. Un éditeur fondé sur un CRDT de texte (ch. 41) éviterait le conflit, au prix de métadonnées par caractère.
+
+*Taille.* Trois appareils, une paire chacun, un identifiant d’appareil de 16 octets et un compteur de 8 octets font 72 octets par note. Pour 10 millions d’utilisateurs à 500 notes, 5 milliards de notes et 360 Go de vecteurs, à comparer aux notes elles-mêmes, de quelques kilooctets chacune. Les anciens appareils sont retirés des vecteurs quand ils sont désinscrits.
+
+:::fiche
+- Plusieurs leaders : écritures locales par région ou par appareil, transmises en asynchrone ; `origin = none` évite les boucles dans PostgreSQL.
+- Conflits mesurés entre deux leaders PostgreSQL : 100 lignes sur 100 croisées, la moitié des additions perdue, une clé dupliquée qui arrête la réplication jusqu’à une intervention manuelle. Les éviter par un leader d’attache par donnée.
+- Sans leader : $N$ répliques, $W$ réponses pour écrire, $R$ pour lire ; $R + W > N$ assure le recouvrement des quorums stricts ; $(3, 2, 2)$ courant.
+- Une réplique revenue n’a rien rattrapé (1 000 écritures manquantes, mesuré) ; réparation à la lecture (seulement les répliques lues), indications différées (3 h par défaut), anti-entropie (`nodetool repair`, arbres de Merkle).
+- Quorum relâché : écritures sur d’autres nœuds, plus de recouvrement garanti.
+- Dernier écrivain gagne : une horloge en retard de 2 s efface une écriture, la lecture puis l’écriture perd 80 % des incréments (mesuré). Transactions légères : Paxos, 4,1 à 4,4 ms par tentative, résultats inconnus à traiter.
+- Vecteurs de version : distinguer « remplace » de « concurrent » ; fusion applicative (union du panier, suppressions qui réapparaissent), CRDT au ch. 41.
+:::
+
+[^pg-sub]: PostgreSQL, « CREATE SUBSCRIPTION », paramètre `origin`, documentation, [postgresql.org/docs/18/sql-createsubscription.html](https://www.postgresql.org/docs/18/sql-createsubscription.html).
+[^pg-conflits]: PostgreSQL, « Conflicts », section 29.7 de la documentation sur la réplication logique, [postgresql.org/docs/18/logical-replication-conflicts.html](https://www.postgresql.org/docs/18/logical-replication-conflicts.html).
+[^dynamo]: Giuseppe DeCandia, Deniz Hastorun, Madan Jampani, Gunavardhan Kakulapati, Avinash Lakshman, Alex Pilchin, Swaminathan Sivasubramanian, Peter Vosshall et Werner Vogels, « Dynamo: Amazon’s Highly Available Key-value Store », *21st ACM Symposium on Operating Systems Principles (SOSP ’07)*, 2007, p. 205-220, sections 4.3, 4.4, 4.6, 4.7 et 6, [doi:10.1145/1294261.1294281](https://doi.org/10.1145/1294261.1294281).
+[^cass-rr]: Apache Cassandra, « Read repair », documentation, [cassandra.apache.org/doc/latest/cassandra/managing/operating/read_repair.html](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/read_repair.html).
+[^cass-hints]: Apache Cassandra, « Hints », documentation, [cassandra.apache.org/doc/latest/cassandra/managing/operating/hints.html](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/hints.html).
+[^cass-dml]: Apache Cassandra, « Data manipulation », documentation de CQL, sections sur `USING TIMESTAMP` et les conditions `IF`, [cassandra.apache.org/doc/latest/cassandra/developing/cql/dml.html](https://cassandra.apache.org/doc/latest/cassandra/developing/cql/dml.html).
+[^ddia]: Martin Kleppmann, *Designing Data-Intensive Applications*, O’Reilly, 2017, chapitre 5, « Replication », section « Limitations of Quorum Consistency ».
