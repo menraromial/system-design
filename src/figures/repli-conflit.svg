@@ -1,0 +1,710 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 404.16 178.74">
+<defs>
+<g>
+<g id="repli-conflit-glyph-0-0">
+<path d="M 2.68 0.10 C 4.18 0.10 4.82 -1.07 4.82 -3.12 C 4.82 -5.17 4.18 -6.35 2.68 -6.35 C 1.18 -6.35 0.53 -5.17 0.53 -3.12 C 0.53 -1.07 1.18 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.70 -0.54 1.32 -1.40 1.32 -2.60 L 1.32 -3.64 C 1.32 -4.84 1.70 -5.70 2.68 -5.70 C 3.65 -5.70 4.04 -4.84 4.04 -3.64 L 4.04 -2.60 C 4.04 -1.40 3.65 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="repli-conflit-glyph-0-1">
+<path d="M 4.89 0 L 4.89 -0.65 L 3.28 -0.65 L 3.28 -6.25 L 2.10 -6.25 L 0.45 -4.70 L 0.89 -4.21 L 2.46 -5.68 L 2.53 -5.68 L 2.53 -0.65 L 0.78 -0.65 L 0.78 0 Z M 4.89 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-2">
+<path d="M 4.76 -0.65 L 1.48 -0.65 L 3.17 -2.17 C 3.96 -2.89 4.54 -3.57 4.54 -4.54 C 4.54 -5.60 3.84 -6.35 2.62 -6.35 C 1.42 -6.35 0.85 -5.62 0.62 -4.89 L 1.29 -4.62 C 1.45 -5.21 1.81 -5.68 2.59 -5.68 C 3.35 -5.68 3.75 -5.20 3.75 -4.51 L 3.75 -4.40 C 3.75 -3.81 3.29 -3.18 2.71 -2.65 L 0.67 -0.76 L 0.67 0 L 4.76 0 Z M 4.76 -0.65 "/>
+</g>
+<g id="repli-conflit-glyph-0-3">
+<path d="M 1.65 -3.59 L 1.65 -2.95 L 2.39 -2.95 C 3.26 -2.95 3.73 -2.53 3.73 -1.79 L 3.73 -1.71 C 3.73 -0.98 3.26 -0.56 2.39 -0.56 C 1.62 -0.56 1.26 -0.89 0.93 -1.39 L 0.37 -0.95 C 0.76 -0.42 1.31 0.10 2.40 0.10 C 3.67 0.10 4.51 -0.64 4.51 -1.70 C 4.51 -2.65 3.87 -3.15 3.20 -3.28 L 3.20 -3.32 C 3.87 -3.48 4.40 -3.96 4.40 -4.78 C 4.40 -5.79 3.56 -6.35 2.5 -6.35 C 1.5 -6.35 0.95 -5.84 0.64 -5.34 L 1.20 -4.90 C 1.45 -5.37 1.84 -5.68 2.48 -5.68 C 3.15 -5.68 3.60 -5.35 3.60 -4.70 L 3.60 -4.64 C 3.60 -4.03 3.17 -3.59 2.34 -3.59 Z M 1.65 -3.59 "/>
+</g>
+<g id="repli-conflit-glyph-0-4">
+<path d="M 4.07 0 L 4.07 -1.23 L 4.98 -1.23 L 4.98 -1.85 L 4.07 -1.85 L 4.07 -6.25 L 2.95 -6.25 L 0.34 -1.89 L 0.34 -1.23 L 3.35 -1.23 L 3.35 0 Z M 3.31 -5.67 L 3.35 -5.67 L 3.35 -1.85 L 1.04 -1.85 Z M 3.31 -5.67 "/>
+</g>
+<g id="repli-conflit-glyph-0-5">
+<path d="M 4.45 -6.25 L 1.10 -6.25 L 0.89 -2.81 L 1.51 -2.71 C 1.78 -3.01 2.06 -3.25 2.64 -3.25 C 3.48 -3.25 3.95 -2.78 3.95 -1.95 L 3.95 -1.85 C 3.95 -1.03 3.48 -0.56 2.64 -0.56 C 1.89 -0.56 1.57 -0.89 1.25 -1.39 L 0.68 -0.95 C 1.06 -0.42 1.60 0.10 2.64 0.10 C 3.95 0.10 4.75 -0.75 4.75 -1.95 C 4.75 -3.17 3.95 -3.89 2.89 -3.89 C 2.23 -3.89 1.89 -3.62 1.60 -3.20 L 1.54 -3.20 L 1.71 -5.59 L 4.45 -5.59 Z M 4.45 -6.25 "/>
+</g>
+<g id="repli-conflit-glyph-0-6">
+<path d="M 2.68 0.10 C 3.95 0.10 4.76 -0.73 4.76 -1.95 C 4.76 -3.14 4 -3.89 2.92 -3.89 C 2.17 -3.89 1.71 -3.5 1.42 -2.98 L 1.37 -3.01 C 1.71 -4.45 2.46 -5.26 3.79 -6.25 L 2.82 -6.25 C 1.82 -5.59 0.59 -4.14 0.59 -2.29 C 0.59 -0.81 1.39 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.85 -0.54 1.37 -1.01 1.37 -1.85 L 1.37 -1.93 C 1.37 -2.78 1.85 -3.25 2.68 -3.25 C 3.51 -3.25 4 -2.78 4 -1.93 L 4 -1.85 C 4 -1.01 3.51 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="repli-conflit-glyph-0-7">
+<path d="M 2.15 0.10 C 3.20 0.10 3.85 -0.43 3.85 -1.32 C 3.85 -2.03 3.46 -2.48 2.43 -2.62 L 2.09 -2.68 C 1.51 -2.78 1.20 -2.95 1.20 -3.40 C 1.20 -3.84 1.51 -4.12 2.10 -4.12 C 2.68 -4.12 3.09 -3.84 3.29 -3.54 L 3.76 -3.98 C 3.39 -4.45 2.90 -4.73 2.15 -4.73 C 1.21 -4.73 0.51 -4.28 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 2 -2.03 L 2.35 -1.98 C 2.96 -1.89 3.17 -1.60 3.17 -1.25 C 3.17 -0.78 2.81 -0.5 2.20 -0.5 C 1.62 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.15 0.10 Z M 2.15 0.10 "/>
+</g>
+<g id="repli-conflit-glyph-0-8">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.5 -4.12 "/>
+</g>
+<g id="repli-conflit-glyph-0-9">
+<path d="M 2.48 0.10 C 3.35 0.10 3.95 -0.32 4.25 -0.98 L 3.73 -1.32 C 3.48 -0.81 3.06 -0.53 2.48 -0.53 C 1.62 -0.53 1.18 -1.10 1.18 -1.92 L 1.18 -2.70 C 1.18 -3.51 1.62 -4.09 2.48 -4.09 C 3.04 -4.09 3.43 -3.81 3.60 -3.34 L 4.20 -3.64 C 3.93 -4.28 3.39 -4.73 2.48 -4.73 C 1.18 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.82 1.18 0.10 2.48 0.10 Z M 2.48 0.10 "/>
+</g>
+<g id="repli-conflit-glyph-0-10">
+<path d="M 2.5 0.10 C 3.75 0.10 4.59 -0.84 4.59 -2.31 C 4.59 -3.78 3.75 -4.73 2.5 -4.73 C 1.26 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.98 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.09 2.5 -4.09 C 3.28 -4.09 3.82 -3.60 3.82 -2.64 L 3.82 -1.98 C 3.82 -1 3.28 -0.53 2.5 -0.53 Z M 2.5 -0.53 "/>
+</g>
+<g id="repli-conflit-glyph-0-11">
+<path d="M 1.48 0 L 1.48 -3.20 C 1.48 -3.79 2.03 -4.07 2.60 -4.07 C 3.29 -4.07 3.65 -3.65 3.65 -2.84 L 3.65 0 L 4.37 0 L 4.37 -2.96 C 4.37 -4.07 3.76 -4.73 2.81 -4.73 C 2.12 -4.73 1.73 -4.39 1.51 -3.87 L 1.48 -3.87 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-12">
+<path d="M 3.71 0 L 4.43 0 L 4.43 -6.62 L 3.71 -6.62 L 3.71 -3.87 L 3.68 -3.87 C 3.43 -4.45 2.96 -4.73 2.32 -4.73 C 1.17 -4.73 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.96 0.10 3.40 -0.17 3.68 -0.75 L 3.71 -0.75 Z M 2.53 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.92 L 1.21 -2.70 C 1.21 -3.53 1.71 -4.07 2.53 -4.07 C 3.17 -4.07 3.71 -3.70 3.71 -3.20 L 3.71 -1.48 C 3.71 -0.87 3.17 -0.53 2.53 -0.53 Z M 2.53 -0.53 "/>
+</g>
+<g id="repli-conflit-glyph-0-13">
+<path d="M 0.76 1.79 L 1.48 1.79 L 1.48 -0.75 L 1.51 -0.75 C 1.79 -0.17 2.23 0.10 2.85 0.10 C 4.01 0.10 4.75 -0.82 4.75 -2.31 C 4.75 -3.78 4.01 -4.73 2.85 -4.73 C 2.23 -4.73 1.75 -4.45 1.51 -3.87 L 1.48 -3.87 L 1.48 -4.62 L 0.76 -4.62 Z M 2.67 -0.53 C 2.01 -0.53 1.48 -0.87 1.48 -1.48 L 1.48 -3.20 C 1.48 -3.70 2.01 -4.07 2.67 -4.07 C 3.46 -4.07 3.96 -3.53 3.96 -2.70 L 3.96 -1.92 C 3.96 -1.09 3.46 -0.53 2.67 -0.53 Z M 2.67 -0.53 "/>
+</g>
+<g id="repli-conflit-glyph-0-14">
+<path d="M 3.60 0 L 4.32 0 L 4.32 -4.62 L 3.60 -4.62 L 3.60 -1.42 C 3.60 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.43 -0.95 1.43 -1.78 L 1.43 -4.62 L 0.71 -4.62 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.28 0.10 C 3.04 0.10 3.39 -0.31 3.57 -0.75 L 3.60 -0.75 Z M 3.60 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-15">
+<path d="M 1.12 -5.70 C 1.42 -5.70 1.56 -5.85 1.56 -6.10 L 1.56 -6.21 C 1.56 -6.46 1.42 -6.62 1.12 -6.62 C 0.81 -6.62 0.68 -6.46 0.68 -6.21 L 0.68 -6.10 C 0.68 -5.85 0.81 -5.70 1.12 -5.70 Z M 0.76 0 L 1.48 0 L 1.48 -4.62 L 0.76 -4.62 Z M 0.76 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-16">
+<path d="M 2.15 0 L 2.15 -0.62 L 1.48 -0.62 L 1.48 -6.62 L 0.76 -6.62 L 0.76 -0.75 C 0.76 -0.31 1.03 0 1.51 0 Z M 2.15 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-17">
+<path d="M 3.17 0 L 5.26 -6.25 L 4.5 -6.25 L 3.45 -3.09 L 2.75 -0.75 L 2.70 -0.75 L 2.01 -3.09 L 0.98 -6.25 L 0.17 -6.25 L 2.25 0 Z M 3.17 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-18">
+<path d="M 5.53 0 L 3.34 -6.25 L 2.39 -6.25 L 0.20 0 L 0.96 0 L 1.59 -1.84 L 4.12 -1.84 L 4.75 0 Z M 3.93 -2.5 L 1.76 -2.5 L 2.82 -5.54 L 2.87 -5.54 Z M 3.93 -2.5 "/>
+</g>
+<g id="repli-conflit-glyph-0-19">
+<path d="M 3.03 0.10 C 4.07 0.10 4.82 -0.43 5.23 -1.31 L 4.62 -1.68 C 4.37 -1.01 3.82 -0.56 3.03 -0.56 C 1.95 -0.56 1.32 -1.34 1.32 -2.62 L 1.32 -3.54 C 1.32 -4.82 1.95 -5.68 3.03 -5.68 C 3.81 -5.68 4.32 -5.26 4.57 -4.62 L 5.18 -4.98 C 4.79 -5.85 4.07 -6.35 3.03 -6.35 C 1.45 -6.35 0.51 -5.17 0.51 -3.09 C 0.51 -1 1.45 0.10 3.03 0.10 Z M 3.03 0.10 "/>
+</g>
+<g id="repli-conflit-glyph-0-20">
+<path d="M 0.78 -6.25 L 0.78 -2.56 C 0.78 -0.75 1.34 0.10 3.01 0.10 C 4.67 0.10 5.28 -0.75 5.28 -2.56 L 5.28 -6.25 L 4.53 -6.25 L 4.53 -2.37 C 4.53 -1.18 4.14 -0.56 3.03 -0.56 C 1.92 -0.56 1.54 -1.18 1.54 -2.37 L 1.54 -6.25 Z M 0.78 -6.25 "/>
+</g>
+<g id="repli-conflit-glyph-0-21">
+<path d="M 0.82 0 L 1.56 0 L 1.56 -5.26 L 1.60 -5.26 L 2.14 -4.21 L 3.64 -1.5 L 5.12 -4.21 L 5.65 -5.26 L 5.70 -5.26 L 5.70 0 L 6.43 0 L 6.43 -6.25 L 5.46 -6.25 L 3.67 -2.89 L 3.62 -2.89 L 1.82 -6.25 L 0.82 -6.25 Z M 0.82 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-22">
+<path d="M 1.48 0 L 1.48 -3.14 C 1.48 -3.57 1.93 -3.90 2.71 -3.90 L 3.14 -3.90 L 3.14 -4.62 L 2.85 -4.62 C 2.10 -4.62 1.68 -4.20 1.51 -3.76 L 1.48 -3.76 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-23">
+<path d="M 1.48 0 L 1.48 -3.20 C 1.48 -3.79 2.01 -4.07 2.57 -4.07 C 3.26 -4.07 3.57 -3.65 3.57 -2.84 L 3.57 0 L 4.28 0 L 4.28 -3.20 C 4.28 -3.79 4.81 -4.07 5.37 -4.07 C 6.06 -4.07 6.39 -3.65 6.39 -2.84 L 6.39 0 L 7.09 0 L 7.09 -2.96 C 7.09 -4.07 6.53 -4.73 5.59 -4.73 C 4.81 -4.73 4.35 -4.28 4.18 -3.78 L 4.17 -3.78 C 3.92 -4.45 3.35 -4.73 2.75 -4.73 C 2.04 -4.73 1.71 -4.34 1.51 -3.87 L 1.48 -3.87 L 1.48 -4.62 L 0.76 -4.62 L 0.76 0 Z M 1.48 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-24">
+<path d="M 4.51 0 L 4.51 -0.62 L 4 -0.62 L 4 -3.17 C 4 -4.14 3.32 -4.73 2.21 -4.73 C 1.39 -4.73 0.82 -4.31 0.57 -3.82 L 1.01 -3.42 C 1.26 -3.84 1.62 -4.10 2.18 -4.10 C 2.92 -4.10 3.28 -3.75 3.28 -3.09 L 3.28 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.29 C 0.39 -0.43 0.96 0.10 1.93 0.10 C 2.59 0.10 3.07 -0.18 3.28 -0.75 L 3.32 -0.75 C 3.37 -0.32 3.59 0 4.12 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.85 1.51 -2.10 2.32 -2.10 L 3.28 -2.10 L 3.28 -1.34 C 3.28 -0.87 2.76 -0.5 2.06 -0.5 Z M 2.06 -0.5 "/>
+</g>
+<g id="repli-conflit-glyph-0-25">
+<path d="M 1.31 0.10 C 1.68 0.10 1.85 -0.10 1.85 -0.40 L 1.85 -0.53 C 1.85 -0.82 1.68 -1.04 1.31 -1.04 C 0.93 -1.04 0.76 -0.82 0.76 -0.53 L 0.76 -0.40 C 0.76 -0.10 0.93 0.10 1.31 0.10 Z M 1.31 -3.57 C 1.68 -3.57 1.85 -3.78 1.85 -4.09 L 1.85 -4.20 C 1.85 -4.51 1.68 -4.73 1.31 -4.73 C 0.93 -4.73 0.76 -4.51 0.76 -4.20 L 0.76 -4.09 C 0.76 -3.78 0.93 -3.57 1.31 -3.57 Z M 1.31 -3.57 "/>
+</g>
+<g id="repli-conflit-glyph-0-26">
+<path d="M 3.71 1.79 L 4.43 1.79 L 4.43 -4.62 L 3.71 -4.62 L 3.71 -3.87 L 3.68 -3.87 C 3.43 -4.45 2.96 -4.73 2.32 -4.73 C 1.17 -4.73 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.96 0.10 3.40 -0.17 3.68 -0.75 L 3.71 -0.75 Z M 2.53 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.92 L 1.21 -2.70 C 1.21 -3.53 1.71 -4.07 2.53 -4.07 C 3.17 -4.07 3.71 -3.70 3.71 -3.20 L 3.71 -1.48 C 3.71 -0.87 3.17 -0.53 2.53 -0.53 Z M 2.53 -0.53 "/>
+</g>
+<g id="repli-conflit-glyph-0-27">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.04 -6.84 L 1.06 -5.56 L 1.45 -5.29 L 2.5 -6.34 L 3.54 -5.29 L 3.93 -5.56 L 2.95 -6.84 Z M 2.04 -6.84 "/>
+</g>
+<g id="repli-conflit-glyph-0-28">
+<path d="M 2.67 0 L 2.67 -0.62 L 1.73 -0.62 L 1.73 -4 L 2.75 -4 L 2.75 -4.62 L 1.73 -4.62 L 1.73 -5.90 L 1.09 -5.90 L 1.09 -5.04 C 1.09 -4.73 1 -4.62 0.68 -4.62 L 0.26 -4.62 L 0.26 -4 L 1.01 -4 L 1.01 -0.76 C 1.01 -0.31 1.29 0 1.78 0 Z M 2.67 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-29">
+<path d="M 2.5 0.10 C 3.35 0.10 4.03 -0.32 4.32 -0.95 L 3.81 -1.31 C 3.57 -0.81 3.12 -0.51 2.54 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.92 L 1.17 -2.12 L 4.5 -2.12 L 4.5 -2.46 C 4.5 -3.78 3.73 -4.73 2.5 -4.73 C 1.25 -4.73 0.42 -3.78 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.23 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.67 L 1.17 -2.67 L 1.17 -2.73 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 3.51 -6.65 L 2.85 -6.96 L 2.09 -5.45 L 2.56 -5.23 Z M 3.51 -6.65 "/>
+</g>
+<g id="repli-conflit-glyph-0-30">
+<path d="M 0.75 -2.79 C 0.75 -1.04 1.48 0.46 2.35 1.23 L 3.04 1.23 C 2.07 0.35 1.42 -1.14 1.42 -2.40 L 1.42 -3.17 C 1.42 -4.42 2.04 -5.90 3.04 -6.79 L 2.35 -6.79 C 1.45 -6.03 0.75 -4.51 0.75 -2.79 Z M 0.75 -2.79 "/>
+</g>
+<g id="repli-conflit-glyph-0-31">
+<path d="M 1.01 0 L 1.73 0 L 1.73 -4 L 2.71 -4 L 2.71 -4.62 L 1.73 -4.62 L 1.73 -6 L 2.71 -6 L 2.71 -6.62 L 2.01 -6.62 C 1.34 -6.62 1.01 -6.18 1.01 -5.54 L 1.01 -4.62 L 0.26 -4.62 L 0.26 -4 L 1.01 -4 Z M 1.01 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-32">
+<path d="M 1.51 0 L 2.37 0 L 3.03 -2.21 L 3.42 -3.62 L 3.43 -3.62 L 3.84 -2.21 L 4.48 0 L 5.37 0 L 6.59 -4.62 L 5.92 -4.62 L 5.42 -2.62 L 4.95 -0.59 L 4.93 -0.59 L 4.35 -2.62 L 3.76 -4.62 L 3.12 -4.62 L 2.54 -2.62 L 1.98 -0.59 L 1.95 -0.59 L 1.46 -2.62 L 0.96 -4.62 L 0.28 -4.62 Z M 1.51 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-33">
+<path d="M 0.76 0 L 1.48 0 L 1.48 -3.20 C 1.48 -3.79 2.03 -4.07 2.60 -4.07 C 3.29 -4.07 3.65 -3.65 3.65 -2.84 L 3.65 0 L 4.37 0 L 4.37 -2.96 C 4.37 -4.07 3.76 -4.73 2.81 -4.73 C 2.12 -4.73 1.73 -4.39 1.51 -3.87 L 1.48 -3.87 L 1.48 -6.62 L 0.76 -6.62 Z M 0.76 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-34">
+<path d="M 2.60 0 L 4.25 -4.62 L 3.54 -4.62 L 2.73 -2.32 L 2.23 -0.75 L 2.18 -0.75 L 1.68 -2.32 L 0.87 -4.62 L 0.15 -4.62 L 1.78 0 Z M 2.60 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-35">
+<path d="M 2.48 -1.48 L 2.23 -0.71 L 2.18 -0.71 L 1.98 -1.48 L 0.87 -4.62 L 0.15 -4.62 L 1.87 0.17 L 1.53 1.15 L 0.81 1.15 L 0.81 1.79 L 1.17 1.79 C 1.85 1.79 2.04 1.62 2.25 1.07 L 4.31 -4.62 L 3.60 -4.62 Z M 2.48 -1.48 "/>
+</g>
+<g id="repli-conflit-glyph-0-36">
+<path d="M 2.25 -2.79 C 2.25 -4.51 1.54 -6.03 0.64 -6.79 L -0.04 -6.79 C 0.95 -5.90 1.57 -4.42 1.57 -3.17 L 1.57 -2.40 C 1.57 -1.14 0.92 0.35 -0.04 1.23 L 0.64 1.23 C 1.51 0.46 2.25 -1.04 2.25 -2.79 Z M 2.25 -2.79 "/>
+</g>
+<g id="repli-conflit-glyph-0-37">
+<path d="M 1.21 -1.04 C 0.84 -1.04 0.67 -0.82 0.67 -0.51 L 0.67 -0.39 C 0.67 -0.15 0.78 0.03 1.01 0.07 C 0.92 0.5 0.70 0.81 0.34 1.18 L 0.95 1.18 C 1.45 0.75 1.76 0.09 1.76 -0.39 L 1.76 -0.51 C 1.76 -0.82 1.59 -1.04 1.21 -1.04 Z M 1.21 -1.04 "/>
+</g>
+<g id="repli-conflit-glyph-0-38">
+<path d="M 4.65 0.51 C 4.65 -0.25 4.15 -0.71 3.01 -0.71 L 2.03 -0.71 C 1.60 -0.71 1.32 -0.78 1.32 -1.06 C 1.32 -1.35 1.62 -1.5 1.93 -1.57 C 2.06 -1.56 2.23 -1.54 2.37 -1.54 C 3.43 -1.54 4.12 -2.18 4.12 -3.14 C 4.12 -3.62 3.93 -4.03 3.59 -4.32 L 3.59 -4.62 L 4.46 -4.62 L 4.46 -5.25 L 3.78 -5.25 C 3.40 -5.25 3.25 -4.98 3.25 -4.62 L 3.25 -4.54 C 3 -4.67 2.70 -4.73 2.37 -4.73 C 1.32 -4.73 0.64 -4.07 0.64 -3.14 C 0.64 -2.48 0.95 -1.98 1.5 -1.71 L 1.5 -1.68 C 1.03 -1.56 0.70 -1.34 0.70 -0.87 C 0.70 -0.56 0.85 -0.35 1.12 -0.23 L 1.12 -0.14 C 0.65 -0.01 0.39 0.26 0.39 0.76 C 0.39 1.48 0.96 1.89 2.42 1.89 C 3.90 1.89 4.65 1.45 4.65 0.51 Z M 3.98 0.56 C 3.98 1.06 3.51 1.31 2.71 1.31 L 2.06 1.31 C 1.32 1.31 1.06 0.98 1.06 0.57 C 1.06 0.29 1.18 0.09 1.48 -0.04 L 3.03 -0.04 C 3.75 -0.04 3.98 0.20 3.98 0.56 Z M 2.37 -2.10 C 1.76 -2.10 1.39 -2.40 1.39 -3.01 L 1.39 -3.26 C 1.39 -3.87 1.76 -4.15 2.37 -4.15 C 2.98 -4.15 3.37 -3.87 3.37 -3.26 L 3.37 -3.01 C 3.37 -2.40 2.98 -2.10 2.37 -2.10 Z M 2.37 -2.10 "/>
+</g>
+<g id="repli-conflit-glyph-0-39">
+<path d="M 0.18 0 L 0.98 0 L 2.28 -1.81 L 2.31 -1.81 L 3.51 0 L 4.34 0 L 2.68 -2.37 L 4.31 -4.62 L 3.51 -4.62 L 2.29 -2.90 L 2.28 -2.90 L 1.09 -4.62 L 0.26 -4.62 L 1.89 -2.32 Z M 0.18 0 "/>
+</g>
+<g id="repli-conflit-glyph-0-40">
+<path d="M 4.79 1.48 L 4.79 0.84 L 0.26 0.84 L 0.26 1.48 Z M 4.79 1.48 "/>
+</g>
+<g id="repli-conflit-glyph-0-41">
+<path d="M 0.76 0 L 1.48 0 L 1.48 -0.75 L 1.51 -0.75 C 1.79 -0.17 2.23 0.10 2.85 0.10 C 4.01 0.10 4.75 -0.82 4.75 -2.31 C 4.75 -3.78 4.01 -4.73 2.85 -4.73 C 2.23 -4.73 1.75 -4.45 1.51 -3.87 L 1.48 -3.87 L 1.48 -6.62 L 0.76 -6.62 Z M 2.67 -0.53 C 2.01 -0.53 1.48 -0.87 1.48 -1.48 L 1.48 -3.20 C 1.48 -3.70 2.01 -4.07 2.67 -4.07 C 3.46 -4.07 3.96 -3.53 3.96 -2.70 L 3.96 -1.92 C 3.96 -1.09 3.46 -0.53 2.67 -0.53 Z M 2.67 -0.53 "/>
+</g>
+<g id="repli-conflit-glyph-0-42">
+<path d="M 4.76 -3.32 L 4.76 -3.93 L 0.59 -3.93 L 0.59 -3.32 Z M 4.76 -1.54 L 4.76 -2.15 L 0.59 -2.15 L 0.59 -1.54 Z M 4.76 -1.54 "/>
+</g>
+<g id="repli-conflit-glyph-0-43">
+<path d="M 0.76 0 L 1.48 0 L 1.48 -1.64 L 2.17 -2.35 L 3.70 0 L 4.56 0 L 2.68 -2.79 L 4.39 -4.62 L 3.53 -4.62 L 2.21 -3.21 L 1.51 -2.42 L 1.48 -2.42 L 1.48 -6.62 L 0.76 -6.62 Z M 0.76 0 "/>
+</g>
+<g id="repli-conflit-glyph-1-0">
+<path d="M 0 -1.48 L -3.14 -1.48 C -3.57 -1.48 -3.90 -1.93 -3.90 -2.71 L -3.90 -3.14 L -4.62 -3.14 L -4.62 -2.85 C -4.62 -2.10 -4.20 -1.68 -3.76 -1.51 L -3.76 -1.48 L -4.62 -1.48 L -4.62 -0.76 L 0 -0.76 Z M 0 -1.48 "/>
+</g>
+<g id="repli-conflit-glyph-1-1">
+<path d="M 0.10 -2.5 C 0.10 -3.35 -0.32 -4.03 -0.95 -4.32 L -1.31 -3.81 C -0.81 -3.57 -0.51 -3.12 -0.51 -2.54 C -0.51 -1.68 -1.12 -1.17 -1.92 -1.17 L -2.12 -1.17 L -2.12 -4.5 L -2.46 -4.5 C -3.78 -4.5 -4.73 -3.73 -4.73 -2.5 C -4.73 -1.25 -3.78 -0.42 -2.31 -0.42 C -0.84 -0.42 0.10 -1.25 0.10 -2.5 Z M -4.12 -2.5 C -4.12 -3.23 -3.57 -3.71 -2.76 -3.71 L -2.67 -3.71 L -2.67 -1.17 L -2.73 -1.17 C -3.53 -1.17 -4.12 -1.71 -4.12 -2.5 Z M -4.12 -2.5 "/>
+</g>
+<g id="repli-conflit-glyph-1-2">
+<path d="M 0 -2.67 L -0.62 -2.67 L -0.62 -1.73 L -4 -1.73 L -4 -2.75 L -4.62 -2.75 L -4.62 -1.73 L -5.90 -1.73 L -5.90 -1.09 L -5.04 -1.09 C -4.73 -1.09 -4.62 -1 -4.62 -0.68 L -4.62 -0.26 L -4 -0.26 L -4 -1.01 L -0.76 -1.01 C -0.31 -1.01 0 -1.29 0 -1.78 Z M 0 -2.67 "/>
+</g>
+<g id="repli-conflit-glyph-1-3">
+<path d="M 0 -4.51 L -0.62 -4.51 L -0.62 -4 L -3.17 -4 C -4.14 -4 -4.73 -3.32 -4.73 -2.21 C -4.73 -1.39 -4.31 -0.82 -3.82 -0.57 L -3.42 -1.01 C -3.84 -1.26 -4.10 -1.62 -4.10 -2.18 C -4.10 -2.92 -3.75 -3.28 -3.09 -3.28 L -2.64 -3.28 L -2.64 -2.35 C -2.64 -1.01 -2.15 -0.39 -1.29 -0.39 C -0.43 -0.39 0.10 -0.96 0.10 -1.93 C 0.10 -2.59 -0.18 -3.07 -0.75 -3.28 L -0.75 -3.32 C -0.32 -3.37 0 -3.59 0 -4.12 Z M -0.5 -2.06 C -0.5 -1.5 -0.76 -1.14 -1.21 -1.14 L -1.40 -1.14 C -1.85 -1.14 -2.10 -1.51 -2.10 -2.32 L -2.10 -3.28 L -1.34 -3.28 C -0.87 -3.28 -0.5 -2.76 -0.5 -2.06 Z M -0.5 -2.06 "/>
+</g>
+<g id="repli-conflit-glyph-1-4">
+<path d="M 0 -3.71 L 0 -4.43 L -6.62 -4.43 L -6.62 -3.71 L -3.87 -3.71 L -3.87 -3.68 C -4.45 -3.43 -4.73 -2.96 -4.73 -2.32 C -4.73 -1.17 -3.78 -0.45 -2.31 -0.45 C -0.82 -0.45 0.10 -1.17 0.10 -2.32 C 0.10 -2.96 -0.17 -3.40 -0.75 -3.68 L -0.75 -3.71 Z M -0.53 -2.53 C -0.53 -1.71 -1.09 -1.21 -1.92 -1.21 L -2.70 -1.21 C -3.53 -1.21 -4.07 -1.71 -4.07 -2.53 C -4.07 -3.17 -3.70 -3.71 -3.20 -3.71 L -1.48 -3.71 C -0.87 -3.71 -0.53 -3.17 -0.53 -2.53 Z M -0.53 -2.53 "/>
+</g>
+<g id="repli-conflit-glyph-1-5">
+<path d="M 0 -2.15 L -0.62 -2.15 L -0.62 -1.48 L -6.62 -1.48 L -6.62 -0.76 L -0.75 -0.76 C -0.31 -0.76 0 -1.03 0 -1.51 Z M 0 -2.15 "/>
+</g>
+<g id="repli-conflit-glyph-1-6">
+<path d="M 0.10 -2.5 C 0.10 -3.35 -0.32 -4.03 -0.95 -4.32 L -1.31 -3.81 C -0.81 -3.57 -0.51 -3.12 -0.51 -2.54 C -0.51 -1.68 -1.12 -1.17 -1.92 -1.17 L -2.12 -1.17 L -2.12 -4.5 L -2.46 -4.5 C -3.78 -4.5 -4.73 -3.73 -4.73 -2.5 C -4.73 -1.25 -3.78 -0.42 -2.31 -0.42 C -0.84 -0.42 0.10 -1.25 0.10 -2.5 Z M -4.12 -2.5 C -4.12 -3.23 -3.57 -3.71 -2.76 -3.71 L -2.67 -3.71 L -2.67 -1.17 L -2.73 -1.17 C -3.53 -1.17 -4.12 -1.71 -4.12 -2.5 Z M -6.65 -3.51 L -6.96 -2.85 L -5.45 -2.09 L -5.23 -2.56 Z M -6.65 -3.51 "/>
+</g>
+<g id="repli-conflit-glyph-1-7">
+<path d="M 1.79 -0.76 L 1.79 -1.48 L -0.75 -1.48 L -0.75 -1.51 C -0.17 -1.79 0.10 -2.23 0.10 -2.85 C 0.10 -4.01 -0.82 -4.75 -2.31 -4.75 C -3.78 -4.75 -4.73 -4.01 -4.73 -2.85 C -4.73 -2.23 -4.45 -1.75 -3.87 -1.51 L -3.87 -1.48 L -4.62 -1.48 L -4.62 -0.76 Z M -0.53 -2.67 C -0.53 -2.01 -0.87 -1.48 -1.48 -1.48 L -3.20 -1.48 C -3.70 -1.48 -4.07 -2.01 -4.07 -2.67 C -4.07 -3.46 -3.53 -3.96 -2.70 -3.96 L -1.92 -3.96 C -1.09 -3.96 -0.53 -3.46 -0.53 -2.67 Z M -0.53 -2.67 "/>
+</g>
+<g id="repli-conflit-glyph-1-8">
+<path d="M -5.70 -1.12 C -5.70 -1.42 -5.85 -1.56 -6.10 -1.56 L -6.21 -1.56 C -6.46 -1.56 -6.62 -1.42 -6.62 -1.12 C -6.62 -0.81 -6.46 -0.68 -6.21 -0.68 L -6.10 -0.68 C -5.85 -0.68 -5.70 -0.81 -5.70 -1.12 Z M 0 -0.76 L 0 -1.48 L -4.62 -1.48 L -4.62 -0.76 Z M 0 -0.76 "/>
+</g>
+<g id="repli-conflit-glyph-1-9">
+<path d="M 1.79 -3.71 L 1.79 -4.43 L -4.62 -4.43 L -4.62 -3.71 L -3.87 -3.71 L -3.87 -3.68 C -4.45 -3.43 -4.73 -2.96 -4.73 -2.32 C -4.73 -1.17 -3.78 -0.45 -2.31 -0.45 C -0.82 -0.45 0.10 -1.17 0.10 -2.32 C 0.10 -2.96 -0.17 -3.40 -0.75 -3.68 L -0.75 -3.71 Z M -0.53 -2.53 C -0.53 -1.71 -1.09 -1.21 -1.92 -1.21 L -2.70 -1.21 C -3.53 -1.21 -4.07 -1.71 -4.07 -2.53 C -4.07 -3.17 -3.70 -3.71 -3.20 -3.71 L -1.48 -3.71 C -0.87 -3.71 -0.53 -3.17 -0.53 -2.53 Z M -0.53 -2.53 "/>
+</g>
+<g id="repli-conflit-glyph-1-10">
+<path d="M 0 -3.60 L 0 -4.32 L -4.62 -4.32 L -4.62 -3.60 L -1.42 -3.60 C -0.81 -3.60 -0.53 -3.04 -0.53 -2.48 C -0.53 -1.79 -0.95 -1.43 -1.78 -1.43 L -4.62 -1.43 L -4.62 -0.71 L -1.65 -0.71 C -0.53 -0.71 0.10 -1.32 0.10 -2.28 C 0.10 -3.04 -0.31 -3.39 -0.75 -3.57 L -0.75 -3.60 Z M 0 -3.60 "/>
+</g>
+<g id="repli-conflit-glyph-1-11">
+<path d="M -2.79 -0.75 C -1.04 -0.75 0.46 -1.48 1.23 -2.35 L 1.23 -3.04 C 0.35 -2.07 -1.14 -1.42 -2.40 -1.42 L -3.17 -1.42 C -4.42 -1.42 -5.90 -2.04 -6.79 -3.04 L -6.79 -2.35 C -6.03 -1.45 -4.51 -0.75 -2.79 -0.75 Z M -2.79 -0.75 "/>
+</g>
+<g id="repli-conflit-glyph-1-12">
+<path d="M 0.10 -2.15 C 0.10 -3.20 -0.43 -3.85 -1.32 -3.85 C -2.03 -3.85 -2.48 -3.46 -2.62 -2.43 L -2.68 -2.09 C -2.78 -1.51 -2.95 -1.20 -3.40 -1.20 C -3.84 -1.20 -4.12 -1.51 -4.12 -2.10 C -4.12 -2.68 -3.84 -3.09 -3.54 -3.29 L -3.98 -3.76 C -4.45 -3.39 -4.73 -2.90 -4.73 -2.15 C -4.73 -1.21 -4.28 -0.51 -3.35 -0.51 C -2.5 -0.51 -2.15 -1.14 -2.03 -2 L -1.98 -2.35 C -1.89 -2.96 -1.60 -3.17 -1.25 -3.17 C -0.78 -3.17 -0.5 -2.81 -0.5 -2.20 C -0.5 -1.62 -0.76 -1.18 -1.20 -0.82 L -0.79 -0.32 C -0.25 -0.73 0.10 -1.29 0.10 -2.15 Z M 0.10 -2.15 "/>
+</g>
+<g id="repli-conflit-glyph-1-13">
+<path d="M -2.79 -2.25 C -4.51 -2.25 -6.03 -1.54 -6.79 -0.64 L -6.79 0.04 C -5.90 -0.95 -4.42 -1.57 -3.17 -1.57 L -2.40 -1.57 C -1.14 -1.57 0.35 -0.92 1.23 0.04 L 1.23 -0.64 C 0.46 -1.51 -1.04 -2.25 -2.79 -2.25 Z M -2.79 -2.25 "/>
+</g>
+</g>
+</defs>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L 351.49 0.00 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L 0.00 134.92 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L -4.25 0.00 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-0" x="33.47" y="144.18"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 39.68 L -4.25 39.68 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-1" x="28.10" y="104.58"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="33.47" y="104.58"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 79.37 L -4.25 79.37 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-2" x="28.10" y="64.98"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="33.47" y="64.98"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 119.05 L -4.25 119.05 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-3" x="28.10" y="25.38"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="33.47" y="25.38"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L 0.00 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-0" x="43.50" y="154.76"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 56.69 0.00 L 56.69 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-1" x="97.40" y="154.76"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="102.76" y="154.76"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 113.38 0.00 L 113.38 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-2" x="153.97" y="154.76"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="159.34" y="154.76"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 170.08 0.00 L 170.08 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-3" x="210.55" y="154.76"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="215.91" y="154.76"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 226.77 0.00 L 226.77 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-4" x="267.12" y="154.76"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="272.49" y="154.76"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 283.46 0.00 L 283.46 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-5" x="323.70" y="154.76"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="329.06" y="154.76"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 340.15 0.00 L 340.15 -4.25 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-6" x="380.27" y="154.76"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="385.64" y="154.76"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="140.20" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="144.56" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-9" x="149.47" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-10" x="153.92" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="158.93" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-12" x="164.01" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="169.20" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="174.11" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-12" x="180.58" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="185.77" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-13" x="190.68" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="195.87" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="200.96" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="203.19" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-16" x="209.66" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="212.10" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-17" x="219.12" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-18" x="224.20" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-19" x="229.80" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-20" x="235.36" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-20" x="241.43" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-21" x="247.49" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-12" x="256.87" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="262.06" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-13" x="269.25" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="274.44" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="277.73" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-23" x="279.96" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="287.78" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="292.55" y="169.17"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="294.79" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="298.03" y="169.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-0" x="14.42" y="124.60"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-1" x="14.42" y="121.36"/>
+<use xlink:href="#repli-conflit-glyph-1-2" x="14.42" y="116.45"/>
+<use xlink:href="#repli-conflit-glyph-1-3" x="14.42" y="113.30"/>
+<use xlink:href="#repli-conflit-glyph-1-0" x="14.42" y="108.53"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-4" x="14.42" y="105.30"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-4" x="14.42" y="98.00"/>
+<use xlink:href="#repli-conflit-glyph-1-1" x="14.42" y="92.81"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-5" x="14.42" y="85.78"/>
+<use xlink:href="#repli-conflit-glyph-1-3" x="14.42" y="83.35"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-0" x="14.42" y="76.46"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-6" x="14.42" y="73.22"/>
+<use xlink:href="#repli-conflit-glyph-1-7" x="14.42" y="68.31"/>
+<use xlink:href="#repli-conflit-glyph-1-5" x="14.42" y="63.12"/>
+<use xlink:href="#repli-conflit-glyph-1-8" x="14.42" y="60.68"/>
+<use xlink:href="#repli-conflit-glyph-1-9" x="14.42" y="58.45"/>
+<use xlink:href="#repli-conflit-glyph-1-10" x="14.42" y="53.26"/>
+<use xlink:href="#repli-conflit-glyph-1-1" x="14.42" y="48.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-1-11" x="14.42" y="41.15"/>
+<use xlink:href="#repli-conflit-glyph-1-12" x="14.42" y="38.15"/>
+<use xlink:href="#repli-conflit-glyph-1-13" x="14.42" y="33.79"/>
+</g>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L 170.64 119.45 L 170.64 0.00 L 204.09 0.00 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-red)" fill-opacity="1" d="M 54.39 137.10 C 54.39 135.69 53.25 134.55 51.85 134.55 C 50.44 134.55 49.30 135.69 49.30 137.10 C 49.30 138.51 50.44 139.65 51.85 139.65 C 53.25 139.65 54.39 138.51 54.39 137.10 Z M 54.39 137.10 "/>
+<path fill-rule="nonzero" style="fill:var(--fig-red)" fill-opacity="1" d="M 82.68 117.30 C 82.68 115.89 81.54 114.75 80.14 114.75 C 78.73 114.75 77.59 115.89 77.59 117.30 C 77.59 118.71 78.73 119.85 80.14 119.85 C 81.54 119.85 82.68 118.71 82.68 117.30 Z M 82.68 117.30 "/>
+<path fill-rule="nonzero" style="fill:var(--fig-red)" fill-opacity="1" d="M 110.97 97.50 C 110.97 96.09 109.83 94.95 108.42 94.95 C 107.01 94.95 105.88 96.09 105.88 97.50 C 105.88 98.91 107.01 100.05 108.42 100.05 C 109.83 100.05 110.97 98.91 110.97 97.50 Z M 110.97 97.50 "/>
+<path fill-rule="nonzero" style="fill:var(--fig-red)" fill-opacity="1" d="M 139.26 77.70 C 139.26 76.29 138.12 75.15 136.71 75.15 C 135.30 75.15 134.16 76.29 134.16 77.70 C 134.16 79.10 135.30 80.24 136.71 80.24 C 138.12 80.24 139.26 79.10 139.26 77.70 Z M 139.26 77.70 "/>
+<path fill-rule="nonzero" style="fill:var(--fig-red)" fill-opacity="1" d="M 167.55 57.90 C 167.55 56.49 166.41 55.35 165.00 55.35 C 163.59 55.35 162.45 56.49 162.45 57.90 C 162.45 59.30 163.59 60.44 165.00 60.44 C 166.41 60.44 167.55 59.30 167.55 57.90 Z M 167.55 57.90 "/>
+<path fill-rule="nonzero" style="fill:var(--fig-red)" fill-opacity="1" d="M 195.83 38.09 C 195.83 36.69 194.69 35.55 193.28 35.55 C 191.88 35.55 190.74 36.69 190.74 38.09 C 190.74 39.50 191.88 40.64 193.28 40.64 C 194.69 40.64 195.83 39.50 195.83 38.09 Z M 195.83 38.09 "/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-3" x="223.26" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="228.63" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="236.11" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-25" x="242.58" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-16" x="248.00" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="250.44" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="257.33" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="260.57" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-26" x="265.49" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="270.68" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-27" x="275.76" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="280.67" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="283.78" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="290.79" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="295.70" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="300.01" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-24" x="305.25" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="310.03" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="315.11" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="320.19" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-16" x="325.28" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-29" x="327.71" y="17.87"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="332.62" y="17.87"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-30" x="223.26" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-9" x="226.26" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-10" x="230.71" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="235.72" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-31" x="240.80" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-16" x="243.70" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="246.13" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-9" x="248.37" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="252.87" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-32" x="258.12" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="264.99" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="267.23" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-33" x="270.37" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="277.57" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="280.81" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-9" x="285.72" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-10" x="290.16" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-34" x="295.10" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="299.43" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="304.35" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-35" x="307.72" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-36" x="312.19" y="28.80"/>
+<use xlink:href="#repli-conflit-glyph-0-37" x="315.18" y="28.80"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-16" x="223.26" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="225.70" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="232.59" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-29" x="235.82" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-13" x="240.74" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-16" x="245.93" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="248.36" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-26" x="250.60" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="255.79" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="260.87" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="267.89" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-24" x="271.14" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="275.92" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="278.98" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="282.12" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-24" x="285.37" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-13" x="290.15" y="39.74"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="295.34" y="39.74"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="56.37" y="19.03"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-29" x="59.60" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-38" x="64.52" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-16" x="69.24" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="71.68" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-38" x="76.45" y="19.03"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="81.12" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="86.04" y="19.03"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-13" x="92.50" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="97.69" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="102.46" y="19.03"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-12" x="107.86" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-29" x="113.05" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-31" x="117.96" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="120.86" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="125.64" y="19.03"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="130.72" y="19.03"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-25" x="135.97" y="19.03"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-23" x="56.37" y="29.97"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="64.18" y="29.97"/>
+<use xlink:href="#repli-conflit-glyph-0-39" x="68.96" y="29.97"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-40" x="73.66" y="29.97"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="78.41" y="29.97"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="82.71" y="29.97"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="85.85" y="29.97"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="90.63" y="29.97"/>
+<use xlink:href="#repli-conflit-glyph-0-12" x="95.71" y="29.97"/>
+<use xlink:href="#repli-conflit-glyph-0-41" x="100.90" y="29.97"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-35" x="106.04" y="29.97"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-40" x="109.79" y="29.97"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="56.37" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="60.66" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="63.80" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="67.04" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="71.95" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-23" x="76.73" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="84.54" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="86.78" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-38" x="91.86" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-40" x="97.02" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-12" x="101.55" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="106.74" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-16" x="111.65" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="114.09" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-35" x="118.82" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-42" x="125.39" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-3" x="132.87" y="40.91"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="138.24" y="40.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="145.72" y="40.91"/>
+</g>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-blue)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 1.69 L 340.15 1.69 " transform="matrix(0.997926, 0, 0, -0.997926, 46.193991, 141.066555)"/>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-33" x="228.92" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-10" x="234.00" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="239.01" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-40" x="242.24" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="246.98" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="251.28" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="254.42" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="259.20" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-12" x="264.28" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-41" x="269.47" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-35" x="274.62" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-40" x="278.36" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-31" x="283.20" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="286.06" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="290.97" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-12" x="295.88" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-41" x="301.07" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="306.26" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-9" x="311.04" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-43" x="315.54" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-42" x="322.37" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-10" x="329.85" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="334.86" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-25" x="342.05" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="347.48" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="350.73" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="355.64" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="358.78" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="363.56" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-12" x="366.79" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-11" x="374.08" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="379.16" y="110.05"/>
+<use xlink:href="#repli-conflit-glyph-0-16" x="384.24" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-37" x="386.77" y="110.05"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-16" x="228.92" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="231.35" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="238.24" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="241.48" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-26" x="246.39" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="251.58" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-27" x="256.67" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="261.58" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="264.68" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-34" x="271.71" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-24" x="276.03" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-24" x="282.92" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="287.70" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-41" x="294.89" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-10" x="300.08" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="305.09" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="310.17" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-37" x="313.31" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-1" x="317.86" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="323.23" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="328.60" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-0" x="336.08" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="341.45" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-0" x="346.82" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-34" x="354.30" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="358.63" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="363.54" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="366.82" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="371.18" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-10" x="373.42" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="378.43" y="120.99"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="383.51" y="120.99"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-23" x="228.92" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-10" x="236.73" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="241.74" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="245.06" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="248.17" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="253.08" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-22" x="259.55" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="262.79" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-7" x="267.70" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-28" x="271.99" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="275.10" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-11" x="280.01" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-28" x="285.09" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-7" x="290.35" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-14" x="294.70" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="299.79" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-16" x="305.18" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-8" x="307.61" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-13" x="314.64" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="319.83" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="323.11" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-23" x="325.35" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-24" x="333.16" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-15" x="337.94" y="131.92"/>
+<use xlink:href="#repli-conflit-glyph-0-22" x="340.18" y="131.92"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-conflit-glyph-0-8" x="343.42" y="131.92"/>
+</g>
+</svg>

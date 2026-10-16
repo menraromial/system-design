@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 477.29 209.14">
+<defs>
+<g>
+<g id="repli-latences-glyph-0-0">
+<path d="M 2.68 0.10 C 4.17 0.10 4.82 -1.07 4.82 -3.12 C 4.82 -5.15 4.17 -6.34 2.68 -6.34 C 1.18 -6.34 0.53 -5.15 0.53 -3.12 C 0.53 -1.07 1.18 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.70 -0.54 1.32 -1.40 1.32 -2.60 L 1.32 -3.62 C 1.32 -4.82 1.70 -5.68 2.68 -5.68 C 3.65 -5.68 4.04 -4.82 4.04 -3.62 L 4.04 -2.60 C 4.04 -1.40 3.65 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="repli-latences-glyph-0-1">
+<path d="M 4.76 -0.65 L 1.48 -0.65 L 3.15 -2.17 C 3.95 -2.89 4.53 -3.56 4.53 -4.53 C 4.53 -5.59 3.82 -6.34 2.62 -6.34 C 1.40 -6.34 0.85 -5.60 0.60 -4.87 L 1.28 -4.62 C 1.45 -5.20 1.81 -5.67 2.57 -5.67 C 3.35 -5.67 3.73 -5.20 3.73 -4.51 L 3.73 -4.40 C 3.73 -3.81 3.28 -3.18 2.70 -2.64 L 0.67 -0.76 L 0.67 0 L 4.76 0 Z M 4.76 -0.65 "/>
+</g>
+<g id="repli-latences-glyph-0-2">
+<path d="M 4.06 0 L 4.06 -1.21 L 4.96 -1.21 L 4.96 -1.84 L 4.06 -1.84 L 4.06 -6.23 L 2.95 -6.23 L 0.34 -1.89 L 0.34 -1.21 L 3.35 -1.21 L 3.35 0 Z M 3.31 -5.65 L 3.35 -5.65 L 3.35 -1.84 L 1.04 -1.84 Z M 3.31 -5.65 "/>
+</g>
+<g id="repli-latences-glyph-0-3">
+<path d="M 2.68 0.10 C 3.93 0.10 4.76 -0.73 4.76 -1.95 C 4.76 -3.14 4 -3.87 2.92 -3.87 C 2.15 -3.87 1.71 -3.5 1.42 -2.98 L 1.37 -3 C 1.71 -4.45 2.45 -5.26 3.79 -6.23 L 2.82 -6.23 C 1.82 -5.59 0.59 -4.14 0.59 -2.28 C 0.59 -0.79 1.39 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.85 -0.54 1.37 -1.01 1.37 -1.85 L 1.37 -1.93 C 1.37 -2.76 1.85 -3.25 2.68 -3.25 C 3.5 -3.25 3.98 -2.76 3.98 -1.93 L 3.98 -1.85 C 3.98 -1.01 3.5 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="repli-latences-glyph-0-4">
+<path d="M 4.51 0 L 4.51 -0.62 L 3.98 -0.62 L 3.98 -3.15 C 3.98 -4.14 3.32 -4.71 2.21 -4.71 C 1.39 -4.71 0.82 -4.31 0.57 -3.81 L 1.01 -3.42 C 1.26 -3.82 1.62 -4.10 2.18 -4.10 C 2.90 -4.10 3.26 -3.75 3.26 -3.09 L 3.26 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.28 C 0.39 -0.42 0.96 0.10 1.93 0.10 C 2.57 0.10 3.07 -0.18 3.26 -0.75 L 3.31 -0.75 C 3.37 -0.32 3.57 0 4.10 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.84 1.51 -2.09 2.32 -2.09 L 3.26 -2.09 L 3.26 -1.34 C 3.26 -0.85 2.76 -0.5 2.06 -0.5 Z M 2.06 -0.5 "/>
+</g>
+<g id="repli-latences-glyph-0-5">
+<path d="M 2.15 0 L 2.15 -0.62 L 1.46 -0.62 L 1.46 -6.60 L 0.76 -6.60 L 0.76 -0.73 C 0.76 -0.31 1.03 0 1.51 0 Z M 2.15 0 "/>
+</g>
+<g id="repli-latences-glyph-0-6">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.5 -4.12 "/>
+</g>
+<g id="repli-latences-glyph-0-7">
+<path d="M 1.46 0 L 1.46 -3.12 C 1.46 -3.56 1.93 -3.89 2.70 -3.89 L 3.12 -3.89 L 3.12 -4.60 L 2.84 -4.60 C 2.09 -4.60 1.68 -4.20 1.51 -3.76 L 1.46 -3.76 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="repli-latences-glyph-0-8">
+<path d="M 2.95 -2.32 L 2.95 -3.09 L 0.60 -3.09 L 0.60 -2.32 Z M 2.95 -2.32 "/>
+</g>
+<g id="repli-latences-glyph-0-9">
+<path d="M 2.67 0 L 2.67 -0.62 L 1.73 -0.62 L 1.73 -3.98 L 2.75 -3.98 L 2.75 -4.60 L 1.73 -4.60 L 1.73 -5.89 L 1.09 -5.89 L 1.09 -5.03 C 1.09 -4.71 0.98 -4.60 0.68 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 L 1.01 -0.76 C 1.01 -0.31 1.28 0 1.78 0 Z M 2.67 0 "/>
+</g>
+<g id="repli-latences-glyph-0-10">
+<path d="M 2.5 0.10 C 3.73 0.10 4.57 -0.84 4.57 -2.31 C 4.57 -3.76 3.73 -4.71 2.5 -4.71 C 1.26 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.96 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.07 2.5 -4.07 C 3.26 -4.07 3.81 -3.60 3.81 -2.64 L 3.81 -1.96 C 3.81 -1 3.26 -0.53 2.5 -0.53 Z M 2.5 -0.53 "/>
+</g>
+<g id="repli-latences-glyph-0-11">
+<path d="M 3.60 0 L 4.31 0 L 4.31 -4.60 L 3.60 -4.60 L 3.60 -1.42 C 3.60 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.43 -0.95 1.43 -1.78 L 1.43 -4.60 L 0.71 -4.60 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.26 0.10 C 3.03 0.10 3.39 -0.31 3.56 -0.75 L 3.60 -0.75 Z M 3.60 0 "/>
+</g>
+<g id="repli-latences-glyph-0-12">
+<path d="M 3.75 -1.21 C 4.28 -1.21 4.57 -1.42 4.81 -1.71 L 4.51 -2.10 C 4.25 -1.90 4.07 -1.82 3.78 -1.82 C 3.42 -1.82 3.09 -1.96 2.76 -2.12 C 2.35 -2.32 2.06 -2.45 1.62 -2.45 C 1.07 -2.45 0.78 -2.26 0.54 -1.96 L 0.84 -1.57 C 1.10 -1.76 1.28 -1.85 1.57 -1.85 C 1.95 -1.85 2.26 -1.71 2.59 -1.56 C 3 -1.35 3.31 -1.21 3.75 -1.21 Z M 3.75 -3 C 4.28 -3 4.57 -3.20 4.81 -3.5 L 4.51 -3.89 C 4.25 -3.68 4.07 -3.60 3.78 -3.60 C 3.42 -3.60 3.09 -3.75 2.76 -3.90 C 2.35 -4.10 2.06 -4.23 1.62 -4.23 C 1.07 -4.23 0.78 -4.04 0.54 -3.75 L 0.84 -3.35 C 1.10 -3.54 1.28 -3.64 1.57 -3.64 C 1.95 -3.64 2.26 -3.5 2.59 -3.32 C 3 -3.14 3.31 -3 3.75 -3 Z M 3.75 -3 "/>
+</g>
+<g id="repli-latences-glyph-0-13">
+<path d="M 1.46 0 L 1.46 -3.20 C 1.46 -3.79 2.01 -4.07 2.57 -4.07 C 3.25 -4.07 3.56 -3.65 3.56 -2.82 L 3.56 0 L 4.28 0 L 4.28 -3.20 C 4.28 -3.79 4.79 -4.07 5.35 -4.07 C 6.06 -4.07 6.37 -3.64 6.37 -2.82 L 6.37 0 L 7.09 0 L 7.09 -2.95 C 7.09 -4.07 6.53 -4.71 5.59 -4.71 C 4.79 -4.71 4.35 -4.28 4.18 -3.78 L 4.17 -3.78 C 3.92 -4.43 3.35 -4.71 2.75 -4.71 C 2.03 -4.71 1.71 -4.32 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="repli-latences-glyph-0-14">
+<path d="M 2.14 0.10 C 3.20 0.10 3.85 -0.43 3.85 -1.32 C 3.85 -2.03 3.45 -2.46 2.43 -2.62 L 2.07 -2.68 C 1.51 -2.76 1.20 -2.95 1.20 -3.39 C 1.20 -3.82 1.51 -4.10 2.09 -4.10 C 2.68 -4.10 3.07 -3.82 3.28 -3.54 L 3.76 -3.98 C 3.39 -4.43 2.89 -4.71 2.15 -4.71 C 1.21 -4.71 0.51 -4.26 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 2 -2.03 L 2.35 -1.96 C 2.96 -1.89 3.15 -1.60 3.15 -1.25 C 3.15 -0.78 2.81 -0.5 2.20 -0.5 C 1.62 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.14 0.10 Z M 2.14 0.10 "/>
+</g>
+<g id="repli-latences-glyph-0-15">
+<path d="M 4.89 0 L 4.89 -0.65 L 3.28 -0.65 L 3.28 -6.23 L 2.10 -6.23 L 0.45 -4.68 L 0.89 -4.21 L 2.46 -5.68 L 2.53 -5.68 L 2.53 -0.65 L 0.78 -0.65 L 0.78 0 Z M 4.89 0 "/>
+</g>
+<g id="repli-latences-glyph-0-16">
+<path d="M 4.45 -6.23 L 1.10 -6.23 L 0.89 -2.81 L 1.51 -2.71 C 1.78 -3 2.06 -3.25 2.64 -3.25 C 3.48 -3.25 3.93 -2.76 3.93 -1.95 L 3.93 -1.85 C 3.93 -1.03 3.48 -0.56 2.64 -0.56 C 1.89 -0.56 1.57 -0.89 1.25 -1.39 L 0.68 -0.95 C 1.06 -0.42 1.59 0.10 2.64 0.10 C 3.95 0.10 4.73 -0.73 4.73 -1.95 C 4.73 -3.15 3.95 -3.89 2.87 -3.89 C 2.21 -3.89 1.89 -3.62 1.59 -3.20 L 1.53 -3.20 L 1.71 -5.57 L 4.45 -5.57 Z M 4.45 -6.23 "/>
+</g>
+<g id="repli-latences-glyph-0-17">
+<path d="M 1.46 0 L 1.46 -3.20 C 1.46 -3.79 2.03 -4.07 2.59 -4.07 C 3.28 -4.07 3.64 -3.65 3.64 -2.82 L 3.64 0 L 4.35 0 L 4.35 -2.95 C 4.35 -4.07 3.76 -4.71 2.81 -4.71 C 2.12 -4.71 1.73 -4.37 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="repli-latences-glyph-0-18">
+<path d="M 3.70 0 L 4.42 0 L 4.42 -6.60 L 3.70 -6.60 L 3.70 -3.85 L 3.67 -3.85 C 3.43 -4.43 2.95 -4.71 2.32 -4.71 C 1.17 -4.71 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.70 C 1.21 -3.51 1.71 -4.07 2.51 -4.07 C 3.17 -4.07 3.70 -3.70 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="repli-latences-glyph-0-19">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 3.5 -6.65 L 2.84 -6.96 L 2.09 -5.43 L 2.56 -5.23 Z M 3.5 -6.65 "/>
+</g>
+<g id="repli-latences-glyph-0-20">
+<path d="M 0.76 1.78 L 1.46 1.78 L 1.46 -0.75 L 1.51 -0.75 C 1.78 -0.17 2.21 0.10 2.85 0.10 C 4.01 0.10 4.73 -0.82 4.73 -2.31 C 4.73 -3.78 4.01 -4.71 2.85 -4.71 C 2.21 -4.71 1.75 -4.43 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 Z M 2.65 -0.53 C 2.01 -0.53 1.46 -0.87 1.46 -1.46 L 1.46 -3.18 C 1.46 -3.70 2.01 -4.07 2.65 -4.07 C 3.46 -4.07 3.96 -3.51 3.96 -2.70 L 3.96 -1.90 C 3.96 -1.09 3.46 -0.53 2.65 -0.53 Z M 2.65 -0.53 "/>
+</g>
+<g id="repli-latences-glyph-0-21">
+<path d="M 1.12 -5.68 C 1.42 -5.68 1.56 -5.85 1.56 -6.09 L 1.56 -6.21 C 1.56 -6.45 1.42 -6.60 1.12 -6.60 C 0.81 -6.60 0.67 -6.45 0.67 -6.21 L 0.67 -6.09 C 0.67 -5.85 0.81 -5.68 1.12 -5.68 Z M 0.76 0 L 1.46 0 L 1.46 -4.60 L 0.76 -4.60 Z M 0.76 0 "/>
+</g>
+<g id="repli-latences-glyph-0-22">
+<path d="M 3.70 1.78 L 4.42 1.78 L 4.42 -4.60 L 3.70 -4.60 L 3.70 -3.85 L 3.67 -3.85 C 3.43 -4.43 2.95 -4.71 2.32 -4.71 C 1.17 -4.71 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.70 C 1.21 -3.51 1.71 -4.07 2.51 -4.07 C 3.17 -4.07 3.70 -3.70 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="repli-latences-glyph-0-23">
+<path d="M 1.31 0.10 C 1.68 0.10 1.84 -0.10 1.84 -0.40 L 1.84 -0.53 C 1.84 -0.82 1.68 -1.04 1.31 -1.04 C 0.92 -1.04 0.76 -0.82 0.76 -0.53 L 0.76 -0.40 C 0.76 -0.10 0.92 0.10 1.31 0.10 Z M 1.31 -3.56 C 1.68 -3.56 1.84 -3.78 1.84 -4.07 L 1.84 -4.20 C 1.84 -4.5 1.68 -4.71 1.31 -4.71 C 0.92 -4.71 0.76 -4.5 0.76 -4.20 L 0.76 -4.07 C 0.76 -3.78 0.92 -3.56 1.31 -3.56 Z M 1.31 -3.56 "/>
+</g>
+<g id="repli-latences-glyph-0-24">
+<path d="M 1.21 -1.04 C 0.84 -1.04 0.67 -0.82 0.67 -0.51 L 0.67 -0.39 C 0.67 -0.15 0.78 0.03 1.01 0.07 C 0.92 0.5 0.70 0.81 0.34 1.18 L 0.95 1.18 C 1.45 0.75 1.76 0.09 1.76 -0.39 L 1.76 -0.51 C 1.76 -0.82 1.59 -1.04 1.21 -1.04 Z M 1.21 -1.04 "/>
+</g>
+<g id="repli-latences-glyph-0-25">
+<path d="M 0.73 -2.78 C 0.73 -1.04 1.46 0.46 2.35 1.21 L 3.03 1.21 C 2.07 0.35 1.40 -1.14 1.40 -2.39 L 1.40 -3.15 C 1.40 -4.42 2.04 -5.90 3.03 -6.79 L 2.35 -6.79 C 1.45 -6.01 0.73 -4.51 0.73 -2.78 Z M 0.73 -2.78 "/>
+</g>
+<g id="repli-latences-glyph-0-26">
+<path d="M 1.01 0 L 1.71 0 L 1.71 -3.98 L 2.71 -3.98 L 2.71 -4.60 L 1.71 -4.60 L 1.71 -5.98 L 2.71 -5.98 L 2.71 -6.60 L 2.01 -6.60 C 1.34 -6.60 1.01 -6.17 1.01 -5.54 L 1.01 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 Z M 1.01 0 "/>
+</g>
+<g id="repli-latences-glyph-0-27">
+<path d="M 2.25 -2.78 C 2.25 -4.51 1.54 -6.01 0.64 -6.79 L -0.04 -6.79 C 0.95 -5.90 1.57 -4.42 1.57 -3.15 L 1.57 -2.39 C 1.57 -1.14 0.92 0.35 -0.04 1.21 L 0.64 1.21 C 1.51 0.46 2.25 -1.04 2.25 -2.78 Z M 2.25 -2.78 "/>
+</g>
+<g id="repli-latences-glyph-0-28">
+<path d="M 3.01 -0.54 L 3.01 -2.42 L 4.76 -2.42 L 4.76 -3.03 L 3.01 -3.03 L 3.01 -4.89 L 2.34 -4.89 L 2.34 -3.03 L 0.59 -3.03 L 0.59 -2.42 L 2.34 -2.42 L 2.34 -0.54 Z M 3.01 -0.54 "/>
+</g>
+<g id="repli-latences-glyph-0-29">
+<path d="M 4.51 0 L 4.51 -0.62 L 3.98 -0.62 L 3.98 -3.15 C 3.98 -4.14 3.32 -4.71 2.21 -4.71 C 1.39 -4.71 0.82 -4.31 0.57 -3.81 L 1.01 -3.42 C 1.26 -3.82 1.62 -4.10 2.18 -4.10 C 2.90 -4.10 3.26 -3.75 3.26 -3.09 L 3.26 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.28 C 0.39 -0.42 0.96 0.10 1.93 0.10 C 2.57 0.10 3.07 -0.18 3.26 -0.75 L 3.31 -0.75 C 3.37 -0.32 3.57 0 4.10 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.84 1.51 -2.09 2.32 -2.09 L 3.26 -2.09 L 3.26 -1.34 C 3.26 -0.85 2.76 -0.5 2.06 -0.5 Z M 2.18 -5.23 L 2.65 -5.43 L 1.89 -6.96 L 1.25 -6.65 Z M 2.18 -5.23 "/>
+</g>
+<g id="repli-latences-glyph-0-30">
+<path d="M 1.65 -3.59 L 1.65 -2.93 L 2.39 -2.93 C 3.26 -2.93 3.73 -2.51 3.73 -1.78 L 3.73 -1.71 C 3.73 -0.98 3.26 -0.56 2.39 -0.56 C 1.62 -0.56 1.26 -0.89 0.93 -1.39 L 0.37 -0.95 C 0.76 -0.42 1.31 0.10 2.39 0.10 C 3.67 0.10 4.51 -0.64 4.51 -1.70 C 4.51 -2.64 3.87 -3.14 3.20 -3.28 L 3.20 -3.31 C 3.85 -3.48 4.39 -3.96 4.39 -4.76 C 4.39 -5.78 3.56 -6.34 2.5 -6.34 C 1.5 -6.34 0.95 -5.82 0.64 -5.32 L 1.20 -4.89 C 1.45 -5.37 1.84 -5.67 2.48 -5.67 C 3.14 -5.67 3.60 -5.34 3.60 -4.68 L 3.60 -4.62 C 3.60 -4.03 3.17 -3.59 2.32 -3.59 Z M 1.65 -3.59 "/>
+</g>
+<g id="repli-latences-glyph-1-0">
+<path d="M 0 -2.15 L -0.62 -2.15 L -0.62 -1.46 L -6.60 -1.46 L -6.60 -0.76 L -0.73 -0.76 C -0.31 -0.76 0 -1.03 0 -1.51 Z M 0 -2.15 "/>
+</g>
+<g id="repli-latences-glyph-1-1">
+<path d="M 0 -4.51 L -0.62 -4.51 L -0.62 -3.98 L -3.15 -3.98 C -4.14 -3.98 -4.71 -3.32 -4.71 -2.21 C -4.71 -1.39 -4.31 -0.82 -3.81 -0.57 L -3.42 -1.01 C -3.82 -1.26 -4.10 -1.62 -4.10 -2.18 C -4.10 -2.90 -3.75 -3.26 -3.09 -3.26 L -2.64 -3.26 L -2.64 -2.35 C -2.64 -1.01 -2.15 -0.39 -1.28 -0.39 C -0.42 -0.39 0.10 -0.96 0.10 -1.93 C 0.10 -2.57 -0.18 -3.07 -0.75 -3.26 L -0.75 -3.31 C -0.32 -3.37 0 -3.57 0 -4.10 Z M -0.5 -2.06 C -0.5 -1.5 -0.76 -1.14 -1.21 -1.14 L -1.40 -1.14 C -1.84 -1.14 -2.09 -1.51 -2.09 -2.32 L -2.09 -3.26 L -1.34 -3.26 C -0.85 -3.26 -0.5 -2.76 -0.5 -2.06 Z M -0.5 -2.06 "/>
+</g>
+<g id="repli-latences-glyph-1-2">
+<path d="M 0 -2.67 L -0.62 -2.67 L -0.62 -1.73 L -3.98 -1.73 L -3.98 -2.75 L -4.60 -2.75 L -4.60 -1.73 L -5.89 -1.73 L -5.89 -1.09 L -5.03 -1.09 C -4.71 -1.09 -4.60 -0.98 -4.60 -0.68 L -4.60 -0.26 L -3.98 -0.26 L -3.98 -1.01 L -0.76 -1.01 C -0.31 -1.01 0 -1.28 0 -1.78 Z M 0 -2.67 "/>
+</g>
+<g id="repli-latences-glyph-1-3">
+<path d="M 0.10 -2.5 C 0.10 -3.35 -0.32 -4.01 -0.95 -4.31 L -1.31 -3.81 C -0.79 -3.56 -0.51 -3.12 -0.51 -2.53 C -0.51 -1.68 -1.12 -1.17 -1.90 -1.17 L -2.12 -1.17 L -2.12 -4.48 L -2.46 -4.48 C -3.76 -4.48 -4.71 -3.73 -4.71 -2.5 C -4.71 -1.25 -3.76 -0.42 -2.31 -0.42 C -0.84 -0.42 0.10 -1.25 0.10 -2.5 Z M -4.12 -2.5 C -4.12 -3.21 -3.57 -3.71 -2.76 -3.71 L -2.65 -3.71 L -2.65 -1.17 L -2.71 -1.17 C -3.53 -1.17 -4.12 -1.71 -4.12 -2.5 Z M -4.12 -2.5 "/>
+</g>
+<g id="repli-latences-glyph-1-4">
+<path d="M 0 -1.46 L -3.20 -1.46 C -3.79 -1.46 -4.07 -2.03 -4.07 -2.59 C -4.07 -3.28 -3.65 -3.64 -2.82 -3.64 L 0 -3.64 L 0 -4.35 L -2.95 -4.35 C -4.07 -4.35 -4.71 -3.76 -4.71 -2.81 C -4.71 -2.12 -4.37 -1.73 -3.85 -1.51 L -3.85 -1.46 L -4.60 -1.46 L -4.60 -0.76 L 0 -0.76 Z M 0 -1.46 "/>
+</g>
+<g id="repli-latences-glyph-1-5">
+<path d="M 0.10 -2.46 C 0.10 -3.35 -0.32 -3.95 -0.98 -4.25 L -1.32 -3.73 C -0.79 -3.48 -0.53 -3.06 -0.53 -2.46 C -0.53 -1.62 -1.10 -1.18 -1.90 -1.18 L -2.70 -1.18 C -3.5 -1.18 -4.07 -1.62 -4.07 -2.46 C -4.07 -3.03 -3.81 -3.43 -3.32 -3.60 L -3.64 -4.20 C -4.26 -3.93 -4.71 -3.39 -4.71 -2.46 C -4.71 -1.18 -3.78 -0.42 -2.31 -0.42 C -0.82 -0.42 0.10 -1.18 0.10 -2.46 Z M 0.10 -2.46 "/>
+</g>
+<g id="repli-latences-glyph-1-6">
+<path d="M 0 -1.46 L -3.20 -1.46 C -3.79 -1.46 -4.07 -2.01 -4.07 -2.57 C -4.07 -3.25 -3.65 -3.56 -2.82 -3.56 L 0 -3.56 L 0 -4.28 L -3.20 -4.28 C -3.79 -4.28 -4.07 -4.79 -4.07 -5.35 C -4.07 -6.06 -3.64 -6.37 -2.82 -6.37 L 0 -6.37 L 0 -7.09 L -2.95 -7.09 C -4.07 -7.09 -4.71 -6.53 -4.71 -5.59 C -4.71 -4.79 -4.28 -4.35 -3.78 -4.18 L -3.78 -4.17 C -4.43 -3.92 -4.71 -3.35 -4.71 -2.75 C -4.71 -2.03 -4.32 -1.71 -3.85 -1.51 L -3.85 -1.46 L -4.60 -1.46 L -4.60 -0.76 L 0 -0.76 Z M 0 -1.46 "/>
+</g>
+<g id="repli-latences-glyph-1-7">
+<path d="M 0.10 -2.5 C 0.10 -3.35 -0.32 -4.01 -0.95 -4.31 L -1.31 -3.81 C -0.79 -3.56 -0.51 -3.12 -0.51 -2.53 C -0.51 -1.68 -1.12 -1.17 -1.90 -1.17 L -2.12 -1.17 L -2.12 -4.48 L -2.46 -4.48 C -3.76 -4.48 -4.71 -3.73 -4.71 -2.5 C -4.71 -1.25 -3.76 -0.42 -2.31 -0.42 C -0.84 -0.42 0.10 -1.25 0.10 -2.5 Z M -4.12 -2.5 C -4.12 -3.21 -3.57 -3.71 -2.76 -3.71 L -2.65 -3.71 L -2.65 -1.17 L -2.71 -1.17 C -3.53 -1.17 -4.12 -1.71 -4.12 -2.5 Z M -6.65 -3.5 L -6.96 -2.84 L -5.43 -2.09 L -5.23 -2.56 Z M -6.65 -3.5 "/>
+</g>
+<g id="repli-latences-glyph-1-8">
+<path d="M 0 -3.70 L 0 -4.42 L -6.60 -4.42 L -6.60 -3.70 L -3.85 -3.70 L -3.85 -3.67 C -4.43 -3.43 -4.71 -2.95 -4.71 -2.32 C -4.71 -1.17 -3.78 -0.45 -2.31 -0.45 C -0.82 -0.45 0.10 -1.17 0.10 -2.32 C 0.10 -2.95 -0.17 -3.39 -0.75 -3.67 L -0.75 -3.70 Z M -0.53 -2.51 C -0.53 -1.71 -1.09 -1.21 -1.90 -1.21 L -2.70 -1.21 C -3.51 -1.21 -4.07 -1.71 -4.07 -2.51 C -4.07 -3.17 -3.70 -3.70 -3.18 -3.70 L -1.46 -3.70 C -0.87 -3.70 -0.53 -3.17 -0.53 -2.51 Z M -0.53 -2.51 "/>
+</g>
+<g id="repli-latences-glyph-1-9">
+<path d="M -5.68 -1.12 C -5.68 -1.42 -5.85 -1.56 -6.09 -1.56 L -6.21 -1.56 C -6.45 -1.56 -6.60 -1.42 -6.60 -1.12 C -6.60 -0.81 -6.45 -0.67 -6.21 -0.67 L -6.09 -0.67 C -5.85 -0.67 -5.68 -0.81 -5.68 -1.12 Z M 0 -0.76 L 0 -1.46 L -4.60 -1.46 L -4.60 -0.76 Z M 0 -0.76 "/>
+</g>
+<g id="repli-latences-glyph-1-10">
+<path d="M -2.78 -0.73 C -1.04 -0.73 0.46 -1.46 1.21 -2.35 L 1.21 -3.03 C 0.35 -2.07 -1.14 -1.40 -2.39 -1.40 L -3.15 -1.40 C -4.42 -1.40 -5.90 -2.04 -6.79 -3.03 L -6.79 -2.35 C -6.01 -1.45 -4.51 -0.73 -2.78 -0.73 Z M -2.78 -0.73 "/>
+</g>
+<g id="repli-latences-glyph-1-11">
+<path d="M 0.10 -2.14 C 0.10 -3.20 -0.43 -3.85 -1.32 -3.85 C -2.03 -3.85 -2.46 -3.45 -2.62 -2.43 L -2.68 -2.07 C -2.76 -1.51 -2.95 -1.20 -3.39 -1.20 C -3.82 -1.20 -4.10 -1.51 -4.10 -2.09 C -4.10 -2.68 -3.82 -3.07 -3.54 -3.28 L -3.98 -3.76 C -4.43 -3.39 -4.71 -2.89 -4.71 -2.15 C -4.71 -1.21 -4.26 -0.51 -3.35 -0.51 C -2.5 -0.51 -2.15 -1.14 -2.03 -2 L -1.96 -2.35 C -1.89 -2.96 -1.60 -3.15 -1.25 -3.15 C -0.78 -3.15 -0.5 -2.81 -0.5 -2.20 C -0.5 -1.62 -0.76 -1.18 -1.20 -0.82 L -0.79 -0.32 C -0.25 -0.73 0.10 -1.29 0.10 -2.14 Z M 0.10 -2.14 "/>
+</g>
+<g id="repli-latences-glyph-1-12">
+<path d="M -2.78 -2.25 C -4.51 -2.25 -6.01 -1.54 -6.79 -0.64 L -6.79 0.04 C -5.90 -0.95 -4.42 -1.57 -3.15 -1.57 L -2.39 -1.57 C -1.14 -1.57 0.35 -0.92 1.21 0.04 L 1.21 -0.64 C 0.46 -1.51 -1.04 -2.25 -2.78 -2.25 Z M -2.78 -2.25 "/>
+</g>
+<g id="repli-latences-glyph-2-0">
+<path d="M 1.75 -3.04 L 1.32 -3.28 L 1.12 -2.90 L -0.59 -3.90 C -1.23 -4.28 -1.89 -4.07 -2.32 -3.31 C -2.65 -2.76 -2.57 -2.23 -2.35 -1.87 L -1.90 -2 C -2.09 -2.34 -2.14 -2.68 -1.92 -3.06 C -1.64 -3.56 -1.25 -3.65 -0.81 -3.40 L -0.5 -3.21 L -0.85 -2.59 C -1.37 -1.70 -1.29 -1.09 -0.70 -0.76 C -0.12 -0.42 0.43 -0.62 0.81 -1.28 C 1.06 -1.71 1.06 -2.12 0.76 -2.48 L 0.78 -2.51 C 1.09 -2.39 1.39 -2.40 1.59 -2.78 Z M 0.45 -1.56 C 0.23 -1.20 -0.07 -1.06 -0.39 -1.23 L -0.51 -1.31 C -0.81 -1.48 -0.84 -1.82 -0.51 -2.37 L -0.15 -3.01 L 0.35 -2.71 C 0.68 -2.53 0.73 -2.06 0.45 -1.56 Z M 0.45 -1.56 "/>
+</g>
+<g id="repli-latences-glyph-2-1">
+<path d="M 0.89 -1.42 C 1.29 -2.12 1.20 -2.76 0.60 -3.10 C 0.14 -3.37 -0.32 -3.28 -0.82 -2.65 L -1 -2.45 C -1.29 -2.09 -1.51 -1.95 -1.81 -2.12 C -2.10 -2.29 -2.20 -2.60 -1.96 -3.01 C -1.73 -3.40 -1.37 -3.56 -1.10 -3.59 L -1.21 -4.07 C -1.67 -4 -2.06 -3.78 -2.35 -3.28 C -2.71 -2.65 -2.68 -2 -2.07 -1.64 C -1.5 -1.31 -1.01 -1.59 -0.59 -2.12 L -0.42 -2.34 C -0.10 -2.73 0.15 -2.76 0.39 -2.62 C 0.70 -2.43 0.75 -2.07 0.5 -1.65 C 0.28 -1.28 -0.06 -1.09 -0.5 -1.03 L -0.42 -0.53 C 0.12 -0.57 0.56 -0.84 0.89 -1.42 Z M 0.89 -1.42 "/>
+</g>
+<g id="repli-latences-glyph-2-2">
+<path d="M -0.01 -2.23 L 0.37 -1.78 L 0.35 -1.75 L -0.21 -1.89 L -2.78 -2.37 L -3.04 -1.90 L 0.84 -1.20 L 1.37 -0.57 L 1.09 -0.09 L 1.51 0.14 L 1.65 -0.09 C 1.92 -0.56 1.87 -0.73 1.59 -1.10 L -1.43 -4.68 L -1.71 -4.21 Z M -0.01 -2.23 "/>
+</g>
+<g id="repli-latences-glyph-2-3">
+<path d="M 0.56 -0.98 L -1.59 -2.21 C -2 -2.45 -1.96 -2.93 -1.75 -3.32 C -1.46 -3.79 -1.04 -3.89 -0.48 -3.56 L 1.42 -2.46 L 1.68 -2.93 L -0.29 -4.07 C -1.06 -4.51 -1.73 -4.35 -2.09 -3.71 C -2.35 -3.26 -2.28 -2.85 -2.01 -2.51 L -2.03 -2.48 L -2.54 -2.78 L -2.81 -2.31 L 0.29 -0.51 Z M 0.56 -0.98 "/>
+</g>
+<g id="repli-latences-glyph-2-4">
+<path d="M 1.01 -1.64 C 1.35 -2.23 1.31 -2.79 0.98 -3.23 L 0.56 -3.03 C 0.79 -2.65 0.82 -2.26 0.59 -1.87 C 0.26 -1.29 -0.29 -1.21 -0.82 -1.53 L -1.35 -1.84 C -1.90 -2.15 -2.12 -2.67 -1.79 -3.25 C -1.57 -3.62 -1.25 -3.79 -0.85 -3.71 L -0.82 -4.23 C -1.34 -4.31 -1.87 -4.10 -2.23 -3.5 C -2.73 -2.62 -2.39 -1.75 -1.40 -1.17 C -0.40 -0.59 0.51 -0.76 1.01 -1.64 Z M 1.01 -1.64 "/>
+</g>
+<g id="repli-latences-glyph-2-5">
+<path d="M 0.29 -0.51 L 0.56 -0.98 L -1.59 -2.21 C -2 -2.45 -1.96 -2.93 -1.75 -3.32 C -1.46 -3.79 -1.04 -3.89 -0.48 -3.56 L 1.42 -2.46 L 1.68 -2.93 L -0.29 -4.07 C -1.06 -4.51 -1.73 -4.35 -2.09 -3.71 C -2.35 -3.26 -2.28 -2.85 -2.01 -2.51 L -2.03 -2.48 L -3.89 -3.54 L -4.15 -3.07 Z M 0.29 -0.51 "/>
+</g>
+<g id="repli-latences-glyph-2-6">
+<path d="M 0.56 -0.98 L -1.54 -2.20 C -1.84 -2.37 -1.87 -2.82 -1.57 -3.34 L -1.40 -3.62 L -1.89 -3.90 L -2 -3.71 C -2.29 -3.21 -2.17 -2.76 -1.93 -2.48 L -1.96 -2.43 L -2.54 -2.78 L -2.81 -2.31 L 0.29 -0.51 Z M 0.56 -0.98 "/>
+</g>
+<g id="repli-latences-glyph-2-7">
+<path d="M 1.03 -1.65 C 1.51 -2.48 1.21 -3.40 0.21 -3.96 C -0.76 -4.54 -1.73 -4.34 -2.21 -3.51 C -2.70 -2.68 -2.39 -1.75 -1.40 -1.17 C -0.40 -0.60 0.54 -0.82 1.03 -1.65 Z M 0.60 -1.89 C 0.31 -1.35 -0.21 -1.18 -0.87 -1.56 L -1.31 -1.81 C -1.98 -2.20 -2.07 -2.73 -1.78 -3.26 C -1.48 -3.78 -0.95 -3.98 -0.28 -3.59 L 0.15 -3.34 C 0.81 -2.96 0.90 -2.40 0.60 -1.89 Z M 0.60 -1.89 "/>
+</g>
+<g id="repli-latences-glyph-2-8">
+<path d="M 1.03 -1.64 C 1.35 -2.23 1.34 -2.82 1.03 -3.26 L 0.60 -3.07 C 0.84 -2.71 0.84 -2.29 0.62 -1.90 C 0.29 -1.34 -0.29 -1.21 -0.82 -1.51 L -0.98 -1.60 L 0.29 -3.84 L 0.06 -3.96 C -0.81 -4.48 -1.73 -4.34 -2.21 -3.5 C -2.70 -2.67 -2.39 -1.75 -1.40 -1.17 C -0.40 -0.60 0.54 -0.81 1.03 -1.64 Z M -1.81 -3.26 C -1.53 -3.76 -0.96 -3.89 -0.43 -3.57 L -0.35 -3.53 L -1.34 -1.81 L -1.39 -1.84 C -1.92 -2.15 -2.12 -2.75 -1.81 -3.26 Z M -1.81 -3.26 "/>
+</g>
+<g id="repli-latences-glyph-2-9">
+<path d="M 0.39 -0.67 L 0.67 -1.15 L -2 -2.70 L -1.62 -3.37 L -2.06 -3.62 L -2.43 -2.95 L -3.35 -3.48 L -2.98 -4.15 L -3.40 -4.39 L -3.67 -3.92 C -3.93 -3.46 -3.78 -3.07 -3.34 -2.82 L -2.71 -2.46 L -3.01 -1.96 L -2.57 -1.71 L -2.28 -2.21 Z M 0.39 -0.67 "/>
+</g>
+<g id="repli-latences-glyph-2-10">
+<path d="M 0.82 -1.45 L 0.40 -1.68 L 0.14 -1.21 L -3.89 -3.54 L -4.15 -3.07 L -0.20 -0.79 C 0.07 -0.64 0.39 -0.68 0.59 -1.03 Z M 0.82 -1.45 "/>
+</g>
+<g id="repli-latences-glyph-2-11">
+<path d="M 0.56 -0.98 L -1.59 -2.21 C -2 -2.45 -1.96 -2.93 -1.75 -3.31 C -1.48 -3.76 -1.07 -3.82 -0.51 -3.5 L 1.39 -2.40 L 1.65 -2.87 L -0.5 -4.10 C -0.90 -4.34 -0.89 -4.81 -0.67 -5.18 C -0.39 -5.67 0 -5.71 0.56 -5.39 L 2.46 -4.29 L 2.75 -4.78 L 0.76 -5.92 C 0 -6.35 -0.65 -6.21 -1.01 -5.59 C -1.32 -5.06 -1.18 -4.59 -0.92 -4.28 L -0.93 -4.26 C -1.46 -4.35 -1.89 -4.09 -2.12 -3.68 C -2.40 -3.18 -2.26 -2.84 -2.01 -2.51 L -2.03 -2.48 L -2.54 -2.78 L -2.81 -2.31 L 0.29 -0.51 Z M 0.56 -0.98 "/>
+</g>
+<g id="repli-latences-glyph-2-12">
+<path d="M 1.03 -1.79 L 0.60 -2.03 L 0.25 -1.39 L -2 -2.70 L -1.60 -3.40 L -2.04 -3.65 L -2.43 -2.95 L -3.29 -3.43 L -3.54 -3.01 L -2.96 -2.68 C -2.76 -2.56 -2.73 -2.45 -2.84 -2.25 L -3.01 -1.96 L -2.57 -1.71 L -2.28 -2.23 L -0.12 -0.98 C 0.17 -0.81 0.5 -0.85 0.68 -1.20 Z M 1.03 -1.79 "/>
+</g>
+<g id="repli-latences-glyph-2-13">
+<path d="M 2.84 -2.65 L 2.42 -2.89 L 0.65 0.15 L 1.07 0.39 Z M 2.84 -2.65 "/>
+</g>
+<g id="repli-latences-glyph-2-14">
+<path d="M 0.57 -1.01 L 0.92 -1.59 L -0.31 -2.89 L -1.10 -3.70 L -1.10 -3.71 L 0 -3.43 L 1.73 -3.01 L 2.07 -3.60 L -0.54 -6.23 L -0.81 -5.78 L 0.34 -4.67 L 1.51 -3.56 L 1.5 -3.54 L -0.07 -3.95 L -1.65 -4.32 L -1.90 -3.89 L -0.78 -2.71 L 0.35 -1.56 L 0.34 -1.54 L -1.20 -2 L -2.73 -2.45 L -3 -1.98 Z M 0.57 -1.01 "/>
+</g>
+<g id="repli-latences-glyph-2-15">
+<path d="M -3.39 -2.95 C -3.28 -3.15 -3.34 -3.31 -3.5 -3.40 L -3.59 -3.45 C -3.75 -3.54 -3.90 -3.51 -4.01 -3.31 C -4.14 -3.10 -4.07 -2.95 -3.92 -2.85 L -3.82 -2.81 C -3.67 -2.71 -3.51 -2.75 -3.39 -2.95 Z M 0.29 -0.51 L 0.56 -0.98 L -2.54 -2.78 L -2.81 -2.31 Z M 0.29 -0.51 "/>
+</g>
+<g id="repli-latences-glyph-2-16">
+<path d="M 1.5 0.17 L 1.76 -0.29 L 0.06 -1.26 L 0.07 -1.29 C 0.56 -1.26 0.92 -1.46 1.17 -1.89 C 1.62 -2.67 1.28 -3.5 0.28 -4.07 C -0.70 -4.65 -1.62 -4.53 -2.07 -3.75 C -2.32 -3.32 -2.31 -2.89 -2.01 -2.51 L -2.03 -2.48 L -2.54 -2.78 L -2.81 -2.31 Z M 0.67 -2 C 0.42 -1.56 -0.03 -1.32 -0.42 -1.54 L -1.59 -2.21 C -1.92 -2.42 -1.96 -2.93 -1.71 -3.37 C -1.40 -3.92 -0.82 -4.03 -0.26 -3.71 L 0.26 -3.40 C 0.81 -3.09 0.98 -2.54 0.67 -2 Z M 0.67 -2 "/>
+</g>
+</g>
+</defs>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L 425.19 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L 0.00 147.40 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 0.00 L -4.25 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-0" x="33.47" y="189.91"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 45.35 L -4.25 45.35 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-1" x="28.11" y="144.74"/>
+<use xlink:href="#repli-latences-glyph-0-0" x="33.47" y="144.74"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 90.71 L -4.25 90.71 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-2" x="28.11" y="99.57"/>
+<use xlink:href="#repli-latences-glyph-0-0" x="33.47" y="99.57"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M 0.00 136.06 L -4.25 136.06 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-3" x="28.11" y="54.40"/>
+<use xlink:href="#repli-latences-glyph-0-0" x="33.47" y="54.40"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-1-0" x="15.02" y="162.44"/>
+<use xlink:href="#repli-latences-glyph-1-1" x="15.02" y="160.01"/>
+<use xlink:href="#repli-latences-glyph-1-2" x="15.02" y="155.25"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-1-3" x="15.02" y="152.15"/>
+<use xlink:href="#repli-latences-glyph-1-4" x="15.02" y="147.24"/>
+<use xlink:href="#repli-latences-glyph-1-5" x="15.02" y="142.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-1-3" x="15.02" y="137.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-1-6" x="15.02" y="130.72"/>
+<use xlink:href="#repli-latences-glyph-1-7" x="15.02" y="122.93"/>
+<use xlink:href="#repli-latences-glyph-1-8" x="15.02" y="118.03"/>
+<use xlink:href="#repli-latences-glyph-1-9" x="15.02" y="112.85"/>
+<use xlink:href="#repli-latences-glyph-1-1" x="15.02" y="110.61"/>
+<use xlink:href="#repli-latences-glyph-1-4" x="15.02" y="105.85"/>
+<use xlink:href="#repli-latences-glyph-1-3" x="15.02" y="100.77"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-1-10" x="15.02" y="93.76"/>
+<use xlink:href="#repli-latences-glyph-1-6" x="15.02" y="90.77"/>
+<use xlink:href="#repli-latences-glyph-1-11" x="15.02" y="82.98"/>
+<use xlink:href="#repli-latences-glyph-1-12" x="15.02" y="78.63"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-4" x="82.10" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-5" x="86.87" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-5" x="89.25" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-6" x="91.68" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="96.59" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-8" x="99.68" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="103.25" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="106.48" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-9" x="111.38" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-10" x="114.48" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-11" x="119.48" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="124.55" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-12" x="129.94" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-0" x="137.40" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="144.87" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="152.66" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-4" x="223.25" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-5" x="228.02" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-5" x="230.41" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-6" x="232.84" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="237.74" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-8" x="240.84" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="244.40" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="247.63" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-9" x="252.53" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-10" x="255.63" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-11" x="260.63" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="265.71" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-12" x="271.09" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-15" x="278.55" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="286.01" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="293.81" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-4" x="361.73" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-5" x="366.50" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-5" x="368.88" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-6" x="371.31" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="376.21" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-8" x="379.31" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="382.87" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="386.11" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-9" x="391.01" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-10" x="394.11" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-11" x="399.11" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="404.18" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-12" x="409.56" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-16" x="417.03" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-0" x="422.39" y="200.73"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="429.85" y="200.73"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="437.65" y="200.73"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 22.67 0.00 L 22.67 9.57 L 36.85 9.57 L 36.85 0.00 Z M 22.67 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-orange-bg);stroke:var(--fig-orange)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 39.68 0.00 L 39.68 0.22 L 53.85 0.22 L 53.85 0.00 Z M 39.68 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 56.69 0.00 L 56.69 11.56 L 70.86 11.56 L 70.86 0.00 Z M 56.69 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 73.70 0.00 L 73.70 10.52 L 87.87 10.52 L 87.87 0.00 Z M 73.70 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 90.70 0.00 L 90.70 14.26 L 104.88 14.26 L 104.88 0.00 Z M 90.70 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 107.71 0.00 L 107.71 14.39 L 121.89 14.39 L 121.89 0.00 Z M 107.71 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 164.41 0.00 L 164.41 11.76 L 178.58 11.76 L 178.58 0.00 Z M 164.41 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-orange-bg);stroke:var(--fig-orange)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 181.41 0.00 L 181.41 0.24 L 195.59 0.24 L 195.59 0.00 Z M 181.41 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 198.42 0.00 L 198.42 11.74 L 212.60 11.74 L 212.60 0.00 Z M 198.42 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 215.43 0.00 L 215.43 12.90 L 229.60 12.90 L 229.60 0.00 Z M 215.43 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 232.44 0.00 L 232.44 19.18 L 246.61 19.18 L 246.61 0.00 Z M 232.44 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 249.45 0.00 L 249.45 19.07 L 263.62 19.07 L 263.62 0.00 Z M 249.45 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 306.14 0.00 L 306.14 11.31 L 320.31 11.31 L 320.31 0.00 Z M 306.14 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-orange-bg);stroke:var(--fig-orange)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 323.15 0.00 L 323.15 0.22 L 337.32 0.22 L 337.32 0.00 Z M 323.15 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 340.16 0.00 L 340.16 10.02 L 354.33 10.02 L 354.33 0.00 Z M 340.16 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 357.16 0.00 L 357.16 127.56 L 371.34 127.56 L 371.34 0.00 Z M 357.16 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 374.17 0.00 L 374.17 133.00 L 388.34 133.00 L 388.34 0.00 Z M 374.17 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 391.18 0.00 L 391.18 132.34 L 405.35 132.34 L 405.35 0.00 Z M 391.18 0.00 " transform="matrix(0.995914, 0, 0, -0.995914, 46.162666, 186.797667)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-0" x="356.28" y="47.72"/>
+<use xlink:href="#repli-latences-glyph-2-1" x="358.14" y="44.51"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-2" x="359.77" y="41.69"/>
+<use xlink:href="#repli-latences-glyph-2-3" x="361.50" y="38.69"/>
+<use xlink:href="#repli-latences-glyph-2-4" x="363.47" y="35.27"/>
+<use xlink:href="#repli-latences-glyph-2-5" x="365.22" y="32.25"/>
+<use xlink:href="#repli-latences-glyph-2-6" x="367.19" y="28.83"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-7" x="368.45" y="26.65"/>
+<use xlink:href="#repli-latences-glyph-2-3" x="370.39" y="23.28"/>
+<use xlink:href="#repli-latences-glyph-2-8" x="372.37" y="19.87"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-7" x="374.35" y="48.38"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-9" x="376.28" y="45.04"/>
+<use xlink:href="#repli-latences-glyph-2-9" x="377.40" y="43.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-10" x="391.29" y="48.38"/>
+<use xlink:href="#repli-latences-glyph-2-7" x="392.24" y="46.74"/>
+<use xlink:href="#repli-latences-glyph-2-4" x="394.18" y="43.37"/>
+<use xlink:href="#repli-latences-glyph-2-0" x="395.93" y="40.35"/>
+<use xlink:href="#repli-latences-glyph-2-10" x="397.78" y="37.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-6" x="407.31" y="47.84"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-8" x="408.57" y="45.67"/>
+<use xlink:href="#repli-latences-glyph-2-11" x="410.47" y="42.37"/>
+<use xlink:href="#repli-latences-glyph-2-7" x="413.51" y="37.11"/>
+<use xlink:href="#repli-latences-glyph-2-12" x="415.45" y="33.75"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-8" x="416.66" y="31.66"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-13" x="418.39" y="28.66"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-14" x="420.21" y="25.50"/>
+<use xlink:href="#repli-latences-glyph-2-6" x="422.88" y="20.88"/>
+<use xlink:href="#repli-latences-glyph-2-15" x="424.15" y="18.67"/>
+<use xlink:href="#repli-latences-glyph-2-12" x="425.02" y="17.17"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-8" x="426.23" y="15.08"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-7" x="425.17" y="48.38"/>
+<use xlink:href="#repli-latences-glyph-2-3" x="427.11" y="45.01"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-6" x="440.98" y="47.72"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-8" x="442.23" y="45.55"/>
+<use xlink:href="#repli-latences-glyph-2-11" x="444.14" y="42.24"/>
+<use xlink:href="#repli-latences-glyph-2-7" x="447.17" y="36.99"/>
+<use xlink:href="#repli-latences-glyph-2-12" x="449.12" y="33.62"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-8" x="450.32" y="31.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-13" x="452.05" y="28.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-0" x="453.91" y="25.32"/>
+<use xlink:href="#repli-latences-glyph-2-16" x="455.77" y="22.11"/>
+<use xlink:href="#repli-latences-glyph-2-16" x="457.78" y="18.62"/>
+<use xlink:href="#repli-latences-glyph-2-10" x="459.79" y="15.13"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-2-2" x="460.70" y="13.55"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-14" x="104.31" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-4" x="108.65" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-17" x="113.42" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="118.49" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-4" x="124.95" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-9" x="129.72" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-9" x="132.77" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="135.87" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-17" x="140.77" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-18" x="145.85" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-7" x="151.03" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="154.26" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-5" x="161.27" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-4" x="163.70" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-7" x="170.57" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-19" x="173.81" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-20" x="178.71" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-5" x="183.89" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-21" x="186.32" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-22" x="188.55" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-11" x="193.73" y="71.28"/>
+<use xlink:href="#repli-latences-glyph-0-6" x="198.80" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-23" x="205.81" y="71.28"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-0" x="104.31" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-24" x="109.66" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-15" x="112.09" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="119.56" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="127.35" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-25" x="133.81" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-10" x="136.80" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-26" x="141.75" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-26" x="144.64" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-27" x="147.76" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-10" x="152.86" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-11" x="157.86" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-12" x="165.04" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-16" x="172.50" y="82.19"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="179.97" y="82.19"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="187.76" y="82.19"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="239.81" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-17" x="244.71" y="70.83"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-4" x="251.89" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-9" x="256.66" y="70.83"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-9" x="259.72" y="70.83"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-6" x="262.82" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-17" x="267.72" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-18" x="272.79" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-4" x="277.97" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-17" x="282.74" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-9" x="287.81" y="70.83"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-7" x="293.05" y="70.83"/>
+<use xlink:href="#repli-latences-glyph-0-15" x="296.33" y="70.83"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-23" x="303.79" y="70.83"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-28" x="239.81" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-15" x="245.17" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-29" x="252.64" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-30" x="259.51" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="266.98" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="274.77" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-24" x="279.08" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-20" x="283.61" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-11" x="288.79" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-21" x="293.86" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="296.10" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-28" x="302.54" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-16" x="307.90" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-2" x="313.26" y="81.74"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#repli-latences-glyph-0-13" x="320.72" y="81.74"/>
+<use xlink:href="#repli-latences-glyph-0-14" x="328.52" y="81.74"/>
+</g>
+</svg>

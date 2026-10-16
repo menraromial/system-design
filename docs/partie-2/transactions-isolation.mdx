@@ -204,7 +204,7 @@ Hypothèses : une table de commandes reçoit 2 000 mises à jour par seconde,
 | Place occupée | $14{,}4 \times 10^6 \times 200$ octets | ≈ 2,9 Go |
 | Après la fin du rapport | VACUUM retire les versions, la place est réutilisable | taille du fichier inchangée |
 
-Conclusion : la table grossit de près de 3 Go le temps du rapport, et les lectures parcourent ces versions mortes tant qu’elles ne sont pas retirées. Les rapports longs s’exécutent sur une réplique (ch. 24) ou dans un entrepôt de données (ch. 49).
+Conclusion : la table grossit de près de 3 Go le temps du rapport, et les lectures parcourent ces versions mortes tant qu’elles ne sont pas retirées. Les rapports longs s’exécutent sur une réplique ([ch. 24](replication-leader.mdx)) ou dans un entrepôt de données (ch. 49).
 :::
 
 ## Exemple réel

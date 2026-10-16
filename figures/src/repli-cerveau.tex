@@ -1,0 +1,28 @@
+% Une bascule asynchrone perd la fin du journal ; l'ancien primaire redémarre et
+% accepte des écritures (cerveau divisé) ; pg_rewind efface ce qu'il a seul.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    e/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum width=8mm, minimum height=6mm, font=\sffamily\footnotesize, inner sep=0pt},
+    x/.style={draw=#1, fill=#1, text=white, line width=0.6pt, minimum width=8mm, minimum height=6mm, font=\sffamily\footnotesize, inner sep=0pt}]
+  \node[leg, anchor=west] at (-30,40) {ancien primaire};
+  \node[leg, anchor=west] at (-30,22) {réplique r1};
+  % journal du primaire : 1 à 5 confirmés, puis 6 et 7 pendant le cerveau divisé
+  \foreach \i in {1,2,3} \node[e=Dblue] at ({9*\i},40) {\i};
+  \node[x=Dred] at (36,40) {4}; \node[x=Dred] at (45,40) {5};
+  \draw[draw=Dred, line width=1.5pt] (50,34) -- (50,46);
+  \node[note, anchor=south, text=Dred] at (50,46.5) {docker kill};
+  \node[x=Dred] at (90,40) {6}; \node[x=Dred] at (99,40) {7};
+  \node[note, anchor=south, text=Dred, align=center] at (94.5,44) {redémarré, il se croit\\primaire et accepte};
+  % réplique
+  \foreach \i in {1,2,3} \node[e=Dblue] at ({9*\i},22) {\i};
+  \draw[ligne, -{Stealth[length=2mm]}] (31,22) -- (67,22);
+  \node[note, anchor=south, align=center] at (52,23) {pg\_promote};
+  \node[e=Dgreen] at (72,22) {a}; \node[e=Dgreen] at (81,22) {b}; \node[e=Dgreen] at (90,22) {c};
+  \node[note, anchor=north, text=Dgreen] at (81,17) {nouvelle ligne de temps};
+  % flèches de réplication
+  \foreach \i in {1,2,3} \draw[darr=Dslate] ({9*\i},37) -- ({9*\i},25);
+  \node[note, anchor=north west, align=left] at (-30,10) {4 et 5 ont été confirmés au client, mais ne sont jamais arrivés sur r1 : la bascule les perd.\\6 et 7 n'existent que sur l'ancien primaire ; pg\_rewind le remet sur la ligne de temps de r1\\et les efface. Le journal des deux serveurs a divergé après 3.};
+\end{tikzpicture}
+\end{document}

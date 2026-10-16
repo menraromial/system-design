@@ -27,7 +27,7 @@ Passer à l’échelle verticalement ou horizontalement.
 
 ### La machine plus grosse
 
-La scalabilité verticale ne demande aucun changement de code ; le programme qui tournait sur 4 cœurs tourne sur 128, avec plus de mémoire pour ses caches et des disques plus rapides. C’est souvent la meilleure première réponse, surtout pour une base de données, dont la répartition sur plusieurs machines est difficile (ch. 24 à 26). Les machines actuelles vont très loin, et la plus grande instance proposée par AWS, la `u7in-32tb.224xlarge`, compte 896 processeurs virtuels et 32 Tio de mémoire[^u7i]. Stack Overflow, au [ch. 1](../partie-0/demarche.mdx), faisait tourner ses bases sur des serveurs de 384 et 768 Go de mémoire.
+La scalabilité verticale ne demande aucun changement de code ; le programme qui tournait sur 4 cœurs tourne sur 128, avec plus de mémoire pour ses caches et des disques plus rapides. C’est souvent la meilleure première réponse, surtout pour une base de données, dont la répartition sur plusieurs machines est difficile ([ch. 24](../partie-2/replication-leader.mdx) à 26). Les machines actuelles vont très loin, et la plus grande instance proposée par AWS, la `u7in-32tb.224xlarge`, compte 896 processeurs virtuels et 32 Tio de mémoire[^u7i]. Stack Overflow, au [ch. 1](../partie-0/demarche.mdx), faisait tourner ses bases sur des serveurs de 384 et 768 Go de mémoire.
 
 Elle a quatre limites. Il y a un plafond, au-delà duquel aucune machine n’existe. Le prix suit à peu près la taille chez un fournisseur de cloud, à l’intérieur d’une même famille d’instances, où doubler les processeurs double la facture, sans remise. Changer de taille impose souvent un arrêt, ou au moins une bascule. Et surtout, une machine unique reste un point unique de défaillance ([ch. 11](disponibilite.mdx)) ; quand elle tombe, tout s’arrête, quelle que soit sa puissance.
 
@@ -165,7 +165,7 @@ Hypothèses : pointe ordinaire de 500 requêtes par seconde ; trafic multipli
 | Mémoire des sessions (1 million de sessions actives de 1 Ko) | $10^6 \times 1$ Ko | ≈ 1 Go |
 | Connexions vers la base (pool de 20 par serveur) | 16 × 20 | 320 |
 
-Conclusion : la couche applicative passe de 2 à 16 serveurs sans difficulté, puisqu’elle est sans état et que son passage à l’échelle est linéaire. Le problème se déplace vers ce qu’ils partagent. La base reçoit 15 000 requêtes par seconde sur 320 connexions, et on la soulage par un cache ([ch. 16](../partie-2/cache-strategies.mdx)), par des copies en lecture (ch. 24) ou par une machine plus grosse ; 5 000 lectures de session par seconde et 1 Go de données restent faciles pour un seul Redis, qu’il faut toutefois rendre disponible ([ch. 11](disponibilite.mdx)).
+Conclusion : la couche applicative passe de 2 à 16 serveurs sans difficulté, puisqu’elle est sans état et que son passage à l’échelle est linéaire. Le problème se déplace vers ce qu’ils partagent. La base reçoit 15 000 requêtes par seconde sur 320 connexions, et on la soulage par un cache ([ch. 16](../partie-2/cache-strategies.mdx)), par des copies en lecture ([ch. 24](../partie-2/replication-leader.mdx)) ou par une machine plus grosse ; 5 000 lectures de session par seconde et 1 Go de données restent faciles pour un seul Redis, qu’il faut toutefois rendre disponible ([ch. 11](disponibilite.mdx)).
 :::
 
 :::calcul[Calcul : le plafond d’Amdahl]

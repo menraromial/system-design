@@ -1,0 +1,41 @@
+% Le trajet d'une validation entre le primaire et une réplique synchrone, et le
+% point où rend la main chaque valeur de synchronous_commit.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    etape/.style={circle, fill=#1, minimum size=2.4mm, inner sep=0pt},
+    lab/.style={note, anchor=west, align=left}]
+  % lignes de vie
+  \foreach \x/\t in {52/primaire, 102/réplique} {
+    \node[pillo=Dslate] at (\x,72) {\t};
+    \draw[draw=Dslate, line width=0.6pt, dash pattern=on 2pt off 1.5pt] (\x,68) -- (\x,0);
+  }
+  \node[pillo=Dblue] (cl) at (5,66) {client}; \draw[arr=Dblue] (cl.east) -- node[lblc=Dblue, above] {COMMIT} (52,62);
+  \node[etape=Dslate] at (52,58) {};
+  \node[lab] at (-34,58) {\textbf{off} : sans attendre le disque};
+  \draw[draw=Dslate, line width=1.2pt] (52,56) -- (52,50);
+  \node[lab, anchor=east] at (50,53) {fsync du journal};
+  \node[etape=Dslate] at (52,48) {};
+  \node[lab] at (-34,48) {\textbf{local} : journal sur le disque du primaire};
+  \draw[arr=Dorange] (52,47) -- node[lblc=Dorange, above, sloped] {journal (WAL)} (102,40);
+  \node[etape=Dorange] at (102,38) {};
+  \node[lab] at (104,38) {reçu, écrit dans le système};
+  \draw[draw=Dorange, line width=1.2pt] (102,36) -- (102,30);
+  \node[lab] at (104,33) {fsync du journal};
+  \node[etape=Dorange] at (102,28) {};
+  \node[lab] at (104,28) {sur le disque de la réplique};
+  \draw[draw=Dorange, line width=1.2pt] (102,26) -- (102,20);
+  \node[lab] at (104,23) {rejeu};
+  \node[etape=Dorange] at (102,18) {};
+  \node[lab] at (104,18) {visible aux lectures};
+  \draw[darr=Dgreen] (102,38) -- (52,31);
+  \draw[darr=Dgreen] (102,28) -- (52,21);
+  \draw[darr=Dgreen] (102,18) -- (52,11);
+  \node[lab] at (-34,31) {\textbf{remote\_write} : reçu par la réplique};
+  \node[lab] at (-34,21) {\textbf{on} : sur le disque de la réplique};
+  \node[lab] at (-34,11) {\textbf{remote\_apply} : visible sur la réplique};
+  \foreach \y in {31,21,11} \node[etape=Dgreen] at (52,\y) {};
+  \node[note, anchor=north west, align=left] at (-34,4) {Chaque niveau rend la main au client un cran plus tard ; à partir de remote\_write,\\il ajoute au moins un aller-retour entre le primaire et la réplique.};
+\end{tikzpicture}
+\end{document}

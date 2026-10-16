@@ -1,0 +1,35 @@
+% Latence médiane d'une validation selon synchronous_commit et l'aller-retour
+% vers la réplique synchrone (outils/experiences/ch24/synchrone.py, premier
+% passage, reproduit dans le chapitre). Échelle : 1 mm pour 1 ms.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    barre/.style={draw=#1, fill=#1Bg, line width=0.6pt}]
+  \def\H#1{#1*0.8}
+  \draw[ligne] (0,0) -- (150,0);
+  \draw[ligne] (0,0) -- (0,52);
+  \foreach \v in {0, 20, 40, 60} {
+    \draw[ligne] (0,{\H{\v}}) -- (-1.5,{\H{\v}});
+    \node[note, anchor=east] at (-2,{\H{\v}}) {\v};
+  }
+  \node[note, rotate=90, anchor=south] at (-10,24) {latence médiane (ms)};
+  % groupes : aller-retour 0, 1 et 50 ms ; modes : async, off, local, remote_write, on, remote_apply
+  \foreach \g/\titre [count=\k from 0] in {0/{≈ 0 ms}, 1/{≈ 1 ms}, 2/{≈ 50 ms}} {
+    \node[note, anchor=north] at ({8+50*\k+18},-2) {aller-retour \titre};
+  }
+  \foreach \k/\vals in {0/{4.22,0.10,5.10,4.64,6.29,6.35}, 1/{5.19,0.11,5.18,5.69,8.46,8.41}, 2/{4.99,0.10,4.42,56.25,58.65,58.36}} {
+    \foreach \v [count=\i from 0] in \vals {
+      \pgfmathsetmacro{\x}{8+50*\k+6*\i}
+      \ifnum\i<3 \def\c{Dslate}\else\def\c{Dblue}\fi
+      \ifnum\i=1 \def\c{Dorange}\fi
+      \draw[barre=\c] (\x,0) rectangle ({\x+5},{\H{\v}});
+    }
+  }
+  \foreach \i/\t in {0/asynchrone, 1/off, 2/local, 3/remote\_write, 4/on, 5/remote\_apply} {
+    \node[note, rotate=60, anchor=south west, font=\sffamily\scriptsize] at ({108+6*\i+2.5},{\H{59}+1}) {\t};
+  }
+  \node[note, anchor=west, align=left] at (20,40) {sans attendre la réplique :\\0,1 ms (off) ou ≈ 5 ms};
+  \node[note, anchor=west, align=left, text=Dblue] at (68,40) {en attendant r1 :\\+1 à 3 ms, puis +54 ms};
+\end{tikzpicture}
+\end{document}

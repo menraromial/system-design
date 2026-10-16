@@ -47,7 +47,7 @@ export const PARTIES: Partie[] = [
       {num: 21, titre: 'NoSQL (1) : clé-valeur, document, colonnes larges, graphe', doc: 'partie-2/nosql-modeles'},
       {num: 22, titre: 'NoSQL (2) : séries temporelles, recherche, vecteurs', doc: 'partie-2/nosql-specialisees'},
       {num: 23, titre: 'Choisir une base de données', doc: 'partie-2/choisir-base'},
-      {num: 24, titre: 'Réplication (1) : leader-follower'},
+      {num: 24, titre: 'Réplication (1) : leader-follower', doc: 'partie-2/replication-leader'},
       {num: 25, titre: 'Réplication (2) : multi-leader, sans leader, quorums'},
       {num: 26, titre: 'Partitionnement (sharding)'},
       {num: 27, titre: 'Files de messages et logs'},

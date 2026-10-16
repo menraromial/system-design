@@ -1,0 +1,31 @@
+% Retard de la réplique pendant une requête de 60 s qui entre en conflit avec le
+% nettoyage du primaire (outils/experiences/ch24/retard.py, passage reproduit
+% dans le chapitre : échantillons 1, 6, 11, 16, 21, 26 s, maximum 30,1 s).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \def\X#1{#1*2}
+  \def\Y#1{#1*1.4}
+  \draw[ligne] (0,0) -- ({\X{62}},0);
+  \draw[ligne] (0,0) -- (0,{\Y{34}});
+  \foreach \v in {0, 10, 20, 30} {
+    \draw[ligne] (0,{\Y{\v}}) -- (-1.5,{\Y{\v}});
+    \node[note, anchor=east] at (-2,{\Y{\v}}) {\v};
+  }
+  \foreach \t in {0, 10, 20, 30, 40, 50, 60} {
+    \draw[ligne] ({\X{\t}},0) -- ({\X{\t}},-1.5);
+    \node[note, anchor=north] at ({\X{\t}},-2) {\t};
+  }
+  \node[note, anchor=north] at ({\X{31}},-7) {secondes depuis le VACUUM du primaire};
+  \node[note, rotate=90, anchor=south] at (-10,{\Y{16}}) {retard de la réplique (s)};
+  % réglages par défaut
+  \draw[draw=Dred, line width=1.1pt] (0,0) -- ({\X{30.1}},{\Y{30.1}}) -- ({\X{30.1}},0) -- ({\X{36}},0);
+  \foreach \t in {1, 6, 11, 16, 21, 26} \node[circle, fill=Dred, minimum size=1.8mm, inner sep=0pt] at ({\X{\t}},{\Y{\t}}) {};
+  \node[note, anchor=west, text=Dred, align=left] at ({\X{31}},{\Y{29}}) {30 s : la requête est annulée\\(conflict with recovery),\\la réplique rattrape};
+  \node[note, anchor=north west, text=Dred, align=left] at (3,{\Y{33}}) {réglages par défaut :\\max\_standby\_\\streaming\_delay = 30 s};
+  % hot_standby_feedback
+  \draw[draw=Dblue, line width=1.1pt] (0,0.6) -- ({\X{60}},0.6);
+  \node[note, anchor=south west, text=Dblue, align=left] at ({\X{32}},2) {hot\_standby\_feedback = on : retard nul,\\la requête va au bout, 100 000 versions\\mortes restent sur le primaire};
+\end{tikzpicture}
+\end{document}

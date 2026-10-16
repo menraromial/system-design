@@ -1,0 +1,342 @@
+---
+title: "Réplication (1) : leader-follower"
+sidebar_label: "24. Réplication (1) : leader-follower"
+description: "Réplication à un leader : transfert du journal, modes synchrone, asynchrone et semi-synchrone et leur coût mesuré, quorums de répliques synchrones, retard de réplication et ses causes (grosses transactions, conflits avec les requêtes des répliques), lire ses propres écritures par la position du journal, répliques de lecture, bascule, promotion et cerveau divisé ; mesures avec PostgreSQL 18, ses répliques et un relais qui retarde ou coupe la liaison."
+partie: 2
+chapitre: 24
+---
+
+import modes from '@site/src/figures/repli-modes.svg';
+import latences from '@site/src/figures/repli-latences.svg';
+import conflit from '@site/src/figures/repli-conflit.svg';
+import cerveau from '@site/src/figures/repli-cerveau.svg';
+
+Huit clients écrivent dans un PostgreSQL qui a une réplique asynchrone. La liaison entre le primaire et sa réplique tombe, mais les clients joignent toujours le primaire, qui continue de confirmer leurs écritures. Deux secondes plus tard, l’outil de surveillance déclare le primaire mort, l’arrête et promeut la réplique, qui répond en 108 ms. Les clients se reconnectent et reprennent. Sur la machine des mesures, 3 852 insertions confirmées aux clients étaient absentes de la nouvelle base. Aucune erreur ne les signale, car la réplique n’en a jamais entendu parler, et l’ancien primaire, qui les a sur son disque, n’est plus consulté. Quand on le redémarre sans précaution, il se déclare primaire et accepte de nouvelles écritures, et deux bases divergent.
+
+La réplication à un leader (leader-follower, ou primaire et répliques) est celle de PostgreSQL, de MySQL et des jeux de répliques de MongoDB. Un seul nœud accepte les écritures, et les autres recopient ce qu’il a écrit. Le [ch. 12](../partie-1/coherence-cap.mdx) a mesuré ce qu’un client voit quand il lit une réplique Redis en retard. Ce chapitre décrit le mécanisme du côté de la base : comment le journal passe du primaire aux répliques, ce que coûte d’attendre une réplique avant de confirmer, d’où vient le retard, comment lire ses propres écritures, et comment se passe une bascule, y compris quand elle perd des données. La réplication à plusieurs leaders et sans leader est l’objet du ch. 25.
+
+Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch24/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch24). Elles utilisent un primaire PostgreSQL 18 et une ou deux répliques, chacune dans son conteneur, et chaque réplique reçoit le journal à travers un relais écrit en Python ([`commun.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch24/commun.py)), qui retarde les octets d’un délai réglable ou coupe la liaison. [`synchrone.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch24/synchrone.py) mesure le coût d’une validation selon le mode de réplication, [`retard.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch24/retard.py) les causes du retard et la lecture de ses propres écritures, [`bascule.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch24/bascule.py) la bascule et le cerveau divisé.
+
+## Un leader, des suiveurs
+
+Le primaire reçoit toutes les écritures. Il les décrit dans un journal, et chaque réplique reçoit ce journal et l’applique dans le même ordre, si bien qu’elle passe par les mêmes états que le primaire, avec un décalage. Les lectures peuvent aller au primaire ou aux répliques ; les écritures, jamais aux répliques.
+
+Le contenu du journal transmis varie selon les bases. PostgreSQL envoie son journal d’écriture anticipée (write-ahead log, WAL), celui qui sert déjà à la reprise après une panne ([ch. 20](moteurs-stockage.mdx)) ; c’est une réplication physique, qui décrit des modifications d’octets dans des pages, si bien qu’une réplique est une copie exacte du primaire, de même version majeure. MySQL envoie son journal binaire (binlog), qui décrit les lignes modifiées ; c’est une réplication logique, indépendante du format des fichiers, qui permet de répliquer entre versions différentes ou vers un autre système. PostgreSQL a aussi une réplication logique, par publications et abonnements, qui sert surtout aux migrations et à l’alimentation d’autres systèmes (ch. 37). Les anciennes réplications par instructions, qui rejouaient le texte des requêtes, ont l’inconvénient qu’une instruction comme `UPDATE ... SET t = now()` ou `random()` ne donne pas le même résultat sur la réplique.
+
+Une nouvelle réplique commence par une copie des fichiers du primaire, puis reçoit le journal depuis la position de cette copie. Dans les expériences, c’est `pg_basebackup` qui fait la copie, en demandant au primaire un point de contrôle. Avec une table d’un million de lignes qui venait d’être écrite, la copie est restée bloquée plus de quatre minutes, parce que le point de contrôle par défaut est étalé dans le temps pour ne pas gêner la production (`checkpoint_completion_target` = 0,9 de `checkpoint_timeout` = 5 min) ; l’option `-c fast` le demande immédiat. Pour une base de plusieurs téraoctets, la copie initiale prend des heures, et le primaire doit garder le journal produit pendant ce temps.
+
+## Synchrone, asynchrone et entre les deux
+
+La question centrale est celle du moment où le primaire confirme l’écriture au client. En réplication asynchrone, il confirme dès que l’écriture est sur son propre disque, et l’envoie aux répliques ensuite. En réplication synchrone, il attend qu’une ou plusieurs répliques aient accusé réception. PostgreSQL règle ce moment par le paramètre `synchronous_commit`, dont la documentation décrit chaque valeur[^pg-sync], et par `synchronous_standby_names`, qui nomme les répliques dont on attend la réponse.
+
+<Figure svg={modes} num="24.1" alt="Diagramme de séquence entre client, primaire et réplique. Le client envoie COMMIT ; off rend la main avant la synchronisation du journal sur le disque du primaire, local après. Le journal part vers la réplique, qui le reçoit et l’écrit dans le système (remote_write), le synchronise sur son disque (on), puis le rejoue et le rend visible aux lectures (remote_apply) ; chaque étape renvoie un accusé au primaire.">
+Le trajet d’une validation, et le moment où rend la main chaque valeur de `synchronous_commit`.
+</Figure>
+
+Avec `off`, le primaire confirme avant même d’avoir synchronisé son journal ; d’après la documentation, l’écriture n’est à l’abri d’une panne du serveur qu’au bout de trois fois `wal_writer_delay` au plus, soit 600 ms avec la valeur par défaut[^pg-wal]. Avec `local`, il confirme quand le journal est sur son disque, et la réplication est asynchrone. Les trois valeurs suivantes attendent la réplique synchrone. `remote_write` attend qu’elle ait reçu le journal et l’ait passé à son système d’exploitation, et la documentation précise que la réplique peut alors perdre la donnée si son système tombe, mais pas si seul PostgreSQL s’arrête[^pg-sync]. `on`, la valeur par défaut, attend que le journal soit sur le disque de la réplique, et la seule perte possible est celle du primaire et de la réplique en même temps. `remote_apply` attend que la réplique ait rejoué l’écriture, si bien qu’une lecture sur cette réplique, faite après la confirmation, la voit. Quand aucune réplique synchrone n’est déclarée, `local`, `remote_write` et `remote_apply` donnent la même garantie que `on`, une synchronisation locale[^pg-wal]. Le paramètre se règle par transaction, si bien qu’une application peut attendre la réplique pour un paiement et ne pas l’attendre pour l’enregistrement d’une page vue.
+
+`synchrone.py` mesure ces valeurs. Il valide 300 fois de suite la mise à jour d’une ligne, avec r1 déclarée synchrone, pour trois liaisons entre le primaire et ses répliques : sans délai ajouté, avec 0,5 ms dans chaque sens (un aller-retour d’environ 1 ms, l’ordre de grandeur entre deux zones de disponibilité d’une même région, [ch. 9](../partie-1/latence-debit.mdx)), et avec 25 ms dans chaque sens (un aller-retour de 50 ms, proche de la borne physique entre Paris et New York). La ligne « asynchrone » est la même mesure sans réplique synchrone déclarée.
+
+```text
+PostgreSQL 18.6, un primaire et deux répliques (r1, r2)
+
+1. une validation, médiane et 99e centile en ms, r1 synchrone
+   aller-retour           ≈ 0 ms         ≈ 1 ms        ≈ 50 ms
+   asynchrone        4.22    7.6    5.19    8.1    4.99    7.7
+   off               0.10    0.7    0.11    0.7    0.10    0.6
+   local             5.10    7.2    5.18    7.3    4.42    7.8
+   remote_write      4.64    6.1    5.69    6.4   56.25   57.3
+   on                6.29    8.5    8.46   11.4   58.65   60.1
+   remote_apply      6.35    8.0    8.41   10.2   58.36   60.2
+
+2. quorum : r1 à 25 ms, r2 à 0,5 ms dans chaque sens, mode on
+   FIRST 1 (r1, r2)    médiane  57.97 ms   p99   60.1 ms
+   ANY 1 (r1, r2)      médiane   8.65 ms   p99   11.2 ms
+   ANY 2 (r1, r2)      médiane  57.87 ms   p99   59.7 ms
+
+3. débit avec 32 connexions pendant 10 s, validations par seconde
+   ≈  1 ms : sans attendre r1  3 539 /s, en attendant r1  1 937 /s
+   ≈ 50 ms : sans attendre r1  3 792 /s, en attendant r1    508 /s
+```
+
+<Figure svg={latences} num="24.2" alt="Barres de la latence médiane d’une validation pour chaque valeur de synchronous_commit, avec trois groupes : aller-retour d’environ 0, 1 et 50 ms. off reste à 0,1 ms et local vers 5 ms partout ; remote_write, on et remote_apply restent entre 5 et 8,5 ms pour 0 et 1 ms d’aller-retour, et montent entre 56 et 59 ms pour 50 ms.">
+Latence médiane d’une validation selon `synchronous_commit` et l’aller-retour vers la réplique synchrone.
+</Figure>
+
+Le second passage a donné des valeurs à 15 % près.
+
+Une validation locale coûte environ 5 ms sur ce portable, le temps de synchroniser le journal sur le SSD. `off` la ramène à 0,1 ms, cinquante fois moins, en renonçant à la durabilité de la dernière fraction de seconde. Tant que la réplique est proche, l’attendre ajoute peu. `on` coûte 1 à 3 ms de plus que `local`, le temps que la réplique reçoive le journal et le synchronise à son tour sur son disque. À 50 ms d’aller-retour, toute valeur qui attend la réplique coûte 56 à 59 ms, l’aller-retour plus la synchronisation, alors que `local` reste à 5 ms. `remote_apply` ne coûte presque rien de plus que `on` ici, car la réplique, peu chargée, rejoue aussitôt ce qu’elle a écrit.
+
+Le débit suit. Avec 32 connexions et une réplique à 1 ms, la machine fait 3 539 validations par seconde sans attendre la réplique et 1 937 en l’attendant. À 50 ms, l’attente plafonne le débit à 508 validations par seconde. D’après la loi de Little ([ch. 9](../partie-1/latence-debit.mdx)), 32 connexions dont chacune attend 59 ms ne peuvent pas valider plus de 32 / 0,059 = 542 fois par seconde. Pour écrire plus vite avec une réplique lointaine, il faut plus de connexions en parallèle, ce qui suppose des écritures indépendantes les unes des autres.
+
+### Quorums de répliques synchrones
+
+Attendre une réplique précise a un défaut, que la partie 4 de la mesure montre plus loin. Si elle tombe, le primaire ne valide plus rien. `synchronous_standby_names` accepte donc deux formes de liste. `FIRST 1 (r1, r2)` attend r1, la première de la liste, et ne se rabat sur r2 que si r1 n’est plus connectée. `ANY 1 (r1, r2)` attend la première des deux qui répond, ce que la documentation appelle une réplication synchrone par quorum[^pg-sync]. Avec r1 à 50 ms et r2 à 1 ms d’aller-retour, `FIRST 1` coûte 58 ms, puisqu’il attend la plus lointaine, et `ANY 1` 8,7 ms, puisque r2 répond la première. `ANY 2` attend les deux et coûte 58 ms. Le réglage `ANY 1` avec deux répliques dans deux zones différentes donne la durabilité d’une copie sur une autre machine, au prix de la réplique la plus rapide, et survit à la perte de l’une d’elles.
+
+### Quand la réplique synchrone tombe
+
+La quatrième partie de `synchrone.py` déclare r1 seule synchrone, puis l’arrête brutalement.
+
+```text
+4. la seule réplique synchrone (r1) tombe (docker kill)
+   après 3 s, sessions en attente de r1 (SyncRep) : 1
+   UPDATE avec statement_timeout = 2 s : toujours en attente après 6 s
+   annulé par pg_cancel_backend : rendu sans erreur après 6.0 s,
+   avec cet avertissement :
+      canceling wait for synchronous replication due to user
+      request
+      The transaction has already committed locally, but might not
+      have been replicated to the standby.
+   solde de la ligne 2 lu sur le primaire : 11 puis 12
+   passage à ANY 1 (r1, r2) : session en attente libérée après 13.0 s
+```
+
+La première validation après la panne attend, et elle attendrait indéfiniment ; la documentation prévient que les validations peuvent ne jamais se terminer si une réplique synchrone requise tombe[^pg-sync]. Un délai `statement_timeout` de 2 s ne l’interrompt pas, car le délai ne couvre que l’exécution de l’instruction, et l’attente de la réplique a lieu pendant la validation, après. Un premier passage de la mesure, qui comptait sur ce délai, est d’ailleurs resté bloqué quinze minutes avant d’être arrêté à la main. Annuler la requête (`pg_cancel_backend`) rend la main avec un avertissement, et non une erreur, dont le détail dit que la transaction est déjà validée localement, mais n’a peut-être pas été répliquée. La ligne est bien modifiée sur le primaire. Le client qui ne lit pas les avertissements croit à une écriture répliquée ; celui qui les lit sait seulement qu’elle ne l’est peut-être pas. Ajouter r2 à la liste avec `ANY 1` libère la session restée en attente, puisque r2 confirme.
+
+MySQL a fait un autre choix pour sa réplication semi-synchrone. Le primaire attend qu’au moins une réplique ait reçu les événements de la transaction et les ait écrits sur son disque, mais seulement pendant `rpl_semi_sync_source_timeout`, 10 secondes par défaut ; au-delà, il repasse en réplication asynchrone, et revient au mode semi-synchrone quand une réplique a rattrapé son retard[^mysql-semi]. MySQL privilégie donc la disponibilité des écritures, et PostgreSQL leur durabilité. La même documentation décrit le point d’attente `AFTER_SYNC`, la valeur par défaut, où le primaire attend la réplique avant de rendre la transaction visible aux autres sessions, si bien qu’aucune lecture sur le primaire ne voit une donnée qu’une bascule pourrait perdre.
+
+## Le retard de réplication
+
+En réplication asynchrone, une réplique a toujours un temps de retard sur le primaire. Le [ch. 12](../partie-1/coherence-cap.mdx) l’a mesuré avec Redis ; il vaut au minimum le délai du réseau, et il n’est jamais nul. Mais d’autres causes l’allongent, et ce sont elles qui produisent les retards de plusieurs secondes ou minutes qu’on observe en production.
+
+`retard.py` mesure trois d’entre elles avec un primaire et une réplique asynchrone. Le retard est lu sur une ligne de battement que le primaire met à jour toutes les 20 ms. On lit sur la réplique l’heure inscrite dans cette ligne et on la soustrait à l’heure courante, si bien que la mesure a une résolution de 20 ms ; au repos, elle donne de 6 à 26 ms selon les passages.
+
+```text
+PostgreSQL 18.6, primaire et réplique asynchrone r1
+retard au repos : 26 ms (battement toutes les 20 ms)
+
+1. une transaction qui modifie un million de lignes (125 Mo de table)
+   durée sur le primaire 3.7 s, journal produit 380 Mo
+   visible sur la réplique 70 ms après la confirmation
+
+2. lire ses propres écritures, 500 essais, liaison à 5 ms par sens
+   lecture aussitôt sur la réplique : 500 lectures périmées sur 500
+   en attendant le LSN de l'écriture : 0 lecture périmée,
+   attente médiane 8.8 ms, p99 10.1 ms
+
+3. requête de 60 s sur la réplique, UPDATE et VACUUM sur le primaire
+   a) réglages par défaut (max_standby_streaming_delay = 30 s)
+   requête sur la réplique annulée après 31.9 s :
+      « canceling statement due to conflict with recovery »
+   retard maximal de la réplique 30.1 s ; toutes les 5 s :
+      1 6 11 16 21 26
+   VACUUM sur le primaire :
+      tuples: 100000 removed, 1000000 remain,
+      0 are dead but not yet removable
+   retard après la requête : 0.0 s
+   b) hot_standby_feedback = on sur la réplique
+   requête sur la réplique terminée normalement après 60 s
+   retard maximal de la réplique 0.0 s ; toutes les 5 s :
+      0 0 0 0 0 0 0 0 0 0 0 0
+   VACUUM sur le primaire :
+      tuples: 0 removed, 1104740 remain,
+      100000 are dead but not yet removable
+   retard après la requête : 0.0 s
+```
+
+### Les grosses transactions
+
+Une mise à jour d’un million de lignes produit 380 Mo de journal, trois fois la taille de la table, parce que chaque nouvelle version de ligne et chaque page modifiée pour la première fois depuis le point de contrôle y sont écrites en entier. Le primaire met 3,7 s à l’exécuter, et la réplique montre le résultat 70 ms après la confirmation (36 et 101 ms dans les deux autres passages). Elle n’attend pas la fin de la transaction pour recevoir le journal, qui lui arrive au fil de l’exécution, et elle l’applique au même rythme, sans le rendre visible tant que l’enregistrement de validation n’est pas arrivé. Le retard reste faible tant que la réplique rejoue aussi vite que le primaire écrit. Il grandit quand ce n’est plus le cas. PostgreSQL rejoue le journal dans un seul processus (le processus de démarrage, startup process), alors que le primaire l’écrit depuis toutes ses connexions à la fois ; une charge d’écriture qui occupe plusieurs cœurs du primaire peut dépasser ce qu’un seul cœur de la réplique rejoue. Une réplique sur une machine plus petite, ou dont les disques sont occupés par des lectures, prend du retard pour la même raison.
+
+### Les requêtes longues sur une réplique
+
+La troisième mesure montre une cause propre aux répliques qui servent des lectures. Une requête de 60 secondes s’exécute sur la réplique, dans une transaction qui a pris son instantané au début. Pendant ce temps, le primaire modifie 100 000 lignes de la table qu’elle lit, puis les nettoie par `VACUUM` ([ch. 18](transactions-isolation.mdx)). L’enregistrement de nettoyage arrive à la réplique et supprimerait des versions de lignes que l’instantané de la requête voit encore. La réplique ne peut pas l’appliquer sans fausser la requête, et elle suspend donc le rejeu de tout le journal. La documentation appelle cela un conflit avec la reprise, et `max_standby_streaming_delay` (30 s par défaut) fixe le temps que la réplique accepte d’attendre avant d’annuler les requêtes en conflit[^pg-hot].
+
+<Figure svg={conflit} num="24.3" alt="Retard de la réplique, en secondes, pendant les 35 secondes qui suivent le VACUUM du primaire. Avec les réglages par défaut, il croît linéairement jusqu’à 30 s, puis retombe à zéro quand la requête est annulée. Avec hot_standby_feedback = on, il reste nul pendant toute la requête de 60 s.">
+Retard de la réplique pendant une requête longue qui entre en conflit avec le nettoyage du primaire.
+</Figure>
+
+Avec les réglages par défaut, le retard croît d’une seconde par seconde pendant 30 secondes, puis la réplique annule la requête (« canceling statement due to conflict with recovery »), applique le journal accumulé et revient à 0,1 s. Pendant ces 30 secondes, toute lecture faite sur cette réplique, par n’importe quel client, renvoyait des données vieilles d’autant. Avec `hot_standby_feedback = on`, la réplique informe le primaire de l’instantané le plus ancien qu’elle utilise, et le primaire ne nettoie pas les versions dont elle a encore besoin. La requête se termine, le retard reste nul, mais `VACUUM` laisse 100 000 versions mortes qu’il ne peut pas retirer (« dead but not yet removable »), et la table du primaire grossit tant que la requête dure. La documentation résume le choix. Une réplique qui sert surtout à la haute disponibilité doit garder des délais courts pour ne pas prendre de retard, alors qu’une réplique destinée aux longues requêtes peut accepter un délai long, voire infini[^pg-hot]. Il vaut mieux avoir deux répliques aux réglages différents qu’une seule qui serve mal les deux usages.
+
+### Ce que le retard fait voir aux clients
+
+Trois anomalies viennent du retard. Douglas Terry et ses collègues les ont nommées en 1994 en définissant les garanties de session[^terry], et Martin Kleppmann les décrit avec les répliques de bases de données au chapitre 5 de son livre[^ddia]. Lire ses propres écritures (read-your-writes) manque quand un utilisateur modifie son profil sur le primaire puis le relit sur une réplique en retard. Les lectures monotones (monotonic reads) manquent quand deux lectures successives tombent sur deux répliques inégalement en retard, et que la seconde montre un état plus ancien que la première ; le [ch. 12](../partie-1/coherence-cap.mdx) a compté 47 à 57 retours en arrière sur 200 essais avec deux répliques Redis. La lecture d’un préfixe cohérent (consistent prefix) manque quand deux écritures liées, une question puis sa réponse, arrivent dans le désordre ; avec un seul leader et un journal ordonné, cela n’arrive pas sur une même réplique, mais peut arriver entre partitions répliquées séparément (ch. 26).
+
+La deuxième mesure de `retard.py` applique la méthode du [ch. 12](../partie-1/coherence-cap.mdx) qui consiste à faire porter au client la position de sa dernière écriture. Avec une liaison de 5 ms dans chaque sens, une lecture faite sur la réplique aussitôt après l’écriture est périmée 500 fois sur 500. Si l’application lit après chaque écriture la position du journal du primaire (`pg_current_wal_lsn()`, un numéro appelé LSN, log sequence number) et n’interroge la réplique qu’une fois que celle-ci a rejoué cette position (`pg_last_wal_replay_lsn()`), aucune lecture n’est périmée, pour une attente médiane de 8,8 ms (8,4 et 9,6 ms dans les autres passages), à peu près l’aller-retour de la liaison. En pratique, on garde le LSN de la dernière écriture d’un utilisateur dans sa session ; une lecture va à une réplique qui l’a atteint, ou attend un peu, ou part vers le primaire. Les lectures monotones s’obtiennent avec le même LSN, si une réplique ne répond qu’après avoir atteint la position de la dernière lecture.
+
+## Les répliques de lecture
+
+Une base dont la charge est surtout faite de lectures se met à l’échelle en ajoutant des répliques et en y envoyant les lectures. Le [ch. 23](choisir-base.mdx) a mesuré 85 000 lectures par clé par seconde sur un PostgreSQL de portable ; trois répliques en servent quatre fois plus avec le primaire, sans rien changer aux écritures, qui restent limitées par le primaire. Chaque réplique supplémentaire coûte une machine et un flux de journal au primaire, et le retard de chacune doit être surveillé (`pg_stat_replication`, colonnes `write_lag`, `flush_lag` et `replay_lag`).
+
+Le routage des lectures demande de décider, pour chaque requête, si elle supporte le retard. Une page publique, un catalogue, un tableau de bord qui se rafraîchit toutes les minutes le supportent. La page qui suit un formulaire, le solde après un virement, la vérification d’un droit qu’on vient d’accorder ne le supportent pas, et vont au primaire ou attendent le LSN. Un répartiteur placé devant les répliques ([ch. 13](repartition-charge.mdx)) doit aussi retirer une réplique dont le retard dépasse un seuil, sans quoi elle sert des données de plus en plus anciennes à une fraction des clients, comme pendant les 30 secondes de la mesure précédente.
+
+## La bascule
+
+Quand le primaire tombe, il faut en faire un autre. La bascule (failover) se fait en cinq étapes, manuelles ou automatiques. On détecte la panne, presque toujours par un délai d’attente, puisqu’on ne peut pas distinguer un primaire mort d’un primaire lent ou isolé (ch. 32). On choisit la réplique la plus avancée, celle dont le journal va le plus loin, pour perdre le moins possible. On la promeut, ce qui la fait quitter le mode réplique et accepter les écritures sur une nouvelle ligne de temps (timeline) ; dans les mesures, `pg_promote()` a pris 108 ms. On redirige les clients et les autres répliques vers elle, en changeant une adresse, un enregistrement DNS ([ch. 3](../partie-1/client-serveur-dns.mdx)) ou la configuration d’un répartiteur. Enfin, on empêche l’ancien primaire d’accepter encore des écritures, ce qu’on appelle l’isoler (fencing).
+
+Patroni, un outil de bascule pour PostgreSQL, s’appuie sur un magasin de coordination (etcd, Consul ou ZooKeeper, ch. 36), où le primaire détient un verrou de leader qu’il doit renouveler. Sa documentation donne au verrou une durée de vie (`ttl`) de 30 secondes par défaut, décrite comme le temps avant le déclenchement de la bascule automatique ; une coupure du magasin ou du réseau plus courte que `retry_timeout` (10 s par défaut) ne fait pas rétrograder le leader, et une coupure plus longue le fait rétrograder lui-même. Le paramètre `maximum_lag_on_failover` écarte de l’élection les répliques dont le retard dépasse un nombre d’octets, et le mode `synchronous_mode` ne laisse se présenter que l’ancien leader ou une réplique synchrone[^patroni]. Une bascule automatique prend donc couramment une à quelques dizaines de secondes, pendant lesquelles les écritures échouent, et ce délai a été choisi pour ne pas basculer à chaque ralentissement.
+
+### Ce qu’une bascule asynchrone perd
+
+`bascule.py` reproduit la scène du début du chapitre. Huit clients insèrent des lignes numérotées dans le primaire et notent chaque insertion confirmée. Au bout de 3 secondes, la liaison entre le primaire et r1 est coupée, alors que les clients joignent toujours le primaire ; 2 secondes plus tard, le primaire est tué, la liaison rompue avec ce qu’elle retenait, et r1 promue. On compte les insertions confirmées absentes de r1. La troisième partie refait la même bascule avec r1 synchrone.
+
+```text
+PostgreSQL 18.6, primaire et réplique r1, journal retardé de 5 ms
+
+1. asynchrone : primaire isolé de r1 pendant 2 s, puis tué ; r1 promue
+   insertions confirmées : 4 930 en 3 s avant la coupure,
+   3 769 pendant les 2 s d'isolement
+   r1 promue en 108 ms ; confirmées absentes de r1 : 3852
+
+2. cerveau divisé : l'ancien primaire redémarre
+   l'ancien primaire répond, et se déclare primaire
+   les 3852 lignes perdues sont sur lui : 3852
+   100 insertions acceptées par chacun ; lignes présentes
+   seulement sur l'ancien : 3957, seulement sur r1 : 100
+   pg_rewind en 1.5 s : « pg_rewind: Done! »
+   rattaché à r1, il se déclare réplique ; lignes seulement sur lui : 0
+   écritures confirmées puis disparues : 3852 pendant la bascule,
+   100 pendant le cerveau divisé
+
+3. la même bascule avec r1 synchrone (synchronous_commit = on)
+   insertions confirmées : 1 254 en 3 s avant la coupure,
+   0 pendant les 2 s d'isolement
+   r1 promue en 109 ms ; confirmées absentes de r1 : 0
+```
+
+En asynchrone, la bascule perd 3 852 insertions confirmées : les 3 769 confirmées pendant les 2 secondes d’isolement, et 83 confirmées juste avant la coupure, qui n’étaient pas encore arrivées sur r1. La perte vaut donc le débit d’écriture multiplié par la durée pendant laquelle le primaire a écrit sans que la réplique reçoive, et cette durée est au moins celle de la détection. Avec r1 synchrone, aucune insertion n’est confirmée pendant l’isolement (les clients attendent), et aucune n’est perdue ; le prix est un débit de 418 insertions par seconde au lieu de 1 643, avec une liaison de 10 ms d’aller-retour. Un premier essai, qui tuait le primaire sans couper la liaison auparavant, n’avait rien perdu, parce que le journal déjà envoyé était encore en route et a fini par arriver. Ce qui perd des données, c’est l’intervalle où le primaire continue de confirmer sans pouvoir répliquer.
+
+Le second passage a perdu 3 656 insertions, pour 3 569 confirmées pendant l’isolement. En synchrone, une insertion y a été confirmée juste après la coupure, parce que l’accusé de r1 était déjà en route, et aucune n’a été perdue.
+
+### Le cerveau divisé
+
+<Figure svg={cerveau} num="24.4" alt="Deux journaux côte à côte. Le primaire a écrit 1 à 5 ; la réplique r1 a reçu 1 à 3. Le primaire est tué après 5 ; r1 est promue et écrit a, b, c sur une nouvelle ligne de temps. Redémarré, l’ancien primaire écrit 6 et 7. Les écritures 4 et 5, confirmées, ne sont jamais arrivées sur r1 ; 6 et 7 n’existent que sur l’ancien primaire, et pg_rewind les efface en le rattachant à r1.">
+Une bascule asynchrone, un cerveau divisé, et ce que `pg_rewind` efface.
+</Figure>
+
+La deuxième partie de la mesure redémarre l’ancien primaire. Il fait sa reprise après panne, retrouve sur son disque les 3 852 lignes que r1 n’a pas, et se déclare primaire, puisque rien dans ses fichiers ne lui dit qu’une autre base a été promue. Un client resté configuré sur son adresse y écrit 100 lignes, que l’ancien primaire accepte, pendant que d’autres clients en écrivent 100 sur r1. Les 3 957 lignes que seul l’ancien primaire possède comprennent, outre les 3 852 et les 100, cinq insertions validées sur son disque dont la confirmation n’a pas atteint le client avant la panne. Les deux bases acceptent des écritures que l’autre n’a pas, ce qu’on appelle un cerveau divisé (split brain) ; dans une table de comptes, ce seraient deux soldes différents pour le même client, et deux commandes qui ont pris le dernier article en stock.
+
+Pour remettre l’ancien primaire en réplique de r1, `pg_rewind` le ramène au point où les deux lignes de temps ont divergé, puis lui fait recopier depuis r1 les blocs modifiés après ce point[^pg-rewind]. Il a pris 1,5 s ici, 1,6 s au second passage. Après lui, l’ancien primaire n’a plus aucune ligne que r1 n’a pas. Les 3 852 lignes de la bascule et les 100 du cerveau divisé ont disparu de la seule base qui les contenait. GitHub, dans l’exemple réel plus loin, a pris une autre voie, en extrayant du journal de l’ancien primaire les écritures qui n’avaient pas été répliquées pour les réconcilier à la main.
+
+L’isolement de l’ancien primaire fait donc partie de la bascule elle-même. Les méthodes vont de la plus sûre à la plus simple. On coupe le courant ou le réseau de l’ancienne machine par une commande extérieure (« shoot the other node in the head », STONITH). On retire l’ancien primaire de la configuration des clients et des répartiteurs avant de promouvoir. On lui fait perdre lui-même son rôle quand il ne peut plus renouveler son bail, comme Patroni. Aucune de ces méthodes n’agit sur un client qui a gardé l’adresse de l’ancien primaire dans un cache ou une connexion ouverte, d’où l’intérêt d’un bail court côté serveur.
+
+## Compromis
+
+| Réglage | Durabilité d’une écriture confirmée | Latence d’écriture (mesurée) | Disponibilité des écritures | À utiliser pour |
+|---|---|---|---|---|
+| Asynchrone (`local`) | perdue si le primaire tombe avant d’avoir transmis ; perte = débit × durée sans réplication | ≈ 5 ms, indépendante de la distance | ne dépend pas des répliques | la plupart des données, avec une réplique proche et une détection rapide |
+| `off` | perte possible des dernières centaines de ms, même sans bascule | 0,1 ms | ne dépend pas des répliques | journaux d’activité, compteurs, données qu’on peut recalculer |
+| Synchrone, une réplique (`on`) | survit à la perte du primaire | + 1 à 3 ms à 1 ms d’aller-retour, + 54 ms à 50 ms | bloquée si la réplique tombe | rarement seul : il faut une seconde réplique candidate |
+| Synchrone, quorum (`ANY 1` de deux) | survit à la perte du primaire | celle de la réplique la plus rapide (8,7 ms mesurés) | bloquée seulement si les deux répliques tombent | paiements, commandes, données qu’on ne doit pas perdre |
+| Semi-synchrone de MySQL | comme synchrone, sauf après 10 s sans réplique | + un aller-retour | repasse en asynchrone après le délai | disponibilité avant durabilité |
+| `remote_apply` | survit à la perte du primaire, et la réplique montre l’écriture | comme `on` sur une réplique peu chargée | bloquée si la réplique tombe | lire ses écritures sur une réplique sans LSN |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : ce qu’une bascule asynchrone peut perdre]
+Hypothèses : un service fait 2 000 écritures par seconde au pic ; la réplique a d’ordinaire 50 ms de retard ; en cas d’isolement du primaire, l’outil de bascule met 30 s à le déclarer mort (le `ttl` par défaut de Patroni), et le primaire continue d’accepter des écritures pendant `retry_timeout` = 10 s avant de se rétrograder.
+
+| Situation | Calcul | Écritures perdues |
+|---|---|---|
+| Le primaire s’arrête net, la réplique avait 50 ms de retard | 2 000 × 0,05 | ≈ 100 |
+| Isolé, il confirme encore pendant 10 s avant de se rétrograder | 2 000 × 10 | ≈ 20 000 |
+| Isolé et jamais rétrogradé, pendant 30 s de détection | 2 000 × 30 | ≈ 60 000 |
+| Réplication synchrone par quorum | | 0 |
+
+Conclusion : la perte d’une bascule asynchrone dépend moins du retard ordinaire de la réplique que du temps pendant lequel le primaire isolé continue de confirmer. Réduire ce temps (bail court, rétrogradation automatique) réduit la perte de deux ordres de grandeur ; seule la réplication synchrone la supprime.
+:::
+
+:::calcul[Calcul : le débit d’écriture avec une réplique synchrone lointaine]
+Hypothèses : une réplique synchrone dans une autre région, à 30 ms d’aller-retour ; une validation coûte l’aller-retour plus 5 ms de synchronisation ; l’application a besoin de 3 000 écritures indépendantes par seconde.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Durée d’une validation | 30 + 5 ms | 35 ms |
+| Débit d’une connexion | 1 / 0,035 | ≈ 29 validations/s |
+| Connexions nécessaires (loi de Little) | 3 000 × 0,035 | 105 connexions occupées en permanence |
+| Même calcul avec une réplique à 1 ms | 3 000 × 0,006 | 18 connexions |
+
+Conclusion : une réplique synchrone lointaine multiplie le nombre de connexions nécessaires par six, et chaque connexion PostgreSQL est un processus ([ch. 19](index-modelisation.mdx) sur les pools). On garde la réplique synchrone dans la région, dans une autre zone, et l’on réplique vers la région lointaine en asynchrone.
+:::
+
+:::calcul[Calcul : combien de répliques de lecture]
+Hypothèses : 60 000 lectures par seconde au pic, dont 20 % doivent voir les écritures de l’utilisateur et vont au primaire ; on compte 25 000 lectures par seconde par machine, bien moins que les 85 000 lectures par clé mesurées au [ch. 23](choisir-base.mdx), parce que les requêtes réelles sont plus lourdes et qu’on garde une marge ; on veut survivre à la perte d’une réplique.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Lectures sur le primaire | 60 000 × 0,2 | 12 000 /s |
+| Lectures sur les répliques | 60 000 × 0,8 | 48 000 /s |
+| Répliques nécessaires | 48 000 / 25 000, arrondi au-dessus | 2 |
+| Avec une réplique en panne | 2 + 1 | 3 répliques |
+
+Conclusion : trois répliques de lecture et un primaire. Si la règle « lire ses écritures » passe par le LSN au lieu du primaire, les 12 000 lectures vont aussi aux répliques, et le primaire ne sert plus que les écritures.
+:::
+
+## Exemple réel
+
+**GitHub, 21 octobre 2018 : 43 secondes de coupure, 24 heures de dégradation.** Jason Warner a publié l’analyse de l’incident le 30 octobre 2018[^github]. GitHub gardait ses métadonnées dans plusieurs grappes MySQL, de quelques centaines de gigaoctets à près de cinq téraoctets, chacune avec jusqu’à des dizaines de répliques de lecture, et confiait les bascules à Orchestrator, un outil qui repose sur Raft pour son propre consensus. À 22 h 52 UTC, le remplacement d’un équipement optique défectueux a coupé pendant 43 secondes la liaison entre le nœud de réseau de la côte est et le centre de données principal, situé lui aussi sur la côte est. Les nœuds d’Orchestrator de la côte ouest et du nuage public de la côte est ont formé un quorum sans le centre principal, et ont basculé les grappes pour diriger les écritures vers la côte ouest. Quand la liaison est revenue, les applications ont écrit sur les nouveaux primaires de l’ouest.
+
+Les bases de l’est contenaient quelques secondes d’écritures jamais répliquées vers l’ouest ; pour l’une des grappes les plus actives, 954 écritures. Les bases de l’ouest, elles, recevaient des écritures que l’est n’avait pas. Revenir à l’est aurait perdu près de 40 minutes d’écritures faites à l’ouest, et rester à l’ouest imposait aux applications de l’est un aller-retour transcontinental pour la plupart de leurs requêtes, qu’elles ne supportaient pas. L’équipe a choisi de préserver les données et de laisser le site dégradé. Elle a restauré des sauvegardes, stockées dans un service de stockage objet distant, ce qui a pris des heures pour plusieurs téraoctets, puis a resynchronisé les répliques des deux côtes et n’est revenue à la topologie d’origine que le lendemain à 16 h 24 UTC. Elle a conservé les journaux binaires contenant les écritures non répliquées pour les réconcilier à la main. Parmi les corrections annoncées figure le réglage d’Orchestrator pour qu’il ne promeuve plus de primaire dans une autre région. Une bascule automatique conçue pour des pannes de machines a traité une coupure de réseau de 43 secondes comme une panne, et a produit exactement le cerveau divisé de la mesure.
+
+## Erreurs fréquentes
+
+Croire qu’une réplique asynchrone protège toutes les écritures confirmées. Elle protège celles qu’elle a reçues ; la bascule de la mesure a perdu 3 852 insertions confirmées après 2 secondes d’isolement.
+
+Déclarer une seule réplique synchrone. Si elle tombe, le primaire ne valide plus rien, indéfiniment ; avec deux répliques et `ANY 1`, la perte de l’une ne bloque rien.
+
+Compter sur `statement_timeout` pour borner l’attente d’une réplique synchrone. Il ne couvre pas la validation ; la session de la mesure était encore bloquée après 15 minutes. Le délai doit être côté client, et le client doit savoir qu’une validation abandonnée a pu réussir.
+
+Ignorer l’avertissement d’une validation annulée. « canceling wait for synchronous replication » signifie que la transaction est validée sur le primaire sans être répliquée.
+
+Mettre une réplique de haute disponibilité au service des longues requêtes d’analyse. Une seule requête a mis la réplique 30 secondes en retard, ce qui, au moment d’une bascule, est autant d’écritures à perdre ou à attendre.
+
+Activer `hot_standby_feedback` sans surveiller le primaire. Il supprime les annulations, mais une requête oubliée sur la réplique empêche le nettoyage du primaire, qui grossit.
+
+Redémarrer un ancien primaire après une bascule sans le rattacher. Il se déclare primaire et accepte des écritures ; ce que ses clients y écrivent sera effacé par `pg_rewind` ou devra être réconcilié à la main.
+
+Basculer automatiquement entre régions avec les réglages d’une bascule locale. Un délai de détection prévu pour une machine morte déclenche la bascule sur une coupure de réseau de quelques dizaines de secondes, comme chez GitHub.
+
+:::piege[Erreur fréquente : « on bascule en quelques secondes, donc on ne perd presque rien »]
+La durée de la bascule et la quantité perdue sont deux grandeurs différentes. Une bascule rapide limite le temps d’indisponibilité ; la perte dépend du temps pendant lequel l’ancien primaire a confirmé des écritures sans les répliquer, qui peut être plus long que la bascule elle-même si rien ne l’isole. À 2 000 écritures par seconde, 10 secondes d’un primaire isolé qui confirme encore font 20 000 écritures perdues, même si la nouvelle base répond 100 ms après sa promotion.
+:::
+
+:::entretien
+Pour toute base répliquée, dites quand l’écriture est confirmée et ce qu’une panne du primaire peut perdre : « réplication synchrone par quorum vers deux répliques dans deux zones, `ANY 1` ; aucune écriture confirmée perdue ; +3 ms par validation ; asynchrone vers la région de secours, avec un retard surveillé sous la seconde ». Puis dites comment l’ancien primaire est isolé pendant la bascule, et comment les lectures qui doivent voir les écritures de l’utilisateur évitent les répliques en retard.
+:::
+
+## Exercices
+
+**Question 1.** Une base PostgreSQL reçoit 1 500 écritures par seconde. Sa seule réplique, asynchrone, est dans une autre zone à 1 ms d’aller-retour, avec un retard ordinaire de 20 ms. L’outil de bascule déclare le primaire mort après 15 s sans réponse. Combien d’écritures confirmées perd une bascule si le primaire s’arrête net ? s’il est isolé et continue de confirmer jusqu’à la bascule ? Que proposez-vous pour que la perte soit nulle, et combien cela coûte-t-il par écriture d’après les mesures ?
+
+**Question 2.** Un service de réservation lit tout sur deux répliques asynchrones, au hasard. Des clients se plaignent de voir une réservation qu’ils viennent de faire, puis de ne plus la voir en rechargeant la page. Expliquez les deux anomalies en jeu et proposez une correction qui garde les lectures sur les répliques.
+
+**Question 3.** Dans la mesure de `synchrone.py`, `remote_write` coûte 56 ms à 50 ms d’aller-retour, et `on` 59 ms. D’où vient la différence de 3 ms ? Dans quel cas la différence entre les deux compte-t-elle pour la durabilité ?
+
+**Exercice de conception.** Une banque en ligne garde ses comptes dans PostgreSQL : 800 virements par seconde au pic, chacun une transaction de quatre écritures ; 40 000 consultations de solde par seconde ; deux zones de disponibilité dans une région, et une région de secours à 25 ms d’aller-retour. Aucun virement confirmé ne doit être perdu si une zone disparaît. Proposez la topologie (nombre de répliques, placement, réglages de `synchronous_commit` et `synchronous_standby_names`), le routage des lectures, et la procédure de bascule, isolement compris. Chiffrez la latence d’un virement et le nombre de répliques de lecture.
+
+## Corrigés
+
+**Question 1.** Si le primaire s’arrête net, la perte est celle du retard, soit 1 500 × 0,02 = 30 écritures. S’il est isolé et continue de confirmer pendant les 15 s de détection, 1 500 × 15 = 22 500 écritures. Pour une perte nulle, il faut une réplication synchrone, et pour ne pas bloquer les écritures quand la réplique tombe, deux répliques dans deux zones avec `synchronous_standby_names = 'ANY 1 (r1, r2)'` et `synchronous_commit = on`. D’après la mesure à 1 ms d’aller-retour, une validation passe d’environ 5,2 à 8,5 ms, soit 3 ms de plus. Il reste à isoler l’ancien primaire, faute de quoi des écritures non confirmées mais visibles sur lui seraient perdues, et ses clients pourraient y écrire (cerveau divisé).
+
+**Question 2.** Voir la réservation puis ne plus la voir est un défaut de lectures monotones, la première lecture étant tombée sur la réplique la plus à jour et la seconde sur l’autre. Ne pas la voir du tout juste après l’avoir faite serait un défaut de lecture de ses propres écritures. La correction garde dans la session de l’utilisateur le LSN de sa dernière écriture et celui de sa dernière lecture, le plus grand des deux ; une lecture n’est servie que par une réplique dont `pg_last_wal_replay_lsn()` l’a atteint, et attend quelques millisecondes ou passe au primaire sinon. La mesure donne 8,8 ms d’attente médiane avec une liaison de 10 ms d’aller-retour, et aucune lecture périmée. Une correction plus simple attache chaque utilisateur à une réplique par hachage de son identifiant, ce qui donne les lectures monotones, mais pas la lecture de ses écritures.
+
+**Question 3.** `remote_write` rend la main quand la réplique a reçu le journal et l’a passé à son système d’exploitation ; `on` attend en plus qu’elle l’ait synchronisé sur son disque, ce qui coûte une synchronisation, environ 3 ms sur ce SSD avec le reste du trajet. La différence compte si la réplique perd son système d’exploitation ou son alimentation (et non seulement PostgreSQL) en même temps que le primaire tombe. Avec `remote_write`, l’écriture confirmée n’était que dans la mémoire du système de la réplique et disparaît ; avec `on`, elle est sur son disque. Deux machines qui tombent ensemble, c’est par exemple une zone entière qui perd son alimentation, si primaire et réplique y sont tous deux.
+
+**Exercice de conception.**
+
+*Topologie.* Un primaire dans la zone A et deux répliques synchrones candidates, r1 et r2, toutes deux dans la zone B, avec `synchronous_commit = on` et `synchronous_standby_names = 'ANY 1 (r1, r2)'`. Toute écriture confirmée est alors sur un disque de la zone B, et la perte de l’une des deux répliques ne bloque pas les validations. Une réplique candidate dans la zone A ne conviendrait pas, puisqu’elle pourrait confirmer seule et disparaître avec le primaire. Une réplique asynchrone dans la région de secours sert la reprise après la perte de la région entière, avec un retard surveillé.
+
+*Latence.* D’après la mesure à 1 ms d’aller-retour, une validation synchrone coûte environ 8,5 ms ; un virement de quatre écritures en une transaction n’a qu’une validation, donc environ 10 ms avec l’exécution. 800 virements par seconde à 10 ms font 8 connexions occupées en moyenne (loi de Little), ce qui tient largement.
+
+*Lectures.* Les consultations de solde juste après un virement passent par le LSN de la session ; les autres vont aux répliques. À 25 000 lectures par seconde par réplique, 40 000 lectures demandent 2 répliques, et 3 pour survivre à la perte de l’une ; r1 et r2 peuvent en faire partie, avec des délais de conflit courts puisqu’elles servent aussi la haute disponibilité, et les requêtes d’analyse vont à une réplique dédiée.
+
+*Bascule.* Patroni avec etcd réparti sur trois zones ou plus ; `synchronous_mode = on`, pour que seule une réplique synchrone puisse être promue ; le primaire qui perd son verrou se rétrograde ; les clients passent par un répartiteur qui ne connaît que le leader inscrit dans etcd. L’ancien primaire n’est rattaché qu’après `pg_rewind` ; comme toutes les écritures confirmées sont sur une réplique synchrone, ce que `pg_rewind` efface n’a jamais été confirmé.
+
+:::fiche
+- Un seul nœud écrit et transmet son journal (WAL physique dans PostgreSQL, binlog par lignes dans MySQL) ; les répliques le rejouent dans l’ordre.
+- `synchronous_commit` : `off` (0,1 ms), `local` (≈ 5 ms), `remote_write`, `on`, `remote_apply` ; attendre une réplique coûte un aller-retour (+54 ms à 50 ms d’aller-retour, mesuré) et plafonne le débit à connexions / latence (508 /s pour 32 connexions).
+- Une seule réplique synchrone bloque toutes les validations si elle tombe ; `statement_timeout` n’y peut rien ; une annulation valide localement sans répliquer. Utiliser `ANY 1` de deux répliques.
+- Retard : réseau, rejeu en un seul processus, conflits avec les requêtes des répliques (30 s de retard puis annulation, mesuré) ; `hot_standby_feedback` évite l’annulation et fait grossir le primaire.
+- Lire ses écritures : garder le LSN de la dernière écriture et n’interroger qu’une réplique qui l’a rejoué (0 lecture périmée, 8,8 ms d’attente, mesuré).
+- Bascule asynchrone : perte = débit × durée où le primaire confirme sans répliquer (3 852 insertions en 2 s, mesuré) ; isoler l’ancien primaire, sinon cerveau divisé, que `pg_rewind` résout en effaçant ses écritures.
+:::
+
+[^pg-wal]: PostgreSQL, « Write Ahead Log », paramètre `synchronous_commit`, documentation, [postgresql.org/docs/18/runtime-config-wal.html](https://www.postgresql.org/docs/18/runtime-config-wal.html).
+[^pg-sync]: PostgreSQL, « Synchronous Replication », section 26.2.8 de la documentation, [postgresql.org/docs/18/warm-standby.html#SYNCHRONOUS-REPLICATION](https://www.postgresql.org/docs/18/warm-standby.html#SYNCHRONOUS-REPLICATION).
+[^mysql-semi]: MySQL, « Semisynchronous Replication », *MySQL 8.4 Reference Manual*, section 19.4.10, [dev.mysql.com/doc/refman/8.4/en/replication-semisync.html](https://dev.mysql.com/doc/refman/8.4/en/replication-semisync.html).
+[^pg-hot]: PostgreSQL, « Hot Standby », section « Handling Query Conflicts », documentation, [postgresql.org/docs/18/hot-standby.html](https://www.postgresql.org/docs/18/hot-standby.html).
+[^terry]: Douglas B. Terry, Alan J. Demers, Karin Petersen, Mike J. Spreitzer, Marvin M. Theimer et Brent B. Welch, « Session Guarantees for Weakly Consistent Replicated Data », *3rd International Conference on Parallel and Distributed Information Systems (PDIS)*, 1994, p. 140-149, [doi:10.1109/PDIS.1994.331722](https://doi.org/10.1109/PDIS.1994.331722).
+[^ddia]: Martin Kleppmann, *Designing Data-Intensive Applications*, O’Reilly, 2017, chapitre 5, « Replication », section « Problems with Replication Lag ».
+[^patroni]: Patroni, « Dynamic Configuration Settings », documentation, [patroni.readthedocs.io/en/latest/dynamic_configuration.html](https://patroni.readthedocs.io/en/latest/dynamic_configuration.html).
+[^pg-rewind]: PostgreSQL, « pg_rewind », documentation, [postgresql.org/docs/18/app-pgrewind.html](https://www.postgresql.org/docs/18/app-pgrewind.html).
+[^github]: Jason Warner, « October 21 post-incident analysis », blog de GitHub, 30 octobre 2018, [github.blog/news-insights/company-news/oct21-post-incident-analysis](https://github.blog/news-insights/company-news/oct21-post-incident-analysis/).
