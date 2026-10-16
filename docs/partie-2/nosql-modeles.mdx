@@ -1,0 +1,298 @@
+---
+title: "NoSQL (1) : clé-valeur, document, colonnes larges, graphe"
+sidebar_label: "21. NoSQL (1) : clé-valeur, document, colonnes larges, graphe"
+description: "Quatre modèles de données (clé-valeur, document, colonnes larges, graphe), les requêtes que chacun sert directement et celles qu'il refuse, la modélisation guidée par les requêtes de Cassandra et DynamoDB, l'imbrication contre les références, les traversées de graphe ; mesures avec Redis, MongoDB, Cassandra, Neo4j et PostgreSQL."
+partie: 2
+chapitre: 21
+---
+
+import modeles from '@site/src/figures/nosql-modeles.svg';
+import imbrication from '@site/src/figures/imbrication-references.svg';
+import tables from '@site/src/figures/cassandra-tables.svg';
+import graphe from '@site/src/figures/graphe-mesures.svg';
+
+Dans Redis, un million d’utilisateurs rangés sous des clés `utilisateur:<id>` se lisent en 0,1 ms chacun, à condition de connaître la clé. Pour trouver ceux qui habitent Lyon, il a fallu, dans la mesure de ce chapitre, parcourir le million de clés et lire la ville de chacune, en 11 secondes et 1 001 000 commandes. Cassandra, à qui l’on demande les messages d’un auteur dans une table organisée par conversation, refuse simplement la requête. Les bases dites NoSQL ne sont ni plus rapides ni plus lentes qu’une base relationnelle en général. Chacune range les données de façon à répondre très vite à certaines questions, et les autres questions coûtent un parcours complet, une seconde copie des données, ou un refus.
+
+Ce chapitre présente les quatre modèles de données qu’on regroupe sous ce nom (clé-valeur, document, colonnes larges, graphe), ce que chacun sert directement, ce qu’il ne sert pas, et la conséquence pour la conception, qui est de modéliser à partir des requêtes et non à partir des entités. Le [ch. 20](moteurs-stockage.mdx) a décrit les moteurs de stockage sur lesquels ces bases reposent ; leur réplication et leur partitionnement entre machines sont l’objet des ch. 24 à 26, et le choix d’une base celui du ch. 23.
+
+Quatre expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch21/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch21) : les requêtes par clé et par valeur dans Redis ([`cle_valeur.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch21/cle_valeur.py)), les mêmes commandes rangées en documents imbriqués, en documents avec références dans MongoDB et en tables dans PostgreSQL ([`documents.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch21/documents.py)), une table de messages dans Cassandra ([`colonnes.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch21/colonnes.py)), et les traversées d’un réseau d’amis dans Neo4j et dans PostgreSQL ([`graphe.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch21/graphe.py)).
+
+## Quatre modèles de données
+
+<Figure svg={modeles} num="21.1" alt="Quatre exemples. Clé-valeur : trois clés (panier:812, session:a9f, compteur:vues) associées chacune à une valeur opaque. Document : une commande en JSON qui contient un tableau de lignes. Colonnes larges : la partition conv. 17 contient trois messages triés par heure, du plus récent au plus ancien. Graphe : cinq nœuds reliés par des arêtes.">
+Quatre modèles de données, avec l’accès que chacun sert directement.
+</Figure>
+
+Sous chaque modèle figure l’accès pour lequel il est organisé. Un magasin clé-valeur retrouve une valeur dont on connaît la clé, et ne sait rien de son contenu. Un magasin de documents range des objets entiers, avec leurs sous-objets et leurs tableaux, et peut interroger leurs champs. Un magasin à colonnes larges range des lignes regroupées en partitions et triées à l’intérieur de chacune, et lit vite une partition ou un intervalle d’une partition. Une base de graphe range des nœuds et les relations qui les relient, et suit ces relations de proche en proche.
+
+Ces bases ont en commun d’avoir abandonné une partie de ce que fait une base relationnelle (le schéma imposé, les jointures, les transactions sur plusieurs lignes, les requêtes imprévues) pour gagner autre chose : la répartition des données sur beaucoup de machines, la disponibilité pendant une panne, un débit d’écriture élevé, ou une structure adaptée à un type de requête. Les frontières bougent, puisque PostgreSQL range des documents JSON indexables et que MongoDB et DynamoDB proposent des transactions ; les modèles, eux, restent distincts, et c’est d’eux que dépend ce qu’une requête coûte.
+
+## Clé-valeur
+
+Un magasin clé-valeur a deux opérations essentielles : lire la valeur d’une clé, et écrire une valeur sous une clé. La valeur est opaque, le magasin ne l’interprète pas, et rien d’autre que la clé ne permet de la retrouver. Dynamo, le magasin décrit par Giuseppe DeCandia et ses collègues d’Amazon en 2007 pour servir notamment les paniers d’achat, en est l’exemple fondateur : une interface `get(clé)` et `put(clé, objet)`, conçue pour que les écritures soient toujours acceptées, même pendant une panne, au prix d’une cohérence à terme[^dynamo]. Redis ajoute à ce modèle des valeurs structurées (hachages, listes, ensembles, ensembles triés) que le serveur sait modifier en place, comme le compteur incrémenté du [ch. 16](cache-strategies.mdx).
+
+`cle_valeur.py` range un million d’utilisateurs dans Redis, chacun dans un hachage `utilisateur:<id>` qui contient un nom, une ville parmi cent et un âge. Il lit ensuite des utilisateurs par leur clé, puis cherche ceux d’une ville, d’abord sans aucune structure d’aide, puis avec un index tenu par l’application, qui ajoute à chaque écriture l’identifiant à un ensemble `ville:<nom>`.
+
+```text
+1 000 000 utilisateurs dans des hachages Redis
+                                              durée   mémoire
+   chargement sans index                     13.3 s     99 Mo
+   1. par la clé (HGETALL), médiane        0.106 ms
+   2. Lyon, sans index (SCAN + HGET)       10989 ms
+      9 896 trouvés, 1 001 000 commandes
+   chargement avec index ville:<nom>         19.4 s    130 Mo
+   3. Lyon, avec index (SMEMBERS)           10.8 ms
+      9 896 trouvés, 1 commande
+```
+
+Sans index, la question « qui habite Lyon ? » oblige à parcourir toutes les clés par `SCAN`, dont la documentation indique qu’une itération complète coûte un temps proportionnel au nombre de clés[^redis-scan], et à lire la ville de chacune, soit un million de lectures pour en garder 9 896. Avec l’ensemble tenu à jour par l’application, la même réponse tient en une commande et 10,8 ms, mille fois moins. Deux passages précédents ont donné les mêmes valeurs à 7 % près. Cet index n’est pas gratuit, et c’est l’application qui le paie, avec 31 % de mémoire en plus, des écritures plus longues (19,4 s au lieu de 13,3 pour le chargement), et une règle à respecter partout dans le code, puisqu’un utilisateur qui change de ville doit être retiré d’un ensemble et ajouté à un autre, en même temps que son hachage est modifié, dans une transaction `MULTI`/`EXEC` ou un script Lua ; un chemin du code qui l’oublie laisse l’index faux.
+
+Un magasin clé-valeur convient donc aux données qu’on retrouve toujours par la même clé : une session, un panier, un profil lu par son identifiant, un compteur, un résultat mis en cache. Dès qu’une seconde façon de retrouver les données apparaît, chaque index secondaire est à construire et à maintenir à la main.
+
+## Document
+
+Un magasin de documents range des objets autodescriptifs, en général du JSON ou un format binaire voisin (le BSON de MongoDB), avec leurs sous-objets et leurs tableaux. Contrairement à une valeur opaque, un document a des champs que la base sait lire, indexer et modifier ; on peut chercher les commandes d’un client ou indexer `lignes.produit_id`. Le schéma n’est pas imposé par la base ; deux documents d’une même collection peuvent avoir des champs différents.
+
+La décision de modélisation propre à ce modèle est de savoir ce qu’on met dans un même document. La documentation de MongoDB conseille d’imbriquer les données qui forment une relation de contenance, qu’on lit ensemble et qu’on modifie ensemble ; elle rappelle qu’une écriture sur un seul document est atomique, toutes ses parties ou rien. Elle conseille au contraire des références quand le côté enfant est très nombreux, quand les données imbriquées grandissent sans borne, quand la duplication devient difficile à gérer, ou quand l’enfant existe sans son parent[^mongo-modele].
+
+<Figure svg={imbrication} num="21.2" alt="À gauche, l’imbrication : deux documents de commande contiennent chacun une ligne avec le produit 0 et une copie de son nom et de son prix ; renommer le produit réécrit toutes ses copies, 47 851 documents mesurés. À droite, les références : les lignes ne contiennent que l’identifiant du produit, qui renvoie à un document produit unique ; renommer modifie un seul document, mais lire la commande complète demande une jointure ($lookup).">
+La même commande avec ses lignes imbriquées ou avec des références vers les produits.
+</Figure>
+
+À gauche, chaque commande porte une copie du nom et du prix de ses produits. Une lecture suffit pour afficher la commande, mais le nom du produit 0 existe en autant d’exemplaires que de commandes qui le contiennent. À droite, la commande ne garde que l’identifiant du produit, et le nom n’existe qu’une fois ; afficher la commande demande alors de joindre les produits.
+
+`documents.py` range les mêmes 200 000 commandes de trois lignes, sur 50 000 produits dont la popularité suit une loi de Zipf, de trois façons : en trois tables dans PostgreSQL, en documents imbriqués et en documents avec références dans MongoDB 7.0. MongoDB 8 refuse de démarrer sur le noyau Linux 7.0 de la machine des mesures, à cause d’une incompatibilité connue avec les noyaux 6.19 et suivants que l’éditeur suit dans le ticket SERVER-121912[^mongo-noyau].
+
+```text
+200 000 commandes de 3 lignes, 50 000 produits
+
+1. lire une commande complète par son identifiant (médiane sur 1 000)
+   PostgreSQL, jointure de 3 tables        0.159 ms
+   MongoDB, document imbriqué              0.276 ms
+   MongoDB, références + $lookup           0.703 ms
+
+2. renommer le produit le plus vendu, médiane sur 5 renommages
+   PostgreSQL, table produits                2.9 ms   1 ligne
+      (52 246 lignes de commande citent ce produit)
+   MongoDB, document produit                 0.8 ms   1 document
+   MongoDB, copies imbriquées              646.7 ms   47 851 documents
+
+3. un document qui grandit : commentaires de 1 Kio ajoutés par $push
+   refus au commentaire 15 914 : WriteError
+   « Resulting document after update is larger than 16777216 »
+        1 commentaires : ajout en   1.80 ms, document de   0.0 Mo
+    1 000 commentaires : ajout en   1.69 ms, document de   1.0 Mo
+    5 000 commentaires : ajout en   6.82 ms, document de   5.0 Mo
+   10 000 commentaires : ajout en  16.68 ms, document de  10.1 Mo
+   15 000 commentaires : ajout en  23.83 ms, document de  15.1 Mo
+```
+
+Deux passages précédents ont donné des lectures de 0,17 à 0,35 ms pour PostgreSQL, 0,36 à 0,41 ms pour le document imbriqué et 0,50 à 0,60 ms avec `$lookup`, et le même renommage des copies imbriquées à 4 % près. La lecture d’une commande complète est rapide partout, sous la milliseconde, et la jointure de PostgreSQL n’est pas plus lente que le document imbriqué, car sur des données qui tiennent en mémoire, trois recherches par clé primaire coûtent peu, et l’écart se mesure en dixièmes de milliseconde. C’est le renommage qui sépare les modèles. Avec des références, comme dans PostgreSQL, le nom n’existe qu’une fois et se modifie en une écriture. Avec l’imbrication, il faut retrouver et réécrire chaque copie. Le produit le plus vendu figure dans près de 48 000 commandes, et son renommage coûte deux tiers de seconde, deux cents fois plus que dans PostgreSQL ; il laisse en outre, s’il est interrompu, une partie des copies avec l’ancien nom, puisque seule l’écriture d’un document est atomique.
+
+La troisième mesure montre la limite de l’imbrication sans borne. La documentation fixe à 16 Mio la taille maximale d’un document, pour qu’un seul document ne consomme pas trop de mémoire ni de bande passante[^mongo-limites]. Un article qui accumule ses commentaires dans un tableau est refusé au 15 914e commentaire de 1 Kio. Bien avant, chaque ajout coûte de plus en plus cher, parce que le document entier est relu et réécrit. Un ajout prend moins de 2 ms sur un petit document et 24 ms sur un document de 15 Mo. Les commentaires d’un article sont le cas que la documentation range du côté des références, un enfant très nombreux qui grandit sans borne.
+
+## Colonnes larges
+
+Les magasins à colonnes larges viennent de Bigtable, décrit par Google en 2006 ([ch. 20](moteurs-stockage.mdx)) ; Cassandra, que Avinash Lakshman et Prashant Malik ont présenté en 2010 après l’avoir conçu chez Facebook pour la recherche dans les messages, en reprend le modèle de données et le moteur LSM, et l’architecture sans maître de Dynamo pour la répartition[^cassandra]. Une table Cassandra a une clé primaire en deux parties. La clé de partition décide sur quelle machine, et dans quelle partition, une ligne est rangée ; la clé de tri (clustering key) décide de l’ordre des lignes dans la partition. Lire une partition, ou un intervalle trié d’une partition, coûte une lecture ; une requête qui ne donne pas la clé de partition doit en revanche parcourir toutes les partitions, sur toutes les machines.
+
+La documentation de Cassandra en tire la règle de modélisation : on ne part pas du modèle de données mais des requêtes ; il n’y a pas de jointure, et une requête qui en demanderait une se fait dans l’application ou par une seconde table dénormalisée ; dans Cassandra, la dénormalisation est normale ; on part des chemins d’accès les plus fréquents de l’application et l’on crée les tables qui les servent[^cassandra-modele].
+
+<Figure svg={tables} num="21.3" alt="À gauche, la table messages_par_conversation : deux partitions, conv. 17 et conv. 18, contiennent chacune deux messages triés par heure, dont deux écrits par l’auteur 42. La requête par conversation lit une partition ; la requête par auteur est refusée, ou lit toutes les partitions avec ALLOW FILTERING. À droite, la table messages_par_auteur : la partition auteur 42 contient ses deux messages, l’un de la conversation 17, l’autre de la conversation 18 ; chaque message est écrit deux fois.">
+Une table par requête : le même message rangé dans la partition de sa conversation et dans celle de son auteur.
+</Figure>
+
+Dans la table de gauche, les deux messages de l’auteur 42 sont dans deux partitions différentes, parce que la table est rangée par conversation. Pour les retrouver, Cassandra devrait lire toutes les partitions. La table de droite range les mêmes messages par auteur ; chaque message existe donc deux fois, une fois dans la partition de sa conversation et une fois dans celle de son auteur.
+
+`colonnes.py` écrit 200 000 messages, répartis dans 2 000 conversations et écrits par 1 000 auteurs, dans une table dont la clé de partition est la conversation et la clé de tri la date d’envoi, la plus récente d’abord. Il lit les derniers messages d’une conversation, puis demande les messages d’un auteur, sur cette table, puis sur une seconde table rangée par auteur.
+
+```text
+200 000 messages, 2 000 conversations, 1 000 auteurs
+   chargement d'une table :  37.4 s
+
+1. 20 derniers messages d'une conversation : 1.69 ms
+   (médiane sur 200, 20 lignes)
+
+2. messages d'un auteur, sur la table par conversation
+   refusé :
+   « Cannot execute this query as it might involve data filtering
+     and thus may have unpredictable performance. If you want to
+     execute this query despite the performance unpredictability,
+     use ALLOW FILTERING »
+
+3. la même avec ALLOW FILTERING : 135 ms
+   206 lignes retenues sur 200 000 lues
+
+4. deux tables écrites ensemble (lots journalisés) : 38.9 s
+   (1.0 fois le chargement d'une table)
+   messages d'un auteur, table par auteur : 3.21 ms
+   (médiane sur 200, 206 lignes)
+```
+
+Deux passages précédents ont donné les mêmes valeurs, sauf la requête avec `ALLOW FILTERING`, qui a pris de 104 à 202 ms. La requête pour laquelle la table a été conçue lit une partition, en 1,7 ms. La requête par auteur est refusée, et le message d’erreur dit pourquoi ; elle obligerait à filtrer les données, avec des performances imprévisibles. Forcée par `ALLOW FILTERING`, elle passe en lisant toute la table pour en garder 206 lignes ; sur ce nœud unique et cette petite table, cela prend un dixième de seconde, mais le temps croît avec la table entière et le nombre de machines, et non avec le résultat. La seconde table répond à la même question en lisant une partition, en 3,2 ms. Son prix est d’écrire chaque message deux fois ; dans la mesure, le chargement des deux tables par lots journalisés n’a pas pris plus de temps que celui d’une seule, parce que le client Python, qui envoie environ 5 000 écritures par seconde, limitait le débit avant le serveur, et la mesure ne dit donc rien du coût côté serveur.
+
+### DynamoDB
+
+DynamoDB, le service géré d’AWS, applique le même principe avec un vocabulaire différent. Sa documentation décrit une clé primaire simple, la clé de partition, dont la valeur passe par une fonction de hachage qui choisit la partition physique, ou composée, clé de partition et clé de tri, les éléments de même clé de partition étant rangés ensemble dans l’ordre de la clé de tri ; un index secondaire global (global secondary index) offre une autre clé de partition et de tri, maintenue automatiquement par le service[^ddb-composants]. L’opération `Query` lit une partition ; l’opération `Scan` lit toujours toute la table ou tout l’index et filtre ensuite, et la documentation conseille de concevoir tables et index pour pouvoir utiliser `Query` au lieu de `Scan`[^ddb-scan]. Mostafa Elhemali et ses collègues rapportent que, pendant les 66 heures du Prime Day de 2021, les services d’Amazon ont adressé à DynamoDB des milliers de milliards d’appels, avec un pic de 89,2 millions de requêtes par seconde, en gardant des latences de quelques millisecondes[^ddb-atc] ; ce débit tient parce que chaque requête ne touche qu’une partition.
+
+## Graphe
+
+Une base de graphe range des nœuds, des relations entre nœuds, et des propriétés sur les deux. Neo4j s’interroge en Cypher par des motifs : `(u:Personne {id: 42})-[:AMI*1..3]-(v)` désigne toutes les personnes à au plus trois relations d’amitié de la personne 42. Une base relationnelle range les mêmes relations dans une table `amis (a, b)` et les suit par des jointures, une par saut, ou par une requête récursive (`WITH RECURSIVE`).
+
+`graphe.py` construit un réseau de 100 000 personnes, chacune liée à dix autres tirées au hasard, soit 999 946 amitiés, dans les deux bases. Il compte les personnes à au plus 1, 2, 3 et 4 sauts d’une personne, puis cherche le plus court chemin entre deux personnes, en médiane sur dix personnes et dix couples. Neo4j calcule le plus court chemin par deux parcours en largeur, l’un depuis le départ et l’autre depuis l’arrivée, et s’arrête dès qu’ils se rejoignent[^neo4j-chemin] ; une requête récursive de PostgreSQL ne peut pas s’arrêter dès que la cible est atteinte, et le script fait donc un parcours en largeur, une requête SQL par niveau.
+
+```text
+100 000 personnes, 999 946 amitiés ; PostgreSQL chargé en 8 s
+Neo4j chargé en 49 s (démarrage compris)
+
+1. personnes à au plus k sauts (médiane sur 10 personnes)
+   k     atteintes    PostgreSQL       Neo4j
+   1            23        1.0 ms      6.3 ms
+   2           488        1.0 ms      7.9 ms
+   3         9 088        8.3 ms     10.9 ms
+   4        83 821      106.5 ms     63.2 ms
+
+2. plus court chemin entre deux personnes (médiane sur 10 couples)
+   PostgreSQL    124.6 ms
+   Neo4j           7.1 ms   (dernier couple : 4 et 4 sauts)
+```
+
+<Figure svg={graphe} num="21.4" alt="Deux diagrammes en barres sur une échelle logarithmique. À gauche, la durée pour compter les personnes à au plus k sauts : PostgreSQL et Neo4j pour k = 1 à 4. À droite, la durée du plus court chemin entre deux personnes.">
+Traversées du même réseau de 100 000 personnes dans PostgreSQL et dans Neo4j.
+</Figure>
+
+Le résultat n’est pas un classement. Jusqu’à trois sauts, PostgreSQL répond plus vite, car ses jointures sur la clé primaire de `amis` coûtent peu tant que le nombre de personnes atteintes reste de quelques milliers, et Neo4j paie un coût fixe par requête. À quatre sauts, la frontière couvre la plupart du réseau et Neo4j passe devant. Les deux passages précédents ont donné les mêmes valeurs à 25 % près. L’écart le plus grand est sur le plus court chemin, 17 fois en faveur de Neo4j (7,1 ms contre 124,6), parce que le parcours bidirectionnel s’arrête après avoir exploré deux petites boules autour des deux personnes, au lieu d’une grande boule autour de l’une d’elles. Une base de graphe vaut la peine quand les requêtes suivent des relations sur une profondeur inconnue à l’avance : chemins, recommandations par amis d’amis, détection de fraude par réseaux de comptes. Pour une ou deux jointures de profondeur fixe, une base relationnelle indexée suffit.
+
+## Compromis
+
+| Modèle | Accès servi directement | Ce qui coûte | Systèmes représentatifs | Quand le choisir |
+|---|---|---|---|---|
+| Clé-valeur | lire et écrire une clé connue (0,1 ms mesuré) | toute autre question : parcours complet ou index tenu par l’application | Redis, Memcached, DynamoDB en accès par clé | sessions, paniers, caches, compteurs, profils lus par identifiant |
+| Document | un objet entier et ses parties, en une lecture ; requêtes sur les champs | données dupliquées à tenir à jour ; documents qui grandissent sans borne (16 Mio dans MongoDB) | MongoDB, Couchbase, PostgreSQL avec `jsonb` | objets lus et modifiés d’un bloc, schéma variable |
+| Colonnes larges | une partition, ou un intervalle trié d’une partition | toute requête sans la clé de partition : refus ou parcours de toutes les partitions ; une table par requête | Cassandra, ScyllaDB, HBase, Bigtable, DynamoDB | gros volumes d’écritures, requêtes connues à l’avance, séries par entité |
+| Graphe | suivre des relations sur une profondeur variable, plus courts chemins | agrégats sur tout le graphe ; répartition sur plusieurs machines | Neo4j, Amazon Neptune, JanusGraph | réseaux, recommandations, dépendances, fraude |
+| Relationnel ([ch. 18](transactions-isolation.mdx) et [19](index-modelisation.mdx)) | requêtes imprévues, jointures, transactions sur plusieurs lignes | répartition sur plusieurs machines, débit d’écriture d’une seule machine | PostgreSQL, MySQL | par défaut, tant qu’une machine suffit |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la taille d’une partition Cassandra]
+Hypothèses : une messagerie range les messages par conversation ; une conversation très active reçoit 1 message par seconde, de 300 octets en moyenne avec ses métadonnées ; on vise des partitions de moins de 100 Mo, la limite que Discord s’était fixée (plus loin).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Volume d’une conversation par jour | 86 400 × 300 o | ≈ 26 Mo |
+| Partition après un an, clé = conversation | 365 × 26 Mo | ≈ 9,5 Go |
+| Jours par partition pour rester sous 100 Mo | 100 Mo / 26 Mo | ≈ 4 jours |
+| Clé de partition retenue | (conversation, tranche de 4 jours) | une partition par conversation et par tranche |
+
+Conclusion : une clé de partition qui ne dépend que de l’entité laisse les partitions des entités actives grandir sans limite. On ajoute à la clé une tranche de temps, et la lecture des derniers messages consulte la tranche courante, puis la précédente si elle ne suffit pas.
+:::
+
+:::calcul[Calcul : ce que coûte une requête sans clé de partition]
+Hypothèses : une table de 2 milliards de lignes de 200 octets, répartie sur 30 machines ; chaque machine lit ses données à 500 Mo/s ; une requête par auteur, comme celle de la mesure, garde 200 lignes.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Volume de la table | $2 \times 10^9 \times 200$ o | 400 Go |
+| Volume par machine | 400 Go / 30 | ≈ 13 Go |
+| Durée d’un parcours complet, machines en parallèle | 13 Go / 500 Mo/s | ≈ 27 s |
+| Avec une table rangée par auteur | une partition lue | quelques millisecondes |
+
+Conclusion : `ALLOW FILTERING` coûte le volume de la table, pas celui du résultat, et occupe toutes les machines pendant ce temps. La table supplémentaire coûte le double de place et d’écritures pour ces lignes ; c’est presque toujours le bon échange pour une requête fréquente.
+:::
+
+:::calcul[Calcul : la dénormalisation d’un nom de produit]
+Hypothèses : un catalogue de 50 000 produits et 20 millions de commandes imbriquées de 3 lignes, popularité de Zipf comme dans la mesure ; on renomme les 100 produits les plus vendus lors d’un changement de marque.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Part des lignes qui citent le produit le plus vendu (mesure : 52 246 sur 600 000) | 52 246 / 600 000 | 8,7 % |
+| Part des lignes qui citent l’un des 100 premiers produits (somme de $1/k$ pour $k \le 100$, sur la somme jusqu’à 50 000) | 5,19 / 11,4 | ≈ 45 % |
+| Part des commandes qui en contiennent au moins un, sur 3 lignes | $1 - (1 - 0{,}45)^3$ | ≈ 84 % |
+| Documents à réécrire sur 20 millions de commandes | 0,84 × 20 millions | ≈ 17 millions |
+| Avec des références | 100 documents produits | 100 |
+
+Conclusion : copier un attribut d’une entité populaire dans chaque document qui la cite transforme une modification en millions d’écritures. On garde la copie pour ce qui ne doit pas changer (le prix payé, [ch. 19](index-modelisation.mdx)) et des références pour ce qui peut changer.
+:::
+
+## Exemple réel
+
+**Les messages de Discord.** Stanislav Vishnevskiy, directeur technique de Discord, a raconté en janvier 2017 pourquoi l’entreprise rangeait ses messages dans Cassandra, alors à plus de 120 millions de messages par jour[^discord-2017]. La première clé de partition, le canal, a produit lors de l’import initial des partitions de plus de 100 Mo, qui mettaient le ramasse-miettes de Java sous pression ; l’équipe a ajouté une tranche de temps à la clé, `((channel_id, bucket), message_id)`, avec environ dix jours de messages par tranche, pour rester sous cette taille. Le même article décrit des lignes corrompues par des modifications et des suppressions simultanées, et le choix de ne plus écrire les colonnes vides pour éviter des pierres tombales inutiles. La grappe comptait alors 12 nœuds, avec un facteur de réplication de 3.
+
+Bo Ingram a décrit en mars 2023 la suite[^discord-2023]. La grappe avait grandi jusqu’à 177 nœuds ; les canaux très actifs créaient des partitions chaudes dont la latence se propageait à toute la grappe, les pauses du ramasse-miettes provoquaient des pics de latence, et les compactions prenaient du retard. Discord a migré vers ScyllaDB, compatible avec Cassandra et écrit en C++, sur 72 nœuds ; le 99e centile de la lecture de l’historique est passé de 40 à 125 ms à environ 15 ms, et celui de l’insertion de 5 à 70 ms à 5 ms. L’équipe a aussi placé devant la base des services en Rust qui fusionnent les requêtes identiques simultanées, routées par canal, ce qui est la protection des clés chaudes du [ch. 17](cache-invalidation.mdx). La clé de partition, elle, est restée faite d’une entité et d’une tranche de temps.
+
+## Erreurs fréquentes
+
+Choisir une base NoSQL pour sa réputation de rapidité, sans connaître les requêtes. Chaque modèle est rapide pour les accès prévus par sa clé, et une requête imprévue coûte un parcours complet (11 s mesurées dans Redis, 0,1 s dans Cassandra sur une petite table) ou un refus.
+
+Modéliser une base Cassandra ou DynamoDB comme une base relationnelle, une table par entité, puis découvrir qu’aucune requête de l’application ne donne la clé de partition. On écrit d’abord la liste des requêtes, puis une table par requête.
+
+Ajouter `ALLOW FILTERING` ou un `Scan` pour faire passer une requête refusée. Elle passe en développement sur quelques milliers de lignes ; en production, elle lit toute la table sur toutes les machines.
+
+Imbriquer dans un document un tableau qui grandit sans borne (commentaires, messages, événements) est une autre erreur. Le document finit par dépasser 16 Mio (au 15 914e commentaire de 1 Kio dans la mesure), et chaque ajout coûte d’autant plus qu’il est gros.
+
+Copier dans chaque document un attribut qui change (le nom d’un produit, l’adresse d’un client) sans prévoir la mise à jour des copies. La modification devient des milliers d’écritures non atomiques (47 851 documents mesurés pour un renommage).
+
+Choisir une clé de partition qui ne dépend que de l’entité pour des données qui s’accumulent dans le temps. Les partitions des entités les plus actives grossissent sans limite et deviennent chaudes.
+
+Prendre une base de graphe pour des relations de profondeur fixe. Pour « les amis de mes amis », une table indexée et deux jointures ont été plus rapides que Neo4j dans la mesure ; le graphe paie sur les profondeurs variables et les chemins.
+
+:::piege[Erreur fréquente : « NoSQL, donc pas de schéma »]
+Un magasin sans schéma imposé déplace le schéma dans le code. Les documents d’une collection ont des formes qui varient avec les versions de l’application, et chaque lecteur doit savoir les lire toutes. Dans Cassandra et DynamoDB, le schéma est même plus rigide qu’en relationnel, puisque la clé de partition fixe les requêtes possibles et ne se change qu’en réécrivant les données dans une nouvelle table. Écrivez le schéma et les requêtes avant de choisir la base.
+:::
+
+:::entretien
+Quand vous proposez une base NoSQL, écrivez les requêtes puis la clé : « table des messages, clé de partition (conversation, semaine), clé de tri date décroissante ; requête principale, les 50 derniers messages d’une conversation ; requête par auteur servie par une seconde table écrite en même temps ». Chiffrez la taille d’une partition, et dites ce qui se passe pour une requête que la clé ne sert pas.
+:::
+
+## Exercices
+
+**Question 1.** Pour chacune des données suivantes, indiquez le modèle le plus adapté, et la clé : (a) les sessions des utilisateurs connectés d’un site ; (b) le catalogue d’une boutique, dont chaque produit a des attributs différents selon sa catégorie (taille pour un vêtement, puissance pour un aspirateur) ; (c) les mesures de 10 000 capteurs, lues par capteur et par période ; (d) les relations « suit » d’un réseau social, avec la question « qui, parmi les gens que je suis, suit aussi ce compte ? ».
+
+**Question 2.** Une table Cassandra `commandes` a pour clé primaire `((client_id), cree_le)`. L’application doit aussi afficher, pour le service client, les commandes d’un statut donné passées dans la dernière heure, et les commandes d’un numéro de suivi postal. Que se passe-t-il si l’on envoie ces requêtes telles quelles ? Proposez les tables qui les servent, et ce que coûte chaque écriture de commande.
+
+**Question 3.** Dans la mesure du graphe, pourquoi PostgreSQL est-il plus rapide que Neo4j jusqu’à trois sauts, et plus lent à quatre sauts et pour le plus court chemin ?
+
+**Exercice de conception.** Une application de messagerie de groupe compte 50 millions d’utilisateurs et 5 millions de groupes, de 2 à 100 000 membres. Elle reçoit 500 000 messages par seconde aux pics, de 500 octets en moyenne. Les écrans affichent les 50 derniers messages d’un groupe, en remontant ensuite dans l’historique ; la liste des groupes d’un utilisateur, triée par dernier message, et les messages qui mentionnent l’utilisateur. Proposez le modèle de données, les tables ou collections avec leurs clés, et ce qui se passe pour un groupe de 100 000 membres très actif. Chiffrez le volume écrit par jour et la taille des partitions.
+
+## Corrigés
+
+**Question 1.** (a) Clé-valeur, clé = identifiant de session, avec une durée de vie ; on ne la retrouve jamais autrement que par son identifiant. (b) Document, un document par produit, avec des champs différents selon la catégorie ; les recherches par attribut passent par des index sur les champs fréquents ou par un moteur de recherche (ch. 22). Une table relationnelle avec une colonne `jsonb` convient aussi. (c) Colonnes larges, clé de partition (capteur, jour) et clé de tri l’horodatage, si bien que la lecture d’un capteur sur une période lit quelques partitions contiguës ; une base de séries temporelles (ch. 22) est aussi un bon choix. (d) Graphe, ou une table `suit (suiveur, suivi)` avec deux index, car la question est une intersection entre deux listes d’un saut chacune, que deux index et une jointure servent bien ; une base de graphe n’est nécessaire que si les questions descendent plus profond.
+
+**Question 2.** Cassandra refuse les deux requêtes, qui ne donnent pas la clé de partition `client_id`, et ne les accepte qu’avec `ALLOW FILTERING`, en lisant toutes les commandes sur toutes les machines. On ajoute deux tables. `commandes_par_statut` avec la clé `((statut, heure), cree_le)` : la partition regroupe les commandes d’un statut pendant une heure, ce qui la borne, et la requête lit la partition de l’heure courante et de la précédente ; une clé `((statut), cree_le)` ferait de chaque statut une partition chaude et illimitée. `commandes_par_suivi` avec la clé `((numero_suivi))`, une ligne par numéro. Chaque commande s’écrit alors dans trois tables, de préférence par un lot journalisé, et chaque changement de statut supprime la ligne de l’ancienne partition de statut et en écrit une dans la nouvelle.
+
+**Question 3.** Jusqu’à trois sauts, chaque niveau est une jointure sur la clé primaire de `amis`, en mémoire, qui atteint quelques dizaines puis quelques milliers de personnes ; PostgreSQL fait ce travail en quelques millisecondes, alors que Neo4j paie un coût fixe par requête (préparation, transaction, protocole) de l’ordre de 6 à 8 ms dans la mesure. À quatre sauts, la frontière couvre la plupart du réseau, et la représentation de Neo4j, où chaque nœud donne directement accès à ses relations, devient plus efficace que des jointures sur des centaines de milliers de lignes. Pour le plus court chemin, Neo4j fait un parcours bidirectionnel qui s’arrête dès que les deux parcours se rejoignent. Deux boules de rayon deux contiennent quelques centaines de personnes chacune, alors que le parcours de PostgreSQL depuis une seule extrémité doit atteindre la distance entière, soit des dizaines de milliers de personnes à la quatrième étape.
+
+**Exercice de conception.**
+
+*Volume.* 500 000 messages par seconde aux pics, de 500 octets, font 250 Mo/s ; en supposant une moyenne d’un dixième de la pointe, 50 000 messages par seconde, soit 4,3 milliards de messages et 2,2 To par jour avant réplication. C’est un volume d’écriture qui demande un magasin à colonnes larges réparti (Cassandra, ScyllaDB ou DynamoDB) et une clé qui répartit la charge sur toutes les machines.
+
+*Messages d’un groupe.* Table `messages` de clé `((groupe_id, tranche), message_id)`, où `message_id` est un identifiant triable par date (ch. 31) et `tranche` une période dont la durée dépend de l’activité du groupe. Pour un groupe de 100 000 membres qui reçoit 50 messages par seconde, soit 2,2 Go par jour, une tranche d’une heure donne des partitions d’environ 90 Mo ; les petits groupes peuvent utiliser des tranches d’un mois. La lecture des 50 derniers messages lit la tranche courante, puis la précédente si nécessaire.
+
+*Groupes d’un utilisateur.* Table `groupes_par_utilisateur` de clé `((utilisateur_id), groupe_id)`, avec la date du dernier message. Le tri par dernier message ne peut pas être la clé de tri, puisque la date change à chaque message. On lit la liste de l’utilisateur (quelques centaines de groupes au plus) et on la trie dans l’application. Mettre à jour cette date pour chacun des 100 000 membres à chaque message du grand groupe ferait 5 millions d’écritures par seconde. On ne la met donc à jour que pour les groupes de petite taille, et pour les grands groupes on lit la date du dernier message dans la table du groupe, à l’affichage.
+
+*Mentions.* Table `mentions` de clé `((utilisateur_id, mois), message_id)`, écrite en même temps que le message pour chaque utilisateur mentionné.
+
+*Grand groupe.* Sa partition courante reçoit 50 écritures par seconde, ce qu’un nœud tient sans peine ; le risque est la lecture, si les 100 000 membres ouvrent le groupe en même temps. On place devant la base un cache des derniers messages de chaque groupe actif et une fusion des requêtes identiques, comme Discord, et l’on pousse les nouveaux messages aux clients connectés ([ch. 8](../partie-1/pousser-donnees.mdx)) au lieu de les laisser relire la base.
+
+:::fiche
+- Quatre modèles : clé-valeur (une clé connue), document (un objet entier, champs requêtables), colonnes larges (une partition triée), graphe (relations de proche en proche).
+- Toute requête que la clé ne sert pas coûte un parcours complet, une seconde copie ou un refus (0,1 ms par clé dans Redis, 11 s par valeur, 10,8 ms avec un index tenu par l’application, mesurés).
+- Document : imbriquer ce qu’on lit et modifie ensemble, référencer ce qui est nombreux, grandit sans borne ou change ; limite de 16 Mio (refus au 15 914e commentaire de 1 Kio) ; renommer un attribut copié réécrit toutes les copies (47 851 documents).
+- Cassandra et DynamoDB : clé de partition plus clé de tri ; on part des requêtes, une table par requête ; `ALLOW FILTERING` et `Scan` lisent toute la table.
+- Partition bornée : ajouter une tranche de temps à la clé (Discord, partitions de moins de 100 Mo).
+- Graphe : utile pour les profondeurs variables et les chemins (plus court chemin 17 fois plus rapide dans Neo4j, mesuré) ; une base relationnelle indexée suffit pour un ou deux sauts.
+:::
+
+[^dynamo]: Giuseppe DeCandia, Deniz Hastorun, Madan Jampani, Gunavardhan Kakulapati, Avinash Lakshman, Alex Pilchin, Swaminathan Sivasubramanian, Peter Vosshall et Werner Vogels, « Dynamo: Amazon’s Highly Available Key-value Store », *SOSP ’07*, 2007, p. 205-220, [doi:10.1145/1294261.1294281](https://doi.org/10.1145/1294261.1294281).
+[^redis-scan]: Redis, « SCAN », documentation des commandes, [redis.io/docs/latest/commands/scan](https://redis.io/docs/latest/commands/scan/).
+[^mongo-modele]: MongoDB, « Embedded Data Versus References », documentation, [mongodb.com/docs/manual/data-modeling/concepts/embedding-vs-references](https://www.mongodb.com/docs/manual/data-modeling/concepts/embedding-vs-references/).
+[^mongo-limites]: MongoDB, « MongoDB Limits and Thresholds », section « BSON Document Size », documentation, [mongodb.com/docs/manual/reference/limits](https://www.mongodb.com/docs/manual/reference/limits/).
+[^mongo-noyau]: MongoDB, ticket SERVER-121912, [jira.mongodb.org/browse/SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912).
+[^cassandra]: Avinash Lakshman et Prashant Malik, « Cassandra: A Decentralized Structured Storage System », *ACM SIGOPS Operating Systems Review*, vol. 44, n° 2, 2010, p. 35-40, [doi:10.1145/1773912.1773922](https://doi.org/10.1145/1773912.1773922).
+[^cassandra-modele]: Apache Cassandra, « RDBMS design », documentation de modélisation, [cassandra.apache.org/doc/latest/cassandra/developing/data-modeling/data-modeling_rdbms.html](https://cassandra.apache.org/doc/latest/cassandra/developing/data-modeling/data-modeling_rdbms.html).
+[^ddb-composants]: Amazon DynamoDB, « Core components of Amazon DynamoDB », guide du développeur, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html).
+[^ddb-scan]: Amazon DynamoDB, « Best practices for querying and scanning data in DynamoDB », guide du développeur, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-query-scan.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-query-scan.html).
+[^ddb-atc]: Mostafa Elhemali et al., « Amazon DynamoDB: A Scalable, Predictably Performant, and Fully Managed NoSQL Database Service », *USENIX ATC ’22*, 2022, [usenix.org/conference/atc22/presentation/elhemali](https://www.usenix.org/conference/atc22/presentation/elhemali).
+[^neo4j-chemin]: Neo4j, « Shortest paths », manuel de Cypher, [neo4j.com/docs/cypher-manual/current/patterns/shortest-paths](https://neo4j.com/docs/cypher-manual/current/patterns/shortest-paths/).
+[^discord-2017]: Stanislav Vishnevskiy, « How Discord Stores Billions of Messages », blog de Discord, 13 janvier 2017, [discord.com/blog/how-discord-stores-billions-of-messages](https://discord.com/blog/how-discord-stores-billions-of-messages).
+[^discord-2023]: Bo Ingram, « How Discord Stores Trillions of Messages », blog de Discord, 6 mars 2023, [discord.com/blog/how-discord-stores-trillions-of-messages](https://discord.com/blog/how-discord-stores-trillions-of-messages).

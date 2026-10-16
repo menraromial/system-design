@@ -1,0 +1,26 @@
+% Une table par requête : le même message rangé dans la partition de sa
+% conversation et dans celle de son auteur.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    p/.style={draw=#1, fill=#1Bg, line width=0.7pt, minimum width=16mm, minimum height=6mm, inner sep=1pt, font=\ttfamily\footnotesize},
+    r/.style={draw=Dslate, fill=DslateBg, line width=0.5pt, minimum width=34mm, minimum height=5mm, inner sep=1pt, font=\ttfamily\footnotesize, anchor=west}]
+  \node[pillo=Dorange] at (25,38) {messages\_par\_conversation};
+  \foreach \i/\c/\a/\b/\cc in {0/{conv. 17}/{10:42 auteur 42}/{10:31 auteur 8}/Dorange, 1/{conv. 18}/{10:40 auteur 3}/{10:12 auteur 42}/Dorange} {
+    \node[p=\cc] at (0,26-18*\i) {\c};
+    \node[r] at (10,29-18*\i) {\a};
+    \node[r] at (10,23-18*\i) {\b};
+  }
+  \node[note, anchor=north west, align=left] at (-8,-8) {WHERE conversation\_id = 17 : une partition lue\\WHERE auteur = 42 : refusée, ou toutes les\\partitions lues (ALLOW FILTERING)};
+  \begin{scope}[xshift=88mm]
+    \node[pillo=Dblue] at (25,38) {messages\_par\_auteur};
+    \node[p=Dblue] at (0,26) {auteur 42};
+    \node[r] at (10,29) {10:42 conv. 17};
+    \node[r] at (10,23) {10:12 conv. 18};
+    \node[p=Dblue] at (0,8) {auteur 3};
+    \node[r] at (10,8) {10:40 conv. 18};
+    \node[note, anchor=north west, align=left] at (-8,-8) {WHERE auteur = 42 : une partition lue ;\\chaque message est écrit deux fois};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

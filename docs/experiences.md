@@ -46,6 +46,7 @@ Les dépendances Python de chaque chapitre sont dans son `requirements.txt`. Les
 | 18 | [`ch18/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch18) | les cinq anomalies d’isolation à chaque niveau, cinq façons de réserver un siège, MVCC (versions, VACUUM, transaction longue) | Docker, image `postgres:18-alpine` ; `requirements.txt` | `python3 anomalies.py`, `sieges.py`, `mvcc.py` |
 | 19 | [`ch19/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch19) | effet de différents index sur trois requêtes (2 millions de lignes), hauteur des B-tree, coût des index à l’insertion, mises à jour HOT, connexions avec et sans pool | Docker, image `postgres:18-alpine` ; `requirements.txt` | `python3 index.py`, `ecritures.py`, `pool.py` |
 | 20 | [`ch20/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch20) | coût d’une synchronisation du disque et validation groupée ; deux B-tree (LMDB, SQLite) et un arbre LSM (RocksDB, par niveaux et par paliers) : amplification en écriture et en espace, lectures, filtre de Bloom | `requirements.txt` (lmdb, rocksdict) ; environ 1,5 Go libres dans `~/.cache` | `python3 journal.py`, `moteurs.py` (environ 15 minutes) |
+| 21 | [`ch21/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch21) | requêtes par clé et par valeur dans Redis ; commandes imbriquées, avec références (MongoDB) et en tables (PostgreSQL), document qui grandit jusqu’à 16 Mio ; table Cassandra et requête sans clé de partition ; traversées et plus court chemin dans Neo4j et PostgreSQL | Docker, images `redis:8.8-alpine`, `postgres:18-alpine`, `mongo:7`, `cassandra:5`, `neo4j:5` ; `requirements.txt` | `python3 cle_valeur.py`, `documents.py`, `colonnes.py`, `graphe.py` |
 
 Les résultats s’affichent sur la sortie standard. Les fichiers de travail (configurations de Caddy, certificats du [ch. 6](partie-1/tls.mdx)) vont dans le dossier temporaire du système, sauf les cent petits fichiers que `ch05/mesurer.sh` crée dans `ch05/site/` ; `ch09/latences` crée un fichier de 1 Gio pour mesurer le disque et le supprime à la fin ; les scripts du [ch. 20](partie-2/moteurs-stockage.mdx) écrivent dans `~/.cache/cours-sd-ch20`, sur le disque et non dans un dossier temporaire qui peut être en mémoire, et le suppriment à la fin.
 
@@ -61,8 +62,9 @@ docker rm -f cours-sd-ch16-pg cours-sd-ch16-redis
 docker rm -f cours-sd-ch17-pg cours-sd-ch17-redis cours-sd-ch17-n1 cours-sd-ch17-n2 cours-sd-ch17-n3 cours-sd-ch17-n4
 docker rm -f cours-sd-ch18-pg
 docker rm -f cours-sd-ch19-pg
+docker rm -f cours-sd-ch21-pg cours-sd-ch21-redis cours-sd-ch21-mongo cours-sd-ch21-cassandra cours-sd-ch21-neo4j
 rm -rf ~/.cache/cours-sd-ch20                # données du ch. 20 si moteurs.py a été interrompu
 pgrep -af "caddy run"                         # Caddy lancés par les scripts
 ```
 
-Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`). Celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 9932 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.
+Un Caddy installé comme service de la machine apparaît aussi dans la liste de `pgrep`, avec sa configuration système (`/etc/caddy/Caddyfile`). Celui-là n’appartient pas aux expériences et ne doit pas être arrêté. Les scripts écoutent sur des ports locaux, entre 6391 et 10187 selon les chapitres ; s’ils signalent un port déjà occupé, c’est souvent un reste d’exécution précédente ou un autre service de la machine.

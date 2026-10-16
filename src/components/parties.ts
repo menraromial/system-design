@@ -44,7 +44,7 @@ export const PARTIES: Partie[] = [
       {num: 18, titre: 'Bases relationnelles (1) : transactions et isolation', doc: 'partie-2/transactions-isolation'},
       {num: 19, titre: 'Bases relationnelles (2) : index et modélisation', doc: 'partie-2/index-modelisation'},
       {num: 20, titre: 'Moteurs de stockage : B-tree, LSM, SSTables', doc: 'partie-2/moteurs-stockage'},
-      {num: 21, titre: 'NoSQL (1) : clé-valeur, document, colonnes larges, graphe'},
+      {num: 21, titre: 'NoSQL (1) : clé-valeur, document, colonnes larges, graphe', doc: 'partie-2/nosql-modeles'},
       {num: 22, titre: 'NoSQL (2) : séries temporelles, recherche, vecteurs'},
       {num: 23, titre: 'Choisir une base de données'},
       {num: 24, titre: 'Réplication (1) : leader-follower'},

@@ -1,0 +1,43 @@
+% Les quatre modèles de données NoSQL, chacun avec la question à laquelle il
+% répond directement.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    c/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum height=5mm, inner sep=1.5pt, font=\ttfamily\footnotesize, anchor=west},
+    t/.style={pillo=#1}]
+  % clé-valeur
+  \node[t=Dblue] at (20,30) {clé-valeur};
+  \foreach \i/\k/\v in {0/{panier:812}/{\{3 articles…\}}, 1/{session:a9f}/{\{client: 42…\}}, 2/{compteur:vues}/{18 204}} {
+    \node[c=Dblue, minimum width=22mm] at (0,20-7*\i) {\k};
+    \node[c=Dslate, minimum width=20mm] at (23,20-7*\i) {\v};
+  }
+  \node[note, anchor=north, align=center] at (21,-1) {lire ou écrire\\une clé connue};
+  % document
+  \begin{scope}[xshift=56mm]
+    \node[t=Dgreen] at (20,30) {document};
+    \node[draw=Dgreen, fill=DgreenBg, line width=0.6pt, anchor=north west, align=left, font=\ttfamily\footnotesize, inner sep=3pt] at (0,24)
+      {\{ \_id: 812, client: 42,\\
+       \ \ lignes: [\\
+       \ \ \ \{produit: 7, qte: 2\},\\
+       \ \ \ \{produit: 19, qte: 1\} ] \}};
+    \node[note, anchor=north, align=center] at (21,-1) {un objet entier,\\champs requêtables};
+  \end{scope}
+  % colonnes larges
+  \begin{scope}[xshift=106mm]
+    \node[t=Dorange] at (20,30) {colonnes larges};
+    \node[c=Dorange, minimum width=14mm] at (0,17) {conv. 17};
+    \foreach \i/\r in {0/{10:42 « oui »}, 1/{10:40 « on y va ? »}, 2/{10:31 « salut »}} {
+      \node[c=Dslate, minimum width=27mm] at (15,24-7*\i) {\r};
+    }
+    \node[note, anchor=north, align=center] at (21,-1) {une partition, des lignes\\triées par la clé de tri};
+  \end{scope}
+  % graphe
+  \begin{scope}[xshift=160mm]
+    \node[t=Dpurple] at (20,30) {graphe};
+    \foreach \n/\x/\y in {a/5/20, b/22/24, c/36/14, d/14/6, e/30/2} \node[vtx=Dpurple] (\n) at (\x,\y) {};
+    \foreach \u/\v in {a/b, b/c, a/d, d/e, c/e, b/d} \draw[gedge=Dpurple] (\u) -- (\v);
+    \node[note, anchor=north, align=center] at (21,-1) {suivre des relations\\de proche en proche};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,5 @@
+redis
+psycopg[binary]
+pymongo
+neo4j
+cassandra-driver
