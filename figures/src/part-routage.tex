@@ -1,0 +1,32 @@
+% Trois façons de trouver la partition d'une clé : le client la calcule, un
+% routeur la calcule, ou n'importe quel nœud transmet au bon.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    n/.style={draw=Dslate, fill=DslateBg, line width=0.7pt, rounded corners=2pt, minimum width=14mm, minimum height=7mm, font=\sffamily\footnotesize}]
+  \foreach \dx/\titre/\mode in {0/{client qui connaît la carte}/1, 62/{routeur devant les nœuds}/2, 124/{n'importe quel nœud}/3} {
+    \begin{scope}[xshift=\dx mm]
+      \node[pillo=Dslate] at (25,58) {\titre};
+      \node[soft=Dblue, minimum width=18mm, minimum height=7mm] (c) at (25,46) {client};
+      \foreach \i/\x in {1/5, 2/25, 3/45} \node[n] (n\i) at (\x,12) {nœud \i};
+      \ifnum\mode=1
+        \draw[arr=Dorange] (c) -- (n3);
+        \node[note, anchor=north, align=center] at (25,4) {bibliothèque qui garde la carte\\des partitions (pilotes Cassandra\\à jetons, clients Redis Cluster)};
+      \fi
+      \ifnum\mode=2
+        \node[soft=Dgreen, minimum width=18mm, minimum height=7mm] (r) at (25,29) {routeur};
+        \draw[arr=Dorange] (c) -- (r);
+        \draw[arr=Dorange] (r) -- (n3);
+        \node[note, anchor=north, align=center] at (25,4) {mongos, coordinateur Citus,\\Vitess (vtgate)};
+      \fi
+      \ifnum\mode=3
+        \draw[arr=Dorange] (c) -- (n1);
+        \draw[arr=Dorange] (n1.south east) to[out=-30, in=-150] (n3.south west);
+        \node[note, anchor=north, align=center] at (25,4) {le nœud qui reçoit transmet\\(coordinateur Cassandra,\\passerelle CockroachDB)};
+      \fi
+    \end{scope}
+  }
+  \node[soft=Dred, minimum width=60mm, minimum height=8mm, font=\sffamily\footnotesize] at (87,-16) {carte des partitions : ZooKeeper, etcd, ou propagation entre nœuds (gossip)};
+\end{tikzpicture}
+\end{document}

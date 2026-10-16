@@ -49,7 +49,7 @@ export const PARTIES: Partie[] = [
       {num: 23, titre: 'Choisir une base de données', doc: 'partie-2/choisir-base'},
       {num: 24, titre: 'Réplication (1) : leader-follower', doc: 'partie-2/replication-leader'},
       {num: 25, titre: 'Réplication (2) : multi-leader, sans leader, quorums', doc: 'partie-2/replication-multi'},
-      {num: 26, titre: 'Partitionnement (sharding)'},
+      {num: 26, titre: 'Partitionnement (sharding)', doc: 'partie-2/partitionnement'},
       {num: 27, titre: 'Files de messages et logs'},
       {num: 28, titre: 'Garanties de livraison'},
       {num: 29, titre: 'Stockage objet, bloc, fichier'},

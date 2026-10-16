@@ -1,0 +1,25 @@
+% Partitionnement par plages de clés et par hachage de la clé.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    p/.style={draw=#1, fill=#1Bg, line width=0.7pt, minimum width=25mm, minimum height=8mm, font=\sffamily\footnotesize, align=center, inner sep=1pt}]
+  % plages
+  \node[pillo=Dblue] at (38,52) {par plages de clés};
+  \node[p=Dblue] at (0,38) {P1\\a à f};
+  \node[p=Dblue] at (26,38) {P2\\g à m};
+  \node[p=Dblue] at (52,38) {P3\\n à s};
+  \node[p=Dred] at (78,38) {P4\\t à z};
+  \node[note, anchor=north, align=center] at (38,31) {clés triées : un intervalle se lit dans une ou deux partitions ;};
+  \node[note, anchor=north, align=center, text=Dred] at (38,25) {des clés croissantes (dates, compteurs) tombent toutes dans la dernière};
+  \begin{scope}[yshift=-42mm]
+    \node[pillo=Dgreen] at (38,52) {par hachage de la clé};
+    \node[p=Dgreen] at (0,38) {P1\\h(k) mod 4 = 0};
+    \node[p=Dgreen] at (26,38) {P2\\h(k) mod 4 = 1};
+    \node[p=Dgreen] at (52,38) {P3\\h(k) mod 4 = 2};
+    \node[p=Dgreen] at (78,38) {P4\\h(k) mod 4 = 3};
+    \node[note, anchor=north, align=center] at (38,31) {clés dispersées : charge égale, même pour des clés croissantes ;};
+    \node[note, anchor=north, align=center, text=Dred] at (38,25) {un intervalle de clés demande d'interroger toutes les partitions};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,25 @@
+% Index secondaire local (chaque partition indexe ses lignes) et global (l'index
+% est lui-même partitionné par la valeur indexée).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    part/.style={draw=#1, fill=#1Bg, line width=0.7pt, rounded corners=2pt, minimum width=30mm, minimum height=16mm, font=\sffamily\scriptsize, align=left, inner sep=2pt}]
+  \node[pillo=Dblue] at (36,60) {index local};
+  \node[part=Dblue] (a1) at (0,30) {P1 (clients 1 à 999)\\index produit :\\42 → c17, c803};
+  \node[part=Dblue] (a2) at (36,30) {P2 (clients 1000 à 1999)\\index produit :\\42 → c1204};
+  \node[part=Dblue] (a3) at (72,30) {P3 (clients 2000 à 2999)\\index produit :\\42 → c2550};
+  \node[soft=Dslate, minimum height=7mm, minimum width=26mm] (q1) at (36,48) {produit = 42 ?};
+  \foreach \i in {1,2,3} \draw[arr=Dorange] (q1) -- (a\i.north);
+  \node[note, anchor=north, align=center] at (36,18) {écriture : une partition ;\\lecture par produit : toutes les partitions};
+  \begin{scope}[xshift=118mm]
+    \node[pillo=Dgreen] at (36,60) {index global};
+    \node[part=Dgreen] (b1) at (0,30) {I1 (produits 0 à 1666)\\42 → c17, c803,\\c1204, c2550};
+    \node[part=Dgreen] (b2) at (36,30) {I2 (produits 1667 à 3332)};
+    \node[part=Dgreen] (b3) at (72,30) {I3 (produits 3333 à 4999)};
+    \node[soft=Dslate, minimum height=7mm, minimum width=26mm] (q2) at (36,48) {produit = 42 ?};
+    \draw[arr=Dorange] (q2) -- (b1.north);
+    \node[note, anchor=north, align=center] at (36,18) {lecture par produit : une partition d'index ;\\écriture : la partition des données et celle\\de l'index, souvent mise à jour en asynchrone};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

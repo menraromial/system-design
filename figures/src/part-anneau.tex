@@ -1,0 +1,28 @@
+% Hachage cohérent : chaque nœud place des jetons sur un anneau de hachages ; une
+% clé va au premier jeton qui la suit. Ajouter un nœud ne déplace que les clés
+% qui tombent avant ses jetons.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    jet/.style={circle, fill=#1, draw=white, line width=0.6pt, minimum size=4mm, inner sep=0pt, font=\sffamily\scriptsize\bfseries, text=white}]
+  \foreach \dx/\titre/\nouveau in {0/{un jeton par nœud}/0, 95/{ajout du nœud D}/1} {
+    \begin{scope}[xshift=\dx mm]
+      \node[pillo=Dslate] at (0,36) {\titre};
+      \draw[draw=Dslate, line width=1pt] (0,0) circle (25mm);
+      \foreach \a/\n/\c in {90/A/Dblue, 200/B/Dorange, 320/C/Dgreen} {
+        \node[jet=\c] at (\a:25) {\n};
+      }
+      \ifnum\nouveau=1
+        \node[jet=Dred] at (150:25) {D};
+        \draw[draw=Dred, line width=3pt, opacity=0.5] (90:25) arc (90:150:25);
+        \node[note, anchor=east, text=Dred, align=right] at (-28,18) {les clés entre A et D\\passent de B à D};
+      \fi
+      \foreach \a in {30, 60, 110, 130, 170, 240, 280, 300, 350} {
+        \node[circle, fill=Dslate, minimum size=1.4mm, inner sep=0pt] at (\a:25) {};
+      }
+    \end{scope}
+  }
+  \node[note, anchor=north, align=center] at (47,-30) {Une clé (point gris) appartient au premier jeton rencontré dans le sens\\inverse des aiguilles d'une montre. Avec un seul jeton par nœud, les arcs sont inégaux ;\\avec des centaines de jetons par nœud (nœuds virtuels), chaque nœud reçoit une part proche de la moyenne.};
+\end{tikzpicture}
+\end{document}

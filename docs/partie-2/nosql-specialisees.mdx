@@ -103,7 +103,7 @@ $$
 
 où $f(q_i, D)$ est le nombre d’occurrences du terme dans le document, $|D|$ la longueur du document, $\text{moy}$ la longueur moyenne des documents, et $\text{IDF}(q_i)$ un poids qui croît quand le terme est rare dans la collection. Un mot rare compte donc plus qu’un mot courant ; la fraction croît avec le nombre d’occurrences mais sature, et $k_1$ règle cette saturation ; un long document est pénalisé, d’autant plus que $b$ est proche de 1. Lucene, la bibliothèque sur laquelle reposent Elasticsearch et OpenSearch, utilise par défaut $k_1 = 1{,}2$ et $b = 0{,}75$[^lucene-bm25].
 
-Elasticsearch et son dérivé OpenSearch ajoutent à Lucene la répartition d’un index en fragments (shards) sur plusieurs machines, la réplication et une API HTTP ; le partitionnement est l’objet du ch. 26. PostgreSQL a sa propre recherche plein texte, avec un type `tsvector`, qui contient les termes analysés d’un texte, et un index GIN, qui est un index inversé.
+Elasticsearch et son dérivé OpenSearch ajoutent à Lucene la répartition d’un index en fragments (shards) sur plusieurs machines, la réplication et une API HTTP ; le partitionnement est l’objet du [ch. 26](partitionnement.mdx). PostgreSQL a sa propre recherche plein texte, avec un type `tsvector`, qui contient les termes analysés d’un texte, et un index GIN, qui est un index inversé.
 
 `recherche.py` range 500 000 textes de 40 mots dans PostgreSQL et dans OpenSearch 2.19. Les mots sont inventés (des syllabes assemblées) et tirés selon une loi de Zipf sur un vocabulaire de 30 000 mots, comme les mots d’une langue, où quelques mots sont très fréquents et la plupart rares. Il cherche ensuite trois mots de fréquences très différentes, puis deux mots ensemble.
 
@@ -218,7 +218,7 @@ Hypothèses : 100 millions de documents, un plongement de 768 nombres de 4 octe
 | Index pgvector, d’après le rapport mesuré (159 / 112) | 307 Go × 1,4 | ≈ 430 Go |
 | Mémoire d’une grosse machine | | 256 à 512 Go |
 
-Conclusion : un index HNSW se lit en mémoire, et à cette échelle il ne tient plus sur une machine ordinaire. On réduit les vecteurs (nombres sur 1 octet au lieu de 4, ou quantification par produits, qui en garde quelques dizaines d’octets[^ivf]), on réduit la dimension, ou l’on répartit l’index sur plusieurs machines (ch. 26).
+Conclusion : un index HNSW se lit en mémoire, et à cette échelle il ne tient plus sur une machine ordinaire. On réduit les vecteurs (nombres sur 1 octet au lieu de 4, ou quantification par produits, qui en garde quelques dizaines d’octets[^ivf]), on réduit la dimension, ou l’on répartit l’index sur plusieurs machines ([ch. 26](partitionnement.mdx)).
 :::
 
 :::calcul[Calcul : ce que coûte un mot fréquent]

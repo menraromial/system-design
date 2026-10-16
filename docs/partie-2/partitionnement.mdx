@@ -1,0 +1,290 @@
+---
+title: "Partitionnement (sharding)"
+sidebar_label: "26. Partitionnement (sharding)"
+description: "Découper les données entre plusieurs machines : par plages de clés, par hachage, hachage cohérent et nœuds virtuels, hachage jump, nombre fixe de partitions et découpage dynamique, rééquilibrage, index secondaires locaux et globaux, partitions et clés chaudes, routage des requêtes ; simulation sur un million de clés et mesures dans une grappe Citus (PostgreSQL réparti)."
+partie: 2
+chapitre: 26
+---
+
+import methodes from '@site/src/figures/part-methodes.svg';
+import anneau from '@site/src/figures/part-anneau.svg';
+import index from '@site/src/figures/part-index.svg';
+import routage from '@site/src/figures/part-routage.svg';
+
+Une base répartie sur dix nœuds range chaque clé sur le nœud `hash(clé) mod 10`. On ajoute un onzième nœud, et la règle devient `hash(clé) mod 11`. Sur un million de clés, 909 000 changent alors de nœud, soit 91 %, et il faut presque tout recopier pour en gagner un onzième. Avec un hachage cohérent ou un nombre fixe de partitions, l’ajout du même nœud ne déplace que 9 % des clés, la part qui revient au nouveau venu. Dans une vraie grappe Citus, ajouter un troisième nœud à deux autres a déplacé 10 partitions sur 32, 72 Mo, en 18 secondes, pendant que des insertions continuaient sans une erreur.
+
+Le partitionnement (partitioning, ou sharding) découpe les données en morceaux, les partitions, et range chaque morceau sur une machine. Il répond à ce que la réplication des [ch. 24](replication-leader.mdx) et [25](replication-multi.mdx) ne règle pas. La réplication copie toutes les données sur chaque réplique, si bien qu’elle multiplie les lectures possibles, mais pas la place ni le débit d’écriture. Les deux se combinent presque toujours. Chaque partition est répliquée, et chaque machine porte des répliques de plusieurs partitions. Les mots varient selon les systèmes (shard dans MongoDB, Elasticsearch et Citus, region dans HBase, tablet dans Bigtable, vnode dans Cassandra et Riak, range dans CockroachDB), mais ils désignent la même chose.
+
+Deux expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch26/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch26) : une simulation qui répartit un million de clés sur dix nœuds par plusieurs méthodes et en ajoute un onzième ([`hachage.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch26/hachage.py)), et une grappe Citus, l’extension de PostgreSQL qui répartit des tables entre plusieurs serveurs, où l’on interroge, rééquilibre et découpe une table partitionnée ([`citus.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch26/citus.py)).
+
+## Deux façons de découper
+
+<Figure svg={methodes} num="26.1" alt="À gauche, quatre partitions par plages de clés, a à f, g à m, n à s, t à z ; la dernière est en rouge, car des clés croissantes y tombent toutes. À droite, quatre partitions par hachage, h(k) mod 4 = 0 à 3 ; les clés sont dispersées, mais un intervalle de clés demande d’interroger toutes les partitions.">
+Partitionnement par plages de clés et par hachage de la clé.
+</Figure>
+
+Le partitionnement par plages de clés (range partitioning) donne à chaque partition un intervalle continu de clés. Les clés restent triées, si bien qu’une requête sur un intervalle (les commandes du 1er au 7 mars, les utilisateurs dont le nom commence par « Mar ») ne lit qu’une ou deux partitions. Les bornes ne sont pas forcément régulières, puisqu’elles suivent la répartition réelle des données, et une partition qui grossit se coupe en deux. C’est le choix de Bigtable et de HBase, de CockroachDB ([ch. 23](choisir-base.mdx)) et du partitionnement par plages de MongoDB. Son défaut tient à l’ordre lui-même. Si la clé croît avec le temps (une date, un identifiant séquentiel), toutes les nouvelles écritures tombent dans la dernière partition, et un seul nœud travaille pendant que les autres attendent.
+
+Le partitionnement par hachage (hash partitioning) range chaque clé selon une fonction de hachage de la clé. Deux clés voisines tombent dans des partitions sans rapport, et la charge se répartit de façon égale, même pour des clés croissantes. Le prix est la perte de l’ordre, car une requête sur un intervalle de clés doit interroger toutes les partitions. C’est le choix de Cassandra, de DynamoDB, de Citus, et du partitionnement par hachage de MongoDB. Un compromis courant consiste à hacher une partie de la clé seulement. Avec la clé composée (client, date) de Cassandra, la partition est choisie par le hachage du client, et les lignes d’un même client sont triées par date dans sa partition ([ch. 21](nosql-modeles.mdx)).
+
+`hachage.py` mesure ce défaut sur des clés croissantes. Une écriture par milliseconde pendant la dernière minute d’une journée, avec la date pour clé, réparties sur dix nœuds par plages de dates d’une journée découpée en dix, ou par hachage de la date :
+
+```text
+2. clés croissantes : 60 000 écritures pendant la dernière minute,
+   part reçue par le nœud le plus chargé
+   par plages de dates          100.0 %
+   par hachage de la date        10.3 %
+```
+
+Par plages, un nœud reçoit toutes les écritures ; par hachage, le plus chargé en reçoit 10,3 %, à peine plus que la moyenne de 10 %.
+
+## Répartir par hachage
+
+### Le modulo, et pourquoi il ne suffit pas
+
+La règle la plus simple, `hash(clé) mod N`, répartit bien les clés. Mais elle les lie au nombre de nœuds, et quand $N$ change, presque toutes les clés changent de nœud. Une clé reste en place seulement si `hash mod 10` et `hash mod 11` sont égaux, ce qui arrive pour une clé sur onze. C’est le résultat de la première ligne de la mesure ci-dessous, 90,9 % de clés déplacées pour un nœud ajouté. Pour une base, cela signifie recopier presque toutes les données ; pour un cache, perdre presque toutes ses entrées d’un coup ([ch. 17](cache-invalidation.mdx)).
+
+### Le hachage cohérent
+
+David Karger et ses collègues ont proposé en 1997 le hachage cohérent (consistent hashing) pour répartir des caches web, avec la propriété qu’ajouter ou retirer un cache ne déplace qu’une petite part des objets[^karger]. Les valeurs de hachage forment un anneau. Chaque nœud y place un ou plusieurs jetons (tokens), à des positions tirées du hachage de son nom, et une clé appartient au premier jeton qui la suit sur l’anneau. Ajouter un nœud, c’est ajouter ses jetons ; il prend les clés situées juste avant chacun d’eux, et aucune autre clé ne bouge.
+
+<Figure svg={anneau} num="26.2" alt="Deux anneaux. À gauche, trois jetons A, B et C et des clés grises réparties sur l’anneau. À droite, un jeton D est ajouté entre A et B ; l’arc entre A et D est surligné en rouge, et les clés de cet arc passent de B à D, les autres ne bougent pas.">
+Hachage cohérent : un nœud ajouté ne prend que les clés situées juste avant ses jetons.
+</Figure>
+
+Avec un seul jeton par nœud, les positions tirées au hasard découpent l’anneau en arcs très inégaux, et un nœud peut recevoir plusieurs fois la part d’un autre. La parade consiste à donner à chaque nœud des dizaines ou des centaines de jetons, qu’on appelle des nœuds virtuels (virtual nodes, vnodes). Chaque nœud reçoit alors la somme de nombreux petits arcs, proche de la moyenne. Dynamo en a fait la base de son partitionnement, avec l’avantage supplémentaire de pouvoir donner plus de jetons à une machine plus puissante[^dynamo] ; Cassandra en a hérité (paramètre `num_tokens`).
+
+### Le hachage jump et les partitions fixes
+
+John Lamping et Eric Veach ont publié en 2014 le hachage jump (jump consistent hash), une fonction de quelques lignes qui donne directement le numéro du nœud d’une clé parmi $N$, sans table ni anneau. D’après leur article, elle ne demande aucune mémoire, va plus vite que l’anneau et répartit mieux les clés, et elle ne déplace que la part nécessaire quand $N$ change ; sa limite est que les nœuds doivent être numérotés de 0 à $N - 1$, ce qui la destine au stockage plutôt qu’aux caches dont les serveurs vont et viennent[^jump].
+
+La dernière méthode sépare les deux étapes. On découpe une fois pour toutes l’espace des clés en un nombre fixe de partitions, beaucoup plus grand que le nombre de nœuds (1 024 dans la mesure), par `hash(clé) mod 1024`, et une table, petite, dit sur quel nœud se trouve chaque partition. Une clé ne change jamais de partition. Ajouter un nœud, c’est lui donner des partitions entières prises aux autres, en modifiant la table.
+
+`hachage.py` compare ces méthodes sur un million de clés et dix nœuds, puis ajoute un onzième nœud. La colonne « max/moy. » est le nombre de clés du nœud le plus chargé divisé par la moyenne ; « déplacées », la part des clés qui changent de nœud. Pour l’anneau, les positions des jetons dépendent d’un tirage, et le script en fait cinq.
+
+```text
+1 000 000 de clés, 10 nœuds, puis 11
+
+1. répartition et ajout d'un onzième nœud ; anneau : 5 tirages des jetons
+   méthode                      max/moy.      déplacées
+   modulo N                         1.00         90.9 %
+   anneau, 1 jeton/nœud         2.12-4.44     0.3-22.0 %
+   anneau, 16 jetons/nœud       1.39-1.86     5.7-11.0 %
+   anneau, 256 jetons/nœud      1.09-1.19     8.2-10.6 %
+   hachage jump                     1.00          9.1 %
+   1 024 partitions fixes           1.01          9.0 %
+```
+
+Le calcul est déterministe, et deux exécutions donnent les mêmes chiffres. L’idéal est d’avoir le même nombre de clés partout (1,00) et de déplacer 1/11 des clés, soit 9,1 %, la part du nouveau nœud. Le modulo répartit parfaitement mais déplace tout. L’anneau à un jeton par nœud ne déplace que la part du nouveau nœud, mais cette part est le fruit du hasard. Selon le tirage, le nouveau nœud a pris 0,3 % des clés ou 22 %, et le nœud le plus chargé portait de 2,1 à 4,4 fois la moyenne. Avec 16 jetons, le plus chargé porte encore jusqu’à 1,9 fois la moyenne ; avec 256, de 1,09 à 1,19. Le hachage jump et les partitions fixes atteignent l’idéal à 0,1 point près, sans tirage.
+
+## Rééquilibrer
+
+Rééquilibrer (rebalancing), c’est déplacer des données quand on ajoute ou retire un nœud, ou quand la charge change. Trois stratégies existent, qui se distinguent par ce qu’on déplace.
+
+Avec un nombre fixe de partitions, on déplace des partitions entières, et le nombre de partitions est choisi à la création. C’est le cas des index Elasticsearch, dont le nombre de fragments primaires se fixe à la création, et de Citus, où `citus.shard_count` vaut 32 par défaut[^citus-guc]. Il faut choisir ce nombre bien plus grand que le nombre de nœuds prévus, sans quoi on ne peut plus ajouter de nœuds utiles ; mais chaque partition a un coût fixe (fichiers, métadonnées, connexions), et des milliers de petites partitions en ajoutent beaucoup.
+
+Avec un partitionnement dynamique, une partition se coupe en deux quand elle dépasse une taille, et deux petites partitions voisines peuvent fusionner. C’est le cas de HBase, de Bigtable, de MongoDB et de CockroachDB, où la partition est une plage de clés. Le nombre de partitions suit le volume, mais une table vide commence avec une seule partition, sur un seul nœud, et il faut la découper à l’avance si l’on sait qu’elle va grossir vite.
+
+Avec des partitions proportionnelles aux nœuds, chaque nœud a un nombre fixe de jetons, et un nouveau nœud en ajoute, comme dans Cassandra.
+
+`citus.py` répartit une table de 2 millions de commandes, 100 par client pour 20 000 clients, en 32 partitions par hachage de `client_id`, sur deux nœuds de données. Il ajoute un troisième nœud et lance le rééquilibrage, pendant qu’un client insère des commandes en continu.
+
+```text
+Citus 14.2-1 sur PostgreSQL 18.4, un coordinateur et deux nœuds
+2 000 000 commandes chargées en 2 s (table répartie), 6 s (locale)
+
+1. répartition de la table commandes (32 partitions par hachage de client_id)
+   w1      16 partitions     106 Mo
+   w2      16 partitions     107 Mo
+
+2. requêtes, durée médiane (200 essais) et partitions interrogées
+   requête                          répartie     locale partitions
+   une commande par sa clé            1.2 ms     0.2 ms          1
+   les commandes d'un client          1.3 ms     0.6 ms          1
+   les commandes d'un produit         5.2 ms     1.3 ms         32
+   somme par produit                182.5 ms   114.1 ms         32
+
+3. ajout de w3 et rééquilibrage, pendant des insertions continues
+   rééquilibrage en 18 s : 10 partitions déplacées sur 32, 72 Mo
+   w1      11 partitions      72 Mo
+   w2      11 partitions      72 Mo
+   w3      10 partitions      72 Mo
+   insertions pendant ce temps : 5828, 0 erreur,
+   médiane 3.5 ms, pire 92 ms
+
+4. le client 0 passe à 500 000 commandes
+   partition du client 0 : 54 Mo ; médiane des autres : 7 Mo
+   isolement du client 0 en 1.1 s : 34 partitions, celle du client 0 fait 47 Mo
+```
+
+Trois passages ont été faits. Les répartitions, les nombres de partitions et les tailles sont identiques ; le rééquilibrage a pris 18 à 20 s, avec une pire insertion de 73 à 100 ms et aucune erreur ; les durées des requêtes ont varié à 15 % près, sauf la lecture d’une commande par sa clé, de 0,6 à 1,2 ms (0,1 à 0,2 ms sur la table locale).
+
+Le rééquilibrage a déplacé 10 partitions sur 32, la part du nouveau nœud, et chaque nœud porte ensuite 72 Mo. Il a pris 18 secondes pour 72 Mo, soit 4 Mo par seconde. Citus recopie chaque partition déplacée par réplication logique, puis bascule ses écritures vers le nouveau nœud, et sur ce portable les quatre serveurs se partagent un seul disque. Les insertions n’ont pas échoué ; la plus lente a pris 92 ms, contre 3,5 ms en médiane, pendant les basculements. À l’échelle de téraoctets, le même mécanisme prend des heures, et c’est pourquoi le rééquilibrage se lance à la main ou dans des fenêtres choisies, même quand le système sait le faire seul. Un rééquilibrage automatique déclenché par un nœud lent, que le système croit mort, ajoute la charge de la copie à un système déjà en difficulté.
+
+## Requêtes et index secondaires
+
+La deuxième partie de la mesure montre ce que le partitionnement fait aux requêtes. Une requête qui donne la clé de partition (`client_id`) ne touche qu’une partition, que le coordinateur trouve par le hachage. Elle coûte un peu plus que sur la table locale, 1,2 ms contre 0,2 ms, car le coordinateur la transmet au nœud qui porte la partition, sur le même portable. Une requête par produit, colonne qui n’est pas la clé de partition, doit interroger les 32 partitions, et coûte quatre fois plus que sur la table locale. La somme par produit sur toute la table interroge aussi les 32 partitions ; sur une seule machine, où les trois serveurs se partagent les mêmes cœurs, elle reste plus lente que sur la table locale. Sur des machines séparées, chaque nœud calculerait sa part avec ses propres processeurs et ses propres disques, et le coordinateur n’aurait plus qu’à additionner 32 résultats partiels.
+
+<Figure svg={index} num="26.3" alt="À gauche, un index local : trois partitions de clients, chacune avec son propre index par produit ; la requête produit = 42 interroge les trois. À droite, un index global : l’index par produit est lui-même partitionné par produit ; la requête produit = 42 n’interroge que la partition d’index qui couvre le produit 42, qui liste les commandes des trois partitions de données.">
+Index secondaire local et index secondaire global.
+</Figure>
+
+L’index sur `produit` est un index local (local secondary index), comme dans Citus, Cassandra, MongoDB et Elasticsearch, où chaque partition indexe ses propres lignes. Une écriture ne touche qu’une partition et son index, mais une lecture par produit interroge toutes les partitions, et attend la plus lente d’entre elles. Un index global (global secondary index) est lui-même partitionné, par la valeur indexée, si bien que toutes les entrées du produit 42 sont dans la même partition d’index, et la lecture n’en interroge qu’une. Le prix est à l’écriture, qui doit modifier la partition des données et, souvent sur un autre nœud, celle de l’index. DynamoDB, qui propose les deux, met à jour ses index globaux de façon asynchrone ; sa documentation prévient qu’une requête sur un index global peut renvoyer des résultats qui ne sont pas à jour, et qu’un index global sans assez de capacité d’écriture ralentit les écritures de la table elle-même[^dynamodb-gsi].
+
+Le choix de la clé de partition est donc le choix des requêtes rapides. Une application multiclient (multi-tenant) partitionne par client, et toutes les requêtes d’un client restent dans une partition, jointures comprises si les tables liées sont partitionnées par la même colonne, ce que Citus appelle la colocation des tables. Une requête qui ne connaît pas le client paie l’interrogation de toutes les partitions.
+
+## Partitions chaudes
+
+Un bon hachage répartit les clés également, mais pas la charge, si certaines clés sont beaucoup plus demandées que d’autres. `hachage.py` tire un million de requêtes selon une loi de Zipf sur le million de clés, comme les mots d’une langue ou les pages d’un site ([ch. 22](nosql-specialisees.mdx)) :
+
+```text
+3. popularité de Zipf (exposant 1) : 1 000 000 de requêtes
+   la clé la plus demandée : 6.9 % des requêtes
+   nœud le plus chargé : 16.6 % des requêtes (moyenne 10,0 %)
+   après salage des 100 clés les plus demandées : 11.5 %
+   (chaque lecture d'une clé salée doit interroger ses 10 sous-clés)
+```
+
+La clé la plus demandée reçoit à elle seule 6,9 % des requêtes, et le nœud qui la porte en reçoit 16,6 %, 1,7 fois la moyenne. Aucune méthode de partitionnement ne corrige cela, puisqu’une clé est toujours sur un seul nœud. La parade consiste à découper les clés chaudes, en ajoutant à chaque clé chaude un suffixe tiré au hasard parmi dix (le salage, salting), ce qui la répartit en dix sous-clés sur des nœuds différents. Le nœud le plus chargé redescend à 11,5 %. Le prix est à la lecture, qui doit interroger les dix sous-clés et combiner leurs réponses, et à la gestion, puisqu’il faut savoir quelles clés sont chaudes. Dans DynamoDB, ce découpage devient nécessaire assez vite, car chaque partition est conçue pour fournir au plus 3 000 unités de lecture et 1 000 unités d’écriture par seconde[^dynamodb-part], et sa documentation recommande, pour une clé trop écrite, d’ajouter un suffixe aléatoire ou calculé (write sharding).
+
+La quatrième partie de la mesure montre une autre forme de partition chaude, le gros client. Le client 0 passe de 100 à 500 000 commandes. Sa partition, qu’il partage avec quelque 620 autres clients (20 000 répartis en 32 partitions), passe à 54 Mo, quand la médiane des autres est de 7 Mo. Citus permet d’isoler un client dans une partition à lui (`isolate_tenant_to_new_shard`), qu’on peut ensuite déplacer sur un nœud dédié. La partition d’origine a été coupée en trois, les clients avant le client 0, le client 0 seul, et les clients après lui, d’où 34 partitions, et celle du client 0 fait 47 Mo. En bloquant les écritures sur cette partition, l’opération a pris 1,1 s. En mode en ligne, par réplication logique, elle est restée bloquée plus de douze minutes sur la machine des mesures, le processus d’application des modifications s’arrêtant et redémarrant en boucle, avant d’être interrompue.
+
+## Router les requêtes
+
+Il reste à savoir, pour chaque requête, quel nœud porte la partition. C’est un problème de découverte de services (ch. 36), et trois architectures existent.
+
+<Figure svg={routage} num="26.4" alt="Trois schémas. À gauche, le client connaît la carte des partitions et parle directement au nœud 3 (pilotes Cassandra à jetons, clients Redis Cluster). Au milieu, le client parle à un routeur, qui transmet au nœud 3 (mongos, coordinateur Citus, Vitess). À droite, le client parle au nœud 1, qui transmet au nœud 3 (coordinateur Cassandra, passerelle CockroachDB). En bas, la carte des partitions est tenue par ZooKeeper, etcd ou une propagation entre nœuds.">
+Trois façons de trouver la partition d’une clé.
+</Figure>
+
+Le client peut garder la carte des partitions et s’adresser directement au bon nœud, comme les pilotes de Cassandra qui connaissent les jetons, et les clients de Redis Cluster, que le serveur redirige (réponse `MOVED`) quand leur carte est périmée. Un routeur peut se placer devant les nœuds et transmettre chaque requête, comme mongos pour MongoDB, le coordinateur de Citus dans la mesure ou vtgate pour Vitess ; le client ne sait rien du partitionnement, au prix d’un saut de réseau, celui qui coûte 1 ms de plus dans la mesure. Enfin, n’importe quel nœud peut recevoir la requête et la transmettre au bon, comme le coordinateur de Cassandra ([ch. 25](replication-multi.mdx)) ou la passerelle de CockroachDB ([ch. 23](choisir-base.mdx)). Dans les trois cas, quelqu’un doit tenir la carte à jour pendant les rééquilibrages, qu’il s’agisse d’un service de coordination (ZooKeeper, etcd) pour HBase ou Vitess, ou une propagation entre nœuds (gossip) pour Cassandra et Riak.
+
+## Compromis
+
+| Méthode | Répartition | Requêtes sur un intervalle | Ajout d’un nœud | Systèmes |
+|---|---|---|---|---|
+| Plages de clés | suit les données ; clés croissantes sur une seule partition (100 % mesurés) | une ou deux partitions | découpage et déplacement de plages | HBase, Bigtable, CockroachDB, MongoDB (plages) |
+| `hash mod N` | parfaite | toutes les partitions | 91 % des clés déplacées (mesuré) | rarement pour des données, parfois pour des caches |
+| Anneau, peu de jetons | inégale (jusqu’à 4,4 fois la moyenne mesurés) | toutes | la part, aléatoire, du nouveau nœud | anciens systèmes à la Dynamo |
+| Anneau, nœuds virtuels | proche de la moyenne avec des centaines de jetons | toutes | ≈ 9 % des clés | Cassandra, Riak, Dynamo |
+| Hachage jump | parfaite | toutes | 9,1 % des clés, sans table | stockage à nœuds numérotés |
+| Nombre fixe de partitions | parfaite | toutes (par hachage) | des partitions entières, ≈ 9 % des clés | Citus, Elasticsearch, Redis Cluster |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : combien de partitions pour 50 To et 200 000 écritures par seconde]
+Hypothèses : 50 To de données, trois répliques de chaque partition ; on garde au plus 2 To par nœud, la moitié d’un disque de 4 To, pour laisser la place au compactage et à la croissance ; un nœud absorbe 10 000 écritures par seconde, de l’ordre des 10 800 transactions mesurées sur un portable au [ch. 23](choisir-base.mdx) ; on veut pouvoir multiplier la grappe par dix sans changer le nombre de partitions.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Données avec les répliques | 50 To × 3 | 150 To |
+| Nœuds pour la place | 150 To / 2 To | 75 |
+| Écritures sur les répliques | 200 000 × 3 | 600 000 /s |
+| Nœuds pour les écritures | 600 000 / 10 000 | 60 |
+| Nœuds retenus | le plus grand des deux | 75, arrondis à 80 |
+| Partitions, une dizaine par nœud à la grappe décuplée | 800 × 10 | ≈ 8 000, soit 8 192 |
+| Taille d’une partition | 50 To / 8 192 | ≈ 6 Go |
+| Écritures par partition | 200 000 / 8 192 | ≈ 24 /s |
+
+Conclusion : la place décide du nombre de nœuds, et non le débit. 8 192 partitions de 6 Go se déplacent chacune en quelques dizaines de secondes et laissent grandir la grappe jusqu’à 800 nœuds. Avec 80 partitions seulement, une par nœud, chaque partition ferait 625 Go, un déplacement prendrait des heures, et on ne pourrait plus ajouter de nœud sans découper.
+:::
+
+:::calcul[Calcul : le prix d’une requête qui interroge toutes les partitions]
+Hypothèses : une requête par une colonne non indexée globalement interroge 32 partitions en parallèle ; chaque partition répond en 2 ms en médiane et dépasse 20 ms une fois sur cent, indépendamment des autres ([ch. 9](../partie-1/latence-debit.mdx), la latence de queue).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Probabilité qu’une partition dépasse 20 ms | | 1 % |
+| Probabilité qu’au moins une des 32 dépasse 20 ms | 1 − 0,99³² | 27,5 % |
+| Avec 256 partitions | 1 − 0,99²⁵⁶ | 92 % |
+
+Conclusion : la requête attend la plus lente de ses partitions, et le 99e centile d’une partition devient la latence d’une requête sur quatre avec 32 partitions, et de presque toutes avec 256. Les requêtes fréquentes doivent donner la clé de partition, ou passer par un index global.
+:::
+
+:::calcul[Calcul : la durée d’un rééquilibrage]
+Hypothèses : une grappe de 10 nœuds porte 50 To (avec les répliques) ; on ajoute un onzième nœud, qui doit recevoir 1/11 des données ; on limite la copie à 200 Mo/s pour ne pas gêner la production ; la mesure a recopié 72 Mo en 18 s.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Données à déplacer | 50 To / 11 | ≈ 4,5 To |
+| Durée à 200 Mo/s | 4,5 × 10⁶ Mo / 200 Mo/s | ≈ 6,3 h |
+| Au débit de la mesure (4 Mo/s) | 4,5 × 10⁶ / 4 | ≈ 13 jours |
+| Avec `hash mod N` (91 % des données) | 45 To / 200 Mo/s | ≈ 63 h |
+
+Conclusion : ajouter un nœud prend des heures même avec un partitionnement qui ne déplace que le nécessaire, et des jours avec un modulo. Il faut ajouter de la capacité avant d’en manquer, et le débit de la mesure, obtenu avec quatre serveurs sur un seul disque, ne vaut pas pour une grande grappe, dont chaque nœud a ses propres disques.
+:::
+
+## Exemple réel
+
+**Notion : 480 partitions logiques sur 32 bases PostgreSQL.** Garrett Fidalgo a raconté en octobre 2021 le partitionnement de la base de Notion, jusque-là un seul PostgreSQL[^notion]. Le déclencheur a été l’entretien de la base. Le processus `VACUUM` ([ch. 18](transactions-isolation.mdx)) a commencé à prendre du retard en permanence, sans pouvoir récupérer l’espace des versions mortes, et l’équipe a vu approcher le repliement des identifiants de transaction (TXID wraparound), qui oblige PostgreSQL à refuser toute écriture ; l’article le décrit comme une menace existentielle pour le produit. L’équipe a écarté Citus et Vitess, faute de maîtriser leur logique de répartition, et a choisi un partitionnement dans l’application. Toutes les tables reliées aux blocs de documents ont été partitionnées par identifiant d’espace de travail (workspace), puisque chaque bloc appartient à un seul espace de travail et que les requêtes restent ainsi dans une partition. L’architecture compte 480 partitions logiques, chacune un schéma PostgreSQL, à raison de 15 par base, sur 32 bases physiques. Le nombre 480 a été choisi parce qu’il a beaucoup de diviseurs, si bien qu’on peut passer à 40 ou 48 machines en gardant une répartition égale, là où une puissance de 2 obligerait à doubler. La migration a combiné une double écriture, un rattrapage des données anciennes, qui a pris environ trois jours sur une machine de 96 processeurs, une vérification, et une bascule avec cinq minutes d’interruption programmée. L’article note aussi ce qui a été perdu. Les transactions ne valent plus qu’à l’intérieur d’une base, si bien que la suppression d’un bloc et la mise à jour d’un commentaire stockés sur deux partitions différentes peuvent réussir l’une sans l’autre.
+
+## Erreurs fréquentes
+
+Partitionner par `hash(clé) mod N`. Ajouter un nœud déplace 91 % des données ; on utilise un nombre fixe de partitions, des nœuds virtuels ou le hachage jump.
+
+Partitionner par plages une clé qui croît avec le temps. Toutes les écritures tombent sur la dernière partition (100 % mesurés) ; on hache la clé, ou on la préfixe par une valeur dispersée.
+
+Choisir un nombre de partitions égal au nombre de nœuds. On ne peut plus ajouter de nœud sans découper les partitions, opération longue ; on en prévoit dix à cent fois plus que de nœuds.
+
+Choisir une clé de partition sans regarder les requêtes. Une requête qui ne donne pas la clé interroge toutes les partitions (32 dans la mesure, quatre fois plus lente que sur une table locale) et attend la plus lente.
+
+Croire qu’un bon hachage supprime les partitions chaudes. Une clé populaire reste sur un nœud ; le plus chargé recevait 1,7 fois la moyenne sous une loi de Zipf.
+
+Partitionner trop tôt. Le partitionnement retire les transactions et les jointures entre partitions et complique chaque migration de schéma ; une machine tient longtemps ([ch. 23](choisir-base.mdx)).
+
+Rééquilibrer automatiquement sur une détection de panne. Une copie massive lancée parce qu’un nœud est lent aggrave la surcharge qui l’a rendu lent.
+
+:::piege[Erreur fréquente : « on partitionnera plus tard, il suffira d’ajouter des machines »]
+Le partitionnement se décide par la clé, et la clé s’inscrit partout : dans les requêtes, qui doivent la donner, dans les clés primaires et les index, dans les identifiants générés, dans le découpage des transactions. Notion a dû la propager dans toutes les tables reliées à ses blocs et a mis des mois à migrer. Sans partitionner tout de suite, on choisit la future clé de partition (le client, l’espace de travail) dès la conception, on l’ajoute aux tables et aux requêtes, et l’on évite les transactions qui mêlent plusieurs clients.
+:::
+
+:::entretien
+Dites la clé de partition et pourquoi : « par identifiant de client, car toutes les requêtes fréquentes sont celles d’un client, et ses tables sont colocalisées ». Puis donnez le nombre de partitions et sa justification (taille d’une partition, croissance), la méthode (nombre fixe de partitions par hachage), ce qui se passe à l’ajout d’un nœud, et le traitement des gros clients et des clés chaudes. Si une requête importante ne connaît pas la clé, dites comment vous la servez : index global, copie dans un moteur de recherche ([ch. 22](nosql-specialisees.mdx)), ou acceptation d’une requête sur toutes les partitions.
+:::
+
+## Exercices
+
+**Question 1.** Un service de messagerie range ses messages dans une table partitionnée. On hésite entre trois clés de partition : l’identifiant du message (un nombre croissant), l’identifiant de la conversation, et la date du message. Pour chacune, dites quelles requêtes sont rapides, lesquelles interrogent toutes les partitions, et où se trouvent les partitions chaudes.
+
+**Question 2.** Dans la mesure de `hachage.py`, l’anneau à un jeton par nœud n’a déplacé que 0,3 % des clés lors d’un des tirages, bien moins que l’idéal de 9,1 %. Pourquoi est-ce un mauvais résultat, et non un bon ?
+
+**Question 3.** Une table DynamoDB a pour clé de partition l’identifiant d’un événement sportif. Pendant une finale, 12 000 utilisateurs par seconde enregistrent un pronostic sur le même événement, des éléments de 1 Ko. Que se passe-t-il, et comment répartir ces écritures ? Que devient la lecture du nombre total de pronostics ?
+
+**Exercice de conception.** Un service de fichiers pour entreprises garde les métadonnées de 5 milliards de fichiers (500 octets chacune, avec les index) pour 2 millions d’entreprises clientes, dont la plus grande a 300 millions de fichiers. Les requêtes fréquentes sont « lister un dossier » et « lire les métadonnées d’un fichier » ; une requête rare est « chercher un fichier par nom dans toute l’entreprise ». Proposez la clé de partition, le nombre de partitions, la méthode, le traitement des grandes entreprises et le service de la recherche par nom. Chiffrez la taille d’une partition.
+
+## Corrigés
+
+**Question 1.** Par identifiant de message : la lecture d’un message par son identifiant touche une partition ; la lecture d’une conversation, la requête la plus fréquente, interroge toutes les partitions ; si le partitionnement est par plages, l’identifiant croissant envoie toutes les écritures sur la dernière partition, et par hachage la charge est égale. Par conversation : la lecture d’une conversation touche une partition, les messages y étant triés par date ; la lecture d’un message seul demande aussi la conversation ; les conversations très actives (un grand groupe) font des partitions chaudes, et les très longues des partitions grosses, qu’on découpe par période (conversation, mois), comme au [ch. 21](nosql-modeles.mdx). Par date : les messages d’une journée se lisent dans une partition, mais personne ne lit ainsi, et toutes les écritures du moment vont à la partition du jour, la plus chaude possible. La conversation est la bonne clé.
+
+**Question 2.** Avec un seul jeton par nœud, la part de chaque nœud est la longueur d’un arc tiré au hasard. Un nouveau nœud qui ne prend que 0,3 % des clés ne soulage presque pas les autres, qui gardent 99,7 % de la charge ; on a ajouté une machine qui ne sert à rien. Le but d’un ajout est de prendre 1/11 de la charge, et l’on veut déplacer exactement cette part, ni plus, ce que fait le modulo, ni moins. Dans le même tirage, le nœud le plus chargé portait plusieurs fois la moyenne, autre effet du même hasard. Les nœuds virtuels corrigent les deux défauts en faisant de chaque part la somme de nombreux arcs.
+
+**Question 3.** Un pronostic de 1 Ko consomme une unité d’écriture ; 12 000 par seconde sur une seule clé de partition dépassent de douze fois les 1 000 unités par seconde qu’une partition peut fournir, et les écritures sont refusées (throttling). On découpe la clé en `événement#k`, avec $k$ tiré au hasard entre 0 et 19, ce qui répartit les écritures sur vingt clés, 600 unités chacune, sous la limite. Le total des pronostics demande alors de lire les vingt clés et d’additionner. Si on le lit souvent, on tient plutôt un compteur par sous-clé, mis à jour à chaque pronostic, et une tâche ou un flux (ch. 27) additionne les vingt compteurs toutes les secondes dans un élément de synthèse.
+
+**Exercice de conception.**
+
+*Clé.* Par entreprise : lister un dossier et lire un fichier sont des requêtes d’une entreprise, et ses dossiers et fichiers restent dans la même partition, avec les transactions et les jointures locales.
+
+*Nombre et taille.* 5 milliards × 500 octets = 2,5 To de métadonnées, 7,5 To avec trois répliques. Avec 4 096 partitions fixes par hachage de l’entreprise, une partition moyenne fait 610 Mo, et l’on peut grandir de quelques dizaines à quelques centaines de nœuds sans découper.
+
+*Grandes entreprises.* La plus grande a 300 millions de fichiers, 150 Go, 250 fois une partition moyenne. On l’isole dans ses propres partitions, par une clé composée (entreprise, dossier racine) ou par une plage de dossiers, comme Citus isole un client ; elle reçoit ses propres nœuds. On isole de même toute entreprise qui dépasse, par exemple, dix fois la taille moyenne.
+
+*Recherche par nom.* Elle ne connaît pas le dossier, et interrogerait toutes les partitions de l’entreprise, voire toutes si l’entreprise est isolée sur plusieurs. Comme elle est rare, deux choix existent : un index global par (entreprise, nom), mis à jour de façon asynchrone, ou une copie des noms dans un moteur de recherche par entreprise ([ch. 22](nosql-specialisees.mdx)), alimentée par un flux de modifications (ch. 37), avec un retard de quelques secondes accepté.
+
+:::fiche
+- Partitionner découpe les données et les écritures entre machines ; on combine avec la réplication de chaque partition.
+- Plages de clés : intervalles rapides, clés croissantes sur une seule partition (100 % mesurés). Hachage : charge égale, intervalles sur toutes les partitions.
+- `hash mod N` déplace 91 % des clés à l’ajout d’un nœud ; hachage cohérent avec nœuds virtuels, hachage jump ou nombre fixe de partitions : ≈ 9 %, la part du nouveau nœud (mesuré).
+- Un jeton par nœud : déséquilibre jusqu’à 4,4 fois la moyenne ; 256 jetons : 1,1 à 1,2 (mesuré).
+- Rééquilibrage : partitions fixes (Citus, 32 par défaut ; Elasticsearch), découpage dynamique (HBase, MongoDB, CockroachDB), jetons par nœud (Cassandra). Mesuré : 10 partitions sur 32 déplacées en 18 s, aucune erreur.
+- Index local : écriture sur une partition, lecture sur toutes ; index global : lecture sur une partition, écriture en plus sur l’index, souvent asynchrone (DynamoDB).
+- Partitions chaudes : clés populaires (1,7 fois la moyenne sous Zipf), salage en sous-clés ; gros clients isolés dans leur propre partition.
+- Routage : client qui connaît la carte, routeur, ou nœud qui transmet ; carte dans ZooKeeper, etcd ou propagée entre nœuds.
+:::
+
+[^karger]: David Karger, Eric Lehman, Tom Leighton, Rina Panigrahy, Matthew Levine et Daniel Lewin, « Consistent Hashing and Random Trees: Distributed Caching Protocols for Relieving Hot Spots on the World Wide Web », *29th ACM Symposium on Theory of Computing (STOC ’97)*, 1997, p. 654-663, [doi:10.1145/258533.258660](https://doi.org/10.1145/258533.258660).
+[^dynamo]: Giuseppe DeCandia et al., « Dynamo: Amazon’s Highly Available Key-value Store », *SOSP ’07*, 2007, p. 205-220, section 4.2, [doi:10.1145/1294261.1294281](https://doi.org/10.1145/1294261.1294281).
+[^jump]: John Lamping et Eric Veach, « A Fast, Minimal Memory, Consistent Hash Algorithm », 2014, [arXiv:1406.2294](https://arxiv.org/abs/1406.2294).
+[^citus-guc]: Citus, « Configuration Reference », paramètre `citus.shard_count`, documentation, [docs.citusdata.com/en/stable/develop/api_guc.html](https://docs.citusdata.com/en/stable/develop/api_guc.html).
+[^dynamodb-gsi]: Amazon Web Services, « Using Global Secondary Indexes in DynamoDB », *Amazon DynamoDB Developer Guide*, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.html).
+[^dynamodb-part]: Amazon Web Services, « Best practices for designing and using partition keys effectively in DynamoDB », *Amazon DynamoDB Developer Guide*, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html).
+[^notion]: Garrett Fidalgo, « Herding elephants: Lessons learned from sharding Postgres at Notion », blog de Notion, 6 octobre 2021, [notion.com/blog/sharding-postgres-at-notion](https://www.notion.com/blog/sharding-postgres-at-notion).

@@ -102,7 +102,7 @@ Les baux de Facebook servent aussi contre l’avalanche. Chaque serveur memcache
 
 ## Les clés chaudes
 
-Une clé chaude (hot key) est une clé lue bien plus souvent que les autres : la fiche d’un produit en promotion, le profil d’une célébrité, le compteur d’un événement en direct. Dans un cache réparti sur plusieurs nœuds ([ch. 13](repartition-charge.mdx) et 26), chaque clé n’est que sur un nœud (dans Redis Cluster, celui qui porte son emplacement[^redis-cluster]) ; ajouter des nœuds augmente la capacité totale, mais pas celle d’une clé, qui reste celle du nœud qui la porte. Redis exécute toutes les commandes d’un nœud dans un seul fil d’exécution, comme le précise sa documentation, si bien que la capacité d’une clé est celle de ce fil[^redis-latence].
+Une clé chaude (hot key) est une clé lue bien plus souvent que les autres : la fiche d’un produit en promotion, le profil d’une célébrité, le compteur d’un événement en direct. Dans un cache réparti sur plusieurs nœuds ([ch. 13](repartition-charge.mdx) et [26](partitionnement.mdx)), chaque clé n’est que sur un nœud (dans Redis Cluster, celui qui porte son emplacement[^redis-cluster]) ; ajouter des nœuds augmente la capacité totale, mais pas celle d’une clé, qui reste celle du nœud qui la porte. Redis exécute toutes les commandes d’un nœud dans un seul fil d’exécution, comme le précise sa documentation, si bien que la capacité d’une clé est celle de ce fil[^redis-latence].
 
 `chaudes.py` lance quatre nœuds Redis indépendants et lit une clé de 1 Kio avec `redis-benchmark` (50 connexions par instance, 2 millions de lectures) : une instance contre un nœud, quatre instances contre le même nœud, puis quatre instances contre quatre nœuds qui portent chacun une copie de la clé.
 
