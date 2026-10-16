@@ -1,0 +1,312 @@
+---
+title: "NoSQL (2) : séries temporelles, recherche, vecteurs"
+sidebar_label: "22. NoSQL (2) : séries temporelles, recherche, vecteurs"
+description: "Séries temporelles (tranches de temps, compression par colonnes, rétention, sous-échantillonnage), moteurs de recherche (analyse des textes, index inversé, BM25, OpenSearch), bases vectorielles (plongements, recherche approchée des plus proches voisins avec HNSW et IVF, rappel contre latence) ; mesures avec TimescaleDB, PostgreSQL, OpenSearch et pgvector."
+partie: 2
+chapitre: 22
+---
+
+import tranches from '@site/src/figures/series-tranches.svg';
+import inverse from '@site/src/figures/index-inverse.svg';
+import hnsw from '@site/src/figures/hnsw-ivf.svg';
+import rappel from '@site/src/figures/vecteurs-rappel.svg';
+
+Trois questions reviennent dans presque toutes les applications et se posent mal à une base relationnelle. Que valaient ces mesures pendant la dernière heure, et que faire de celles du mois dernier ? Quels textes contiennent ces mots, et lesquels sont les plus pertinents ? Quels objets ressemblent à celui-ci ? Sur la machine des mesures, supprimer un jour de mesures de capteurs dans une table PostgreSQL ordinaire a pris 1,5 s et écrit 194 Mo de journal, contre 18 ms et 0,1 Mo dans TimescaleDB ; chercher un mot avec `ILIKE` dans 500 000 textes a pris une demi-seconde, contre quelques millisecondes avec un index inversé ; trouver les dix vecteurs les plus proches d’un vecteur parmi 200 000 a pris 39 ms par un parcours complet, contre 1,3 ms avec un index HNSW qui en a trouvé 99,5 %.
+
+Chacune de ces familles de bases repose sur une structure faite pour sa question : des tranches de temps compressées par colonnes, un index inversé des mots, un graphe ou des groupes de vecteurs voisins. Ce chapitre décrit ces structures et ce qu’elles coûtent. Il complète le [ch. 21](nosql-modeles.mdx), qui présentait les modèles généraux (clé-valeur, document, colonnes larges, graphe) ; le ch. 23 traitera du choix d’une base.
+
+Trois expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch22/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch22) : une série temporelle de 12 millions de mesures dans PostgreSQL et dans TimescaleDB ([`series.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch22/series.py)), la recherche de mots dans 500 000 textes avec PostgreSQL et OpenSearch ([`recherche.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch22/recherche.py)), et la recherche des plus proches voisins parmi 200 000 vecteurs avec pgvector ([`vecteurs.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch22/vecteurs.py)).
+
+## Séries temporelles
+
+Une série temporelle est une suite de mesures datées d’une même source : la température d’un capteur, le nombre de requêtes d’un serveur, le cours d’une action. Ces données ont quatre traits que les bases spécialisées exploitent. Elles arrivent presque toujours dans l’ordre du temps et ne sont presque jamais modifiées. Elles sont nombreuses, puisque 200 capteurs qui envoient une mesure toutes les dix secondes produisent 1,7 million de lignes par jour. Les requêtes portent sur un intervalle de temps (la dernière heure, le dernier mois), souvent avec un agrégat (moyenne, maximum, centile). Enfin, leur valeur décroît avec l’âge. On veut chaque mesure de la dernière semaine, des moyennes horaires pour l’année, et plus rien au-delà.
+
+<Figure svg={tranches} num="22.1" alt="Une hypertable faite de sept tranches d’un jour. La tranche du 1er janvier, en rouge, est supprimée d’un bloc par drop_chunks ; les tranches suivantes sont compressées ; celle du 7 janvier, en cours, reste en lignes. Le détail d’une tranche compressée montre, pour le capteur 42, trois colonnes : les dates, rangées par différences de différences (0, 0, 0), et les températures et humidités, voisines d’une mesure à l’autre, rangées par XOR en peu de bits.">
+Une hypertable découpée en tranches d’un jour, et le contenu d’une tranche compressée.
+</Figure>
+
+TimescaleDB, une extension de PostgreSQL, range une table de mesures (une hypertable) en tranches (chunks) qui couvrent chacune un intervalle de temps, ici un jour. Une requête sur la dernière heure ne lit que la tranche courante. Supprimer les données de plus d’une semaine revient à supprimer les tranches les plus anciennes, des fichiers entiers, sans toucher aux lignes une par une.
+
+Une tranche qui ne reçoit plus d’écritures peut être compressée. La compression range les mesures par colonnes, et non plus par lignes, pour chaque capteur (`segmentby`) et dans l’ordre du temps (`orderby`), en rangeant toutes les dates du capteur 42, puis toutes ses températures. Dans une colonne, les valeurs voisines se ressemblent, et chaque type a son algorithme. La documentation de TimescaleDB cite, pour les entiers et les dates, le codage par différences, par différences de différences, simple-8b et par plages, et pour les nombres à virgule flottante une compression par XOR[^ts-compression]. Des dates espacées de dix secondes exactement ont des différences toutes égales à 10, et des différences de différences toutes nulles, ce qui tient en un bit par date. Deux températures voisines ont presque tous leurs bits communs, et leur XOR ne garde que les bits qui changent. Ces deux idées viennent de Gorilla, la base de séries temporelles en mémoire de Facebook (plus loin)[^gorilla].
+
+Le sous-échantillonnage (downsampling) calcule à l’avance des agrégats par intervalle (une moyenne par heure et par capteur) et les garde plus longtemps que les mesures brutes. TimescaleDB les tient à jour par des agrégats continus (continuous aggregates), des vues matérialisées qui ne recalculent que les intervalles modifiés.
+
+`series.py` écrit les mesures de 200 capteurs, une toutes les dix secondes pendant sept jours (température et humidité au centième, qui varient lentement), soit 12 096 000 lignes, dans une table PostgreSQL ordinaire avec un index `(capteur, ts)`, puis dans une hypertable de TimescaleDB 2.30 avec le même index.
+
+```text
+12 096 000 mesures (200 capteurs, une toutes les 10 s, 7 jours)
+TimescaleDB 2.30.2
+
+1. place occupée et durée du chargement
+   table PostgreSQL ordinaire          1 059 Mo      52 s
+   hypertable, 7 tranches              1 167 Mo      44 s
+   hypertable compressée                 195 Mo       5 s (compression)
+   compressée, entiers (centièmes)        38 Mo
+   octets par mesure : 91.8 (ordinaire), 16.9 (compressée),
+   3.3 (compressée, entiers)
+
+2. requêtes, durée médiane
+                                      24 h, 1 capteur    horaire, 7 j
+   table PostgreSQL ordinaire                  8.3 ms         2014 ms
+   hypertable compressée                       7.3 ms         1064 ms
+   agrégat continu (par heure)                                  39 ms
+   (33 600 lignes dans l'agrégat, contre 12 096 000 mesures)
+
+3. rétention : supprimer le jour le plus ancien
+   DELETE, table ordinaire       1483 ms     194 Mo de journal
+      (1 728 000 lignes supprimées)
+   drop_chunks, hypertable         18 ms     0.1 Mo de journal
+      (1 tranche supprimée)
+```
+
+Le premier passage a donné les mêmes tailles et des durées à 11 % près.
+
+La table ordinaire occupe 92 octets par mesure, pour 28 octets de données (une date, un numéro de capteur et deux nombres de 8 octets), car chaque ligne de PostgreSQL porte un en-tête de 23 octets et un pointeur, et l’index `(capteur, ts)` en ajoute autant ([ch. 19](index-modelisation.mdx)). La compression ramène la série à 17 octets par mesure, cinq fois moins. Le type des valeurs compte ensuite plus que tout le reste. Les mêmes mesures rangées en centièmes entiers (2 001 pour 20,01 °C) tiennent en 3,3 octets par mesure, cinq fois moins encore. Un nombre à virgule flottante arrondi au centième n’a pas une écriture binaire courte (0,01 n’est pas représentable exactement), et le XOR de deux valeurs voisines garde beaucoup de bits ; un entier passe par le codage par différences, qui écrit la petite différence entre deux mesures successives.
+
+La requête qui lit les dernières 24 heures d’un capteur coûte à peu près la même chose partout, quelques millisecondes, car l’index `(capteur, ts)` sert les deux tables, et la compression ne gêne pas une lecture de 8 640 mesures. L’agrégat sur toute la semaine va deux fois plus vite sur la série compressée, qui lit 195 Mo au lieu de 1 Go, et 50 fois plus vite sur l’agrégat continu, qui ne contient que 33 600 lignes, une par capteur et par heure. C’est le sous-échantillonnage qui fait le gain le plus fort, à condition que la question porte sur des heures et non sur des mesures.
+
+La rétention montre l’intérêt des tranches. Supprimer un jour de la table ordinaire efface 1 728 000 lignes une par une, en 1,5 s, avec 194 Mo de journal et autant de versions mortes que `VACUUM` devra ensuite retirer ([ch. 18](transactions-isolation.mdx)). Supprimer la tranche du même jour dans l’hypertable supprime ses fichiers, en 18 ms et 0,1 Mo de journal. Une politique de rétention, chez TimescaleDB comme dans les autres bases de séries temporelles (Prometheus, InfluxDB, VictoriaMetrics), consiste à jeter régulièrement les tranches les plus anciennes, en gardant plus longtemps les agrégats.
+
+## Moteurs de recherche
+
+Un moteur de recherche répond à une question que les index du [ch. 19](index-modelisation.mdx) ne servent pas : quels textes contiennent ces mots, classés du plus pertinent au moins pertinent ? Un B-tree trie des valeurs complètes ; il ne sait pas retrouver un mot au milieu d’un texte, et `LIKE '%mot%'` oblige à lire tous les textes.
+
+### Analyser le texte
+
+Avant d’entrer dans l’index, chaque texte passe par une analyse. Un découpeur (tokenizer) le coupe en mots ; des filtres mettent les mots en minuscules, retirent les mots vides (« le », « dans »), et réduisent chaque mot à sa racine (racinisation, stemming), pour que « chevaux » et « cheval » se retrouvent. La même analyse est appliquée à la requête, sans quoi la requête et l’index ne parleraient pas des mêmes termes. `recherche.py` montre ce que deux analyseurs français font de la même phrase :
+
+```text
+0. analyse de la phrase
+   « Les chevaux galopaient librement dans les grandes prairies normandes »
+   OpenSearch (french) :
+      cheval galopaient libr grand prai normand
+   PostgreSQL (french) :
+      'cheval':2 'galop':3 'grand':7 'le':1,6 'libr':4 'normand':9 'prair':8
+   « galoper » : OpenSearch galop, PostgreSQL 'galop':1
+```
+
+Les deux ramènent « chevaux » à « cheval » et retirent « dans », mais ils ne coupent pas les mots au même endroit. OpenSearch garde « galopaient » et réduit « prairies » à « prai », alors que PostgreSQL réduit « galopaient » à « galop » et garde « le ». Une recherche de « galoper » trouvera la phrase avec PostgreSQL et pas avec cet analyseur d’OpenSearch. Le choix de l’analyse décide de ce qui sera trouvé, et changer d’analyse oblige à réindexer tous les textes.
+
+### L’index inversé
+
+<Figure svg={inverse} num="22.2" alt="Trois documents passent par l’analyse (minuscules, mots vides retirés, racinisation). L’index associe chaque terme à la liste des documents qui le contiennent : chev → 1, 2, 3 ; galop → 1 ; noir → 2 ; prair → 3. La requête « chevaux noirs » croise les listes de chev et de noir et trouve le document 2 ; le score BM25 ordonne les documents trouvés.">
+L’index inversé, où chaque terme renvoie à la liste des documents qui le contiennent.
+</Figure>
+
+L’index inversé (inverted index) associe à chaque terme la liste triée des documents qui le contiennent, avec, pour chacun, le nombre d’occurrences et souvent leurs positions. Chercher un mot revient à lire sa liste ; chercher deux mots, à croiser deux listes triées, ce qui se fait en un seul passage. Le coût dépend de la longueur des listes, donc de la fréquence des mots, et non du nombre total de textes.
+
+Il reste à classer les documents trouvés. BM25, la fonction de pertinence formalisée par Stephen Robertson et ses collègues et décrite en détail par Robertson et Hugo Zaragoza[^bm25], donne à un document $D$ pour une requête faite des termes $q_1, \dots, q_n$ le score
+
+$$
+\text{score}(D) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D)\,(k_1 + 1)}{f(q_i, D) + k_1 \left(1 - b + b \cdot \frac{|D|}{\text{moy}}\right)}
+$$
+
+où $f(q_i, D)$ est le nombre d’occurrences du terme dans le document, $|D|$ la longueur du document, $\text{moy}$ la longueur moyenne des documents, et $\text{IDF}(q_i)$ un poids qui croît quand le terme est rare dans la collection. Un mot rare compte donc plus qu’un mot courant ; la fraction croît avec le nombre d’occurrences mais sature, et $k_1$ règle cette saturation ; un long document est pénalisé, d’autant plus que $b$ est proche de 1. Lucene, la bibliothèque sur laquelle reposent Elasticsearch et OpenSearch, utilise par défaut $k_1 = 1{,}2$ et $b = 0{,}75$[^lucene-bm25].
+
+Elasticsearch et son dérivé OpenSearch ajoutent à Lucene la répartition d’un index en fragments (shards) sur plusieurs machines, la réplication et une API HTTP ; le partitionnement est l’objet du ch. 26. PostgreSQL a sa propre recherche plein texte, avec un type `tsvector`, qui contient les termes analysés d’un texte, et un index GIN, qui est un index inversé.
+
+`recherche.py` range 500 000 textes de 40 mots dans PostgreSQL et dans OpenSearch 2.19. Les mots sont inventés (des syllabes assemblées) et tirés selon une loi de Zipf sur un vocabulaire de 30 000 mots, comme les mots d’une langue, où quelques mots sont très fréquents et la plupart rares. Il cherche ensuite trois mots de fréquences très différentes, puis deux mots ensemble.
+
+```text
+500 000 textes de 40 mots, vocabulaire de 30 000 mots (Zipf)
+OpenSearch 2.19.6
+
+1. chargement
+   PostgreSQL :   32 s, table 660 Mo, index GIN 63 Mo
+   OpenSearch :   35 s, index 115 Mo (textes et index inversé)
+
+2. recherche, durée médiane sur 5
+   mot (rang)               textes    ILIKE  plein texte  OpenSearch
+                                                           (serveur)
+   zaka (10)               154 230   509 ms     174.9 ms      8.9 ms
+                                                              (6 ms)
+   kaco (1000)               1 843   514 ms       2.9 ms      7.6 ms
+                                                              (5 ms)
+   gridrobabri (20000)         101   577 ms       0.7 ms      7.1 ms
+                                                              (4 ms)
+   deux mots (1000, 2000)        3                0.8 ms      5.7 ms
+                                                              (3 ms)
+```
+
+Le premier passage a donné des durées à 10 % près pour les requêtes de plus de 2 ms, et à 30 % près pour les plus courtes.
+
+`ILIKE '%mot%'` coûte une demi-seconde quel que soit le mot, puisqu’il lit les 660 Mo de la table et cherche le motif dans chaque texte ; il trouve d’ailleurs aussi les mots qui contiennent le motif, ce qu’une recherche de mots ne doit pas faire. Avec l’index GIN, le coût suit la longueur de la liste du mot. Pour un mot rare (101 textes), PostgreSQL répond en moins d’une milliseconde, plus vite qu’OpenSearch, dont le temps vu par le client comprend la requête HTTP et la sérialisation en JSON ; le serveur annonce 4 ms sur 7. Pour le mot le plus fréquent (154 230 textes, un tiers de la collection), PostgreSQL met 175 ms et OpenSearch 9 ms. Pour classer les résultats, PostgreSQL calcule `ts_rank` sur chaque texte trouvé, et sa documentation prévient que le classement peut être coûteux, puisqu’il doit consulter le `tsvector` de chaque document trouvé[^pg-rang]. Lucene, depuis sa version 8, découpe les listes en blocs dont il garde le score maximal, et saute les blocs qui ne peuvent pas entrer dans les dix meilleurs, l’algorithme block-max WAND ; Adrien Grand rapporte des recherches d’un mot de 3 à 7 fois plus rapides, au prix d’un nombre total de résultats qui n’est plus toujours exact[^wand].
+
+La place est comparable, 63 Mo pour l’index GIN seul et 115 Mo pour l’index d’OpenSearch, qui garde aussi les textes. La différence pour la conception est ailleurs. La recherche plein texte de PostgreSQL vit dans la base, dans les mêmes transactions que les données ; un moteur de recherche est une seconde copie, qu’il faut alimenter à chaque écriture (ch. 37 pour le faire de façon fiable) et qui est en retard sur la base, mais qui sait classer vite des listes longues, gérer de nombreuses langues et répartir l’index sur plusieurs machines.
+
+## Bases vectorielles
+
+Un plongement (embedding) est un vecteur de quelques centaines de nombres qu’un modèle d’apprentissage associe à un texte, une image ou un son, de façon que deux objets semblables aient des vecteurs proches. Tomas Mikolov et ses collègues ont montré en 2013 qu’un réseau entraîné à prédire les mots voisins d’un mot produit des vecteurs de mots où la proximité suit le sens[^mikolov] ; les modèles actuels font de même pour des phrases entières. Chercher les textes qui parlent du même sujet qu’une question, sans partager ses mots, devient alors chercher les vecteurs les plus proches du vecteur de la question, ce qu’on appelle la recherche des k plus proches voisins (k-nearest neighbors).
+
+La recherche exacte compare la requête à chaque vecteur. Pour un million de vecteurs de dimension 768, c’est 768 millions de multiplications par requête. Les index de recherche approchée (approximate nearest neighbor, ANN) ne comparent la requête qu’à une petite partie des vecteurs, et acceptent de manquer parfois un vrai voisin. On mesure ce qu’ils manquent par le rappel (recall), la part des k vrais plus proches voisins que la réponse contient.
+
+<Figure svg={hnsw} num="22.3" alt="À gauche, HNSW : trois niveaux de graphe, de plus en plus denses vers le bas. La recherche entre par un point du niveau 2, va vers le voisin le plus proche de la requête, descend au niveau 1, puis au niveau 0, et s’arrête près de la requête, marquée d’une étoile. À droite, IVF : cinq groupes de points autour de leurs centres ; la requête, entre deux groupes, ne visite que les deux groupes les plus proches.">
+Deux index de recherche approchée, le graphe à niveaux de HNSW et les groupes d’IVF.
+</Figure>
+
+HNSW (hierarchical navigable small world), proposé par Yury Malkov et Dmitry Yashunin, relie chaque vecteur à quelques voisins proches dans un graphe, et superpose des niveaux de moins en moins peuplés[^hnsw]. La recherche entre par le niveau le plus haut, avance de voisin en voisin vers la requête tant qu’elle s’en rapproche, descend d’un niveau, et recommence ; au dernier niveau, elle garde une liste de candidats dont la taille (`ef_search` dans pgvector) règle le compromis entre rappel et latence. IVF (inverted file), décrit par Hervé Jégou, Matthijs Douze et Cordelia Schmid avec la quantification qui l’accompagne souvent[^ivf], regroupe les vecteurs autour de centres calculés par k-moyennes, et ne parcourt, pour une requête, que les groupes (`probes`) dont le centre est le plus proche.
+
+La documentation de pgvector résume leurs différences : HNSW offre un meilleur compromis entre vitesse et rappel qu’IVFFlat, mais se construit plus lentement et occupe plus de mémoire ; IVFFlat se construit plus vite et occupe moins de mémoire, pour de moins bonnes performances de recherche ; et un index approché peut rendre des résultats différents de la recherche exacte[^pgvector].
+
+`vecteurs.py` range 200 000 vecteurs de dimension 128 dans PostgreSQL avec pgvector 0.8. Les vecteurs sont tirés autour de 2 000 centres, ce qui leur donne la structure en groupes des plongements réels sans exiger un modèle d’apprentissage ; 200 requêtes, tirées de la même façon, cherchent leurs dix plus proches voisins, et la vérité est calculée par force brute.
+
+```text
+200 000 vecteurs de dimension 128 (112 Mo), 200 requêtes, 10 voisins
+pgvector 0.8.7
+
+   méthode et réglage             rappel@10     latence
+   exacte (parcours complet)          1.000     39.2 ms   (20 requêtes)
+
+   HNSW : construit en 22 s, 159 Mo
+   ef_search = 10                     0.855     1.16 ms
+   ef_search = 20                     0.950     1.22 ms
+   ef_search = 40                     0.995     1.30 ms
+   ef_search = 80                     1.000     1.21 ms
+   ef_search = 160                    1.000     2.20 ms
+   ef_search = 400                    1.000     5.34 ms
+
+   IVFFlat : construit en 4 s, 106 Mo
+   probes = 1                         0.896     1.13 ms
+   probes = 4                         0.966     2.58 ms
+   probes = 16                        0.992     8.60 ms
+   probes = 64                        1.000    33.29 ms
+```
+
+<Figure svg={rappel} num="22.4" alt="Rappel@10 en fonction de la latence médiane, sur une échelle logarithmique. La courbe de HNSW monte de 0,855 à 0,995 entre 1,16 et 1,30 ms, puis reste à 1,0 jusqu’à 5,3 ms ; celle d’IVFFlat monte de 0,90 à 1,0 entre 1,1 et 33 ms ; la recherche exacte est un point à 1,0 et 39 ms.">
+Rappel contre latence, pour HNSW et IVFFlat, sur 200 000 vecteurs de dimension 128.
+</Figure>
+
+Le premier passage a donné des rappels à 0,05 près et des latences à 30 % près.
+
+La recherche exacte lit les 112 Mo de vecteurs et calcule 200 000 distances, en 39 ms. HNSW trouve 99,5 % des vrais voisins en 1,3 ms avec le réglage par défaut de pgvector (`ef_search` = 40), trente fois plus vite ; avec 10 candidats seulement, il n’en trouve plus que 85,5 %, et au-delà de 80, le rappel ne progresse plus alors que la latence augmente. IVFFlat est rapide quand il ne visite qu’un groupe (90 % de rappel en 1,1 ms), mais pour dépasser 99 % il doit en visiter 16 sur 450, en 8,6 ms, et sa latence croît comme le nombre de groupes visités. La construction inverse le classement, avec 4 s pour IVFFlat et 22 s pour HNSW, qui occupe aussi 159 Mo contre 106. Les latences sous 2 ms sont surtout celles de l’aller-retour et de la conversion du vecteur en texte ; la recherche elle-même ne coûte presque rien dans ce cas.
+
+Ces chiffres valent pour des données de synthèse en groupes bien marqués. Sur de vrais plongements, plus mêlés et de plus grande dimension (768 ou 1 536 nombres), il faut plus de candidats pour le même rappel, et le seul moyen de connaître le réglage est de mesurer le rappel sur un échantillon de requêtes, en comparant à la recherche exacte, comme le recommande la documentation de pgvector[^pgvector].
+
+## Compromis
+
+| Famille | Structure | Ce qu’elle sert | Ce qu’elle coûte | Systèmes représentatifs |
+|---|---|---|---|---|
+| Séries temporelles | tranches de temps, compression par colonnes, agrégats continus | intervalles de temps, agrégats, rétention par tranches entières | modifications et suppressions ponctuelles chères ; requêtes hors du temps peu servies | TimescaleDB, Prometheus, InfluxDB, VictoriaMetrics |
+| Recherche plein texte dans la base | `tsvector` et index GIN | recherche de mots dans des données déjà en base, transactionnelle | classement coûteux pour les mots fréquents ; analyse moins riche | PostgreSQL, MySQL |
+| Moteur de recherche | index inversé, BM25, fragments | pertinence, mots fréquents, facettes, gros volumes | une seconde copie des données à alimenter, cohérence à terme avec la base | Elasticsearch, OpenSearch, Solr |
+| Vecteurs, index HNSW | graphe à niveaux | rappel élevé à faible latence | construction lente, beaucoup de mémoire | pgvector, Qdrant, Milvus, OpenSearch |
+| Vecteurs, index IVF | groupes autour de centres | construction rapide, mémoire réduite | rappel qui dépend du nombre de groupes visités | pgvector, FAISS, Milvus |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la place d’une flotte de capteurs]
+Hypothèses : 100 000 capteurs envoient deux valeurs toutes les 10 secondes ; on garde les mesures brutes 30 jours et des moyennes horaires 2 ans ; les tailles par mesure sont celles mesurées (92 octets en table ordinaire, 17 compressées en flottants, 3,3 compressées en entiers).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Mesures par jour | 100 000 × 8 640 | 864 millions |
+| 30 jours, table ordinaire | 864 × 10⁶ × 30 × 92 o | ≈ 2,4 To |
+| 30 jours, compressées en flottants | 864 × 10⁶ × 30 × 16,9 o | ≈ 440 Go |
+| 30 jours, compressées en entiers | 864 × 10⁶ × 30 × 3,3 o | ≈ 86 Go |
+| Moyennes horaires sur 2 ans (une ligne par capteur et par heure, ≈ 92 o) | 100 000 × 17 520 × 92 o | ≈ 160 Go |
+
+Conclusion : le stockage des mesures brutes passe de 2,4 To à 86 Go selon la structure et le type des valeurs, ce qui décide s’il faut une machine ou dix. Les agrégats sur deux ans pèsent alors plus que les mesures brutes d’un mois. On peut les compresser à leur tour, ou ne garder au-delà de trois mois que des moyennes quotidiennes.
+:::
+
+:::calcul[Calcul : la mémoire d’un index vectoriel]
+Hypothèses : 100 millions de documents, un plongement de 768 nombres de 4 octets chacun ; index HNSW avec $m = 16$, soit environ $2m = 32$ voisins de 4 octets au niveau le plus bas ; la mesure donne un index de 159 Mo pour 112 Mo de vecteurs.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Vecteurs bruts | $10^8 \times 768 \times 4$ o | ≈ 307 Go |
+| Liste des voisins du niveau 0 | $10^8 \times 32 \times 4$ o | ≈ 13 Go |
+| Index pgvector, d’après le rapport mesuré (159 / 112) | 307 Go × 1,4 | ≈ 430 Go |
+| Mémoire d’une grosse machine | | 256 à 512 Go |
+
+Conclusion : un index HNSW se lit en mémoire, et à cette échelle il ne tient plus sur une machine ordinaire. On réduit les vecteurs (nombres sur 1 octet au lieu de 4, ou quantification par produits, qui en garde quelques dizaines d’octets[^ivf]), on réduit la dimension, ou l’on répartit l’index sur plusieurs machines (ch. 26).
+:::
+
+:::calcul[Calcul : ce que coûte un mot fréquent]
+Hypothèses : les mesures de la recherche, sur 500 000 textes ; un service de recherche reçoit 200 requêtes par seconde d’un mot, dont la moitié porte sur des mots courants comme celui de rang 10.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Processeur pour `ILIKE` | 200 × 0,51 s | 102 cœurs |
+| PostgreSQL plein texte | 100 × 175 ms + 100 × 1 ms | 17,6 s par seconde, 18 cœurs |
+| OpenSearch, temps du serveur | 100 × 6 ms + 100 × 4 ms | 1 s par seconde, 1 cœur |
+
+Conclusion : le coût d’un moteur de recherche est fixé par les mots fréquents. PostgreSQL suffit si l’on ne classe pas les résultats ou si les requêtes portent sur des mots rares ; dès qu’il faut les dix meilleurs résultats pour des mots courants, un index qui saute les listes non compétitives gagne un ordre de grandeur.
+:::
+
+## Exemple réel
+
+**Gorilla, la base de séries temporelles de Facebook.** Tuomas Pelkonen et ses collègues ont décrit en 2015 la base en mémoire qui servait de cache aux 26 dernières heures des métriques de surveillance de Facebook[^gorilla]. Au printemps 2015, ces systèmes produisaient plus de 2 milliards de séries distinctes et environ 12 millions de points par seconde, soit plus de mille milliards de points par jour ; à 16 octets par point (une date et une valeur de 8 octets), garder 26 heures en mémoire aurait demandé 16 To. L’équipe a adapté un schéma de compression des nombres à virgule flottante par XOR, et codé les dates par différences de différences, pour descendre à 1,37 octet par point en moyenne, douze fois moins. Les données en mémoire ont réduit la latence des requêtes d’un facteur 73 par rapport à l’ancien stockage sur HBase, et permis de nouveaux outils, comme la recherche de séries corrélées. Pour la fiabilité, Gorilla tournait dans plusieurs régions, alimentées en parallèle sans garantie de cohérence entre elles, un choix que l’article justifie par l’usage, une métrique de surveillance un peu incomplète valant mieux qu’une métrique indisponible.
+
+## Erreurs fréquentes
+
+Ranger des mesures dans une table ordinaire et les supprimer par `DELETE`. La suppression devient un travail quotidien qui écrit autant de journal que l’insertion et laisse des versions mortes (1,5 s et 194 Mo mesurés pour un jour, contre 18 ms en supprimant une tranche).
+
+Stocker en nombres à virgule flottante des mesures qui ont une précision fixe. Le même capteur compressé occupe cinq fois plus de place en flottants qu’en centièmes entiers (16,9 contre 3,3 octets par mesure, mesurés).
+
+Garder les mesures brutes pour répondre à des questions horaires. Un agrégat continu répond 50 fois plus vite (39 ms contre 2 s, mesurés) et permet de jeter les mesures brutes plus tôt.
+
+Chercher du texte avec `LIKE '%mot%'`. Le coût est celui de la table entière, à chaque requête, et le résultat contient aussi les mots qui contiennent le motif.
+
+Changer d’analyseur, ou de version d’analyseur, sans réindexer. Les termes de l’index et ceux de la requête ne correspondent plus, et des documents deviennent introuvables sans erreur visible.
+
+Traiter un moteur de recherche comme la source de vérité. Il est alimenté après la base, avec du retard, et une écriture perdue ne s’y voit pas ; on doit pouvoir le reconstruire depuis la base.
+
+Choisir un index vectoriel sans mesurer son rappel. Un réglage trop bas manque des voisins sans erreur ni avertissement (85,5 % de rappel mesuré avec `ef_search` = 10), et le bon réglage dépend des données.
+
+:::piege[Erreur fréquente : « on mettra tout dans la base vectorielle »]
+Une recherche par plongements trouve des textes proches par le sens, mais rate souvent ce qu’une recherche de mots trouve sans peine : un numéro de commande, un nom propre rare, une référence de produit. On peut combiner les deux, un classement BM25 et un classement par plongements dont on fusionne les listes, comme dans l’exercice de conception. Avant de remplacer un index inversé, comparez les deux sur de vraies requêtes de vos utilisateurs.
+:::
+
+:::entretien
+Pour des métriques, des journaux ou des données de capteurs, dites comment vous découpez dans le temps, combien de temps vous gardez chaque niveau de détail et ce que coûte un jour : « tranches d’un jour, compressées après 24 heures ; mesures brutes 30 jours, moyennes horaires 2 ans ; 864 millions de mesures par jour, environ 3 Go compressés ». Pour la recherche, dites quelle copie fait foi, comment l’index est alimenté et avec quel retard.
+:::
+
+## Exercices
+
+**Question 1.** Un service de surveillance garde les mesures de 20 000 serveurs, 50 métriques chacun, une valeur toutes les 15 secondes. Il les garde 15 jours en détail et 13 mois en moyennes de 5 minutes. Combien de points reçoit-il par seconde ? Quelle place occupent les mesures brutes à 1,37 octet par point, le chiffre de Gorilla, puis à 17 octets par point ?
+
+**Question 2.** Une boutique cherche ses produits avec `WHERE nom ILIKE '%' || :saisie || '%'` dans PostgreSQL. Le catalogue passe de 10 000 à 5 millions de produits, et la recherche devient lente. Proposez deux corrections, l’une dans PostgreSQL, l’autre avec un moteur de recherche, et dites ce que chacune change pour la cohérence entre la recherche et le catalogue.
+
+**Question 3.** Dans la mesure des vecteurs, pourquoi le rappel d’IVFFlat avec une seule liste visitée (0,90) est-il plus élevé que celui de HNSW avec 10 candidats (0,855), alors que HNSW est meilleur dans tous les autres réglages ?
+
+**Exercice de conception.** Une plateforme d’aide en ligne compte 2 millions d’articles en dix langues, mis à jour une centaine de fois par heure. Les utilisateurs posent des questions en langage courant (« je n’arrive pas à changer mon mot de passe ») et attendent les cinq articles les plus utiles en moins de 300 ms. Proposez l’architecture de recherche : stockage des articles, index de mots, plongements, combinaison des résultats, alimentation des index à chaque mise à jour. Chiffrez la mémoire de l’index vectoriel et le retard acceptable entre une mise à jour et sa présence dans les résultats.
+
+## Corrigés
+
+**Question 1.** 20 000 × 50 = 1 million de séries, une valeur toutes les 15 s, soit environ 66 700 points par seconde et 5,8 milliards par jour. Sur 15 jours, 86 milliards de points occupent 120 Go à 1,37 octet par point, et 1,5 To à 17 octets. Les moyennes de 5 minutes sur 13 mois font 1 million × 288 × 395 = 114 milliards de valeurs, plus que les mesures brutes de 15 jours. C’est pourquoi on garde au-delà de quelques semaines des moyennes horaires, ou des moyennes de 5 minutes seulement pour les métriques importantes.
+
+**Question 2.** Dans PostgreSQL, un index de trigrammes (extension `pg_trgm`, index GIN) sert `ILIKE '%...%'` sans changer la requête ; une recherche plein texte (`tsvector`, index GIN) sert la recherche de mots, avec racinisation, mais ne trouve plus les fragments de mots. Dans les deux cas, l’index est dans la base, mis à jour dans la même transaction que le produit, et la recherche est toujours à jour. Avec un moteur de recherche, on gagne la tolérance aux fautes de frappe, le classement par pertinence et les facettes, mais l’index est une seconde copie alimentée après chaque modification du catalogue ; il est en retard de quelques secondes au moins, et il faut traiter les mises à jour perdues (ch. 37) et pouvoir le reconstruire depuis la base.
+
+**Question 3.** Les vecteurs sont tirés autour de 2 000 centres, et IVFFlat range les 200 000 vecteurs en 450 groupes calculés par k-moyennes. Les voisins d’une requête appartiennent presque tous à son groupe d’origine, qui tombe en général dans une seule liste, la plus proche de la requête. Visiter cette seule liste suffit donc souvent. HNSW avec 10 candidats ne garde que dix points à la fois dans sa descente ; quand le groupe de la requête contient plus de dix voisins proches, il en manque une partie. Sur des données moins nettement groupées, IVFFlat avec une seule liste manquerait beaucoup plus de voisins.
+
+**Exercice de conception.**
+
+*Stockage.* Les articles restent dans une base relationnelle, qui fait foi : texte, langue, date de mise à jour, version.
+
+*Index de mots.* Un index OpenSearch par langue, avec l’analyseur de la langue (racinisation, mots vides), alimenté à chaque mise à jour par un flux de modifications de la base (ch. 37). Il trouve les articles qui contiennent les mots exacts : noms de fonctions, messages d’erreur, références.
+
+*Plongements.* Chaque article est découpé en passages de quelques centaines de mots ; chaque passage reçoit un plongement d’un modèle multilingue. Avec 2 millions d’articles de 5 passages et des vecteurs de 768 nombres sur 4 octets, les vecteurs font 10 millions × 3 Ko = 31 Go, et l’index HNSW environ 45 Go d’après le rapport mesuré, ce qui demande une machine de 64 Go, ou des vecteurs sur 1 octet (environ 11 Go).
+
+*Combinaison.* Pour une question, on interroge les deux index en parallèle (les 50 meilleurs de chacun), puis on fusionne les deux listes, par exemple en additionnant pour chaque article l’inverse de son rang dans chaque liste, et l’on garde les cinq premiers articles distincts. Le budget de 300 ms laisse la place au calcul du plongement de la question (quelques dizaines de millisecondes), aux deux recherches (quelques millisecondes chacune) et à la fusion.
+
+*Retard.* Cent mises à jour par heure, c’est une toutes les 36 secondes, et un retard d’une minute entre la mise à jour d’un article et sa présence dans les résultats est acceptable pour une aide en ligne. Le calcul du plongement, quelques dizaines de millisecondes par passage, n’est pas une contrainte à ce rythme.
+
+:::fiche
+- Séries temporelles : tranches de temps (rétention = supprimer des tranches, 18 ms contre 1,5 s et 194 Mo de journal pour un `DELETE`, mesuré), compression par colonnes (différences de différences, XOR ; Gorilla, 1,37 octet par point), agrégats continus (50 fois plus rapides, mesuré).
+- Le type compte : 92 octets par mesure en table, 16,9 compressées en flottants, 3,3 en entiers (mesuré).
+- Recherche : analyse (découpage, minuscules, mots vides, racinisation) identique à l’indexation et à la requête ; index inversé = terme → liste de documents ; BM25 ($k_1 = 1{,}2$, $b = 0{,}75$ dans Lucene).
+- `ILIKE '%mot%'` lit toute la table (0,5 s) ; GIN rapide pour les mots rares, lent à classer les mots fréquents (175 ms contre 9 ms pour OpenSearch, mesuré).
+- Vecteurs : plongements, rappel@k ; HNSW (graphe à niveaux, `ef_search`) meilleur compromis mais plus lent à construire ; IVF (groupes, `probes`) rapide à construire ; 99,5 % de rappel en 1,3 ms contre 39 ms en exact (mesuré).
+- Un moteur de recherche ou un index vectoriel est une seconde copie, en retard sur la base qui fait foi.
+:::
+
+[^ts-compression]: Tiger Data (TimescaleDB), « About compression », documentation, [tigerdata.com/docs/use-timescale/latest/compression/about-compression](https://www.tigerdata.com/docs/use-timescale/latest/compression/about-compression).
+[^gorilla]: Tuomas Pelkonen, Scott Franklin, Justin Teller, Paul Cavallaro, Qi Huang, Justin Meza et Kaushik Veeraraghavan, « Gorilla: A Fast, Scalable, In-Memory Time Series Database », *Proceedings of the VLDB Endowment*, vol. 8, n° 12, 2015, p. 1816-1827, [doi:10.14778/2824032.2824078](https://doi.org/10.14778/2824032.2824078).
+[^bm25]: Stephen Robertson et Hugo Zaragoza, « The Probabilistic Relevance Framework: BM25 and Beyond », *Foundations and Trends in Information Retrieval*, 2009, [doi:10.1561/1500000019](https://doi.org/10.1561/1500000019).
+[^lucene-bm25]: Apache Lucene, classe `BM25Similarity`, documentation de l’API, [lucene.apache.org/core/9_0_0/core/org/apache/lucene/search/similarities/BM25Similarity.html](https://lucene.apache.org/core/9_0_0/core/org/apache/lucene/search/similarities/BM25Similarity.html).
+[^pg-rang]: PostgreSQL, « Controlling Text Search », section « Ranking Search Results », documentation, [postgresql.org/docs/current/textsearch-controls.html](https://www.postgresql.org/docs/current/textsearch-controls.html).
+[^wand]: Adrien Grand, « Magic WAND: Faster Retrieval of Top Hits in Elasticsearch », blog d’Elastic, 5 février 2019, [elastic.co/blog/faster-retrieval-of-top-hits-in-elasticsearch-with-block-max-wand](https://www.elastic.co/blog/faster-retrieval-of-top-hits-in-elasticsearch-with-block-max-wand).
+[^mikolov]: Tomas Mikolov, Kai Chen, Greg Corrado et Jeffrey Dean, « Efficient Estimation of Word Representations in Vector Space », 2013, [arXiv:1301.3781](https://arxiv.org/abs/1301.3781).
+[^hnsw]: Yury A. Malkov et Dmitry A. Yashunin, « Efficient and Robust Approximate Nearest Neighbor Search Using Hierarchical Navigable Small World Graphs », *IEEE Transactions on Pattern Analysis and Machine Intelligence*, vol. 42, n° 4, 2020, p. 824-836, [doi:10.1109/TPAMI.2018.2889473](https://doi.org/10.1109/TPAMI.2018.2889473).
+[^ivf]: Hervé Jégou, Matthijs Douze et Cordelia Schmid, « Product Quantization for Nearest Neighbor Search », *IEEE Transactions on Pattern Analysis and Machine Intelligence*, vol. 33, n° 1, 2011, p. 117-128, [doi:10.1109/TPAMI.2010.57](https://doi.org/10.1109/TPAMI.2010.57).
+[^pgvector]: pgvector, README du dépôt, sections « HNSW » et « IVFFlat », [github.com/pgvector/pgvector](https://github.com/pgvector/pgvector).

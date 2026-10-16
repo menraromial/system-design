@@ -1,0 +1,40 @@
+% Rappel@10 contre latence médiane (outils/experiences/ch22/vecteurs.py, second
+% passage) ; abscisse logarithmique : x = 40 log10(ms).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    pt/.style={circle, draw=#1, fill=#1, minimum size=2mm, inner sep=0pt}]
+  % axes : x de 0,8 ms à 50 ms, y de 0,80 à 1,00
+  \def\X#1{40*log10(#1)+4}
+  \def\Y#1{300*(#1-0.8)}
+  \draw[ligne] ({\X{0.8}},0) -- ({\X{50}},0);
+  \draw[ligne] ({\X{0.8}},0) -- ({\X{0.8}},62);
+  \foreach \v/\t in {1/1, 2/2, 5/5, 10/10, 20/20, 40/40} {
+    \draw[ligne] ({\X{\v}},0) -- ({\X{\v}},-1.5);
+    \node[note, anchor=north] at ({\X{\v}},-2) {\t};
+  }
+  \node[note, anchor=north] at ({\X{6}},-7) {latence médiane (ms, échelle log.)};
+  \foreach \r/\t in {0.80/{0,80}, 0.85/{0,85}, 0.90/{0,90}, 0.95/{0,95}, 1.00/{1,00}} {
+    \draw[ligne] ({\X{0.8}},{\Y{\r}}) -- ({\X{0.8}-1.5},{\Y{\r}});
+    \node[note, anchor=east] at ({\X{0.8}-2},{\Y{\r}}) {\t};
+  }
+  \node[note, rotate=90, anchor=south] at ({\X{0.8}-13},30) {rappel@10};
+  % HNSW
+  \draw[draw=Dblue, line width=1pt] ({\X{1.16}},{\Y{0.855}}) -- ({\X{1.22}},{\Y{0.950}}) -- ({\X{1.30}},{\Y{0.995}}) -- ({\X{2.20}},{\Y{1.0}}) -- ({\X{5.34}},{\Y{1.0}});
+  \foreach \l/\r/\e in {1.16/0.855/10, 1.22/0.950/20, 1.30/0.995/40, 2.20/1.0/160, 5.34/1.0/400} {
+    \node[pt=Dblue] at ({\X{\l}},{\Y{\r}}) {};
+  }
+  \node[note, anchor=west, text=Dblue] at ({\X{1.16}+1},{\Y{0.855}-1}) {HNSW, ef\_search = 10};
+  \node[note, anchor=south, text=Dblue] at ({\X{5.34}},{\Y{1.0}+1}) {400};
+  \node[note, anchor=south, text=Dblue] at ({\X{1.30}-2},{\Y{0.995}+1}) {40};
+  % IVFFlat
+  \draw[draw=Dorange, line width=1pt] ({\X{1.13}},{\Y{0.896}}) -- ({\X{2.58}},{\Y{0.966}}) -- ({\X{8.60}},{\Y{0.992}}) -- ({\X{33.29}},{\Y{1.0}});
+  \foreach \l/\r in {1.13/0.896, 2.58/0.966, 8.60/0.992, 33.29/1.0} \node[pt=Dorange] at ({\X{\l}},{\Y{\r}}) {};
+  \node[note, anchor=west, text=Dorange] at ({\X{2.58}+1},{\Y{0.966}-2}) {IVFFlat, probes = 4};
+  \node[note, anchor=north, text=Dorange] at ({\X{33.29}},{\Y{1.0}-1.5}) {64};
+  % exacte
+  \node[pt=Dred] at ({\X{39.2}},{\Y{1.0}}) {};
+  \node[note, anchor=west, text=Dred] at ({\X{39.2}+1.5},{\Y{1.0}}) {exacte};
+\end{tikzpicture}
+\end{document}

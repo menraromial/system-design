@@ -1,0 +1,26 @@
+% Analyse des textes et index inversé : chaque terme renvoie à la liste des
+% documents qui le contiennent ; une requête à deux mots intersecte deux listes.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    d/.style={draw=Dslate, fill=DslateBg, line width=0.6pt, anchor=west, font=\sffamily\footnotesize, inner sep=2pt, minimum height=6mm},
+    k/.style={draw=Dblue, fill=DblueBg, line width=0.6pt, anchor=west, font=\ttfamily\footnotesize, inner sep=2pt, minimum height=5.5mm, minimum width=18mm},
+    p/.style={draw=Dorange, fill=DorangeBg, line width=0.6pt, anchor=west, font=\ttfamily\footnotesize, inner sep=2pt, minimum height=5.5mm}]
+  \node[leg, anchor=west] at (0,34) {documents};
+  \node[d] at (0,26) {1 : Les chevaux galopaient};
+  \node[d] at (0,18) {2 : Un cheval noir};
+  \node[d] at (0,10) {3 : La prairie et les chevaux};
+  \node[pillo=Dslate] (a) at (62,18) {analyse};
+  \node[note, anchor=north, align=center] at (62,12) {minuscules, mots vides\\retirés, racinisation};
+  \draw[arr=Dslate] (44,18) -- (a.west);
+  \node[leg, anchor=west] at (82,34) {termes};
+  \node[leg, anchor=west] at (104,34) {listes de documents};
+  \foreach \i/\t/\l in {0/{chev}/{1, 2, 3}, 1/{galop}/{1}, 2/{noir}/{2}, 3/{prair}/{3}} {
+    \node[k] at (82,26-6.5*\i) {\t};
+    \node[p] at (104,26-6.5*\i) {\l};
+  }
+  \draw[arr=Dslate] (a.east) -- (81,18);
+  \node[note, anchor=north west, align=left] at (82,2) {« chevaux noirs » : chev $\cap$ noir = \{2\} ;\\le score BM25 ordonne les documents trouvés};
+\end{tikzpicture}
+\end{document}

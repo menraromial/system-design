@@ -1,0 +1,35 @@
+% Deux index de plus proches voisins approchés : HNSW (graphe à niveaux,
+% descente gloutonne) et IVF (groupes autour de centres, on visite les plus proches).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    n/.style={circle, draw=Dslate, fill=DslateBg, line width=0.5pt, minimum size=2.6mm, inner sep=0pt},
+    b/.style={circle, draw=Dblue, fill=Dblue, minimum size=2.6mm, inner sep=0pt},
+    e/.style={draw=Dslate, line width=0.4pt},
+    g/.style={arr=Dblue, line width=0.9pt}]
+  \node[pillo=Dblue] at (32,52) {HNSW};
+  % niveaux
+  \foreach \y/\t in {40/{niveau 2}, 24/{niveau 1}, 8/{niveau 0}} \node[leg, anchor=east] at (-2,\y) {\t};
+  \node[b] (a2) at (6,40) {}; \node[n] (b2) at (40,40) {};
+  \draw[e] (a2) -- (b2);
+  \node[b] (a1) at (6,24) {}; \node[n] (c1) at (20,28) {}; \node[b] (b1) at (40,24) {}; \node[n] (d1) at (56,26) {};
+  \draw[e] (a1) -- (c1) -- (b1) -- (d1); \draw[e] (a1) -- (b1);
+  \foreach \x/\y [count=\i] in {6/8, 14/12, 22/5, 30/11, 40/8, 46/3, 52/12, 60/7} \node[n] (z\i) at (\x,\y) {};
+  \node[b] (zq) at (52,12) {};
+  \draw[e] (z1)--(z2)--(z3)--(z4)--(z5)--(z6)--(z8); \draw[e] (z5)--(z7)--(z8); \draw[e] (z2)--(z4); \draw[e] (z4)--(z7);
+  \draw[g] (a2) -- (b2); \draw[g] (b2) -- (b1); \draw[g] (b1) -- (z5); \draw[g] (z5) -- (zq);
+  \node[star, star points=5, draw=Dred, fill=Dred, minimum size=3mm, inner sep=0pt] at (55,14) {};
+  \node[note, anchor=north, align=center] at (30,-1) {descente vers le voisin le plus proche\\de la requête (étoile), niveau par niveau ;\\ef\_search : taille de la liste de candidats};
+  \begin{scope}[xshift=100mm]
+    \node[pillo=Dorange] at (28,52) {IVF};
+    \foreach \cx/\cy/\c in {10/38/Dslate, 34/42/Dorange, 50/26/Dorange, 18/14/Dslate, 42/8/Dslate} {
+      \draw[draw=\c, line width=0.5pt, dash pattern=on 1.5pt off 1pt] (\cx,\cy) circle (8mm);
+      \node[cross out, draw=\c, line width=0.8pt, minimum size=2.4mm, inner sep=0pt] at (\cx,\cy) {};
+      \foreach \dx/\dy in {3/2, -2/4, -4/-2, 2/-4, 5/-1} \node[n, minimum size=1.8mm] at (\cx+\dx,\cy+\dy) {};
+    }
+    \node[star, star points=5, draw=Dred, fill=Dred, minimum size=3mm, inner sep=0pt] at (43,34) {};
+    \node[note, anchor=north, align=center] at (28,-1) {chaque vecteur est rangé avec son centre\\le plus proche ; la recherche ne visite que\\les probes groupes les plus proches (ici 2)};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

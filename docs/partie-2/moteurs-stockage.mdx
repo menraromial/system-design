@@ -279,7 +279,7 @@ Quand un sujet a une forte charge d’écriture (journaux, métriques, messages,
 
 *Clé.* La clé `(capteur, horodatage)` rend les mesures d’un capteur contiguës dans chaque fichier, et la lecture des dernières 24 heures d’un capteur devient une recherche d’intervalle sur un préfixe. L’ordre d’arrivée, par horodatage, n’est pas l’ordre des clés ; la memtable trie, et la compaction fusionne.
 
-*Suppression.* Supprimer les mesures une à une ajouterait 100 000 pierres tombales par seconde, qu’il faudrait compacter. On partitionne plutôt par jour (une base, une famille de colonnes ou une table par jour), et l’on supprime le jour le plus ancien d’un bloc, ce qui supprime des fichiers entiers sans rien réécrire. Le ch. 22 montre que les bases de séries temporelles s’organisent de cette façon.
+*Suppression.* Supprimer les mesures une à une ajouterait 100 000 pierres tombales par seconde, qu’il faudrait compacter. On partitionne plutôt par jour (une base, une famille de colonnes ou une table par jour), et l’on supprime le jour le plus ancien d’un bloc, ce qui supprime des fichiers entiers sans rien réécrire. Le [ch. 22](nosql-specialisees.mdx) montre que les bases de séries temporelles s’organisent de cette façon.
 
 *Compaction.* Les données d’un jour ne sont plus modifiées une fois le jour passé. Une compaction par paliers réécrit moins souvent que la compaction par niveaux, et l’espace temporaire qu’elle demande reste borné à une partition. Avec une amplification de 6 à 7 comme mesurée, le disque reçoit 3,5 à 4 To par jour. Il faut des SSD dont l’endurance le permet, ou plusieurs machines (ch. 26) ; la compression, efficace sur des mesures voisines, réduit à la fois la place et les écritures.
 
