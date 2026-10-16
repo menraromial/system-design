@@ -1,0 +1,43 @@
+% PostgreSQL seul contre CockroachDB à trois nœuds, et la perte du nœud qui détient
+% le bail (outils/experiences/ch23/reparti.py, passage reproduit dans le chapitre).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    barre/.style={draw=#1, fill=#1Bg, line width=0.7pt}]
+  % gauche : latence d'une écriture et débit à 32 connexions
+  \node[leg, anchor=west] at (0,62) {une écriture seule, médiane};
+  \draw[barre=Dblue] (0,50) rectangle ({3.67*2.2},56);
+  \node[note, anchor=west] at ({3.67*2.2+1},53) {PostgreSQL, 3,7 ms};
+  \draw[barre=Dgreen] (0,42) rectangle ({22.79*2.2},48);
+  \node[note, anchor=west] at ({22.79*2.2+1},45) {CockroachDB, 22,8 ms};
+  \node[leg, anchor=west] at (0,32) {écritures par seconde, 32 connexions};
+  \draw[barre=Dblue] (0,20) rectangle ({6934/120},26);
+  \node[note, anchor=west] at ({6934/120+1},23) {PostgreSQL, 6 934};
+  \draw[barre=Dgreen] (0,12) rectangle ({1315/120},18);
+  \node[note, anchor=west] at ({1315/120+1},15) {CockroachDB, 1 315};
+  % droite : écritures par seconde après docker kill du nœud 1
+  \begin{scope}[xshift=100mm]
+    \node[leg, anchor=west] at (0,62) {CockroachDB, écritures par seconde après la perte du nœud 1};
+    \def\Y#1{#1/30}
+    \draw[ligne] (0,0) -- (82,0);
+    \draw[ligne] (0,0) -- (0,52);
+    \foreach \v in {0, 500, 1000, 1500} {
+      \draw[ligne] (0,{\Y{\v}}) -- (-1.5,{\Y{\v}});
+      \node[note, anchor=east] at (-2,{\Y{\v}}) {\v};
+    }
+    \foreach \t in {0, 5, 10, 15, 20} {
+      \draw[ligne] ({4*\t},0) -- ({4*\t},-1.5);
+      \node[note, anchor=north] at ({4*\t},-2) {\t};
+    }
+    \node[note, anchor=north] at (40,-7) {secondes après docker kill};
+    \foreach \v [count=\i from 0] in {0,0,0,250,1280,1259,1248,1234,1241,1339,1256,1248,1262,1243,1241,1250,1246,1250,1248,1266} {
+      \draw[barre=Dgreen] ({4*\i+0.4},0) rectangle ({4*\i+3.6},{\Y{\v}});
+    }
+    \draw[draw=Dred, line width=1pt] (0,0) -- (0,48);
+    \node[note, anchor=south west, text=Dred, align=left] at (1,48) {nœud 1 arrêté};
+    \node[note, anchor=south, text=Dred, align=center] at (7,4) {rien\\pendant\\3 s};
+    \node[note, anchor=south west, align=left] at (34,{\Y{1280}+2}) {≈ 1 250 /s sur les nœuds 2 et 3,\\aucune erreur};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

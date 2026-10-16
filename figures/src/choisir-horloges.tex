@@ -1,0 +1,37 @@
+% Deux façons de vivre avec des horloges imprécises : l'attente à la validation
+% de Spanner (TrueTime) et l'intervalle d'incertitude de CockroachDB.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    inter/.style={draw=#1, fill=#1Bg, line width=0.7pt, minimum height=5mm, inner sep=0pt}]
+  % Spanner
+  \node[pillo=Dblue] at (35,44) {Spanner : attente à la validation};
+  \draw[ligne, -{Stealth[length=2mm]}] (0,10) -- (78,10) node[note, anchor=west] {temps réel};
+  \draw[draw=Dblue, fill=DblueBg, line width=0.7pt] (10,22) rectangle (34,28);
+  \node[note, anchor=south] at (22,28.5) {TT.now() = [earliest, latest]};
+  \draw[ligne] (10,22) -- (10,10); \draw[ligne] (34,22) -- (34,10);
+  \node[note, anchor=north] at (22,9) {largeur 2ε (2 à 14 ms)};
+  \draw[draw=Dblue, line width=1.2pt] (34,10) -- (34,28);
+  \node[note, anchor=west, text=Dblue] at (35,24) {estampille s = latest};
+  \draw[draw=Dorange, fill=DorangeBg, line width=0.7pt] (34,14) rectangle (58,19);
+  \node[note, anchor=center] at (46,16.5) {attente};
+  \draw[draw=Dgreen, line width=1.2pt] (58,10) -- (58,21);
+  \node[note, anchor=south west, text=Dgreen, align=left] at (59,15) {TT.after(s) vrai :\\données visibles};
+  \node[note, anchor=north west, align=left] at (0,2) {La transaction attend que s soit sûrement passé ;\\ensuite, toute transaction qui commence reçoit\\une estampille plus grande que s.};
+  % CockroachDB
+  \begin{scope}[xshift=100mm]
+    \node[pillo=Dgreen] at (35,44) {CockroachDB : intervalle d'incertitude};
+    \draw[ligne, -{Stealth[length=2mm]}] (0,10) -- (78,10) node[note, anchor=west] {estampilles};
+    \draw[draw=Dgreen, fill=DgreenBg, line width=0.7pt] (14,22) rectangle (64,28);
+    \node[note, anchor=south] at (39,28.5) {[ts, ts + max\_offset], max\_offset = 500 ms};
+    \draw[draw=Dgreen, line width=1.2pt] (14,10) -- (14,28);
+    \node[note, anchor=north] at (14,9) {ts de la lecture};
+    \draw[draw=Dred, line width=1.2pt] (40,10) -- (40,22);
+    \node[circle, fill=Dred, minimum size=2.2mm, inner sep=0pt] at (40,16) {};
+    \node[note, anchor=north, text=Dred] at (40,9) {valeur écrite à ts'};
+    \draw[arr=Dred] (40,16) -- (54,16);
+    \node[note, anchor=north west, align=left] at (0,2) {Une valeur dans l'intervalle a peut-être été écrite avant\\la lecture : la lecture recommence à une estampille\\au-dessus de ts' (uncertainty restart).};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,280 @@
+---
+title: "Choisir une base de données"
+sidebar_label: "23. Choisir une base de données"
+description: "Une grille de sept questions pour choisir une base (forme des données, motifs d'accès, cohérence, volume, latence, compétences, coût d'exploitation), ce que tient une seule machine PostgreSQL, le coût réel de la persistance polyglotte, les bases SQL réparties (Spanner et TrueTime, CockroachDB et ses plages répliquées par Raft) et cinq scénarios commentés ; mesures avec pgbench, PostgreSQL et une grappe CockroachDB de trois nœuds."
+partie: 2
+chapitre: 23
+---
+
+import plages from '@site/src/figures/choisir-plages.svg';
+import horloges from '@site/src/figures/choisir-horloges.svg';
+import bascule from '@site/src/figures/choisir-bascule.svg';
+
+Une équipe lance une boutique en ligne qui prévoit 20 000 commandes par jour la première année. Elle hésite entre PostgreSQL, MongoDB parce que le catalogue a des fiches de formes variées, et CockroachDB parce qu’elle veut « pouvoir monter en charge ». Sur le portable qui a servi aux mesures de ce cours, un PostgreSQL seul a tenu 10 824 transactions par seconde, chacune faite de trois mises à jour, d’une lecture et d’une insertion, validées sur disque. 20 000 commandes par jour font 0,23 commande par seconde en moyenne. Même avec un pic de cent fois la moyenne et dix transactions par commande, la boutique utiliserait 2 % de cette machine. Sur la même machine, une grappe CockroachDB de trois nœuds a mis 23 ms par écriture, contre 3,7 ms pour PostgreSQL, et a accepté cinq fois moins d’écritures par seconde ; en échange, elle a continué d’écrire après la perte brutale d’un nœud, avec une interruption de trois secondes et aucune erreur.
+
+Le choix d’une base se décide sur des questions de ce genre, chiffrées. Les [ch. 18](transactions-isolation.mdx) à [22](nosql-specialisees.mdx) ont décrit les modèles et les structures (tables, index, moteurs de stockage, documents, colonnes larges, graphes, séries temporelles, index inversés, vecteurs). Ce chapitre propose une grille de questions pour passer de l’application à la base, décrit le coût d’utiliser plusieurs bases à la fois, présente les bases SQL réparties, puis applique la grille à cinq scénarios. La réplication et le partitionnement, qu’on n’a fait qu’évoquer ici, sont l’objet des ch. 24 à 26.
+
+Deux expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch23/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch23) : la capacité d’un PostgreSQL seul, mesurée par pgbench ([`capacite.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch23/capacite.py)), et la comparaison de ce PostgreSQL avec une grappe CockroachDB de trois nœuds, y compris la perte d’un nœud ([`reparti.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch23/reparti.py)).
+
+## Ce que tient une seule machine
+
+La première question à poser n’est pas « quelle base ? » mais « une machine suffit-elle ? ». Si oui, une base relationnelle sur une machine, avec une réplique pour la panne, est le choix par défaut, car elle offre les transactions, les jointures, les index secondaires et des décennies d’outils d’exploitation. Pour savoir où est la limite, `capacite.py` lance pgbench, l’outil de mesure fourni avec PostgreSQL[^pgbench], sur une base de 10 millions de comptes (1,5 Go). Il mesure deux charges pendant 30 secondes chacune, avec 1, 8, 32 et 64 clients. La charge en lecture seule (`-S`) lit un compte par sa clé primaire. La charge par défaut, inspirée du banc d’essai TPC-B, fait dans une transaction trois mises à jour (un compte, un guichet, une agence), une lecture et une insertion dans un historique, et la valide de façon durable. pgbench tourne dans le conteneur du serveur et lui prend une partie du processeur.
+
+```text
+pgbench 18.6, facteur 100 (10 millions de comptes, 1503 MB)
+base créée en 12 s ; 30 s par mesure
+    clients       lecture seule                   TPC-B
+                   tps    latence          tps    latence
+          1     11 479    0.09 ms          357    2.80 ms
+          8     85 022    0.09 ms        1 960    4.08 ms
+         32     73 875    0.43 ms        6 583    4.86 ms
+         64     75 575    0.85 ms       10 824    5.91 ms
+```
+
+Le second passage a donné, à un seul client, des valeurs presque deux fois plus basses (5 793 lectures et 214 transactions par seconde) ; à 8 clients en TPC-B, 23 % de moins ; dans les autres cas, des valeurs à 7 % près. Le processeur de ce portable mêle des cœurs de performance et des cœurs économes ; à un seul client, le résultat dépend de ceux que le système attribue au serveur et à pgbench, ce que le script ne contrôle pas.
+
+En lecture par clé, la machine sert 85 000 requêtes par seconde dès 8 clients, puis plafonne, car les 22 fils d’exécution sont partagés entre le serveur et pgbench. La latence reste sous la milliseconde. Une transaction d’écriture coûte 2,8 ms à un client, car sa validation attend la synchronisation du journal sur le SSD ([ch. 20](moteurs-stockage.mdx)). Avec 64 clients, le débit monte à 10 800 transactions par seconde pour une latence qui ne fait que doubler, grâce à la validation groupée, qui couvre par une seule synchronisation toutes les transactions en attente.
+
+Ces chiffres sont ceux d’un portable. Un serveur de base de données a plus de cœurs, plus de mémoire et des disques plus rapides ; il tient au moins autant. Ce qui oblige à quitter la machine unique est plus rarement le débit que trois autres limites : un volume qui ne tient plus sur ses disques ou dont les index ne tiennent plus en mémoire, une disponibilité qui ne supporte pas le temps d’une bascule vers la réplique (ch. 24), et des utilisateurs répartis sur plusieurs continents qui attendent tous une écriture rapide.
+
+## Une grille de sept questions
+
+La grille suivante sert à éliminer, puis à départager. Les trois premières questions décrivent l’application, les deux suivantes ses ordres de grandeur, les deux dernières l’équipe qui la fera tourner. Chaque réponse doit être écrite avec des nombres, car c’est à ce prix qu’elle permet d’écarter une base.
+
+### 1. La forme des données
+
+Des entités liées les unes aux autres (clients, commandes, lignes de commande, produits), qu’on interroge selon plusieurs axes, appellent des tables et des jointures ([ch. 19](index-modelisation.mdx)). Des objets lus et écrits en entier, avec des sous-objets dont la forme varie d’un objet à l’autre (une fiche produit, un profil, une configuration), se rangent bien en documents ; PostgreSQL les range aussi dans une colonne `jsonb`, indexable. Des relations qu’on suit sur une profondeur variable (chemins, réseaux de comptes) relèvent d’une base de graphe ; pour un ou deux sauts de profondeur fixe, une table indexée a été plus rapide que Neo4j dans la mesure du [ch. 21](nosql-modeles.mdx). Des mesures datées relèvent d’une base de séries temporelles, du texte à chercher d’un index inversé, des plongements d’un index vectoriel ([ch. 22](nosql-specialisees.mdx)).
+
+### 2. Les motifs d’accès
+
+Il faut écrire la liste des requêtes, avec leur fréquence et leur forme, avant de choisir quoi que ce soit. Une lecture par clé, une lecture d’un intervalle trié, une jointure, un agrégat sur des millions de lignes, une recherche de mots et une recherche de voisins ne demandent pas la même structure. Le rapport entre lectures et écritures compte autant. Un service qui lit cent fois plus qu’il n’écrit se sert de répliques en lecture et de caches ([ch. 16](cache-strategies.mdx)) ; un service qui écrit beaucoup de petites lignes sans jamais les modifier, comme un journal ou des mesures, profite d’un moteur LSM ([ch. 20](moteurs-stockage.mdx)). Le [ch. 21](nosql-modeles.mdx) l’a montré avec Cassandra et DynamoDB, où le schéma se dessine à partir des requêtes et où une requête imprévue coûte un parcours complet ou une nouvelle table.
+
+### 3. Les besoins de cohérence
+
+Les invariants qui portent sur plusieurs objets (le stock ne devient jamais négatif, la somme des débits égale la somme des crédits, un siège n’est vendu qu’une fois) demandent des transactions sérialisables ou des verrous ([ch. 18](transactions-isolation.mdx)). Une base qui n’offre l’atomicité que sur un document ou sur une partition oblige à placer chaque invariant dans un seul document, ou à coordonner plusieurs écritures dans l’application (ch. 37), ce qui coûte du code et des cas d’erreur. À l’inverse, un compteur de vues, un fil d’actualité ou un index de recherche supportent un retard de quelques secondes entre l’écriture et sa visibilité partout. Le [ch. 12](../partie-1/coherence-cap.mdx) a défini ces niveaux et mesuré ce que renvoie une réplique en retard. La question à poser pour chaque donnée est ce qui arrive si une lecture renvoie une valeur vieille de deux secondes.
+
+### 4. Le volume et sa croissance
+
+On estime la taille des données dans trois ans, index compris, et le débit d’écriture au pic. La taille d’une ligne se mesure (92 octets par mesure dans la table du [ch. 22](nosql-specialisees.mdx), dont la moitié d’en-têtes et d’index), et non à partir de la somme des colonnes. Au-delà de quelques téraoctets, ou quand les index utilisés en permanence ne tiennent plus en mémoire, il faut partitionner, à la main dans l’application ou avec une base qui le fait elle-même (ch. 26). La croissance compte autant que le niveau, car repartitionner une base en service est une opération longue et risquée, comme le montre l’exemple réel de ce chapitre.
+
+### 5. La latence et la localisation des utilisateurs
+
+Un objectif de latence s’exprime en centile ([ch. 9](../partie-1/latence-debit.mdx)), par exemple 99 % des écritures en moins de 50 ms. Tant que les utilisateurs et la base sont dans la même région, c’est facile à tenir. Quand les utilisateurs sont sur plusieurs continents, une écriture confirmée par plusieurs régions paie au moins un aller-retour entre elles, 58 ms au minimum entre Paris et New York d’après la vitesse de la lumière dans la fibre ([ch. 9](../partie-1/latence-debit.mdx)). Il faut alors décider quelles données doivent être cohérentes entre régions, et lesquelles peuvent rester dans la région de leur utilisateur.
+
+### 6. Les compétences de l’équipe
+
+Une base est un logiciel qu’il faudra régler, surveiller, mettre à jour et réparer, souvent la nuit. Une équipe qui connaît PostgreSQL sait lire un plan d’exécution, régler `autovacuum` et restaurer une sauvegarde ; la même équipe découvrira Cassandra en production, avec ses réparations, ses marqueurs de suppression (tombstones) et son modèle de requêtes. Le coût d’apprentissage est réel. Il ne doit pas empêcher un changement quand une question précédente l’impose, mais il doit peser quand deux choix se valent.
+
+### 7. Le coût d’exploitation
+
+Le coût d’une base comprend les machines et les licences, mais aussi les sauvegardes et les tests de restauration, la surveillance, les mises à jour de version, la sécurité (chiffrement, comptes, audits), et les astreintes. Un service géré (Amazon RDS, Cloud SQL, Atlas, DynamoDB) en reprend une partie contre un prix plus élevé par machine et moins de contrôle. Une base répartie de trois nœuds coûte au moins trois machines, là où une base relationnelle et sa réplique en coûtent deux.
+
+## La persistance polyglotte et son coût
+
+Utiliser plusieurs bases dans une même application, chacune pour ce qu’elle sert le mieux, s’appelle la persistance polyglotte (polyglot persistence). Martin Fowler a popularisé le terme en 2011, en l’attribuant à Scott Leberknight, avec l’exemple d’un site marchand qui garderait le panier dans un magasin clé-valeur, les commandes dans une base relationnelle et les recommandations dans une base de graphe[^fowler]. Il en nommait aussi le prix : chaque stockage introduit une interface à apprendre, il faut bien en connaître le fonctionnement pour obtenir de bonnes performances, et l’ensemble ajoute de la complexité.
+
+Ce prix se décompose. Chaque base supplémentaire demande ses propres sauvegardes, sa surveillance, ses mises à jour, ses comptes et ses astreintes. Les données qu’elle contient viennent presque toujours d’une autre base, celle qui fait foi. Il faut alors les y recopier, et une écriture faite dans deux bases sans transaction commune peut réussir dans l’une et échouer dans l’autre. Le ch. 37 traite ce problème (outbox, capture des modifications). Une restauration après incident doit remettre plusieurs bases dans des états compatibles, alors que leurs sauvegardes n’ont pas été prises au même instant. Enfin, si une requête d’utilisateur a besoin des trois bases, la disponibilité de la requête est le produit de leurs disponibilités ([ch. 11](../partie-1/disponibilite.mdx)).
+
+La règle qui en découle est d’ajouter une base quand une question de la grille l’impose avec des chiffres, et de commencer par ce que la base existante sait faire. PostgreSQL range des documents (`jsonb`), cherche des mots (index GIN), des voisins (pgvector) et des séries temporelles (TimescaleDB) ; le [ch. 22](nosql-specialisees.mdx) a mesuré où ces fonctions suffisent et où un système spécialisé gagne un ordre de grandeur. Une seconde base se justifie quand ce gain est nécessaire, et sa copie des données doit pouvoir être reconstruite à partir de la base qui fait foi.
+
+## Les bases SQL réparties
+
+Une base relationnelle classique écrit sur une machine, et ses répliques recopient le journal de cette machine (ch. 24). Pour dépasser une machine en écriture, il faut partitionner, et le faire à la main fait perdre les transactions et les jointures entre partitions. Les bases SQL réparties, qu’on a appelées NewSQL, gardent le modèle relationnel, le SQL et les transactions sérialisables, et répartissent elles-mêmes les données sur plusieurs machines, chaque morceau étant répliqué par un algorithme de consensus (ch. 34 et 35). Spanner, chez Google, est d’après ses auteurs le premier système à offrir des transactions à cohérence externe sur des données réparties à l’échelle mondiale ; CockroachDB, YugabyteDB et TiDB suivent une architecture proche.
+
+### Spanner et TrueTime
+
+James Corbett et ses collègues ont décrit Spanner en 2012[^spanner]. La base découpe les données en morceaux, chacun répliqué par Paxos sur plusieurs centres de données ; une transaction qui touche plusieurs morceaux utilise une validation à deux phases entre leurs leaders (ch. 37). Sa particularité est la cohérence externe. Si une transaction T1 se termine avant qu’une transaction T2 commence, l’estampille de T1 est plus petite que celle de T2, partout dans le monde, ce qui permet de lire un instantané cohérent de toute la base à une estampille donnée, sans verrou.
+
+Il faut pour cela des horloges dont on connaît l’erreur. L’API TrueTime ne renvoie pas une heure mais un intervalle, `TT.now()` = [earliest, latest], qui contient l’heure vraie à coup sûr. Les machines de temps de chaque centre de données ont des récepteurs GPS ou des horloges atomiques. L’article indique qu’en production, la demi-largeur de l’intervalle, notée ε, variait de 1 à 7 ms entre deux synchronisations, et valait donc 4 ms la plupart du temps.
+
+<Figure svg={horloges} num="23.1" alt="À gauche, Spanner : l’intervalle TT.now() = [earliest, latest], de largeur 2ε (2 à 14 ms) ; la transaction prend l’estampille s = latest, attend que TT.after(s) soit vrai, puis rend ses données visibles. À droite, CockroachDB : une lecture à l’estampille ts porte un intervalle d’incertitude [ts, ts + max_offset], avec max_offset = 500 ms ; une valeur écrite à ts’ dans cet intervalle fait recommencer la lecture au-dessus de ts’.">
+L’attente à la validation de Spanner et l’intervalle d’incertitude de CockroachDB, deux façons de vivre avec des horloges imprécises.
+</Figure>
+
+Une transaction d’écriture prend pour estampille s la borne `latest` de l’intervalle, puis attend que `TT.after(s)` soit vrai, c’est-à-dire que s soit sûrement passé, avant de rendre ses écritures visibles. C’est l’attente à la validation (commit wait), qui dure en moyenne au moins 2ε, soit environ 8 ms, et que Spanner recouvre en partie par les échanges de Paxos. Toute transaction qui commence après la fin de cette attente reçoit une estampille plus grande que s. Dans les mesures de l’article, une écriture avec trois répliques dans des centres de données à moins d’une milliseconde les uns des autres prenait 13,9 ms en moyenne ; les mesures à une seule réplique attribuent environ 5 ms à l’attente à la validation et 9 ms à Paxos.
+
+### CockroachDB
+
+Rebecca Taft et ses collègues ont décrit CockroachDB en 2020[^crdb]. La base range chaque table par clé primaire et la coupe en plages (ranges) contiguës, de 64 Mio dans la version décrite, qui se coupent en deux quand elles grossissent ou quand elles reçoivent trop de requêtes. Chaque plage est répliquée par défaut sur trois nœuds, et ses répliques forment un groupe Raft. Une seule d’entre elles, le détenteur du bail (leaseholder), sert les lectures à jour et propose les écritures.
+
+<Figure svg={plages} num="23.2" alt="La table comptes est découpée en trois plages par intervalles de clés. Chacun des trois nœuds porte une réplique de chaque plage ; le bail de la plage 1 est sur le nœud 1, celui de la plage 2 sur le nœud 2, celui de la plage 3 sur le nœud 3. Une écriture sur l’identifiant 42 000 va du client au nœud 1 (1), qui la transmet au détenteur du bail de la plage 2 sur le nœud 2 (2), qui l’envoie aux deux autres répliques (3) et répond dès que deux répliques sur trois l’ont écrite.">
+Une table de CockroachDB, coupée en plages répliquées sur trois nœuds, et le chemin d’une écriture.
+</Figure>
+
+Le client peut s’adresser à n’importe quel nœud, qui sert de passerelle et transmet chaque opération au détenteur du bail de la plage concernée. Une écriture est confirmée quand une majorité des répliques, deux sur trois, l’a écrite dans son journal. Une lecture à jour ne passe pas par Raft, car le détenteur du bail sait qu’aucune écriture n’a pu être confirmée sans lui. Dans la version décrite par l’article, le bail d’une plage ordinaire est lié à la vie du nœud qui le détient, signalée par un battement de cœur toutes les 4,5 secondes ; quand ce nœud ne donne plus signe de vie, une autre réplique prend le bail.
+
+CockroachDB tourne sur des machines ordinaires, sans horloge atomique. Chaque nœud tient une horloge hybride (hybrid logical clock), faite de l’heure du système et d’un compteur logique, et suppose que les horloges de deux nœuds ne s’écartent jamais de plus de `max_offset`, 500 ms par défaut. Une transaction reçoit une estampille et un intervalle d’incertitude [ts, ts + max_offset]. Si elle lit une valeur écrite à une estampille comprise dans cet intervalle, elle ne peut pas savoir si l’écriture a eu lieu avant elle, et recommence avec une estampille plus grande que la valeur (uncertainty restart). L’article précise que CockroachDB garantit ainsi la linéarisabilité par clé, mais pas la sérialisabilité stricte de Spanner, puisque deux transactions qui touchent des clés disjointes peuvent recevoir des estampilles dans un ordre différent de l’ordre réel. Le prix des horloges imprécises se paie donc en relectures occasionnelles, et non en une attente à chaque écriture.
+
+### Le prix d’une écriture répartie, mesuré
+
+`reparti.py` crée une table de 100 000 comptes dans un PostgreSQL 18 seul et dans une grappe CockroachDB de trois nœuds, chacun dans son conteneur, sur le même portable. Il mesure la latence d’une écriture et d’une lecture faites l’une après l’autre, puis le débit d’écriture avec 32 connexions. Il cherche ensuite le nœud qui détient le bail de la table, l’arrête par `docker kill`, écrit pendant 20 secondes par les deux autres nœuds, puis le redémarre.
+
+```text
+100 000 comptes ; PostgreSQL 18 et CockroachDB CCL v26.3.2, 3 nœuds
+
+1. une opération à la fois, en ms (médiane, 99e centile, sur 1 000)
+                                     écriture           lecture
+   PostgreSQL                    3.67    8.57      0.49    0.92
+   CockroachDB, 3 nœuds         22.79  128.92      1.06   13.25
+
+2. écritures avec 32 connexions pendant 10 s
+   PostgreSQL                  6 934 /s   médiane   4.2 ms   p99   11.2 ms
+   CockroachDB, 3 nœuds        1 315 /s   médiane  24.7 ms   p99   31.1 ms
+
+3. arrêt brutal (docker kill) du nœud 1, qui détient le bail de la table
+   20 s d'écritures sur les deux autres nœuds : 1 018 /s
+   médiane 25.4 ms, p99 34.9 ms, maximum 4.0 s, 0 erreur
+   écritures achevées pendant chaque seconde :
+         0     0     0   250  1280  1259  1248  1234  1241  1339
+      1256  1248  1262  1243  1241  1250  1246  1250  1248  1266
+   nœud 1 redémarré, prêt après 2 s
+   10 s d'écritures sur les trois nœuds : 1 240 /s
+   médiane 25.5 ms, p99 31.0 ms, maximum 238 ms, 0 erreur
+```
+
+<Figure svg={bascule} num="23.3" alt="À gauche, deux paires de barres : une écriture seule prend 3,7 ms dans PostgreSQL et 22,8 ms dans CockroachDB ; avec 32 connexions, PostgreSQL fait 6 934 écritures par seconde et CockroachDB 1 315. À droite, les écritures achevées dans CockroachDB pendant chacune des 20 secondes qui suivent l’arrêt du nœud 1 : aucune pendant les trois premières secondes, 250 pendant la quatrième, puis environ 1 250 par seconde sur les nœuds 2 et 3, sans erreur.">
+PostgreSQL seul et CockroachDB à trois nœuds sur la même machine, et la perte du nœud qui détient le bail.
+</Figure>
+
+Quatre passages ont été faits, dont deux avec la version finale de la troisième partie. Les deux premières parties ont donné des valeurs à 25 % près, sauf les 99es centiles de CockroachDB, entre 81 et 169 ms pour les écritures et entre 8 et 25 ms pour les lectures. Dans le second passage de la version finale, l’interruption a duré autant (maximum 3,9 s, aucune erreur), puis le débit a oscillé entre 1 260 et 2 950 écritures par seconde.
+
+Une écriture coûte six fois plus dans CockroachDB, alors que les trois nœuds sont sur la même machine et qu’aucun message ne traverse de câble (un aller-retour TCP local coûte 11 µs au [ch. 9](../partie-1/latence-debit.mdx)). Le surcoût vient du chemin de l’écriture : la passerelle, le détenteur du bail, le journal Raft écrit et synchronisé sur deux nœuds au moins, l’application de l’écriture, et la transaction qui l’entoure. La lecture, qui ne passe pas par Raft, coûte deux fois plus que dans PostgreSQL, mais son 99e centile est de 8 à 26 fois plus haut selon les passages (13 ms contre 0,9 dans celui-ci), car elle partage le processeur et le disque avec trois processus qui font chacun leur travail de fond. Avec 32 connexions, la même machine accepte cinq fois moins d’écritures dans CockroachDB, qui exécute chaque écriture sur trois nœuds. Taft et ses collègues mesurent, sur des machines séparées, une perte de débit allant jusqu’à 48 % pour trois répliques par rapport à une seule, et un débit qui croît linéairement avec le nombre de nœuds[^crdb] ; ce gain, la machine unique de la mesure ne peut pas le montrer.
+
+La troisième partie montre ce qu’on achète. Pendant trois secondes après l’arrêt du nœud 1, aucune écriture n’aboutit ; les requêtes attendent, sans erreur. Puis une réplique du nœud 2 ou 3 prend le bail, et les 32 connexions reprennent à environ 1 250 écritures par seconde, avec les deux répliques restantes qui forment encore une majorité. Une application qui lance ses requêtes avec un délai d’attente d’une seconde aurait vu des erreurs pendant ces trois secondes ; avec un délai de 5 secondes, elle n’aurait vu qu’un ralentissement. Le redémarrage du nœud 1 est invisible pour les écritures (maximum 238 ms). Un PostgreSQL seul n’aurait plus rien écrit avant qu’une réplique soit promue, ce que le ch. 24 mesurera.
+
+## Cinq scénarios commentés
+
+Les cinq scénarios suivants appliquent la grille. Leurs chiffres sont des hypothèses de travail, à remplacer par ceux de l’application réelle.
+
+**Une boutique en ligne.** 50 000 produits, 20 000 commandes par jour, des pics de 50 commandes par seconde pendant les soldes, 200 Go de données en trois ans. Les invariants portent sur plusieurs objets (stock, paiement, commande), les requêtes sont variées (catalogue par catégorie, historique d’un client, tableaux de bord). 50 commandes par seconde à dix transactions chacune font 500 transactions par seconde, vingt fois moins que la mesure. Le choix est PostgreSQL, avec une réplique pour la panne, les fiches produits de formes variées dans une colonne `jsonb`, et la recherche du catalogue par un index GIN tant que les mesures du [ch. 22](nosql-specialisees.mdx) le permettent. Un cache devant le catalogue ([ch. 16](cache-strategies.mdx)) absorbe les lectures des soldes. MongoDB rangerait bien les fiches, mais obligerait à coordonner stock et commande hors d’une transaction relationnelle, pour un gain que rien dans les chiffres ne demande.
+
+**Une messagerie.** 100 millions de messages par jour, lus par conversation, du plus récent au plus ancien, gardés sans limite. Le débit moyen est de 1 160 écritures par seconde, avec des pics de 5 000 ; à 1 Ko par message, le volume croît de 100 Go par jour, 36 To par an, 110 To avec trois répliques. Les messages ne sont presque jamais modifiés, une conversation est une partition triée, et une lecture vieille d’une seconde est acceptable. Un magasin à colonnes larges (Cassandra, ScyllaDB) partitionné par conversation sert exactement cette requête ([ch. 21](nosql-modeles.mdx)), et sa croissance se suit en ajoutant des nœuds. Les comptes et les abonnements, eux, restent dans une base relationnelle.
+
+**La télémétrie d’une flotte de capteurs.** 100 000 capteurs, deux valeurs toutes les 10 secondes, mesures brutes 30 jours et moyennes horaires 2 ans. Le [ch. 22](nosql-specialisees.mdx) a chiffré ce volume (86 Go compressés en entiers, 2,4 To en table ordinaire) et le coût de la rétention par `DELETE`. Une base de séries temporelles (TimescaleDB si l’équipe connaît PostgreSQL, sinon InfluxDB ou VictoriaMetrics) avec des tranches d’un jour, compressées après 24 heures, et des agrégats continus.
+
+**Des paiements sur trois continents.** Une plateforme de paiement sert l’Europe, l’Amérique du Nord et l’Asie ; un compte peut être débité depuis n’importe quelle région, la somme des soldes doit rester exacte, et la plateforme doit continuer après la perte d’une région entière. Ici, une base relationnelle unique ne tient pas l’exigence de disponibilité, et des bases régionales indépendantes ne tiennent pas l’invariant. Une base SQL répartie (Spanner, CockroachDB) avec des répliques dans trois régions convient, au prix d’un aller-retour entre régions sur chaque écriture. On réduit ce prix en plaçant les données d’un compte, et le détenteur de leur bail, dans la région de son titulaire, si bien que la majorité se forme avec la région la plus proche.
+
+**Une recherche documentaire.** 2 millions de documents internes, une recherche par mots et par sens, 20 requêtes par seconde, des mises à jour toutes les minutes. PostgreSQL range les documents et fait foi ; un index GIN sert les mots, et pgvector les voisins, avec 10 millions de passages et un index HNSW qui tient dans une machine de 64 Go d’après le calcul du [ch. 22](nosql-specialisees.mdx). On passerait à OpenSearch le jour où le classement des mots fréquents ou les langues multiples l’imposent, en acceptant une seconde copie alimentée par la base.
+
+## Compromis
+
+| Choix | Ce qu’il donne | Ce qu’il coûte | Quand le prendre |
+|---|---|---|---|
+| Base relationnelle sur une machine, avec réplique | transactions, jointures, index secondaires, outils connus ; des dizaines de milliers de lectures et environ 10 000 transactions par seconde mesurées sur un portable | une machine pour toutes les écritures ; bascule de quelques dizaines de secondes vers la réplique ; partitionnement à la main au-delà | par défaut, tant que les chiffres de la grille tiennent sur une machine |
+| Base NoSQL partitionnée (colonnes larges, clé-valeur, documents) | croissance par ajout de nœuds, écritures rapides, disponibilité pendant la perte d’un nœud | requêtes à prévoir, transactions limitées à une partition ou à un document, cohérence souvent réglable | gros volumes avec quelques motifs d’accès connus |
+| Base spécialisée en plus de la base principale | un ordre de grandeur sur sa question (séries, recherche, vecteurs) | une seconde copie à alimenter, à sauvegarder, à surveiller | quand la mesure montre que la base principale ne suffit plus |
+| Base SQL répartie (Spanner, CockroachDB) | SQL et transactions sérialisables sur plusieurs nœuds et régions, perte d’un nœud sans intervention | 6 fois la latence d’écriture et 5 fois moins d’écritures par machine mesurées, au moins trois nœuds, un aller-retour entre régions par écriture répartie | données transactionnelles qui dépassent une machine, ou qui doivent survivre à la perte d’un centre de données ou d’une région |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : une machine suffit-elle ?]
+Hypothèses : un logiciel de gestion en ligne compte 200 000 entreprises clientes et 2 millions d’utilisateurs ; chaque utilisateur actif fait 200 requêtes par jour, dont 10 % d’écritures, et un utilisateur sur quatre est actif un jour donné ; le pic vaut cinq fois la moyenne ; chaque requête fait en moyenne 4 lectures ou 1 transaction de 3 écritures ; on garde 5 Ko par écriture pendant 5 ans.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Requêtes par jour | 500 000 × 200 | 100 millions |
+| Écritures au pic | 100 × 10⁶ × 0,1 / 86 400 × 5 | ≈ 580 transactions/s |
+| Lectures au pic | 100 × 10⁶ × 0,9 × 4 / 86 400 × 5 | ≈ 21 000 lectures/s |
+| Capacité mesurée sur le portable | | 10 800 transactions/s, 85 000 lectures/s |
+| Volume sur 5 ans | 10 × 10⁶ × 3 × 5 Ko × 1 826 jours | ≈ 270 To |
+
+Conclusion : le débit tient sur une machine avec une marge de 18 en écriture et de 4 en lecture, que des répliques en lecture élargissent. Le volume, lui, ne tient pas. Avant de choisir une base répartie, on vérifie l’hypothèse des 5 Ko gardés 5 ans. Si les écritures sont surtout des journaux d’activité, ils iront dans un stockage objet ou une base de séries, et la base transactionnelle redescendra à quelques téraoctets.
+:::
+
+:::calcul[Calcul : la disponibilité de trois bases]
+Hypothèses : une requête d’utilisateur a besoin d’une base relationnelle, d’un cache Redis et d’un moteur de recherche, indépendants, chacun disponible à 99,9 % ; on compare avec la base relationnelle seule.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Indisponibilité d’une base | 0,001 × 8 766 h | ≈ 8,8 h par an |
+| Disponibilité des trois en série | 0,999³ | 99,70 % |
+| Indisponibilité des trois | 0,003 × 8 766 h | ≈ 26 h par an |
+
+Conclusion : chaque base nécessaire à une requête ajoute ses pannes à celles des autres. Une base qui ne sert qu’à accélérer (un cache) ne doit pas faire échouer la requête quand elle tombe ; la requête doit alors aller à la base qui fait foi, plus lentement ([ch. 17](cache-invalidation.mdx)).
+:::
+
+:::calcul[Calcul : le prix d’une majorité entre régions]
+Hypothèses : une base SQL répartie garde trois répliques ; la lumière parcourt environ 200 km par milliseconde dans la fibre, soit au moins 1 ms d’aller-retour par 100 km de distance ([ch. 4](../partie-1/transport.mdx)) ; distances à vol d’oiseau Paris-Londres 344 km, Paris-Francfort 479 km, Paris-New York 5 840 km ; le leader est à Paris.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Répliques Paris, Londres, Francfort | aller-retour vers Londres, la plus proche | ≥ 3,4 ms |
+| Répliques Paris, New York, Oregon | aller-retour vers New York | ≥ 58 ms |
+| Une synchronisation du journal sur SSD | | quelques ms |
+| Attente à la validation de Spanner (2ε, ε moyen de 4 ms en 2012) | | ≈ 8 ms, en partie recouverte |
+
+Conclusion : une majorité entre régions voisines ajoute quelques millisecondes ; une majorité entre continents en ajoute au moins 58, et en pratique davantage, car les câbles ne suivent pas le grand cercle. Placer deux répliques sur trois sur le même continent rend la plupart des écritures rapides, mais la perte de ce continent fait perdre la majorité.
+:::
+
+## Exemple réel
+
+**F1, la base publicitaire de Google, de MySQL partitionné à Spanner.** La section 5.4 de l’article sur Spanner[^spanner] raconte la migration de F1, la réécriture du système de publicité de Google, premier client de Spanner, testé en production à partir de début 2011. L’ancien système reposait sur MySQL, partitionné à la main de plusieurs façons. Les données, quelques dizaines de téraoctets non compressés, étaient petites par rapport à bien des bases NoSQL, mais assez grosses pour poser des problèmes à MySQL partitionné. Chaque client et toutes ses données étaient attribués à une partition fixe, ce qui permettait les index et les requêtes complexes par client, mais obligeait la logique métier à connaître le partitionnement. Le dernier repartitionnement avait demandé plus de deux ans d’effort et la coordination de dizaines d’équipes. Faute de pouvoir le refaire régulièrement, l’équipe avait limité la croissance de MySQL en rangeant une partie des données dans Bigtable, au prix des transactions et des requêtes sur l’ensemble des données.
+
+L’équipe a choisi Spanner pour trois raisons, que l’article énumère. Spanner repartitionne seul. Il réplique de façon synchrone et bascule automatiquement, alors que la bascule de la réplication maître-esclave de MySQL était difficile et risquait de perdre des données. Et F1 avait besoin de transactions sur des données quelconques et de lectures cohérentes, ce qui écartait les autres systèmes NoSQL. F1 a gardé cinq répliques, deux sur la côte ouest des États-Unis et trois sur la côte est. Sur 24 heures, l’article mesure 21,5 milliards de lectures à 8,7 ms en moyenne, et des validations à 72,3 ms sur un site et 103,0 ms sur plusieurs. Une validation coûte donc des dizaines de millisecondes, le prix d’une réplication synchrone entre les deux côtes ; en échange, le repartitionnement n’est plus le travail de l’équipe. L’article rapporte aussi que la bascule automatique a été presque invisible pour elle, malgré des pannes imprévues de grappes.
+
+## Erreurs fréquentes
+
+Choisir une base distribuée pour « pouvoir monter en charge » sans avoir chiffré la charge. Une machine a tenu 10 800 transactions par seconde dans la mesure ; une base répartie aurait coûté six fois la latence d’écriture, trois machines au lieu de deux, et une équipe à former.
+
+Choisir d’après le modèle de données seul. Des fiches produits de formes variées se rangent en documents, mais si le stock et les commandes doivent rester cohérents, c’est la question des transactions qui décide.
+
+Ajouter une base à chaque besoin nouveau. Chaque base ajoute ses sauvegardes, sa surveillance, ses astreintes et une copie à tenir à jour ; trois bases à 99,9 % nécessaires à la même requête font 26 heures d’indisponibilité par an au lieu de 9.
+
+Faire de la copie la source de vérité. Un index de recherche ou un cache est alimenté après la base ; s’il ne peut pas être reconstruit à partir d’elle, la première écriture perdue reste perdue.
+
+Comparer des bases sur des bancs d’essai publiés plutôt que sur ses propres requêtes. Les chiffres de ce chapitre varient du simple au double à un client entre deux passages ; un banc d’essai fait sur d’autres machines, d’autres données et d’autres requêtes en dit encore moins.
+
+Croire qu’une base SQL répartie efface les régions. Une écriture confirmée par une majorité paie toujours l’aller-retour vers cette majorité, au moins 58 ms entre Paris et New York.
+
+Oublier l’attente de bascule. CockroachDB n’a rien écrit pendant trois secondes après la perte du détenteur du bail ; une application dont les délais d’attente sont plus courts transforme cette pause en erreurs, puis en nouvelles tentatives qui s’accumulent (ch. 38).
+
+:::piege[Erreur fréquente : « Spanner prouve qu’on peut avoir la cohérence forte et la disponibilité totale »]
+Spanner reste soumis au théorème CAP ([ch. 12](../partie-1/coherence-cap.mdx)). Eric Brewer, l’auteur de la conjecture, écrit que Spanner est techniquement un système CP, qui renonce à la disponibilité pendant certaines partitions, et qu’il n’est « effectivement CA » que parce que les partitions sont rares sur le réseau privé de Google ; les incidents de réseau, partitions comprises, comptaient pour 7,6 % des incidents de Spanner dans les données qu’il publie[^brewer]. TrueTime donne l’ordre des transactions, pas la disponibilité pendant une partition. Une base SQL répartie sur trois régions survit à la perte d’une région, pas à l’isolement de deux.
+:::
+
+:::entretien
+Ne nommez pas une base avant d’avoir chiffré la charge. Dites : « 600 écritures et 20 000 lectures par seconde au pic, 3 To dans trois ans ; une base relationnelle avec deux répliques en lecture tient, à 5 % de sa capacité en écriture ; je partitionnerai par entreprise cliente si le volume dépasse 10 To ». Pour chaque base ajoutée, dites quelle question elle sert, quelle base fait foi et comment la copie est alimentée.
+:::
+
+## Exercices
+
+**Question 1.** Une application de réservation de salles compte 3 000 entreprises, 400 écritures par seconde au pic, 8 000 lectures par seconde, 150 Go de données et une croissance de 40 Go par an. Les réservations ne doivent jamais se chevaucher. L’équipe connaît MySQL. Quelle base proposez-vous, avec quelle configuration, et à partir de quel chiffre réexamineriez-vous ce choix ?
+
+**Question 2.** Dans la mesure de `reparti.py`, une écriture coûte 22,8 ms dans CockroachDB et une lecture 1,1 ms, alors que les deux touchent la même ligne de la même plage. D’où vient cet écart ? Comment évoluerait chacune si les trois nœuds étaient dans trois zones de disponibilité distantes de 1 ms aller-retour ?
+
+**Question 3.** Pendant la troisième partie de la mesure, aucune écriture n’a abouti pendant trois secondes, et aucune n’a échoué. Décrivez ce que verrait une application qui lance chaque requête avec un délai d’attente de 500 ms et la recommence immédiatement en cas d’échec, trois fois au plus. Que proposez-vous ?
+
+**Exercice de conception.** Une application de VTC fonctionne dans trois pays d’Europe. 200 000 chauffeurs envoient leur position toutes les 4 secondes ; les passagers demandent les chauffeurs proches ; une course a un prix, un paiement, et ne doit être attribuée qu’à un seul chauffeur ; l’historique des courses est gardé 5 ans pour la comptabilité, à raison de 3 millions de courses par jour. Proposez les bases de données, en appliquant la grille question par question. Chiffrez les écritures par seconde de chaque flux et le volume de l’historique, et dites quelle base fait foi pour chaque donnée.
+
+## Corrigés
+
+**Question 1.** La forme des données (entreprises, salles, réservations) est relationnelle, et l’invariant (pas de chevauchement) porte sur plusieurs lignes ; une contrainte d’exclusion sur un intervalle (dans PostgreSQL) ou une transaction sérialisable qui vérifie les réservations de la salle le garantit ([ch. 18](transactions-isolation.mdx)). 400 écritures par seconde tiennent sur une machine avec une marge d’un facteur 25 d’après la mesure, et 8 000 lectures aussi ; 150 Go plus 40 Go par an tiennent sur un disque pendant des années. L’équipe connaît MySQL, qui sait faire tout cela (avec des verrous `SELECT ... FOR UPDATE` sur la salle). On propose donc MySQL, avec une réplique semi-synchrone pour la panne et une ou deux répliques en lecture. On réexamine si les écritures approchent quelques milliers par seconde, si les données dépassent quelques téraoctets, ou si l’application doit survivre à la perte d’un centre de données sans perdre une réservation confirmée.
+
+**Question 2.** La lecture est servie par le détenteur du bail sans passer par Raft, ici le nœud 1, qui est aussi la passerelle ; elle coûte un aller-retour local et une lecture en mémoire. L’écriture passe par la transaction, par le journal Raft du détenteur du bail, par l’envoi aux deux autres répliques et l’attente d’au moins une réponse, chaque réplique synchronisant son journal sur le disque, puis par l’application de l’écriture. Avec trois zones distantes de 1 ms, la lecture ne change pas si le client parle au nœud qui détient le bail (elle prend 1 ms de plus s’il parle à un autre nœud) ; l’écriture prend au moins 1 ms de plus, l’aller-retour vers la réplique la plus proche, mais elle perd aussi la concurrence pour le disque et le processeur que la mesure sur une seule machine lui imposait. Le chiffre réel ne se devine pas, il se mesure.
+
+**Question 3.** À l’arrêt du nœud, les 32 connexions attendent. Au bout de 500 ms, chaque requête échoue et repart immédiatement, puis échoue à nouveau 500 ms plus tard ; après trois tentatives, soit 1,5 s, l’application renvoie une erreur à l’utilisateur, alors que la base aurait répondu 1,5 s plus tard. Pendant ce temps, chaque requête d’utilisateur a produit trois requêtes vers la base, qui s’accumulent sur la nouvelle passerelle au moment où le bail se rétablit. Il faut d’abord choisir un délai d’attente qui couvre la bascule mesurée (5 secondes pour les écritures), puis espacer les nouvelles tentatives d’un délai croissant et aléatoire, et vérifier que l’écriture est idempotente, car une requête abandonnée par le client a pu aboutir dans la base (ch. 38).
+
+**Exercice de conception.**
+
+*Positions des chauffeurs.* 200 000 positions toutes les 4 s font 50 000 écritures par seconde, de valeurs qui n’ont d’intérêt que quelques secondes. La question est « quels chauffeurs sont près de ce point maintenant ». Un magasin en mémoire avec un index géographique (Redis et ses commandes `GEOADD` et `GEOSEARCH`), partitionné par ville, sert cette requête ; une position perdue est remplacée 4 secondes plus tard, donc la durabilité n’est pas exigée. On ne met pas ce flux dans la base transactionnelle, où 50 000 mises à jour par seconde produiraient un journal et des versions mortes sans valeur.
+
+*Courses et paiements.* 3 millions de courses par jour font 35 par seconde en moyenne, quelques centaines au pic, avec une dizaine d’écritures par course. L’attribution à un seul chauffeur et le paiement demandent une transaction ; une base relationnelle par pays (PostgreSQL avec réplique synchrone dans une autre zone) tient ce débit d’un facteur 10 au moins, et fait foi. Une base SQL répartie ne se justifie que si l’on exige de survivre à la perte d’une région entière sans perdre une course confirmée.
+
+*Historique.* 3 millions de courses par jour à 2 Ko font 6 Go par jour, 2,2 To par an, 11 To sur 5 ans. On garde dans la base transactionnelle les courses de quelques mois et l’on archive le reste, par partitions mensuelles, dans un stockage objet en format colonnaire interrogeable pour la comptabilité (ch. 29).
+
+*Coût.* Trois systèmes (Redis, PostgreSQL, stockage objet), chacun justifié par un chiffre ; Redis se reconstruit seul en quelques secondes à partir des positions suivantes, et l’archive à partir de la base, qui reste la seule source de vérité des courses et des paiements.
+
+:::fiche
+- Première question : une machine suffit-elle ? PostgreSQL sur un portable a tenu 85 000 lectures par clé et 10 800 transactions TPC-B par seconde (mesuré).
+- Grille : forme des données, motifs d’accès, cohérence, volume et croissance, latence et localisation, compétences, coût d’exploitation ; chaque réponse chiffrée.
+- Persistance polyglotte : chaque base ajoute sauvegardes, surveillance, astreintes, une copie à alimenter ; trois bases à 99,9 % en série font 99,7 %.
+- Bases SQL réparties : plages répliquées par consensus, transactions sérialisables. Spanner : TrueTime, ε de 1 à 7 ms, attente à la validation d’au moins 2ε. CockroachDB : horloges hybrides, `max_offset` de 500 ms, relectures dans l’intervalle d’incertitude.
+- Prix mesuré sur une machine : écriture 22,8 ms contre 3,7, cinq fois moins d’écritures par seconde. En échange, la perte du détenteur du bail ne coûte que 3 s de pause, sans erreur.
+- Une majorité entre régions coûte au moins l’aller-retour vers la réplique la plus proche (≥ 58 ms Paris-New York).
+:::
+
+[^pgbench]: PostgreSQL, « pgbench », documentation, [postgresql.org/docs/current/pgbench.html](https://www.postgresql.org/docs/current/pgbench.html).
+[^fowler]: Martin Fowler, « PolyglotPersistence », 16 novembre 2011, [martinfowler.com/bliki/PolyglotPersistence.html](https://martinfowler.com/bliki/PolyglotPersistence.html).
+[^spanner]: James C. Corbett, Jeffrey Dean, Michael Epstein et al., « Spanner: Google’s Globally-Distributed Database », *10th USENIX Symposium on Operating Systems Design and Implementation (OSDI ’12)*, 2012, p. 251-264, sections 3, 4.2.1, 5.1 et 5.4, [usenix.org/system/files/conference/osdi12/osdi12-final-16.pdf](https://www.usenix.org/system/files/conference/osdi12/osdi12-final-16.pdf).
+[^brewer]: Eric Brewer, « Spanner, TrueTime & The CAP Theorem », Google, 14 février 2017, [storage.googleapis.com/gweb-research2023-media/pubtools/pdf/45855.pdf](https://storage.googleapis.com/gweb-research2023-media/pubtools/pdf/45855.pdf).
+[^crdb]: Rebecca Taft, Irfan Sharif, Andrei Matei et al., « CockroachDB: The Resilient Geo-Distributed SQL Database », *Proceedings of the 2020 ACM SIGMOD International Conference on Management of Data*, 2020, p. 1493-1509, sections 2.1, 2.2, 4.1, 4.2 et 6.1, [doi:10.1145/3318464.3386134](https://doi.org/10.1145/3318464.3386134).

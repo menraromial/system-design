@@ -1,0 +1,36 @@
+% Une table de CockroachDB découpée en plages, chaque plage répliquée sur trois
+% nœuds par Raft ; une écriture passe par la passerelle, puis par le détenteur du
+% bail, et n'est confirmée qu'après l'accord d'une majorité.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    r/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum width=24mm, minimum height=6mm, font=\sffamily\footnotesize, inner sep=1pt},
+    b/.style={draw=#1, fill=#1, text=white, line width=0.6pt, minimum width=24mm, minimum height=6mm, font=\sffamily\footnotesize\bfseries, inner sep=1pt}]
+  % table et plages
+  \node[leg, anchor=west] at (0,62) {table comptes, rangée par clé};
+  \node[r=Dblue, minimum width=27mm] (p1) at (14,54) {id 0 à 33 332};
+  \node[r=Dgreen, minimum width=27mm] (p2) at (42,54) {33 333 à 66 665};
+  \node[r=Dorange, minimum width=27mm] (p3) at (70,54) {66 666 à 99 999};
+  \node[note, anchor=west] at (85,54) {trois plages (ranges)};
+  % nœuds
+  \foreach \i in {1,2,3} {
+    \node[pillo=Dslate] at ({-4+38*\i},40) {nœud \i};
+    \draw[draw=Dslate, line width=0.6pt, rounded corners=3pt] ({-19+38*\i},10) rectangle ({11+38*\i},36);
+  }
+  % répliques : plage 1 bail sur nœud 1, plage 2 bail sur nœud 2, plage 3 bail sur nœud 3
+  \foreach \i in {1,2,3} {
+    \pgfmathsetmacro{\x}{-4+38*\i}
+    \ifnum\i=1 \node[b=Dblue] at (\x,30) {plage 1, bail}; \else \node[r=Dblue] at (\x,30) {plage 1}; \fi
+    \ifnum\i=2 \node[b=Dgreen] (l2) at (\x,23) {plage 2, bail}; \else \node[r=Dgreen] (q\i) at (\x,23) {plage 2}; \fi
+    \ifnum\i=3 \node[b=Dorange] at (\x,16) {plage 3, bail}; \else \node[r=Dorange] at (\x,16) {plage 3}; \fi
+  }
+  % client et chemin d'une écriture sur id 42 000 (plage 2)
+  \node[soft=Dslate, minimum width=18mm, minimum height=7mm] (cl) at (-14,23) {client};
+  \draw[arr=Dred] (cl.east) -- node[lblc=Dred, above, pos=0.45] {1} (q1.west);
+  \draw[arr=Dred] ([yshift=1.5mm]q1.east) -- node[lblc=Dred, above] {2} ([yshift=1.5mm]l2.west);
+  \draw[arr=Dred] ([yshift=-1.5mm]l2.west) -- node[lblc=Dred, below] {3} ([yshift=-1.5mm]q1.east);
+  \draw[arr=Dred] (l2.east) -- node[lblc=Dred, above] {3} (q3.west);
+  \node[note, anchor=north west, align=left] at (-24,6) {UPDATE comptes WHERE id = 42 000 : 1. le client parle au nœud 1, qui sert de passerelle ;\\2. la passerelle transmet au détenteur du bail de la plage 2 (nœud 2) ; 3. celui-ci ajoute l'écriture\\au journal Raft et l'envoie aux deux autres répliques ; il répond dès que deux répliques sur trois l'ont écrite.};
+\end{tikzpicture}
+\end{document}
