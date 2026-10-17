@@ -1,0 +1,25 @@
+% Un sujet de 6 partitions ; la clé choisit la partition ; un groupe de 3
+% consommateurs se partage les partitions, un autre groupe lit tout.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    p/.style={draw=Dblue, fill=DblueBg, line width=0.6pt, minimum width=34mm, minimum height=6mm, font=\sffamily\footnotesize}]
+  \node[soft=Dslate, minimum width=24mm, align=center] (prod) at (0,30) {producteur\\clé = utilisateur};
+  \foreach \k in {0,...,5} \node[p] (p\k) at (50,{50-\k*8}) {partition \k};
+  \node[note, anchor=south] at (50,55.5) {sujet « événements »};
+  \foreach \k in {0,...,5} \draw[line=Dslate, line width=0.5pt] (prod.east) -- (p\k.west);
+  \node[note, anchor=north, align=center] at (0,20) {partition = hachage(clé)\\mod 6 : un utilisateur,\\une partition, un ordre};
+  % groupe C
+  \node[soft=Dgreen, minimum width=22mm, minimum height=7mm] (c1) at (100,46) {consommateur 1};
+  \node[soft=Dgreen, minimum width=22mm, minimum height=7mm] (c2) at (100,30) {consommateur 2};
+  \node[soft=Dgreen, minimum width=22mm, minimum height=7mm] (c3) at (100,14) {consommateur 3};
+  \foreach \k/\c in {0/c1, 1/c1, 2/c2, 3/c2, 4/c3, 5/c3} \draw[arr=Dgreen] (p\k.east) -- (\c.west);
+  \node[note, anchor=south, text=Dgreen] at (100,53) {groupe C : 2 partitions chacun};
+  % groupe B
+  \node[soft=Dorange, minimum width=22mm, minimum height=7mm, align=center] (b) at (50,-2) {groupe B :\\un seul consommateur};
+  \draw[draw=Dorange, line width=0.6pt, dash pattern=on 2pt off 1.5pt, rounded corners=2pt] (31,5.5) rectangle (69,54.5);
+  \draw[arr=Dorange] (50,5.5) -- (b.north);
+  \node[note, anchor=north, align=center] at (50,-10) {chaque groupe reçoit tous les messages ; dans un groupe, une partition n'a qu'un lecteur,\\et un septième consommateur pour six partitions resterait sans rien à lire};
+\end{tikzpicture}
+\end{document}

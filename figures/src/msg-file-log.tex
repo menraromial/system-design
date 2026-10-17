@@ -1,0 +1,27 @@
+% Une file : le message part quand il est acquitté, les consommateurs se partagent
+% les messages. Un log : les messages restent, chaque groupe a sa position.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    m/.style={draw=#1, fill=#1Bg, line width=0.5pt, minimum width=7mm, minimum height=7mm, font=\sffamily\scriptsize, inner sep=0pt}]
+  \node[pillo=Dorange] at (35,60) {file (RabbitMQ, SQS)};
+  \foreach \k in {0,...,5} \node[m=Dorange] at ({10+\k*8},44) {m\the\numexpr\k+7\relax};
+  \node[note, anchor=east] at (5,44) {producteur $\rightarrow$};
+  \node[soft=Dslate, minimum width=20mm, minimum height=7mm] (a) at (78,52) {consommateur 1};
+  \node[soft=Dslate, minimum width=20mm, minimum height=7mm] (b) at (78,36) {consommateur 2};
+  \draw[arr=Dorange] (54,44) -- (a.west);
+  \draw[arr=Dorange] (54,44) -- (b.west);
+  \node[note, anchor=north, align=center] at (40,30) {chaque message va à un seul consommateur ;\\acquitté, il disparaît de la file (m1 à m6 n'y sont plus)};
+  \begin{scope}[yshift=-50mm]
+    \node[pillo=Dblue] at (35,60) {log (Kafka), une partition};
+    \foreach \k in {0,...,11} \node[m=Dblue] at ({2+\k*7.5},44) {\k};
+    \node[note, anchor=west] at (92,44) {$\leftarrow$ ajout};
+    \draw[arr=Dgreen] (32,30) -- (32,39.5);
+    \node[note, anchor=north, text=Dgreen] at (32,29) {groupe A : position 4};
+    \draw[arr=Dred] (77,30) -- (77,39.5);
+    \node[note, anchor=north, text=Dred] at (77,29) {groupe B : position 10};
+    \node[note, anchor=north, align=center] at (45,20) {les messages restent pendant la durée de rétention ; chaque groupe\\avance sa propre position, et peut la ramener en arrière pour relire};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

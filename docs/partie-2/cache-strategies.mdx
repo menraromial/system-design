@@ -98,7 +98,7 @@ Un second passage a donné les mêmes durées à 4 % près, et 3 261 écritur
 
 Une écriture dans PostgreSQL coûte 3 ms, parce que chaque transaction confirmée attend que son journal soit écrit sur disque ([ch. 18](transactions-isolation.mdx)) ; cache-aside et write-through paient ce prix, et l’écriture dans Redis qui suit ne compte presque pas. Le write-back répond en 0,08 ms, quarante fois plus vite, et regroupe les 2 000 écritures en une seule transaction. Le prix est dans la seconde partie. En une seconde, l’écrivain en write-back a confirmé 8 006 écritures, dont 2 819 n’étaient pas encore arrivées dans la base quand il a été tué. Ce sont les écritures des derniers lots, environ un tiers de seconde de travail, que le fil d’arrière-plan n’avait pas encore envoyées ou terminé d’envoyer. En write-through, la base contient une écriture de plus que celles confirmées, car l’écrivain a été tué entre la validation de la transaction et l’affichage de sa confirmation.
 
-Le write-back n’est donc acceptable que pour des données qu’on peut perdre sur une courte fenêtre (des compteurs de vues, des positions de lecture, des statistiques), ou si le tampon est lui-même durable, ce qui revient à construire une file de messages (ch. 27).
+Le write-back n’est donc acceptable que pour des données qu’on peut perdre sur une courte fenêtre (des compteurs de vues, des positions de lecture, des statistiques), ou si le tampon est lui-même durable, ce qui revient à construire une file de messages ([ch. 27](files-messages.mdx)).
 
 ## Quoi garder quand le cache est plein
 

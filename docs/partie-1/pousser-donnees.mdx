@@ -80,7 +80,7 @@ Les quatre mécanismes précédents servent quand le client est un navigateur ou
 Recevoir un webhook, c’est vérifier, accuser vite, traiter plus tard, une seule fois.
 </Figure>
 
-Le chemin se lit de gauche à droite. Le récepteur fait le minimum pendant la requête du fournisseur : vérifier la signature, enregistrer l’événement dans une file (ch. 27), répondre `200`. Le traitement réel se fait ensuite, en consultant la liste des événements déjà traités pour ne pas en traiter un deux fois.
+Le chemin se lit de gauche à droite. Le récepteur fait le minimum pendant la requête du fournisseur : vérifier la signature, enregistrer l’événement dans une file ([ch. 27](../partie-2/files-messages.mdx)), répondre `200`. Le traitement réel se fait ensuite, en consultant la liste des événements déjà traités pour ne pas en traiter un deux fois.
 
 Trois propriétés des webhooks dictent cette organisation. N’importe qui peut envoyer une requête à l’adresse du récepteur, et le fournisseur signe donc chaque message avec un secret partagé, par un HMAC (une empreinte calculée avec une clé) du corps de la requête, et le récepteur recalcule l’empreinte avant d’accepter quoi que ce soit. Le fournisseur considère qu’une livraison a échoué s’il ne reçoit pas de réponse rapide, et il relance. Un récepteur qui fait tout le traitement pendant la requête finit par recevoir deux fois les mêmes événements. Et les relances, comme les livraisons parallèles, ne respectent pas l’ordre d’émission.
 

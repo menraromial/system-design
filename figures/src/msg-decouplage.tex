@@ -1,0 +1,29 @@
+% Appel direct et découplage par une file entre l'inscription et l'e-mail.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \node[pillo=Dred] at (50,64) {appel direct};
+  \node[soft=Dblue, minimum width=26mm] (u1) at (0,50) {utilisateur};
+  \node[soft=Dslate, minimum width=26mm] (i1) at (45,50) {inscription};
+  \node[soft=Dorange, minimum width=28mm] (e1) at (95,50) {service d'e-mail\\50 /s};
+  \draw[arr=Dslate] (u1) -- node[lbl, above] {500 /s} (i1);
+  \draw[arr=Dred] (i1) -- node[lblc=Dred, above] {attend la réponse} (e1);
+  \node[note, anchor=north, align=center, text=Dred] at (50,40) {l'inscription attend l'e-mail : au-delà de 50 /s, les appels s'accumulent,\\dépassent 2 s et l'inscription échoue (1 892 sur 2 000 mesurées)};
+  \begin{scope}[yshift=-46mm]
+    \node[pillo=Dgreen] at (50,64) {par une file};
+    \node[soft=Dblue, minimum width=26mm] (u2) at (0,50) {utilisateur};
+    \node[soft=Dslate, minimum width=26mm] (i2) at (38,50) {inscription};
+    \node[draw=Dgreen, fill=DgreenBg, line width=0.8pt, minimum width=24mm, minimum height=9mm] (q) at (74,50) {};
+    \foreach \k in {0,...,5} \draw[draw=Dgreen, line width=0.5pt] ({63+\k*3.6},45.5) -- ({63+\k*3.6},54.5);
+    \node[note, anchor=north, text=Dgreen] at (74,44) {file};
+    \node[soft=Dslate, minimum width=24mm] (c) at (106,50) {consommateur};
+    \node[soft=Dorange, minimum width=28mm] (e2) at (140,50) {service d'e-mail\\50 /s};
+    \draw[arr=Dslate] (u2) -- node[lbl, above] {500 /s} (i2);
+    \draw[arr=Dgreen] (i2) -- node[lblc=Dgreen, above] {dépose} (q);
+    \draw[arr=Dgreen] (q) -- (c);
+    \draw[arr=Dslate] (c) -- node[lbl, above] {50 /s} (e2);
+    \node[note, anchor=north, align=center, text=Dgreen] at (70,38) {l'inscription répond dès que le message est dans la file (3,5 ms) ;\\la file absorbe le pic (1 808 messages au plus fort) et se vide au rythme du service};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

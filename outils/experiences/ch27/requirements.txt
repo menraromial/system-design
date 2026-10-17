@@ -1,0 +1,3 @@
+aiohttp
+aio-pika
+confluent-kafka

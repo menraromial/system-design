@@ -1,0 +1,265 @@
+---
+title: "Files de messages et logs"
+sidebar_label: "27. Files de messages et logs"
+description: "Découpler deux services par des messages : absorber un pic, diffuser un événement ; la file (RabbitMQ, SQS), dont le message disparaît une fois traité, contre le log partitionné (Kafka), qu'on relit à volonté ; positions, rétention, publication et abonnement, groupes de consommateurs, ordre par partition et clé, rééquilibrage, schéma des messages et registre de schémas ; mesures avec RabbitMQ 4 et Kafka 4."
+partie: 2
+chapitre: 27
+---
+
+import decouplage from '@site/src/figures/msg-decouplage.svg';
+import filelog from '@site/src/figures/msg-file-log.svg';
+import groupes from '@site/src/figures/msg-groupes.svg';
+
+Une campagne publicitaire passe à la télévision, et 2 000 personnes s’inscrivent en quatre secondes. À chaque inscription, le service d’inscription enregistre le compte puis demande au service d’e-mail d’envoyer le message de bienvenue, et attend sa réponse. Le service d’e-mail envoie 50 messages par seconde, dix fois moins que ce qui arrive. Sur la machine des mesures, 1 892 inscriptions sur 2 000 ont échoué au bout de deux secondes d’attente, alors que les comptes étaient créés, et les 1 892 e-mails de bienvenue sont quand même partis dans les 40 secondes suivantes, vers des gens à qui l’on venait d’afficher une erreur. Avec une file de messages entre les deux services, les 2 000 inscriptions ont réussi en 3,5 ms chacune, et les e-mails sont partis au rythme du service, le dernier 42 secondes après le début du pic.
+
+Ce chapitre décrit ce qu’apporte un message échangé de façon asynchrone entre deux services, et les deux familles de systèmes qui le transportent. Une file de messages (message queue), comme RabbitMQ ou Amazon SQS, remet chaque message à un consommateur, qui l’acquitte, et le message disparaît. Un log partitionné, comme Kafka, garde les messages dans l’ordre d’arrivée pendant une durée fixée, et chaque lecteur avance sa propre position ; on peut relire. Les garanties de livraison (au plus une fois, au moins une fois, exactement une fois) sont l’objet du ch. 28.
+
+Deux expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch27/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch27) : le pic d’inscriptions, en appel direct puis à travers une file RabbitMQ ([`pic.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch27/pic.py)), et une comparaison d’une file RabbitMQ et d’un log Kafka, avec les groupes de consommateurs, l’ordre des messages et le rééquilibrage ([`file_log.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch27/file_log.py)). Les courtiers tournent dans des conteneurs lancés par [`commun.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch27/commun.py).
+
+## Le pic d’inscriptions, mesuré
+
+`pic.py` remplace le service d’e-mail par un petit serveur HTTP qui envoie au plus quatre messages à la fois, en 80 ms chacun, soit 50 par seconde. Il simule 2 000 inscriptions réparties sur 4 secondes, 500 par seconde. Dans la première version, l’inscription appelle le service d’e-mail et attend sa réponse au plus 2 s. Dans la seconde, elle dépose un message durable dans une file RabbitMQ, attend l’accusé du courtier, et répond ; quatre consommateurs lisent la file, quatre messages au plus chacun, et appellent le service d’e-mail.
+
+```text
+RabbitMQ 4.3.6
+2000 inscriptions en 4 s ; service d'e-mail limité à 50 envois/s
+
+1. appel direct au service d'e-mail (délai d'attente 2 s)
+   inscriptions réussies 108, échouées 1892
+   latence des réussies : médiane 1038 ms, p99 1986 ms
+   e-mails envoyés 2000, dont 1892 pour des inscriptions échouées
+   dernier e-mail 41 s après le début du pic (dernière inscription à 6 s)
+
+2. par une file RabbitMQ (message durable, accusé de publication)
+   inscriptions réussies 2000, échouées 0
+   latence : médiane 3.5 ms, p99 5.5 ms
+   messages en attente au plus fort : 1808
+   e-mails envoyés 2000
+   dernier e-mail 42 s après le début du pic (dernière inscription à 4 s)
+```
+
+Les trois passages ont donné les mêmes nombres d’échecs et des latences à 3 % près, sauf le 99e centile par la file, de 5,5 à 6,3 ms. Dans le premier passage, le script comptait mal la profondeur de la file ; il la calcule depuis comme la différence entre messages publiés et messages traités.
+
+<Figure svg={decouplage} num="27.1" alt="En haut, l’appel direct : l’utilisateur envoie 500 inscriptions par seconde au service d’inscription, qui attend la réponse du service d’e-mail limité à 50 par seconde ; au-delà, les appels s’accumulent, dépassent 2 s et l’inscription échoue. En bas, par une file : l’inscription dépose un message dans une file, un consommateur la lit et appelle le service d’e-mail à 50 par seconde ; l’inscription répond en 3,5 ms, la file absorbe le pic.">
+Le service d’inscription appelle directement le service d’e-mail, ou passe par une file.
+</Figure>
+
+En appel direct, le service d’e-mail reçoit dix fois ce qu’il peut traiter. Les requêtes s’accumulent dans sa file d’attente interne, leur attente dépasse vite 2 s, et l’inscription échoue. Seules les 108 premières passent, en une seconde en médiane. Le service d’e-mail, lui, ne sait pas que le client a abandonné, et il envoie quand même les 2 000 messages. L’utilisateur a vu une erreur, son compte existe, et il reçoit un e-mail de bienvenue ; s’il recommence son inscription, il en recevra deux. Le défaut d’un service lent se propage ainsi à son appelant, et le pic empêche des inscriptions qui n’avaient pourtant rien à voir avec l’e-mail.
+
+Avec la file, l’inscription ne dépend plus que de l’écriture d’un message dans RabbitMQ, 3,5 ms. Le pic devient une file d’attente de 1 808 messages au plus fort, que les consommateurs vident à 50 par seconde, le rythme du service d’e-mail. Le service n’est jamais surchargé, aucun e-mail n’est envoyé pour une inscription échouée, et l’e-mail de la dernière inscription part 38 secondes après elle. Le pic n’a pas disparu, il s’est transformé en retard, ce qui convient pour un e-mail de bienvenue et ne conviendrait pas pour un code de vérification attendu par l’utilisateur.
+
+## Pourquoi passer par des messages
+
+Un message échangé par l’intermédiaire d’un courtier (broker) découple deux services de quatre façons. Dans le temps, l’émetteur n’a pas besoin que le destinataire soit disponible au même instant, et une panne ou un déploiement du service d’e-mail ne bloque plus les inscriptions. En débit, la file lisse les pics, comme dans la mesure, et le consommateur avance à son rythme. En nombre, un même événement (« un compte a été créé ») peut intéresser l’e-mail, la facturation, l’analyse et la recherche, et l’émetteur n’a pas à connaître chacun d’eux. En reprise, un message dont le traitement échoue reste dans la file et peut être retenté plus tard.
+
+Le prix est réel. Le courtier est un composant de plus à exploiter, à sauvegarder et à surveiller, dont la panne arrête tous les échanges qui passent par lui. Le résultat n’est plus immédiat, car l’émetteur ne sait pas si l’e-mail est parti, seulement que le message est déposé, et l’interface doit en tenir compte. Les garanties de livraison sont plus faibles qu’avec un appel, puisqu’un message peut être traité deux fois, ou dans le désordre (ch. 28). Et suivre une requête à travers plusieurs files demande des identifiants de corrélation et une trace répartie (ch. 50). Une file sans limite peut aussi cacher une surcharge pendant des heures. Il faut surveiller sa profondeur et l’âge de son plus vieux message, et décider de ce qui arrive quand elle dépasse un seuil (ch. 39).
+
+## La file et le log
+
+<Figure svg={filelog} num="27.2" alt="En haut, une file : le producteur dépose les messages m7 à m12 ; chaque message va à un seul des deux consommateurs ; acquittés, m1 à m6 ont disparu de la file. En bas, un log Kafka d’une partition : les messages 0 à 11 restent, numérotés ; le groupe A est à la position 4, le groupe B à la position 10 ; chaque groupe avance sa propre position et peut la ramener en arrière.">
+Dans une file, le message disparaît quand il est traité ; dans un log, il reste, et chaque lecteur a sa position.
+</Figure>
+
+### La file
+
+Dans une file, le courtier remet chaque message à un consommateur, attend son accusé de traitement (acknowledgement), puis le supprime. Plusieurs consommateurs branchés sur la même file se partagent les messages (consommateurs concurrents, competing consumers), ce qui permet d’ajouter des consommateurs quand la file grossit. Si un consommateur meurt sans avoir acquitté, le message est remis à un autre. RabbitMQ, qui implémente le protocole AMQP, ajoute des échanges (exchanges) qui routent chaque message vers une ou plusieurs files selon des règles, et un nombre maximal de messages non acquittés par consommateur (prefetch), quatre dans la mesure du pic. Amazon SQS fonctionne par délai d’invisibilité (visibility timeout). Un message reçu reste dans la file mais devient invisible pendant ce délai, 30 secondes par défaut et 12 heures au plus, et le consommateur doit le supprimer avant son expiration, faute de quoi le message réapparaît pour un autre consommateur ; la documentation précise que SQS livre chaque message au moins une fois et peut le livrer deux fois[^sqs].
+
+### Le log partitionné
+
+Kafka range les messages d’un sujet (topic) dans des partitions, et chaque partition est un journal (log) où l’on ne fait qu’ajouter. Chaque message y reçoit un numéro, sa position (offset). Le courtier ne retient pas qui a lu quoi. Chaque groupe de lecteurs enregistre la position jusqu’à laquelle il a lu, et les messages restent jusqu’à la fin de leur durée de rétention, qu’ils aient été lus ou non. Jay Kreps, Neha Narkhede et Jun Rao, qui ont conçu Kafka à LinkedIn, décrivaient en 2011 ce courtier sans état et une rétention de 7 jours en général, et en tiraient un avantage qu’ils présentaient comme contraire au contrat habituel d’une file, puisqu’un consommateur peut revenir à une position ancienne et relire les messages, après une erreur de traitement par exemple[^kreps].
+
+### Les deux, mesurés
+
+`file_log.py` publie 20 000 messages durables de 200 octets dans une file RabbitMQ, puis 100 000 dans un sujet Kafka de 6 partitions, et les lit de plusieurs façons.
+
+```text
+1. RabbitMQ 4.3.6, une file durable
+   20 000 messages publiés en 9.0 s (2 231 /s), un accusé par message
+   consommateur A : 20 000 messages lus et acquittés (14 232 /s)
+   messages restant dans la file : 0 ; consommateur B ensuite : 0 message
+   diffusion de 1 000 messages vers 2 files abonnées : 1000 et 1000
+
+2. Kafka 4.3.1, un sujet de 6 partitions
+   100 000 messages produits en 1.2 s (81 616 /s),
+   acks=all, producteur idempotent
+   groupe A : 100 000 messages lus (688 914 /s)
+   groupe B : 100 000 messages lus (772 722 /s)
+   groupe A, de nouveau : 0 message (ses positions sont enregistrées)
+   groupe A, positions remises au début : 100 000 messages relus
+   messages toujours dans le log : 100 000, 20 Mo de segments sur le disque
+
+3. Kafka, un groupe de 3 consommateurs sur le même sujet
+   consommateur 1 : partitions [4, 5], 32 000 messages
+   consommateur 2 : partitions [0, 1], 34 300 messages
+   consommateur 3 : partitions [2, 3], 33 700 messages
+   messages lus deux fois : 0
+   messages d'un même utilisateur lus dans le désordre : 0
+   messages lus avant un message produit plus tôt (ordre global) : 8 797
+   7 consommateurs pour 6 partitions : 1 consommateur sans partition
+   même production sans producteur idempotent :
+   1 208 messages d'un même utilisateur lus dans le désordre
+
+4. Kafka, un quatrième consommateur rejoint le groupe ; 2 000 messages/s,
+   3 consommateurs dont un lent (3 s par message)
+   protocole classic  : pause des rapides   115 ms (avant l'arrivée : 4 ms)
+   protocole consumer : pause des rapides     8 ms (avant l'arrivée : 4 ms)
+```
+
+Le passage reproduit est le quatrième. Les trois autres ont donné les mêmes comptes, des débits à 20 % près, et des messages dans le désordre sans producteur idempotent entre 634 et 1 882.
+
+Dans RabbitMQ, une fois que le consommateur A a lu et acquitté les 20 000 messages, la file est vide, et un consommateur B qui arrive ensuite ne reçoit rien. Pour que deux services reçoivent chacun tous les messages, il faut une file par service, reliée à un échange de diffusion (fanout), et les 1 000 messages diffusés arrivent dans les deux files. Dans Kafka, deux groupes lisent chacun les 100 000 messages, indépendamment. Le groupe A, relancé, ne relit rien, parce que ses positions sont enregistrées ; remises au début, il relit tout. Les 100 000 messages restent dans le log après avoir été lus, 20 Mo de segments sur le disque.
+
+Les débits ne se comparent pas directement. Le script publie dans RabbitMQ un message à la fois et attend l’accusé de chacun, 2 400 messages par seconde ; RabbitMQ accepte aussi des accusés groupés et asynchrones, beaucoup plus rapides. Le producteur Kafka envoie des lots de messages, d’où 81 600 messages par seconde avec le producteur idempotent, et 242 000 à 259 000 sans lui dans les deux premiers passages, qui n’activaient pas l’idempotence. La lecture va dix fois plus vite encore, 690 000 à 770 000 messages par seconde, parce qu’un consommateur Kafka lit des blocs contigus du log, sans acquitter chaque message.
+
+## Publier et s’abonner
+
+La publication et l’abonnement (publish/subscribe, pub/sub) consistent à envoyer un message à tous les abonnés d’un sujet, et non à un seul destinataire. Les deux familles le font différemment, comme la mesure l’a montré. RabbitMQ copie le message dans une file par abonné, et chaque abonné consomme sa file ; un abonné qui arrive après la publication ne reçoit pas les messages passés. Kafka n’écrit le message qu’une fois, et chaque groupe de consommateurs le lit à son rythme ; un nouveau groupe peut lire depuis le début de la rétention, ce qui permet d’ajouter un service qui reconstruit son état à partir des événements des sept derniers jours.
+
+## Groupes de consommateurs et partitions
+
+<Figure svg={groupes} num="27.3" alt="Un producteur envoie des messages avec l’utilisateur pour clé dans un sujet de 6 partitions ; la partition est choisie par le hachage de la clé, si bien qu’un utilisateur a une seule partition et un ordre. Un groupe C de trois consommateurs se partage les partitions, deux chacun. Un groupe B d’un seul consommateur lit tout le sujet. Chaque groupe reçoit tous les messages ; dans un groupe, une partition n’a qu’un lecteur.">
+Un sujet de 6 partitions, un groupe de 3 consommateurs qui se les partagent, et un autre groupe qui lit tout.
+</Figure>
+
+Dans un groupe, Kafka attribue chaque partition à un seul consommateur. C’est ce qui permet de lire en parallèle sans que deux membres traitent le même message, et c’est aussi ce qui limite ce parallélisme. Dans la mesure, trois consommateurs ont reçu deux partitions chacun ; avec sept consommateurs pour six partitions, l’un d’eux n’a rien reçu. Le nombre de partitions d’un sujet fixe donc le nombre maximal de consommateurs utiles d’un groupe, et il se choisit, comme au [ch. 26](partitionnement.mdx), en prévoyant la croissance.
+
+Kafka garantit l’ordre à l’intérieur d’une partition, et seulement là. Le producteur choisit la partition d’un message par le hachage de sa clé ; tous les messages d’une même clé, ici d’un même utilisateur, vont dans la même partition et sont lus dans l’ordre où ils ont été écrits. La mesure le confirme avec le producteur idempotent, avec aucun message d’un utilisateur lu dans le désordre. Entre partitions, il n’y a pas d’ordre, et 8 797 fois un message a été lu avant un message produit plus tôt dans une autre partition. On choisit donc pour clé ce qui doit rester ordonné (le compte, la commande, le document), en sachant qu’une clé très active fait une partition chaude ([ch. 26](partitionnement.mdx)).
+
+L’ordre par clé suppose que le producteur l’écrive dans l’ordre. Sans producteur idempotent, la même production a donné de 634 à 1 882 messages d’un même utilisateur lus dans le désordre, à l’intérieur de leur partition. La documentation de librdkafka, la bibliothèque du client utilisé, précise qu’avec `enable.idempotence`, le producteur garantit que les messages sont écrits exactement une fois et dans l’ordre de production, et que cette option est désactivée par défaut, avec un million de requêtes en vol par connexion au plus[^librdkafka]. Un examen des premiers messages déplacés a montré une cause. Produits avant que le client connaisse les partitions du sujet, ils ont attendu dans une file non attribuée pendant que les suivants partaient. Le client Java de Kafka active l’idempotence par défaut depuis la version 3.0[^kip679].
+
+### Le rééquilibrage
+
+Quand un consommateur rejoint ou quitte un groupe, les partitions sont redistribuées, ce qu’on appelle le rééquilibrage (rebalancing). Avec le protocole de groupe classique, tous les membres rendent leurs partitions et attendent la nouvelle répartition, et la lecture s’arrête pour tout le groupe. Kafka 4.0, publié en mars 2025, a rendu disponible un nouveau protocole (KIP-848), que l’annonce de version présente comme la fin des rééquilibrages qui arrêtent tout ; il est activé côté serveur, et chaque consommateur doit le demander[^kafka4]. La quatrième partie de la mesure fait rejoindre un quatrième consommateur à un groupe de trois, dont un lent, pendant que 2 000 messages arrivent par seconde. La plus longue pause des consommateurs rapides est de 115 à 121 ms avec le protocole classique, et de 6 à 8 ms avec le nouveau, autant qu’en régime normal. Sur une seule machine, avec des membres qui répondent vite, la pause du protocole classique reste courte ; elle s’allonge avec le nombre de membres et de partitions, et quand un membre tarde à répondre.
+
+## Le schéma des messages
+
+Le producteur et les consommateurs d’un sujet sont déployés séparément, souvent par des équipes différentes, et les messages restent dans le log des jours après leur écriture. Si le producteur renomme un champ, un consommateur qui attend l’ancien nom échoue, parfois des jours plus tard, en relisant un message ancien. Il faut donc un schéma du message, écrit dans un format qui le décrit (Avro, Protocol Buffers, JSON Schema), et des règles d’évolution.
+
+Un registre de schémas (schema registry) garde les versions successives du schéma de chaque sujet, donne à chaque version un identifiant que le producteur place dans le message, et refuse une nouvelle version qui ne respecte pas la règle de compatibilité choisie. La documentation du registre de Confluent définit trois règles principales et fait de la première la valeur par défaut. Avec la compatibilité ascendante (BACKWARD), un consommateur qui utilise le nouveau schéma lit les données écrites avec l’ancien, ce qui permet d’ajouter des champs facultatifs et d’en retirer, et il faut alors mettre à jour tous les consommateurs avant de produire avec le nouveau schéma. La compatibilité descendante (FORWARD) est l’inverse, et la compatibilité complète (FULL) combine les deux, en n’autorisant que l’ajout et le retrait de champs facultatifs[^schemas]. Renommer un champ ou changer son type n’est permis par aucune ; on ajoute le nouveau champ, on fait migrer les consommateurs, puis on retire l’ancien.
+
+## Compromis
+
+| Système | Après lecture | Plusieurs lecteurs | Ordre | Relire | À utiliser pour |
+|---|---|---|---|---|---|
+| File (RabbitMQ, SQS) | message supprimé à l’accusé | se partagent les messages ; une file par abonné pour diffuser | celui de la file, perdu entre consommateurs concurrents ou après une nouvelle remise | non | tâches à faire une fois (e-mails, traitements), lissage des pics |
+| Log partitionné (Kafka) | message gardé pendant la rétention | chaque groupe lit tout ; dans un groupe, une partition par membre | par partition, donc par clé (0 désordre mesuré avec l’idempotence) | oui, en déplaçant la position | flux d’événements lus par plusieurs services, relecture, reconstruction d’état |
+| Appel direct (HTTP, gRPC) | | un seul destinataire | celui des appels | | réponse immédiate nécessaire, charge maîtrisée |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la file d’un pic qui dure]
+Hypothèses : les inscriptions arrivent à 500 par seconde pendant 10 minutes ; le service d’e-mail en envoie 50 par seconde ; un message fait 1 Ko.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Messages reçus pendant le pic | 500 × 600 | 300 000 |
+| Messages envoyés pendant le pic | 50 × 600 | 30 000 |
+| Profondeur de la file à la fin du pic | 300 000 − 30 000 | 270 000 |
+| Place dans le courtier | 270 000 × 1 Ko | ≈ 270 Mo |
+| Durée pour vider la file | 270 000 / 50 | 5 400 s, 1 h 30 |
+| Attente du dernier e-mail | | ≈ 1 h 40 après son inscription |
+
+Conclusion : la file ne coûte presque rien en place, mais un e-mail de bienvenue reçu une heure et demie plus tard a perdu son intérêt. On augmente le débit du service d’e-mail pendant les pics, on sépare les files par urgence (les codes de vérification avant les e-mails de bienvenue), ou l’on renonce aux messages trop vieux.
+:::
+
+:::calcul[Calcul : combien de partitions pour un sujet]
+Hypothèses : un sujet reçoit 20 000 messages par seconde ; un consommateur en traite 400 par seconde (une écriture en base de 2,5 ms) ; on veut pouvoir doubler le trafic sans changer le nombre de partitions.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Consommateurs nécessaires | 20 000 / 400 | 50 |
+| Au double du trafic | 40 000 / 400 | 100 |
+| Partitions | au moins 100, une par consommateur | 120 |
+
+Conclusion : c’est le temps de traitement d’un message, et non le débit du courtier, qui fixe le nombre de partitions. Ajouter des partitions à un sujet existant change la partition de chaque clé, et donc l’ordre des messages d’une clé pendant la transition ; on les prévoit à la création.
+:::
+
+:::calcul[Calcul : la place d’une rétention de sept jours]
+Hypothèses : un sujet reçoit 50 Mo/s ; rétention de 7 jours ; trois répliques de chaque partition ; la mesure a donné 20 Mo de segments pour 100 000 messages de 200 octets.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Volume par jour | 50 Mo/s × 86 400 s | 4,3 To |
+| Sur 7 jours | 4,3 × 7 | 30 To |
+| Avec trois répliques | 30 × 3 | 90 To |
+
+Conclusion : la rétention coûte de la place proportionnellement au débit et à la durée. On la règle par sujet, quelques heures pour un flux de télémétrie, des semaines pour des événements qu’un nouveau service doit pouvoir relire, et l’on compresse les messages par lot, ce que Kafka fait côté producteur.
+:::
+
+## Exemple réel
+
+**Kafka à LinkedIn, en 2011.** Jay Kreps, Neha Narkhede et Jun Rao ont présenté Kafka au workshop NetDB de 2011[^kreps]. LinkedIn devait alors transporter de grands volumes de journaux d’activité, vers Hadoop pour l’analyse hors ligne, mais aussi vers des applications en temps réel qui demandaient des délais de quelques secondes au plus. Les agrégateurs de journaux existants visaient le chargement hors ligne, et les messageries d’entreprise, comme ActiveMQ et RabbitMQ, gardaient l’état de livraison de chaque message et ne visaient pas d’abord le débit. Kafka a fait d’autres choix : un journal où l’on ne fait qu’ajouter, des messages adressés par leur position, un courtier qui ne retient pas ce que chaque consommateur a lu, une rétention fixée dans le temps, et des groupes de consommateurs entre lesquels les partitions se répartissent. L’article rapporte qu’en production, Kafka recevait des centaines de gigaoctets et près d’un milliard de messages par jour. Dans ses mesures, Kafka publiait 50 000 messages par seconde un par un et 400 000 par lots de 50, des ordres de grandeur au-dessus d’ActiveMQ et au moins deux fois plus que RabbitMQ. Les auteurs attribuaient l’écart en partie au fait que les deux autres courtiers devaient tenir l’état de livraison de chaque message.
+
+## Erreurs fréquentes
+
+Appeler de façon synchrone un service lent dont on n’a pas besoin de la réponse. Son retard devient celui de l’appelant, et un pic fait échouer 95 % des inscriptions (1 892 sur 2 000 mesurées).
+
+Abandonner un appel par délai d’attente en croyant qu’il n’a pas eu lieu. Le service appelé a envoyé les 1 892 e-mails des inscriptions échouées.
+
+Laisser une file grossir sans limite ni alerte. Elle cache une surcharge jusqu’à ce que les messages soient trop vieux pour servir.
+
+Compter sur l’ordre global d’un sujet Kafka. Il n’existe que par partition (8 797 inversions entre partitions mesurées) ; ce qui doit rester ordonné doit avoir la même clé.
+
+Produire sans idempotence en comptant sur l’ordre par clé. Jusqu’à 1 882 messages d’un même utilisateur sont arrivés dans le désordre dans leur partition.
+
+Prévoir moins de partitions que de consommateurs. Les consommateurs en trop ne reçoivent rien.
+
+Changer le format d’un message sans registre de schémas. Les consommateurs échouent sur les messages écrits avec l’ancien format, y compris en relisant le log des jours plus tard.
+
+:::piege[Erreur fréquente : « avec Kafka, on garde l’ordre des événements »]
+Kafka garde l’ordre d’une partition, si le producteur l’écrit dans l’ordre. Deux événements de deux clés différentes sont dans deux partitions, lus par deux consommateurs, et rien ne dit lequel sera traité en premier. Un « paiement reçu » peut être traité avant la « commande créée » qui le précède, si les deux n’ont pas la même clé. On choisit la clé selon ce qui doit rester ordonné (la commande), on active l’idempotence du producteur, et l’on écrit des consommateurs qui tolèrent un événement arrivé avant celui qu’ils attendent.
+:::
+
+:::entretien
+Dites pourquoi un message plutôt qu’un appel, en une phrase : « l’inscription n’a pas besoin d’attendre l’e-mail, et le service d’e-mail ne tient pas les pics ». Puis choisissez entre une file et un log : une tâche à faire une fois, une file ; un événement que plusieurs services lisent, ou qu’on voudra relire, un log. Donnez la clé de partition et le nombre de partitions, dites ce qui doit rester ordonné, et comment la file est surveillée (profondeur, âge du plus vieux message).
+:::
+
+## Exercices
+
+**Question 1.** Un service de commandes appelle, à chaque commande, le service de stock (pour réserver), le service de paiement (pour débiter), le service d’e-mail (pour confirmer) et le service d’analyse (pour compter). Lesquels de ces appels peut-on remplacer par un message, et lesquels doivent rester des appels dont on attend la réponse ?
+
+**Question 2.** Dans la mesure de `pic.py`, pourquoi les 1 892 inscriptions en échec ont-elles quand même déclenché un e-mail ? Que se passerait-il si l’utilisateur, voyant l’erreur, recommençait son inscription ?
+
+**Question 3.** Un sujet Kafka de 12 partitions reçoit les événements de 50 000 comptes, avec le compte pour clé. Un seul compte, celui d’un gros client, produit 30 % des événements. Que se passe-t-il pour le groupe de 12 consommateurs qui lit le sujet, et que proposez-vous ?
+
+**Exercice de conception.** Une plateforme de livraison de repas émet des événements de commande : créée, acceptée par le restaurant, prise en charge par un livreur, livrée. Ils intéressent l’application du client (suivi en direct), la facturation, le calcul des temps de livraison, et un service de détection de fraude ajouté l’an prochain, qui devra apprendre sur trois mois d’événements. 2 000 commandes par minute au pic, cinq événements par commande, 1 Ko par événement. Proposez le système de messages, les sujets, la clé et le nombre de partitions, la rétention, et la gestion des schémas.
+
+## Corrigés
+
+**Question 1.** Le stock et le paiement décident si la commande peut être acceptée, et la réponse est nécessaire avant de confirmer à l’utilisateur, et ces appels restent synchrones (ou deviennent une saga, ch. 37, si l’on veut les découpler en gérant les échecs). L’e-mail et l’analyse n’influent pas sur la commande, et deviennent un événement « commande confirmée », publié une fois et lu par chacun de ces services à son rythme. Si le service d’analyse tombe, les commandes continuent, et il rattrape son retard au redémarrage.
+
+**Question 2.** L’inscription a abandonné son appel au bout de 2 s, mais la requête était déjà dans la file d’attente du service d’e-mail, qui l’a traitée sans savoir que le client ne l’attendait plus. Un délai d’attente côté client n’annule pas le travail demandé. Si l’utilisateur recommence, son compte existe déjà (l’erreur arrive après l’enregistrement), et selon le code la seconde inscription échoue sur un doublon, ou crée un second compte, et le service d’e-mail envoie un second message. Il faudrait au minimum une clé d’idempotence sur l’inscription et sur l’envoi (ch. 38), et l’e-mail ne devrait pas faire partie de la réponse.
+
+**Question 3.** Les événements du gros compte vont tous dans la même partition, lue par un seul consommateur du groupe. Cette partition reçoit 30 % du trafic, alors que les onze autres se partagent les 70 % restants, environ 6 % chacune ; le consommateur de la partition chaude prend du retard, et ajouter des consommateurs n’y change rien, puisqu’une partition n’a qu’un lecteur dans un groupe. Si l’ordre n’est nécessaire que par sous-ensemble du compte (par commande, par utilisateur du client), on prend une clé plus fine, (compte, commande), qui répartit ses événements. Sinon, on donne à ce compte un sujet à lui, avec des consommateurs plus rapides, ou l’on accélère le traitement d’un événement.
+
+**Exercice de conception.**
+
+*Système.* Un log partitionné (Kafka), car plusieurs services lisent les mêmes événements à des rythmes différents, et le service de fraude devra relire trois mois d’historique.
+
+*Sujet et clé.* Un sujet « commandes » avec l’identifiant de commande pour clé : les cinq événements d’une commande restent dans une partition et dans l’ordre. Le producteur est idempotent.
+
+*Débit et partitions.* 2 000 commandes par minute × 5 événements = 167 événements par seconde au pic, 167 Ko/s. Le débit est faible ; le nombre de partitions se règle sur le consommateur le plus lent. Si la facturation traite 50 événements par seconde, il lui faut 4 consommateurs, 8 au double du trafic ; 12 partitions laissent de la marge.
+
+*Rétention.* Trois mois à 167 Ko/s en continu au pic font au plus 1,3 To, 3,9 To avec trois répliques ; en moyenne sur la journée, bien moins. On garde 100 jours pour que le service de fraude dispose de ses trois mois, ou l’on archive le sujet dans un stockage objet (ch. 29) d’où il pourra être relu.
+
+*Schémas.* Un schéma Avro ou Protobuf par type d’événement, enregistré dans un registre en compatibilité ascendante ; les consommateurs sont mis à jour avant les producteurs ; un champ n’est jamais renommé, seulement ajouté puis, plus tard, retiré.
+
+*Suivi en direct.* L’application du client ne lit pas Kafka ; un service lit le sujet et pousse les changements d’état aux clients par WebSocket ou par notifications ([ch. 8](../partie-1/pousser-donnees.mdx)).
+
+:::fiche
+- Un message découple dans le temps, en débit, en nombre de destinataires et en reprise ; il coûte un courtier, un résultat différé, des garanties plus faibles.
+- Mesuré : un pic de 500 /s vers un service de 50 /s fait échouer 1 892 inscriptions sur 2 000 en appel direct (et leurs e-mails partent quand même) ; par une file, 0 échec, 3,5 ms, 1 808 messages en attente, e-mails envoyés en 42 s.
+- File (RabbitMQ, SQS) : remise à un consommateur, acquittée puis supprimée ; consommateurs concurrents ; une file par abonné pour diffuser ; délai d’invisibilité de SQS (30 s par défaut).
+- Log (Kafka) : partitions où l’on ajoute, positions par groupe, rétention dans le temps, relecture en déplaçant la position.
+- Dans un groupe, une partition a un seul lecteur ; partitions ≥ consommateurs utiles.
+- Ordre : par partition, donc par clé, avec un producteur idempotent (0 désordre, contre 634 à 1 882 sans, mesuré) ; aucun ordre entre partitions.
+- Rééquilibrage : protocole classique, pause de tout le groupe (115 à 121 ms mesurés) ; KIP-848 (Kafka 4.0), 6 à 8 ms.
+- Schémas : registre, compatibilité ascendante par défaut chez Confluent, consommateurs mis à jour d’abord ; ajouter puis retirer, jamais renommer.
+:::
+
+[^sqs]: Amazon Web Services, « Amazon SQS visibility timeout », *Amazon SQS Developer Guide*, [docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html).
+[^kreps]: Jay Kreps, Neha Narkhede et Jun Rao, « Kafka: a Distributed Messaging System for Log Processing », *NetDB ’11*, Athènes, 12 juin 2011, sections 3.1, 3.2, 4 et 5, [notes.stephenholiday.com/Kafka.pdf](https://notes.stephenholiday.com/Kafka.pdf).
+[^librdkafka]: librdkafka, « Configuration properties », propriétés `enable.idempotence`, `max.in.flight.requests.per.connection` et `partitioner`, [github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md](https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md).
+[^kip679]: Apache Kafka, « KIP-679: Producer will enable the strongest delivery guarantee by default », [cwiki.apache.org/confluence/display/KAFKA/KIP-679](https://cwiki.apache.org/confluence/display/KAFKA/KIP-679%3A+Producer+will+enable+the+strongest+delivery+guarantee+by+default).
+[^kafka4]: Apache Kafka, « Apache Kafka 4.0.0 Release Announcement », 18 mars 2025, [kafka.apache.org/blog/2025/03/18/apache-kafka-4.0.0-release-announcement](https://kafka.apache.org/blog/2025/03/18/apache-kafka-4.0.0-release-announcement/).
+[^schemas]: Confluent, « Schema Evolution and Compatibility for Schema Registry », documentation de Confluent Platform, [docs.confluent.io/platform/current/schema-registry/fundamentals/schema-evolution.html](https://docs.confluent.io/platform/current/schema-registry/fundamentals/schema-evolution.html).
