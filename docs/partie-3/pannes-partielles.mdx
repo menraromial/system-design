@@ -1,0 +1,303 @@
+---
+title: "Pannes partielles et détection de panne"
+sidebar_label: "32. Pannes partielles et détection"
+description: "Ce qui distingue un système distribué : des pannes partielles qu'on ne peut pas observer directement. Modèles de panne (arrêt, omission, temporelle, byzantine, grise), réseau non fiable, impossibilité de distinguer un nœud lent d'un nœud mort ; battements de cœur et délais, détecteur phi accrual, protocole SWIM ; faux positifs et leur coût ; mesures sur un vrai client, une trace réelle de battements et une simulation de SWIM."
+partie: 3
+chapitre: 32
+---
+
+import vues from '@site/src/figures/pannes-vues.svg';
+import phi from '@site/src/figures/pannes-phi.svg';
+import swim from '@site/src/figures/pannes-swim.svg';
+
+Un client envoie un virement à un service et attend la réponse au plus une seconde. Il le fait sept fois, dans sept situations différentes : tout va bien, le processus du service est arrêté, la machine est injoignable, la requête se perd en route, la réponse se perd au retour, le service met trois secondes à répondre, le service est suspendu deux secondes. Dans cinq de ces situations, le client voit exactement la même chose, un délai dépassé au bout de 1 002 à 1 003 ms. Et dans trois de ces cinq, le virement a bel et bien été exécuté. Le client ne peut pas savoir lequel des cas il vient de vivre, ni si l’argent est parti.
+
+C’est la difficulté propre aux systèmes répartis. Sur une seule machine, un programme fonctionne ou s’arrête, et quand il s’arrête, tout s’arrête avec lui. Sur plusieurs machines reliées par un réseau, une partie peut tomber pendant que le reste continue, une panne partielle (partial failure), et les parties encore en marche n’ont qu’un moyen de s’en apercevoir, l’absence de réponse dans un délai, qui ne distingue pas une machine morte d’une machine lente ou d’un message perdu. Ce chapitre décrit les façons dont une machine ou un réseau peuvent tomber en panne, ce qu’un client peut en conclure, puis les mécanismes qui détectent les pannes malgré cette incertitude, des simples battements de cœur au détecteur φ accrual et au protocole SWIM, et ce que coûtent leurs erreurs.
+
+Trois expériences ont été faites pour ce chapitre. [`outils/experiences/ch32/indiscernable.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch32/indiscernable.py) envoie un vrai virement à un petit service HTTP ([`serveur.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch32/serveur.py)) dans les sept situations, à travers un relais qui perd au choix la requête ou la réponse. [`battements.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch32/battements.py) enregistre pendant 5 minutes les battements de cœur d’un vrai processus, suspendu de temps en temps, et rejoue plusieurs détecteurs de panne sur la trace. [`swim.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch32/swim.py) simule le protocole SWIM sur des groupes de 10 à 1 000 membres.
+
+## Ce qui peut tomber en panne
+
+On décrit les pannes par des modèles, du plus simple au plus général, parce qu’un algorithme n’est correct que pour un modèle donné. Dans la panne par arrêt (crash-stop), une machine fonctionne correctement puis s’arrête définitivement. Dans l’arrêt avec reprise (crash-recovery), elle peut redémarrer, avec ce qu’elle avait écrit sur disque, mais sans sa mémoire, ce qui est le cas de presque tous les serveurs réels. Dans la panne par omission, elle ou le réseau perdent des messages, en émission ou en réception. Dans la panne temporelle, elle répond, mais trop tard, ce que provoquent une pause du ramasse-miettes, une machine virtuelle suspendue par l’hyperviseur, un disque saturé ou une file d’attente trop longue. Dans la panne byzantine, enfin, elle peut faire n’importe quoi, y compris envoyer des messages faux ou contradictoires, par défaut matériel, par bogue ou par malveillance. Leslie Lamport, Robert Shostak et Marshall Pease ont montré en 1982 que des généraux qui ne communiquent que par messages non signés ne peuvent se mettre d’accord malgré $f$ traîtres que s’ils sont au moins $3f + 1$[^byzantins]. Les systèmes d’une entreprise supposent en général des pannes sans malveillance, et réservent le modèle byzantin aux systèmes ouverts à des participants qui ne se font pas confiance.
+
+Les pannes réelles se rangent mal dans ces cases. Peng Huang et ses collègues de Microsoft ont appelé panne grise (gray failure) une panne que certains composants observent et d’autres non[^gris]. Typiquement, le détecteur de panne voit un serveur en bonne santé, parce que ses battements de cœur arrivent, alors que les clients voient ses requêtes échouer ou traîner, parce qu’un disque, une carte réseau ou une dépendance se dégrade. L’article en fait la cause de nombreuses pannes importantes de services en nuage, parce que la panne n’est pas déclarée, que rien ne la répare et qu’elle s’étend.
+
+Le réseau, lui, n’est pas fiable, même dans un centre de données. Peter Bailis et Kyle Kingsbury ont rassemblé en 2013 des rapports d’incidents publics et des études de terrain[^bailis]. Ils citent celle de Phillipa Gill, Navendu Jain et Nachiappan Nagappan sur les centres de données de Microsoft, qui compte en moyenne 5,2 équipements et 40,8 liens en panne par jour, avec une réparation médiane d’environ cinq minutes et jusqu’à une semaine, et observe que la redondance du réseau n’améliore le trafic médian que de 43 % pendant ces pannes[^gill]. Un message peut se perdre, arriver en retard, arriver deux fois, ou arriver après un message envoyé plus tard ; et une partition du réseau peut couper un groupe de machines du reste pendant des minutes.
+
+Ce qu’un algorithme suppose du temps compte autant. Dans le modèle synchrone, les messages arrivent dans un délai borné connu, et les horloges dérivent d’une quantité bornée. Dans le modèle asynchrone, il n’y a aucune borne. Cynthia Dwork, Nancy Lynch et Larry Stockmeyer ont défini en 1988 un modèle intermédiaire, partiellement synchrone, où les bornes existent mais ne sont respectées qu’à partir d’un instant inconnu[^dls]. C’est le modèle le plus proche des réseaux réels, qui se comportent bien la plupart du temps et mal pendant des périodes imprévisibles, et c’est celui des algorithmes de consensus des ch. 34 et 35.
+
+## Ce que voit le client
+
+<Figure svg={vues} num="32.1" alt="Quatre chronogrammes client-serveur, avec un délai d’attente de 1 s chez le client. Requête perdue : la flèche du client s’arrête en route ; virement non exécuté. Réponse perdue : la requête arrive, le virement est exécuté, la réponse se perd ; exécuté. Serveur lent : la requête arrive, le serveur travaille longtemps, exécute, et répond après le délai ; exécuté. Serveur en pause : le serveur est suspendu (SIGSTOP), puis exécute et répond après le délai ; exécuté. Dans les quatre cas, le client voit délai dépassé au bout de 1 s.">
+Quatre pannes différentes, un seul symptôme.
+</Figure>
+
+La figure 32.1 montre quatre des situations de l’expérience. Dans toutes, le client attend une seconde sans rien recevoir. Seule la première laisse le service intact ; dans les trois autres, le virement est exécuté sans que le client le sache. `indiscernable.py` le vérifie en relisant le compteur des virements du service après chaque essai.
+
+```text
+virement envoyé avec un délai d'attente de 1 s
+   situation                  vu par le client         après  exécuté ?
+   tout va bien               réponse 200                2 ms  oui
+   processus arrêté           connexion refusée          0 ms  non (redémarré)
+   machine injoignable        délai dépassé           1003 ms  non
+   requête perdue             délai dépassé           1003 ms  non
+   réponse perdue             délai dépassé           1002 ms  oui
+   serveur lent (3 s)         délai dépassé           1003 ms  oui
+   serveur en pause (2 s)     délai dépassé           1003 ms  oui
+```
+
+Les deux passages ont donné les mêmes réponses, à 1 ms près. Un seul cas de panne se distingue. Quand le processus est arrêté mais que la machine fonctionne, son système d’exploitation refuse la connexion aussitôt (un segment TCP RST, [ch. 4](../partie-1/transport.mdx)), et le client sait que rien n’a été fait. Si la machine entière est arrêtée ou injoignable, plus rien ne répond, et le client attend son délai. Pour la machine injoignable, le script se connecte à une adresse privée où aucune machine n’existe, et la tentative de connexion n’aboutit jamais.
+
+Les cinq autres cas sont indiscernables du côté du client, et leurs conséquences sont opposées. Si le client renvoie le virement après une requête perdue, il a raison ; s’il le renvoie après une réponse perdue, une lenteur ou une pause, il paie deux fois. Un délai dépassé signifie « je ne sais pas », jamais « ça n’a pas eu lieu ». On en tire deux règles qui reviennent dans toute cette partie. Une opération qu’on peut avoir à renvoyer doit être idempotente, par exemple grâce à une clé d’idempotence que le serveur reconnaît ([ch. 28](../partie-2/garanties-livraison.mdx), et le ch. 38 pour les nouvelles tentatives). Et une machine qui ne répond plus n’est pas forcément arrêtée, puisqu’elle peut reprendre et agir comme si de rien n’était, ce qui explique pourquoi une bascule de base de données doit isoler l’ancien primaire avant d’en promouvoir un nouveau ([ch. 24](../partie-2/replication-leader.mdx)).
+
+Le cas de la pause mérite qu’on s’y arrête, parce qu’il est fréquent et trompeur. Le script suspend le processus du service par le signal `SIGSTOP`, et le noyau continue d’accepter les connexions pour lui ; le service ne fait rien pendant deux secondes, puis reprend et exécute la requête en attente, sans savoir qu’il a été suspendu. Une pause du ramasse-miettes de Java, une machine virtuelle déplacée à chaud ou un processus privé de processeur produisent le même effet. Pendant la pause, les autres machines peuvent l’avoir déclaré mort, avoir élu un remplaçant, et le voir revenir avec des décisions périmées.
+
+## Détecter une panne : battements et délais
+
+Puisqu’on ne peut pas observer une panne, on la soupçonne. Un détecteur de panne (failure detector) est le composant qui dit, à chaque instant, quelles machines il croit tombées. Tushar Chandra et Sam Toueg l’ont formalisé en 1996 par deux propriétés[^chandra]. La complétude (completeness) exige que toute machine réellement tombée finisse par être soupçonnée ; la précision (accuracy) limite les soupçons envers des machines en bonne santé. Un détecteur réel ne peut pas avoir les deux parfaitement dans un réseau asynchrone, puisqu’il ne distingue pas une machine lente d’une machine morte, et l’article montre que des détecteurs qui se trompent, mais finissent par cesser de se tromper, suffisent à résoudre le consensus.
+
+La réalisation la plus courante est le battement de cœur (heartbeat). Chaque machine envoie un message à intervalle régulier, ou répond à une interrogation régulière, et le détecteur la soupçonne s’il n’a rien reçu depuis un délai. Le [ch. 11](../partie-1/disponibilite.mdx) l’a mesuré pour un répartiteur de charge, et le [ch. 13](../partie-2/repartition-charge.mdx) a distingué les contrôles actifs des contrôles passifs. Le réglage est un compromis direct. Un délai court détecte vite une vraie panne, et soupçonne à tort une machine qui a eu une pause ; un délai long évite ces erreurs, et laisse une machine morte recevoir du trafic plus longtemps. Avec un intervalle $\Delta$ entre battements et un délai $D$, une panne survenue à un instant quelconque est détectée en moyenne au bout de
+
+$$
+T_{\text{détection}} \approx D - \frac{\Delta}{2},
+$$
+
+puisque la panne survient en moyenne au milieu de l’intervalle qui suit le dernier battement reçu. Le délai est presque toujours ce qui domine.
+
+## Le détecteur φ accrual
+
+Un délai fixe ignore ce que le détecteur sait du réseau. Si les battements arrivent d’ordinaire avec une régularité d’horloge, un retard de 300 ms est inquiétant ; s’ils arrivent avec des écarts de plusieurs centaines de millisecondes, il ne l’est pas. Naohiro Hayashibara, Xavier Défago, Rami Yared et Takuya Katayama ont proposé en 2004 un détecteur qui, au lieu de répondre oui ou non, donne un niveau de suspicion continu[^phi]. Il garde les intervalles entre les derniers battements reçus, en déduit leur loi, et calcule, pour le temps $t$ écoulé depuis le dernier battement, la probabilité qu’un battement arrive encore plus tard. Le niveau vaut
+
+$$
+\varphi(t) = -\log_{10} P_{\text{plus tard}}(t),
+$$
+
+si bien que $\varphi = 1$ correspond à une chance sur 10 de se tromper en soupçonnant la machine, $\varphi = 2$ à une sur 100, et $\varphi = 8$ à une sur cent millions. Chaque application choisit son seuil, et peut même en utiliser plusieurs, par exemple cesser d’envoyer du trafic à $\varphi = 3$ et retirer la machine du groupe à $\varphi = 8$.
+
+Akka suppose une loi normale de moyenne et d’écart type mesurés sur les 1 000 derniers intervalles, avec un seuil de 8 par défaut[^akka]. Sa documentation résume le compromis : un seuil bas produit beaucoup de fausses suspicions mais détecte vite une vraie panne, un seuil haut l’inverse. Akka ajoute un écart type minimal et une pause tolérée (acceptable heartbeat pause) de 3 secondes, si bien qu’avec un battement par seconde, une machine silencieuse est soupçonnée au bout d’environ 5,5 secondes. Cassandra suppose une loi exponentielle, pour laquelle $\varphi$ croît linéairement, $\varphi(t) = t / (\bar{\Delta} \ln 10)$ avec $\bar{\Delta}$ l’intervalle moyen, et déclare un nœud absent au-delà de 8, le seuil `phi_convict_threshold` par défaut[^cassandra-phi].
+
+<Figure svg={phi} num="32.2" alt="Courbes de phi en fonction du temps écoulé depuis le dernier battement, de 0 à 1 000 ms, pour un intervalle moyen de 100 ms, avec une ligne horizontale au seuil 8 (Akka, Cassandra). Battements réguliers (écart type 10 ms) : la courbe monte presque verticalement et franchit le seuil à 157 ms. Battements irréguliers (écart type 100 ms) : la courbe monte progressivement et franchit le seuil à 665 ms. Loi exponentielle de Cassandra : une droite qui n’atteint que 4,3 à 1 000 ms et franchirait le seuil à 1 842 ms.">
+Le même seuil donne des délais très différents selon la régularité des battements.
+</Figure>
+
+Sur la figure 32.2, les trois courbes ont le même intervalle moyen de 100 ms. Avec des battements réguliers, $\varphi$ dépasse 8 à 157 ms ; avec des battements irréguliers, à 665 ms ; avec la loi exponentielle de Cassandra, à 1 842 ms. Le détecteur s’adapte donc au réseau qu’il observe, et c’est son intérêt. Mais l’adaptation se fait sur les intervalles passés, et un réseau très régulier, sur lequel survient une première pause, donne le délai le plus court au plus mauvais moment.
+
+`battements.py` met ces détecteurs à l’épreuve d’une vraie trace. Un processus envoie un battement UDP toutes les 100 ms pendant 5 minutes ; un relais retarde chaque paquet (2 ms de médiane, avec une queue de distribution) et en perd 1 % ; et le script suspend réellement l’émetteur une dizaine de fois, de 0,25 à 2 secondes. Pour chaque détecteur, il compte les fausses suspicions pendant que l’émetteur est vivant, la durée totale pendant laquelle il est soupçonné à tort, puis le temps de détection d’une panne placée à 2 000 instants tirés au hasard dans la trace.
+
+```text
+trace 1 : 2909 battements reçus en 300 s, un toutes les 100 ms
+   7 pauses de l'émetteur, 7.5 s en tout : 2 0.25 1 1 2 0.25 1
+   intervalle médian 100.0 ms, 99,9e centile 1158 ms ;
+   plus grands trous 2.11, 2.10, 1.06 s
+
+   détecteur                  fausses  à tort détection méd.  99e c.
+   délai fixe 250 ms                7    6.2s         202 ms   249 ms
+   délai fixe 500 ms                5    4.8s         452 ms   499 ms
+   délai fixe 1 s                   5    2.3s         952 ms   999 ms
+   délai fixe 2 s                   2    0.2s        1952 ms  1999 ms
+   délai fixe 3 s                   0    0.0s        2952 ms  2999 ms
+   phi normal, seuil 3             10    6.3s         271 ms   866 ms
+   phi normal, seuil 8              5    5.8s         455 ms  1527 ms
+   phi normal, seuil 16             5    5.3s         644 ms  2204 ms
+   phi exponentiel, seuil 8         2    0.4s        1860 ms  2403 ms
+```
+
+La première trace a compté 7 pauses de l’émetteur (7,5 s en tout), la seconde 9 (10,75 s) ; la seconde a donné les mêmes tendances, avec plus de fausses suspicions puisqu’elle avait plus de pauses. Pour un délai fixe, le nombre de fausses suspicions est exactement celui des pauses plus longues que le délai : 7 pour 250 ms, 5 pour 500 ms et pour 1 s, 2 pour 2 s (les deux pauses de 2 s), aucune pour 3 s. Le temps de détection vaut le délai moins la moitié d’un intervalle, 202 ms pour un délai de 250 ms et 1 952 ms pour 2 s, comme la formule l’annonce. Aucun réglage n’évite à la fois les erreurs et la lenteur, puisqu’un délai fixe sans fausse suspicion doit dépasser la plus longue pause que la machine subira, et que c’est aussi le temps qu’il mettra à détecter une vraie panne.
+
+Le détecteur φ fondé sur la loi normale se comporte autrement qu’on l’attend. Au seuil de 8, il détecte une panne en 455 ms en médiane (306 ms dans la seconde trace), presque aussi vite qu’un délai de 500 ms, et ses fausses suspicions sont du même ordre, 5 et 14. Porter le seuil à 16 ne les réduit presque pas (5 et 14). La loi qu’il apprend décrit les battements ordinaires, réguliers à quelques millisecondes près, et une pause de 250 ms est si loin dans la queue de cette loi que tout seuil raisonnable la classe comme une panne. Le détecteur s’adapte à la gigue du réseau, pas aux événements rares, qui sont justement les pauses, et c’est pourquoi Akka ajoute à la moyenne une pause tolérée de 3 s. Son 99e centile de détection, 1,5 s dans la première trace, montre l’autre effet de l’adaptation. Après une pause, l’écart type mesuré augmente, et la détection ralentit pendant les 100 secondes que couvre la fenêtre de 1 000 intervalles. Le φ exponentiel de Cassandra place son seuil à 18,4 fois l’intervalle moyen, 1,85 s ici, et se comporte comme un délai fixe de cette valeur, avec 2 et 4 fausses suspicions, celles des pauses de 2 s.
+
+## Le gossip et SWIM
+
+Dans un groupe de $n$ machines où chacune surveille toutes les autres, chaque période de battement envoie $n(n-1)$ messages, soit 9 900 par seconde pour 100 machines et près d’un million pour 1 000. Le coût croît comme le carré de la taille du groupe, et c’est ce qui limite les groupes à battements « tout à tout » à quelques dizaines de membres. Les protocoles de bavardage (gossip) répartissent le travail. Chaque machine ne parle qu’à quelques autres, choisies au hasard, et les nouvelles se propagent de proche en proche, comme une épidémie, en un nombre de périodes qui croît comme $\log n$.
+
+Abhinandan Das, Indranil Gupta et Ashish Motivala ont publié en 2002 SWIM, un protocole d’appartenance (membership) qui sépare la détection des pannes de la diffusion des nouvelles[^swim]. À chaque période de protocole, chaque membre sonde un seul autre membre, choisi dans une liste mélangée qu’il parcourt en tourniquet, par un `ping` qui attend un `ack`. Sans réponse dans le délai, il demande à $k$ autres membres de sonder la cible pour lui (`ping-req`) ; si l’un d’eux obtient une réponse, la cible est vivante et c’est le chemin direct qui avait perdu un message. Sans réponse du tout, la cible devient suspecte. La nouvelle est diffusée, greffée sur les messages du protocole lui-même (piggyback), et la cible, si elle est vivante, la réfute en augmentant son numéro d’incarnation, que les autres membres préfèrent aux nouvelles plus anciennes. Elle n’est déclarée morte qu’au bout d’un délai de suspicion sans réfutation. L’article montre que la charge par membre reste constante quelle que soit la taille du groupe, et que le temps moyen avant qu’un membre détecte une panne vaut $e/(e-1) \approx 1{,}58$ période.
+
+<Figure svg={swim} num="32.3" alt="Chronogramme à trois lignes de vie : membre i, intermédiaires m1 à m3, membre j. 1, i envoie un ping à j, qui se perd ; pas d’ack avant le délai. 2, i envoie un ping-req(j) aux k = 3 intermédiaires. 3, un intermédiaire envoie un ping à j. j répond par un ack à l’intermédiaire, qui le relaie à i (4) : j est vivant, le ping direct était seulement perdu. Sans aucune réponse, i déclare j suspect, la nouvelle voyage sur les messages ; j réfute s’il est vivant (incarnation + 1), sinon il est déclaré mort après 4 × log10 n périodes.">
+Une période de SWIM : sonde directe, sondes indirectes, puis suspicion.
+</Figure>
+
+La figure 32.3 montre pourquoi les sondes indirectes réduisent les erreurs. Un message perdu sur le chemin entre $i$ et $j$ ne suffit plus à faire soupçonner $j$ ; il faut que les $k$ chemins indirects échouent aussi. memberlist, la bibliothèque de HashiCorp qui implémente SWIM pour Consul et Nomad, sonde par défaut toutes les secondes avec un délai de 500 ms, utilise 3 sondes indirectes, et garde un membre suspect pendant $4 \times \log_{10} n$ périodes avant de le déclarer mort, soit 8 secondes pour 100 membres[^memberlist].
+
+`swim.py` simule SWIM avec ces réglages. La simulation avance par périodes de protocole sur un réseau qui perd chaque message avec une probabilité donnée ; les nouvelles voyagent greffées sur les sondes et leurs réponses, chacune au plus $4 \times \lceil \log_{10}(n + 1) \rceil$ fois par membre, comme dans memberlist. La première partie arrête un membre et mesure quand il est soupçonné pour la première fois, quand tous les autres le savent mort, et combien de messages chaque membre envoie par seconde.
+
+```text
+simulation SWIM, graine 1 ; période de protocole = 1 s
+
+1. panne d'un membre, sans perte, k = 3, suspicion
+   (10 pannes, 4 pour n = 1 000 ; moyenne et maximum en périodes)
+       n  1re suspicion  tous savent  msg/membre/s  tout-à-tout
+      10     1.6 (max  3)    6.9 (max  8)      2.53             9
+     100     1.6 (max  4)   12.7 (max 15)      2.04            99
+    1000     2.0 (max  3)   18.5 (max 19)      2.00           999
+```
+
+La seconde graine a donné de 1,3 à 2,1 périodes pour la première suspicion et de 7,0 à 17,5 pour que tous sachent, avec la même charge. La première suspicion arrive en 1,3 à 2,1 périodes, conforme aux 1,58 de l’article, quelle que soit la taille du groupe. Le temps pour que tous sachent croît avec $\log n$, de 7 à 18,5 périodes, dont l’essentiel est le délai de suspicion (4, 8 puis 12 périodes). La charge reste à 2 messages par membre et par seconde, un `ping` et un `ack`, alors que des battements tout à tout en demanderaient 999 pour 1 000 membres.
+
+La deuxième partie compte les membres vivants déclarés morts à tort pendant 600 périodes, dans un groupe de 100, selon les mécanismes activés et la perte de messages.
+
+```text
+2. fausses déclarations de mort, n = 100, 600 périodes
+   (déclarations ; entre parenthèses, membres vivants que la
+   majorité croit morts à la fin)
+   réglage                                   perte 1 %      perte 5 %
+   ping direct seul                          260 (100)      350 (100)
+   + 3 sondes indirectes                         0 (0)        39 (39)
+   + 3 sondes indirectes + suspicion             0 (0)          2 (2)
+```
+
+Avec la sonde directe seule, une perte de 1 % suffit à faire déclarer morts, en dix minutes, les 100 membres du groupe, l’un après l’autre, alors qu’aucun n’est tombé ; la seconde graine a donné la même conclusion (250 et 322 déclarations, 100 membres exclus). Les sondes indirectes suppriment ces erreurs à 1 % de perte et en laissent 39 à 5 %, et la suspicion les ramène à 2 (à 0 avec la seconde graine), parce qu’un membre vivant a le temps de réfuter.
+
+La troisième partie rend quelques membres lents. Un membre lent traite trop tard, six fois sur dix, les réponses et les nouvelles qu’il reçoit, comme une machine dont le processeur est saturé.
+
+```text
+3. membres lents (60 % de réponses traitées trop tard), n = 100,
+   perte 1 %, k = 3, suspicion, 300 périodes
+    membres lents  fausses déclarations  dont par des sains
+                0                     0                   0
+                1                     7                   1
+                4                    16                   3
+               16                   292                  91
+```
+
+Un seul membre lent suffit à produire de fausses déclarations, et 16 en produisent près de 300 en cinq minutes, dont 91 faites par des membres en bonne santé ; la seconde graine a donné 12, 39 et 267 déclarations. Le mécanisme est celui que décrit l’article Lifeguard, en fin de chapitre. Un membre lent ne reçoit pas à temps les réponses à ses sondes, soupçonne des membres en bonne santé, et ne traite pas à temps leurs réfutations ; ses fausses nouvelles se propagent ensuite aux autres. Le détecteur de panne suppose que celui qui détecte est en bonne santé, et c’est cette hypothèse qui tombe.
+
+## Ce que coûte une fausse panne
+
+Une fausse détection n’est pas une simple erreur d’affichage. Ce que le système fait d’une machine déclarée morte détermine ce que coûte l’erreur. Un répartiteur de charge la retire et la remet quand elle répond de nouveau, ce qui coûte quelques requêtes ralenties. Une base répliquée en promeut une autre comme primaire, et si l’ancienne n’était que suspendue, elle revient en se croyant toujours primaire ; sans isolement (fencing), les deux acceptent des écritures ([ch. 24](../partie-2/replication-leader.mdx)). Un système de stockage recopie ses données ailleurs pour retrouver le nombre de copies voulu, ce qui sature le réseau et les disques, puis doit supprimer les copies en trop quand la machine revient. Un système partitionné redistribue ses partitions ([ch. 26](../partie-2/partitionnement.mdx)). Et une machine qui alterne entre vivante et morte (flapping) répète ces opérations.
+
+On règle donc la détection selon le coût de l’action qu’elle déclenche, et l’on peut utiliser plusieurs seuils. HDFS ne déclare un serveur de données mort qu’au bout de $2 \times 300 + 10 \times 3 = 630$ secondes sans battement (deux fois l’intervalle de revérification par défaut de 5 minutes, plus dix battements de 3 secondes), parce que la conséquence est la recopie de tous ses blocs[^hdfs] ; il cesse en revanche bien plus tôt de lui confier de nouvelles écritures. Une bascule de base de données attend quelques secondes à quelques dizaines de secondes, et s’accompagne d’un isolement de l’ancien primaire.
+
+## Compromis
+
+| Détecteur | Paramètre | Détection d’une vraie panne (mesuré) | Fausses suspicions (mesuré) | Charge | Usages |
+|---|---|---|---|---|---|
+| Battement et délai fixe court | 250 à 500 ms pour des battements de 100 ms | 202 à 452 ms | 5 à 9 en 5 min, une par pause plus longue que le délai | 1 message par période et par paire surveillée | répartiteurs de charge, quand l’erreur coûte peu |
+| Battement et délai fixe long | 2 à 3 s | 1 952 à 2 952 ms | 0 à 4 en 5 min | idem | bascules, quand l’erreur coûte cher |
+| φ accrual | seuil 3 à 16, loi normale ou exponentielle | loi normale, 209 à 644 ms en médiane ; exponentielle, 1 848 à 1 860 ms | loi normale, 5 à 15 en 5 min, presque autant au seuil 16 ; loi exponentielle, 2 à 4 | idem, plus le calcul de la loi | Akka, Cassandra |
+| Tout à tout | aucun | dépend du délai | idem | $n(n-1)$ messages par période (999 000 pour $n$ = 1 000) | petits groupes |
+| SWIM avec sondes indirectes et suspicion | période 1 s, $k = 3$, $4 \log_{10} n$ périodes de suspicion | 1re suspicion en 1,3 à 2,1 périodes ; tous savent en 7 à 18,5 | 0 à 2 en 600 périodes à 5 % de perte ; jusqu’à 292 avec 16 membres lents | 2 messages par membre et par période | grands groupes (Consul, Nomad, Serf) |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : battements tout à tout contre SWIM]
+Hypothèses : un groupe de 1 000 machines ; un battement par seconde ; 100 octets par message, en-têtes compris ; SWIM avec 2 messages par membre et par période (mesuré), plus de rares sondes indirectes.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Tout à tout, messages par seconde | 1 000 × 999 | 999 000 |
+| Tout à tout, débit total | 999 000 × 100 o | 100 Mo/s, 800 Mb/s |
+| Tout à tout, par machine (émis et reçus) | 2 × 999 × 100 o | 200 ko/s, 1 600 messages par seconde |
+| SWIM, messages par seconde | 1 000 × 2 | 2 000 |
+| SWIM, débit total | 2 000 × 100 o | 200 ko/s |
+| Rapport | 999 000 / 2 000 | 500 fois moins |
+
+Conclusion : les battements tout à tout coûtent 800 Mb/s de réseau et 1 600 messages par seconde à chaque machine pour un groupe de 1 000, alors que SWIM en coûte 500 fois moins pour une détection de même ordre. Pour 10 000 machines, le premier atteindrait 100 millions de messages par seconde, le second 20 000.
+:::
+
+:::calcul[Calcul : les délais de détection par défaut]
+Hypothèses : les réglages par défaut d’Akka (battement toutes les secondes, pause tolérée de 3 s, seuil 8), de Cassandra (gossip toutes les secondes, loi exponentielle, seuil 8), de memberlist pour 100 membres et de HDFS (battement toutes les 3 s, revérification toutes les 5 min).
+
+| Système | Calcul | Délai avant de déclarer une machine absente |
+|---|---|---|
+| Akka | 1 s + 3 s + l’écart type (documentation) | ≈ 5,5 s |
+| Cassandra | $8 \times \ln 10 \times 1\ \text{s}$ | 18,4 s |
+| memberlist, 100 membres | sonde en 1 à 2 périodes, puis $4 \times \log_{10} 100 = 8$ périodes de suspicion | ≈ 10 s (12,7 s pour que tous sachent, simulé) |
+| HDFS | $2 \times 300 + 10 \times 3$ | 630 s, 10,5 min |
+
+Conclusion : les délais par défaut vont de quelques secondes à dix minutes, et ce qui les fixe est le coût de l’action déclenchée. Akka et memberlist retirent un membre d’un groupe, Cassandra cesse d’envoyer des requêtes à un nœud, HDFS recopie des téraoctets.
+:::
+
+:::calcul[Calcul : ce que coûte une fausse panne d’un serveur de stockage]
+Hypothèses : un serveur de stockage garde 20 To ; chacun de ses blocs a deux autres copies ; la recopie se répartit sur 50 serveurs, chacun capable d’écrire 200 Mo/s pour la reconstruction ; le serveur revient après une pause de 30 s.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Données à recopier | 20 To | 20 To |
+| Débit de reconstruction | 50 × 200 Mo/s | 10 Go/s |
+| Durée de la recopie | 20 × 10¹² / 10¹⁰ | 2 000 s, 33 min |
+| Trafic réseau | 20 To lus et 20 To écrits | 40 To |
+| Si la détection déclare mort au bout de 10 s | pause de 30 s | recopie lancée, puis 20 To de copies en trop à supprimer |
+| Si elle attend 10,5 min (HDFS) | pause de 30 s | rien |
+
+Conclusion : une fausse panne déclarée en 10 secondes lance 33 minutes de recopie et 40 To de trafic pour une pause de 30 secondes. Attendre dix minutes avant de recopier, tout en cessant d’écrire sur le serveur suspect, coûte bien moins cher, ce que fait HDFS.
+:::
+
+## Exemple réel
+
+**Lifeguard, chez HashiCorp.** Armon Dadgar, James Phillips et Jon Currey ont décrit en 2017 les fausses détections de SWIM qu’ils rencontraient dans Consul, et les extensions qu’ils y ont ajoutées[^lifeguard]. Ils ont reproduit le problème sur 100 machines virtuelles à un cœur dans Azure, en lançant sur certaines d’entre elles l’outil `stress` avec 128 processus qui calculent en boucle pendant 5 minutes. Un seul membre surchargé suffisait à provoquer de fausses détections, et 4 membres surchargés, 4 % du groupe, en produisaient des centaines faites par des membres en bonne santé. La cause est celle que montre la simulation de ce chapitre, un membre lent qui ne traite pas à temps les réponses à ses sondes et accuse les autres. Lifeguard ajoute une mesure de la santé locale de chaque membre, qui augmente quand ses sondes échouent ou qu’on le soupçonne, et allonge alors ses propres délais (Local Health Aware Probe) ; il raccourcit un délai de suspicion à mesure que d’autres membres confirment indépendamment la suspicion (Local Health Aware Suspicion) ; et il prévient directement un membre qu’il est soupçonné, pour qu’il réfute plus vite (Buddy System). Avec ces extensions, il n’y avait plus de fausse détection avant 16 membres surchargés, ni de fausse détection faite par un membre sain avant 32. Dans leurs mesures en environnement contrôlé, Lifeguard divise le nombre de fausses détections par 50 à 100, et ne retarde la détection médiane des vraies pannes que de 0,1 s. Ces extensions sont dans memberlist et donc dans Consul et Nomad.
+
+## Erreurs fréquentes
+
+Croire qu’un délai dépassé signifie que l’opération n’a pas eu lieu. Elle a été exécutée dans trois des cinq cas mesurés ; renvoyer sans idempotence paie deux fois.
+
+Croire qu’une machine qui ne répond pas est arrêtée. Un processus suspendu deux secondes reprend et exécute la requête (mesuré), et une ancienne machine primaire peut revenir en se croyant toujours primaire.
+
+Régler un délai de détection sans regarder les pauses réelles. Une seule pause de 2 s du ramasse-miettes fait soupçonner à tort une machine par tout délai inférieur ; il faut mesurer les intervalles réels, et pas seulement leur moyenne.
+
+Faire surveiller toutes les machines par toutes les autres. Le coût croît en $n^2$, 800 Mb/s pour 1 000 machines.
+
+Déclencher l’action la plus coûteuse sur le premier soupçon. Recopier 20 To parce qu’un serveur a fait une pause de 30 s coûte 33 minutes de reconstruction ; on gradue les seuils selon l’action.
+
+Supposer que le détecteur est en bonne santé. Un membre surchargé accuse les autres ; 16 membres lents ont produit près de 300 fausses déclarations dans la simulation.
+
+Prendre un contrôle de santé qui passe pour un service qui fonctionne. Une panne grise laisse passer les battements pendant que les requêtes échouent ; on surveille aussi ce que voient les clients (taux d’erreurs, latence).
+
+:::piege[Erreur fréquente : « un délai d’attente dépassé veut dire que le serveur est en panne »]
+Un délai dépassé dit seulement que la réponse n’est pas arrivée à temps. La requête peut s’être perdue, la réponse aussi, le serveur peut être lent, suspendu, ou effectivement arrêté, et dans la moitié de ces cas l’opération a été exécutée. Conclure à la panne et agir en conséquence (renvoyer l’opération, promouvoir un remplaçant, recopier des données) doit tenir compte de ce que coûte l’erreur dans chaque cas : idempotence pour les renvois, isolement de l’ancien primaire pour les bascules, attente avant les recopies.
+:::
+
+:::entretien
+Quand la conception dépend de la détection des pannes, dites comment elle est faite et ce qu’elle déclenche : « chaque nœud est sondé toutes les secondes par SWIM, avec 3 sondes indirectes et un délai de suspicion de quelques secondes ; un nœud suspect cesse de recevoir des requêtes ; ses données ne sont recopiées qu’au bout de 10 minutes ; une bascule de primaire isole l’ancien avant de promouvoir le nouveau ; et les opérations renvoyées après un délai dépassé portent une clé d’idempotence ». Ajoutez que le délai est réglé sur les pauses mesurées, et qu’on surveille aussi ce que voient les clients.
+:::
+
+## Exercices
+
+**Question 1.** Un service de paiement renvoie automatiquement, après 1 s sans réponse, toute demande de paiement adressée à la banque. Parmi les sept situations de la mesure, lesquelles produisent un double paiement ? Proposez une modification qui rend le renvoi sûr, et dites ce que la banque doit faire de son côté.
+
+**Question 2.** Un groupe de serveurs Java envoie un battement par seconde, et un serveur est déclaré mort après 3 s sans battement. Les journaux montrent des pauses du ramasse-miettes qui atteignent 5 s une à deux fois par jour et par serveur. Que se passe-t-il, combien de fois par jour pour 200 serveurs, et que proposez-vous ? Comparez avec le détecteur φ accrual d’Akka réglé par défaut.
+
+**Question 3.** Un groupe de 500 machines s’envoie des battements tout à tout toutes les 500 ms, de 200 octets chacun. Calculez le débit reçu par chaque machine et le débit total, puis le même calcul avec SWIM à une période de 1 s. À partir de quelle taille de groupe les battements tout à tout dépassent-ils 1 Gb/s au total ?
+
+**Exercice de conception.** Un cache réparti de 300 nœuds (Redis ou Memcached, [ch. 16](../partie-2/cache-strategies.mdx)) est placé derrière une bibliothèque cliente qui répartit les clés par hachage cohérent ([ch. 26](../partie-2/partitionnement.mdx)). Quand un nœud tombe, ses clés doivent aller vers d’autres nœuds, et les requêtes à ce nœud échouent tant que la panne n’est pas détectée. Les nœuds subissent parfois des pauses de 1 à 2 s, et un nœud en panne grise répond aux sondes mais met 500 ms à servir les requêtes. Proposez la détection des pannes (mécanisme, réglages, qui détecte), ce que déclenche une détection, comment éviter que des pauses vident inutilement des parties du cache, et comment repérer le nœud en panne grise.
+
+## Corrigés
+
+**Question 1.** Les doubles paiements viennent des situations où le paiement a été exécuté mais où le service a vu un délai dépassé : réponse perdue, banque lente, banque en pause. La requête perdue et la machine injoignable ne produisent pas de doublon, et le processus arrêté non plus, puisque la connexion est refusée tout de suite. On génère une clé d’idempotence par paiement, envoyée avec chaque tentative, et la banque garde, pour chaque clé, le résultat de la première exécution qu’elle renvoie à toute nouvelle tentative au lieu de payer de nouveau ([ch. 28](../partie-2/garanties-livraison.mdx)). Il faut aussi espacer les renvois, et pouvoir interroger la banque sur l’état d’un paiement par sa clé.
+
+**Question 2.** Toute pause de plus de 3 s fait déclarer le serveur mort, alors qu’il reprend ensuite. Avec 1 à 2 pauses de 5 s par jour et par serveur, 200 serveurs donnent de 200 à 400 fausses déclarations par jour, chacune suivie de ce que déclenche la détection. On peut allonger le délai au-delà des pauses observées (6 à 8 s), au prix d’une détection plus lente, ou réduire les pauses (réglage du ramasse-miettes), et graduer l’action, en retirant le serveur du trafic au premier seuil mais sans le retirer du groupe. Le détecteur d’Akka par défaut soupçonne une machine au bout d’environ 5,5 s ; il produit aussi de fausses suspicions pour des pauses de 5 s qui dépassent ce délai de peu, et c’est le paramètre de pause tolérée (3 s par défaut) qu’il faudrait porter au-delà de 5 s.
+
+**Question 3.** Chaque machine reçoit 499 battements toutes les 500 ms, soit 998 par seconde, 200 ko/s. Au total, $500 \times 499 \times 2 = 499\,000$ messages par seconde, 100 Mo/s, 800 Mb/s. Avec SWIM, environ 2 messages par membre et par seconde, soit 1 000 messages et 200 ko/s au total, 400 octets par machine et par seconde. Le total des battements tout à tout vaut $n(n-1) \times 2 \times 200 \times 8$ bits par seconde ; il dépasse $10^9$ quand $n(n-1) > 312\,500$, soit à partir de $n = 560$ machines.
+
+**Exercice de conception.**
+
+*Qui détecte.* Les clients voient les échecs avant tout le monde ; chaque client applique une détection passive, en écartant un nœud après quelques échecs ou délais consécutifs et en le réessayant plus tard ([ch. 13](../partie-2/repartition-charge.mdx)). Les nœuds eux-mêmes forment un groupe SWIM (memberlist ou équivalent), avec une période de 1 s, 3 sondes indirectes et l’extension Lifeguard, pour que la liste des nœuds converge.
+
+*Ce que déclenche une détection.* Un nœud suspect cesse de recevoir des requêtes, et ses clés vont temporairement vers le nœud suivant sur l’anneau, qui les recalcule depuis la base ; il n’est retiré de l’anneau, ce qui déplace ses clés pour de bon, qu’au bout d’un délai plus long, par exemple 30 s. Une pause de 1 à 2 s ne déclenche ainsi que quelques échecs de cache, et pas un remaniement de l’anneau, qui viderait des parties du cache sur d’autres nœuds.
+
+*Réglages.* La période de 1 s et un délai de suspicion de $4 \times \log_{10} 300 \approx 10$ s laissent passer les pauses de 2 s ; la détection passive des clients réagit en quelques centaines de millisecondes.
+
+*Panne grise.* Le nœud qui répond aux sondes mais sert lentement ne sera jamais déclaré mort par SWIM. On compare la latence de chaque nœud mesurée par les clients à celle des autres, et l’on écarte celui qui s’en éloigne nettement (détection des valeurs aberrantes, par exemple au-delà de trois fois la latence médiane du groupe pendant une minute), en alertant l’exploitation.
+
+:::fiche
+- Panne partielle : une partie tombe, le reste continue, et la seule observation est l’absence de réponse dans un délai.
+- Modèles : arrêt, arrêt avec reprise, omission, temporelle, byzantine ($3f + 1$ pour $f$ traîtres) ; panne grise, visible des clients mais pas du détecteur. Réseau : pertes, retards, doublons, partitions (40,8 liens en panne par jour chez Microsoft).
+- Mesuré : cinq situations sur sept donnent « délai dépassé » au bout de 1 s, et le virement est exécuté dans trois ; seul le processus arrêté sur une machine vivante se distingue (connexion refusée). Délai dépassé = « je ne sais pas » ; idempotence et isolement.
+- Détecteur de panne (Chandra, Toueg) : complétude et précision ; battement et délai, détection ≈ $D - \Delta/2$.
+- φ accrual : $\varphi = -\log_{10} P_{\text{plus tard}}(t)$, seuil 8 (Akka, loi normale, ≈ 5,5 s par défaut ; Cassandra, loi exponentielle, 18,4 s). Mesuré : un délai fixe soupçonne à tort une fois par pause plus longue que lui ; φ normal au seuil 8 détecte en 0,3 à 0,5 s mais classe toute pause comme une panne (5 et 14 fausses suspicions en 5 min).
+- SWIM : ping, ping-req par $k$ membres, suspicion et incarnation, nouvelles greffées ; 2 messages par membre et par période, 1re suspicion en ≈ 1,6 période, tous savent en $O(\log n)$ (mesuré) ; sans sondes indirectes, 1 % de perte exclut tout le groupe en 10 min.
+- Fausses pannes : bascules, recopies (20 To, 33 min), flapping ; graduer les seuils selon l’action (HDFS attend 10,5 min) ; un membre lent accuse les autres (50 à 100 fois moins de fausses détections avec Lifeguard).
+:::
+
+[^byzantins]: Leslie Lamport, Robert Shostak et Marshall Pease, « The Byzantine Generals Problem », *ACM Transactions on Programming Languages and Systems*, vol. 4, n° 3, juillet 1982, p. 382-401, [doi:10.1145/357172.357176](https://doi.org/10.1145/357172.357176).
+[^gris]: Peng Huang, Chuanxiong Guo, Lidong Zhou, Jacob R. Lorch, Yingnong Dang, Murali Chintalapati et Randolph Yao, « Gray Failure: The Achilles’ Heel of Cloud-Scale Systems », *16th Workshop on Hot Topics in Operating Systems (HotOS XVI)*, 2017, p. 150-155, [doi:10.1145/3102980.3103005](https://doi.org/10.1145/3102980.3103005).
+[^bailis]: Peter Bailis et Kyle Kingsbury, « The Network is Reliable », *ACM Queue*, vol. 12, n° 7, 2014, p. 20-32, [doi:10.1145/2639988.2655736](https://doi.org/10.1145/2639988.2655736) ; version d’origine publiée le 2 juin 2013, [aphyr.com/posts/288-the-network-is-reliable](https://aphyr.com/posts/288-the-network-is-reliable).
+[^gill]: Phillipa Gill, Navendu Jain et Nachiappan Nagappan, « Understanding Network Failures in Data Centers: Measurement, Analysis, and Implications », *ACM SIGCOMM 2011*, p. 350-361, [doi:10.1145/2018436.2018477](https://doi.org/10.1145/2018436.2018477), chiffres cités par Bailis et Kingsbury.
+[^dls]: Cynthia Dwork, Nancy Lynch et Larry Stockmeyer, « Consensus in the Presence of Partial Synchrony », *Journal of the ACM*, vol. 35, n° 2, avril 1988, p. 288-323, [doi:10.1145/42282.42283](https://doi.org/10.1145/42282.42283).
+[^chandra]: Tushar Deepak Chandra et Sam Toueg, « Unreliable Failure Detectors for Reliable Distributed Systems », *Journal of the ACM*, vol. 43, n° 2, mars 1996, p. 225-267, [doi:10.1145/226643.226647](https://doi.org/10.1145/226643.226647).
+[^phi]: Naohiro Hayashibara, Xavier Défago, Rami Yared et Takuya Katayama, « The φ Accrual Failure Detector », *23rd IEEE International Symposium on Reliable Distributed Systems (SRDS 2004)*, p. 66-78, [doi:10.1109/RELDIS.2004.1353004](https://doi.org/10.1109/RELDIS.2004.1353004).
+[^akka]: Akka, « Phi Accrual Failure Detector », documentation d’Akka, [doc.akka.io/libraries/akka-core/current/typed/failure-detector.html](https://doc.akka.io/libraries/akka-core/current/typed/failure-detector.html) ; valeurs par défaut dans `akka-cluster/src/main/resources/reference.conf`, section `failure-detector`, [github.com/akka/akka](https://github.com/akka/akka/blob/main/akka-cluster/src/main/resources/reference.conf).
+[^cassandra-phi]: Apache Cassandra, fichier `conf/cassandra.yaml` (`phi_convict_threshold: 8`) et `src/java/org/apache/cassandra/gms/FailureDetector.java` (calcul de φ, `PHI_FACTOR = 1 / ln 10`), branche `trunk`, [github.com/apache/cassandra](https://github.com/apache/cassandra/blob/trunk/src/java/org/apache/cassandra/gms/FailureDetector.java) ; l’intervalle de gossip de 1 000 ms est dans `Gossiper.java`.
+[^swim]: Abhinandan Das, Indranil Gupta et Ashish Motivala, « SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol », *International Conference on Dependable Systems and Networks (DSN 2002)*, p. 303-312, [doi:10.1109/DSN.2002.1028914](https://doi.org/10.1109/DSN.2002.1028914).
+[^memberlist]: HashiCorp, bibliothèque memberlist, `config.go` (`DefaultLANConfig` : `ProbeInterval` 1 s, `ProbeTimeout` 500 ms, `IndirectChecks` 3, `SuspicionMult` 4, `RetransmitMult` 4) et `util.go` (`suspicionTimeout`, `retransmitLimit`), [github.com/hashicorp/memberlist](https://github.com/hashicorp/memberlist/blob/master/config.go).
+[^hdfs]: Apache Hadoop, `hdfs-default.xml` (`dfs.namenode.heartbeat.recheck-interval` = 300 000 ms, `dfs.heartbeat.interval` = 3 s) et `DatanodeManager.java` (`heartbeatExpireInterval = 2 * heartbeatRecheckInterval + 10 * 1000 * heartbeatIntervalSeconds`), branche `trunk`, [github.com/apache/hadoop](https://github.com/apache/hadoop/blob/trunk/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/blockmanagement/DatanodeManager.java).
+[^lifeguard]: Armon Dadgar, James Phillips et Jon Currey, « Lifeguard: Local Health Awareness for More Accurate Failure Detection », arXiv:1707.00788, 2017, révisé en 2018, sections I, IV et V, [arxiv.org/abs/1707.00788](https://arxiv.org/abs/1707.00788).

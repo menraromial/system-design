@@ -1,0 +1,25 @@
+% Valeur de phi selon le temps écoulé depuis le dernier battement (intervalle moyen 100 ms).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1.4mm, y=4mm, note/.append style={font=\sffamily\small}]
+  \draw[ligne] (0,0) -- (102,0);
+  \draw[ligne] (0,0) -- (0,12.5);
+  \foreach \x/\l in {0/0, 20/200, 40/400, 60/600, 80/800, 100/1000} {\draw[ligne] (\x,0) -- (\x,-0.3); \node[note, below] at (\x,-0.3) {\l};}
+  \node[axe, anchor=north] at (51,-1.6) {temps écoulé depuis le dernier battement (ms)};
+  \foreach \y in {0,4,8,12} {\draw[ligne] (0,\y) -- (-0.8,\y); \node[note, anchor=east] at (-0.8,\y) {\y};}
+  \node[axe, anchor=south] at (0,12.8) {$\varphi$};
+  % seuil 8
+  \draw[Dred, line width=0.7pt, dash pattern=on 3pt off 2pt] (0,8) -- (102,8);
+  \node[note, text=Dred, anchor=south east] at (102,8) {seuil 8 (Akka, Cassandra)};
+  % battements réguliers : moyenne 100 ms, écart type 10 ms
+  \draw[Dblue, line width=1.3pt] plot coordinates {(0,0) (8,0.01) (9,0.08) (10,0.30) (11,0.80) (12,1.64) (13,2.87) (14,4.50) (15,6.54) (16,9.01) (17,11.89)};
+  \node[note, text=Dblue, anchor=west, align=left] at (18,11.5) {réguliers (écart type 10 ms) :\\seuil franchi à 157 ms};
+  % battements irréguliers : écart type 100 ms
+  \draw[Dorange, line width=1.3pt] plot coordinates {(0,0.08) (10,0.30) (20,0.80) (30,1.64) (40,2.87) (50,4.50) (60,6.54) (70,9.01) (80,11.89)};
+  \node[note, text=Dorange, anchor=west, align=left] at (72,6.3) {irréguliers (écart type\\100 ms) : franchi à 665 ms};
+  % exponentielle de Cassandra
+  \draw[Dgreen, line width=1.3pt] plot coordinates {(0,0) (100,4.34)};
+  \node[note, text=Dgreen, anchor=west, align=left] at (60,1.4) {loi exponentielle (Cassandra) :\\franchi à 1 842 ms};
+\end{tikzpicture}
+\end{document}

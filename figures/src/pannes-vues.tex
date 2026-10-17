@@ -1,0 +1,40 @@
+% Ce que voit le client (délai dépassé) et ce qui s'est passé, dans quatre situations.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \foreach \c/\titre/\executee/\coul in {0/{requête perdue}/{non exécuté}/Dgreen, 1/{réponse perdue}/{exécuté}/Dred, 2/{serveur lent}/{exécuté}/Dred, 3/{serveur en pause}/{exécuté}/Dred} {
+    \begin{scope}[xshift=\c*48mm]
+      \node[note, font=\sffamily\small\bfseries] at (16,58) {\titre};
+      \node[note] at (0,52) {client};
+      \node[note] at (32,52) {serveur};
+      \draw[seqlife=Dslate] (0,49) -- (0,4);
+      \draw[seqlife=Dslate] (32,49) -- (32,4);
+      \draw[Dred, line width=0.9pt] (-3,20) -- (3,20);
+      \node[note, text=Dred, anchor=east] at (-3,20) {1 s};
+    \end{scope}
+  }
+  % requête perdue
+  \draw[arr=Dblue] (0,45) -- (20,40); \node[note, text=Dred] at (23,39) {×};
+  % réponse perdue
+  \begin{scope}[xshift=48mm]
+    \draw[arr=Dblue] (0,45) -- (32,40); \fill[Dred] (32,38) circle (1);
+    \draw[arr=Dblue] (32,36) -- (14,32); \node[note, text=Dred] at (11,31) {×};
+  \end{scope}
+  % serveur lent
+  \begin{scope}[xshift=96mm]
+    \draw[arr=Dblue] (0,45) -- (32,40);
+    \fill[DamberBg, draw=Damber] (31,40) rectangle (33,12); \fill[Dred] (32,10) circle (1);
+    \draw[arr=Dblue] (32,9) -- (0,5);
+  \end{scope}
+  % pause
+  \begin{scope}[xshift=144mm]
+    \draw[arr=Dblue] (0,45) -- (32,40);
+    \fill[DslateBg, draw=Dslate] (30,40) rectangle (34,14); \node[note, rotate=90] at (32,27) {SIGSTOP};
+    \fill[Dred] (32,12) circle (1); \draw[arr=Dblue] (32,11) -- (0,7);
+  \end{scope}
+  \foreach \c/\e/\coul in {0/{non exécuté}/Dgreen, 1/{exécuté}/Dred, 2/{exécuté}/Dred, 3/{exécuté}/Dred}
+    \node[note, text=\coul, font=\sffamily\small\bfseries] at (\c*48+16,-2) {\e};
+  \node[note, anchor=north] at (88,-7) {dans les quatre cas, le client voit « délai dépassé » au bout de 1 s ($\bullet$ : virement exécuté)};
+\end{tikzpicture}
+\end{document}
