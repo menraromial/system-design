@@ -1,0 +1,19 @@
+% URL présignée : le navigateur envoie le fichier directement au stockage objet,
+% avec une signature fabriquée par l'application.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \foreach \x/\t in {0/navigateur, 55/application, 110/stockage objet} {
+    \node[pillo=Dslate] at (\x,56) {\t};
+    \draw[draw=Dslate, line width=0.6pt, dash pattern=on 2pt off 1.5pt] (\x,52) -- (\x,0);
+  }
+  \draw[arr=Dblue] (0,46) -- node[lblc=Dblue, above] {1. « je veux envoyer photo.jpg »} (55,46);
+  \node[note, anchor=west, align=left, text=Dslate] at (57,40) {vérifie l'utilisateur,\\signe PUT photo.jpg, 15 min,\\avec sa clé secrète};
+  \draw[arr=Dblue] (55,32) -- node[lblc=Dblue, above] {2. URL présignée} (0,32);
+  \draw[arr=Dgreen, line width=1.6pt] (0,22) -- node[lblc=Dgreen, above, pos=0.4] {3. PUT de 200 Mo directement, sans clé} (110,22);
+  \node[note, anchor=west, align=left, text=Dslate] at (112,22) {vérifie la signature\\et l'expiration};
+  \draw[arr=Dblue] (0,10) -- node[lblc=Dblue, above] {4. « c'est envoyé »} (55,10);
+  \node[note, anchor=north, align=center] at (55,-2) {les 200 Mo ne passent pas par l'application ; la clé secrète ne quitte pas l'application};
+\end{tikzpicture}
+\end{document}

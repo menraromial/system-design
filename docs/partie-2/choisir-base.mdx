@@ -260,7 +260,7 @@ Ne nommez pas une base avant d’avoir chiffré la charge. Dites : « 600 écr
 
 *Courses et paiements.* 3 millions de courses par jour font 35 par seconde en moyenne, quelques centaines au pic, avec une dizaine d’écritures par course. L’attribution à un seul chauffeur et le paiement demandent une transaction ; une base relationnelle par pays (PostgreSQL avec réplique synchrone dans une autre zone) tient ce débit d’un facteur 10 au moins, et fait foi. Une base SQL répartie ne se justifie que si l’on exige de survivre à la perte d’une région entière sans perdre une course confirmée.
 
-*Historique.* 3 millions de courses par jour à 2 Ko font 6 Go par jour, 2,2 To par an, 11 To sur 5 ans. On garde dans la base transactionnelle les courses de quelques mois et l’on archive le reste, par partitions mensuelles, dans un stockage objet en format colonnaire interrogeable pour la comptabilité (ch. 29).
+*Historique.* 3 millions de courses par jour à 2 Ko font 6 Go par jour, 2,2 To par an, 11 To sur 5 ans. On garde dans la base transactionnelle les courses de quelques mois et l’on archive le reste, par partitions mensuelles, dans un stockage objet en format colonnaire interrogeable pour la comptabilité ([ch. 29](stockage-objet.mdx)).
 
 *Coût.* Trois systèmes (Redis, PostgreSQL, stockage objet), chacun justifié par un chiffre ; Redis se reconstruit seul en quelques secondes à partir des positions suivantes, et l’archive à partir de la base, qui reste la seule source de vérité des courses et des paiements.
 

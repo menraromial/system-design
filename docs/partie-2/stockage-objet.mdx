@@ -1,0 +1,252 @@
+---
+title: "Stockage objet, bloc, fichier"
+sidebar_label: "29. Stockage objet, bloc, fichier"
+description: "Trois modèles d'accès au stockage (bloc, fichier, objet), leurs interfaces et leurs usages ; le stockage objet en détail : clés et métadonnées, liste par préfixe, téléversement en plusieurs parties et reprise, URL présignées, classes de stockage, durabilité, réplication contre codage d'effacement ; mesures avec un serveur S3 (SeaweedFS) et un système de fichiers local ; calcul du coût de 1 Po selon la classe."
+partie: 2
+chapitre: 29
+---
+
+import modeles from '@site/src/figures/stock-modeles.svg';
+import presignee from '@site/src/figures/stock-presignee.svg';
+import effacement from '@site/src/figures/stock-effacement.svg';
+
+Une application de partage de photos range ses fichiers sur le disque de son serveur. Pour changer un octet au milieu d’un fichier de 100 Mo, il lui faut 32 ms sur la machine des mesures, et renommer un dossier de 1 000 photos prend 0,06 ms. L’équipe migre ensuite vers un stockage objet compatible S3, pour ne plus gérer de disques. Le même changement d’un octet y demande de relire et de réécrire les 100 Mo, plus d’une seconde, et le même renommage devient 1 000 copies suivies de 1 000 suppressions, près de 10 secondes. En échange, un navigateur peut y déposer directement une photo grâce à une URL signée, sans passer par le serveur de l’application. Dans un stockage qui découpe chaque volume en 14 fragments, on peut aussi effacer 4 fragments sur 14 et relire l’objet intact.
+
+Ce chapitre décrit les trois façons dont un programme accède à un stockage durable, par blocs, par fichiers et par objets, ce que chacune permet et coûte, puis le stockage objet en détail, puisque c’est celui dans lequel finissent la plupart des données des systèmes du cours : images, vidéos, sauvegardes, journaux archivés, fichiers de données analytiques. La durabilité de ces données, et ce qu’elle coûte en place, mène à la comparaison entre la réplication et le codage d’effacement.
+
+Une expérience a été faite pour ce chapitre, avec le script [`outils/experiences/ch29/objet.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch29/objet.py). Il lance SeaweedFS, un stockage réparti qui expose l’API S3, dans un conteneur sur le portable des mesures, et le compare au système de fichiers local (ext4 sur un SSD NVMe).
+
+## Trois modèles d’accès
+
+<Figure svg={modeles} num="29.1" alt="Trois colonnes. Bloc : une grille de blocs numérotés de 0 à 11, des blocs de 4 Kio qu’on lit ou écrit par leur numéro, sur un volume attaché à une machine (disque, EBS). Fichier : une arborescence avec photos/2026/plage.jpg, photos/2025/neige.jpg et factures/f12.pdf ; on ouvre, lit, écrit au milieu, renomme, verrouille ; partagée par le réseau (NFS, SMB, EFS). Objet : des clés à plat dans un seau, photos/2026/plage.jpg, photos/2025/neige.jpg, factures/f12.pdf ; PUT, GET, DELETE et LIST d’un objet entier par HTTP ; données et métadonnées (S3, GCS, Azure Blob).">
+Le stockage par blocs, par fichiers et par objets.
+</Figure>
+
+Le stockage par blocs (block storage) présente un volume comme une suite de blocs de taille fixe, numérotés, qu’on lit et écrit par leur numéro. C’est l’interface d’un disque, et le système d’exploitation y installe un système de fichiers ou une base de données y range ses pages ([ch. 20](moteurs-stockage.mdx)). Un volume réseau comme EBS chez AWS est attaché à une seule machine à la fois, et sa performance se règle en opérations et en débit. La documentation d’AWS donne pour les volumes gp3 3 000 opérations par seconde et 125 Mio/s compris dans le prix, jusqu’à 80 000 opérations et 2 000 Mio/s contre un supplément, pour une taille de 1 Gio à 64 Tio[^ebs]. C’est le stockage des bases de données et des disques système, qui veulent écrire n’importe où, souvent, et synchroniser chaque écriture.
+
+Le stockage par fichiers (file storage) ajoute une arborescence de dossiers et de fichiers, et l’interface POSIX : ouvrir, lire et écrire à n’importe quelle position, renommer, verrouiller, lister un dossier. Partagé par le réseau (NFS, SMB, ou EFS chez AWS), il permet à plusieurs machines de travailler sur les mêmes fichiers. Le renommage d’un dossier y est une opération sur une seule entrée, atomique, et c’est ce que les applications qui manipulent des répertoires attendent.
+
+Le stockage objet (object storage) range des objets entiers, chacun identifié par une clé dans un seau (bucket), avec des métadonnées, et on y accède par HTTP : `PUT` dépose un objet, `GET` le lit, en entier ou par plages d’octets, `DELETE` le supprime, `LIST` énumère les clés. Il n’y a ni dossiers, ni écriture au milieu d’un objet, ni renommage. En échange, le service peut répartir les objets sur des milliers de machines sans coordonner d’arborescence, et sa capacité n’a pas de limite pratique. Amazon S3 en a fixé l’interface, que la plupart des autres systèmes reprennent (Google Cloud Storage, Azure Blob Storage par une interface proche, et des logiciels à installer soi-même comme Ceph, SeaweedFS ou Garage).
+
+## Fichier contre objet, mesuré
+
+`objet.py` commence par les opérations courantes, puis compare deux opérations faciles pour un système de fichiers et coûteuses pour un stockage objet.
+
+```text
+SeaweedFS 30GB, API S3 ; système de fichiers local (ext4, SSD NVMe)
+
+1. opérations de base
+   PUT d'un objet de 1 Ko : 5.3 ms ; GET : 3.7 ms (médianes sur 200)
+   métadonnées relues : image/jpeg,
+      {'appareil': 'x100', 'auteur': 'romial'}
+   liste de 2026/ avec le délimiteur / (6 ms) :
+      ['2026/travail/', '2026/vacances/']
+   liste de 2026/vacances/ : 501 clés en 6 pages de 100, 91 ms
+
+2. fichier contre objet
+   modifier 1 octet au milieu de 100 Mo : fichier 31.7 ms (pwrite + fsync),
+      objet 1130 ms (relire et réécrire l'objet entier)
+   renommer un dossier de 1 000 éléments : fichier 0.06 ms (rename),
+      objet 9983 ms (1 000 copies et 1 000 suppressions)
+```
+
+Les deux autres passages ont donné de 34 à 42 ms pour modifier le fichier, 1,07 s pour l’objet, et 7,8 s pour le renommage dans le stockage objet.
+
+Un `PUT` ou un `GET` d’un petit objet coûte quelques millisecondes (de 2,7 à 5,3 ms selon l’opération et le passage), le temps d’une requête HTTP et de l’écriture du serveur ; sur un service comme S3, à travers le réseau, il faut compter des dizaines de millisecondes. Les métadonnées (le type de contenu, et des métadonnées libres préfixées par `x-amz-meta-`) sont gardées avec l’objet et relues sans le lire. La liste par préfixe et délimiteur donne l’illusion de dossiers. Avec le préfixe `2026/` et le délimiteur `/`, le service renvoie les « sous-dossiers » `2026/travail/` et `2026/vacances/`, qui ne sont que des préfixes communs de clés. Une liste se fait par pages, au plus 1 000 clés par réponse dans S3, et énumérer un seau de cent millions d’objets demande cent mille requêtes.
+
+Modifier un octet au milieu de 100 Mo coûte 32 ms dans un fichier (une écriture positionnée, `pwrite`, puis une synchronisation, `fsync`, [ch. 20](moteurs-stockage.mdx)), et 1,1 s pour un objet, qu’il faut relire puis réécrire en entier, trente-cinq fois plus. Renommer un dossier de 1 000 éléments ne touche qu’une entrée de répertoire dans le système de fichiers, en 0,06 ms ; dans le stockage objet, il faut copier chacun des 1 000 objets sous sa nouvelle clé, puis supprimer l’ancien, 10 s, plus de cent mille fois plus, et l’opération n’est pas atomique, si bien qu’un lecteur peut voir la moitié des objets sous l’ancien nom et la moitié sous le nouveau. Une application qui renomme des dossiers ou modifie ses fichiers en place n’est pas faite pour le stockage objet ; une application qui écrit des fichiers une fois et les lit souvent l’est.
+
+## Le téléversement en plusieurs parties
+
+Un objet de plusieurs gigaoctets envoyé en une seule requête est fragile, car une coupure de réseau à 90 % oblige à tout recommencer. Le téléversement en plusieurs parties (multipart upload) découpe l’objet en parties, envoyées séparément, éventuellement en parallèle et dans n’importe quel ordre, puis assemblées par le service. On ouvre le téléversement (`CreateMultipartUpload`), qui renvoie un identifiant ; on envoie chaque partie avec son numéro (`UploadPart`), et le service renvoie l’empreinte de chacune ; on termine en donnant la liste des parties (`CompleteMultipartUpload`). La documentation de S3 fixe la taille d’une partie entre 5 Mio et 5 Gio, sauf la dernière, le nombre de parties à 10 000 au plus, et la taille d’un objet à 48,8 Tio ; elle conseille d’y passer à partir de 100 Mo[^s3-limites].
+
+```text
+3. téléversement en plusieurs parties
+   256 Mo en une requête : 1.8 s ; en 32 parties de 8 Mo par 4 fils : 1.8 s
+   ETag de l'objet en parties : "3eb81b7f4ce1edc77d7a5fff5f642a03-32"
+      (empreinte des empreintes des parties, suivie du nombre de parties)
+   panne après la partie 10 ; liste des parties déjà reçues (ListParts) :
+      10 parties déjà reçues, 80 Mo
+      22 parties envoyées après la reprise ; objet relu identique : True
+```
+
+Sur une seule machine, découper 256 Mo en 32 parties envoyées par 4 fils n’a pas accéléré l’envoi (de 1,0 à 1,9 s selon les passages, contre 1,7 à 1,8 s en une requête), car le serveur et le client partagent le même processeur et le même disque. À travers un vrai réseau, où une seule connexion TCP est limitée par sa fenêtre et la latence ([ch. 4](../partie-1/transport.mdx)), plusieurs parties en parallèle multiplient le débit. L’intérêt qui ne dépend pas du réseau est la reprise. Après une panne à la dixième partie, le client demande au service la liste des parties déjà reçues (`ListParts`), 10 parties et 80 Mo, et n’envoie que les 22 qui manquent ; l’objet relu est identique à l’original. L’ETag d’un objet en parties n’est pas l’empreinte MD5 du contenu, mais une empreinte des empreintes des parties suivie du nombre de parties (`-32`), et un client qui compare l’ETag à un MD5 local conclut à tort que l’objet est corrompu. Un téléversement ouvert et jamais terminé garde ses parties, facturées, jusqu’à ce qu’on l’abandonne ; une règle de cycle de vie qui supprime les téléversements incomplets après quelques jours évite de les payer indéfiniment.
+
+## Les URL présignées
+
+<Figure svg={presignee} num="29.2" alt="Diagramme de séquence entre navigateur, application et stockage objet. 1. Le navigateur demande à l’application d’envoyer photo.jpg. L’application vérifie l’utilisateur et signe un PUT de photo.jpg valable 15 minutes avec sa clé secrète. 2. Elle renvoie l’URL présignée. 3. Le navigateur envoie 200 Mo directement au stockage objet, sans clé ; le stockage vérifie la signature et l’expiration. 4. Le navigateur prévient l’application. Les 200 Mo ne passent pas par l’application, et la clé secrète ne la quitte pas.">
+Avec une URL présignée, le fichier va du navigateur au stockage objet sans passer par l’application.
+</Figure>
+
+Une URL présignée (presigned URL) contient, dans ses paramètres, une autorisation calculée par l’application avec sa clé secrète : l’opération (`GET` ou `PUT`), la clé de l’objet, la date d’expiration et une signature. Quiconque possède l’URL peut faire cette opération, et seulement elle, jusqu’à l’expiration. La documentation de S3 précise que l’expiration peut aller jusqu’à 7 jours avec une signature de version 4 créée par un SDK, et qu’une URL présignée expire aussi quand les identifiants qui l’ont signée cessent d’être valides[^s3-presignee]. Elle sert à deux choses : laisser un navigateur télécharger un fichier privé (une facture, une photo) sans rendre le seau public, et le laisser déposer un fichier directement dans le stockage, sans que les octets passent par les serveurs de l’application, qui n’ont plus à absorber les téléversements.
+
+```text
+4. URL présignée
+   lecture par l'URL présignée (valable 3 s), sans clé : 200
+   même objet, sans signature : 403
+   la même URL, 4 s plus tard : 403
+   envoi par une URL présignée en écriture : 200
+      objet relu : b'image envoyee par le navigateu'
+   longueur de l'URL : 310 caractères
+```
+
+L’URL présignée en lecture fonctionne sans clé (200), la même requête sans signature est refusée (403), et la même URL l’est aussi 4 s plus tard, une fois expirée. L’envoi par une URL présignée en écriture fonctionne aussi. Dans l’expérience, le premier essai a échoué parce que la bibliothèque `boto3` avait produit une signature de version 2, qui inclut le type de contenu, alors que la bibliothèque HTTP en ajoutait un autre. Avec la signature de version 4, et le même type de contenu déclaré à la signature et à l’envoi, l’envoi passe, car la signature protège exactement ce qu’elle couvre, et rien d’autre. Une URL présignée est un jeton au porteur ; elle doit être courte, ne pas apparaître dans les journaux, et l’application qui la signe doit vérifier au préalable que l’utilisateur a le droit de faire l’opération.
+
+## Classes de stockage et durabilité
+
+Un service de stockage objet propose plusieurs classes, qui diffèrent par le prix de la place, le prix et le délai de la lecture, la durée minimale facturée et la disponibilité. La documentation de S3 les compare toutes : S3 Standard, pour les données lues souvent, avec 99,99 % de disponibilité ; S3 Standard-IA (accès peu fréquent), avec des frais par gigaoctet lu, 30 jours facturés au minimum et un objet compté au moins 128 Ko ; S3 One Zone-IA, dans une seule zone de disponibilité, qui ne résiste donc pas à la perte de la zone ; S3 Glacier Instant Retrieval, pour des archives lues une fois par trimestre, en millisecondes ; S3 Glacier Flexible Retrieval et Glacier Deep Archive, dont il faut d’abord restaurer les objets, en minutes ou en heures, avec 90 et 180 jours facturés au minimum[^s3-classes]. Des règles de cycle de vie déplacent les objets d’une classe à l’autre selon leur âge.
+
+Toutes ces classes sont conçues, selon la même documentation, pour une durabilité de 99,999999999 % (onze neuf). Une durabilité de onze neuf signifie qu’en moyenne, sur dix millions d’objets, on en perd un tous les dix mille ans. Ce chiffre ne protège pas contre ce que le service ne contrôle pas : une suppression par erreur, un programme qui écrase un objet, un attaquant qui obtient les clés. Pour ces risques-là, on active le versionnage des objets, qui garde les anciennes versions, le verrouillage en écriture (object lock), et une copie dans un autre compte ou une autre région ([ch. 11](../partie-1/disponibilite.mdx)).
+
+## Réplication contre codage d’effacement
+
+La durabilité vient de la redondance, et il y a deux façons de la construire. La réplication garde plusieurs copies complètes de chaque objet, souvent trois, sur des disques, des machines et des baies différents ([ch. 24](replication-leader.mdx)). Elle coûte trois fois la place, supporte la perte de deux copies, et une lecture n’a besoin que d’une copie.
+
+<Figure svg={effacement} num="29.3" alt="En haut, la réplication triple : trois copies complètes, trois fois la place, la perte de deux copies supportée ; une lecture lit une copie, une réparation recopie tout l’objet. En bas, le codage d’effacement Reed-Solomon (10, 4) : 10 fragments de données D0 à D9 et 4 fragments de parité P0 à P3 ; 1,4 fois la place ; n’importe quels 10 fragments sur 14 suffisent ; une réparation lit 10 fragments pour en recalculer un.">
+Réplication triple et codage d’effacement Reed-Solomon (10, 4).
+</Figure>
+
+Le codage d’effacement (erasure coding) découpe les données en $k$ fragments et calcule $m$ fragments de parité, de telle sorte que n’importe quels $k$ fragments parmi les $k + m$ suffisent à reconstruire l’ensemble. Le code de Reed et Solomon, publié en 1960[^reed-solomon], est le plus utilisé. Avec $k = 10$ et $m = 4$, la place vaut $14 / 10 = 1{,}4$ fois les données, et l’on supporte la perte de 4 fragments sur 14, soit deux de plus que la réplication triple, pour moins de la moitié de sa place. Le prix est ailleurs. Une lecture complète demande 10 fragments, sur 10 disques ; reconstruire un fragment perdu demande d’en lire 10, contre une seule copie pour la réplication ; et le calcul de la parité coûte du processeur à l’écriture. Le codage d’effacement convient donc aux données lues peu souvent et en gros morceaux, et la réplication aux données chaudes et aux petits objets.
+
+La dernière partie de la mesure code en Reed-Solomon (10, 4) les volumes qui contiennent un objet de 300 Mo, avec la commande `ec.encode` de SeaweedFS, puis supprime des fragments sur le disque et relit l’objet.
+
+```text
+5. codage d'effacement Reed-Solomon 10 + 4
+   objet de 300 Mo ; volumes avant codage : 300 Mo
+   ec.encode en 3 s : 7 volumes de 14 fragments, 462 Mo
+      (1.54 fois les données)
+   4 fragments supprimés par volume, 10 restants :
+      lecture identique
+   5 fragments supprimés par volume, 9 restants :
+      lecture en échec après 10 essais (ClientError)
+```
+
+Le codage a produit 14 fragments pour chacun des 7 volumes, et 462 Mo pour 300 Mo de données, 1,54 fois la place au lieu de 1,4 (476 Mo, 1,59 fois, dans les deux autres passages). L’écart vient de la petite taille des volumes de l’expérience (64 Mo), car chaque fragment est arrondi à un nombre entier de blocs d’un mégaoctet, et cet arrondi pèse lourd sur de petits volumes ; avec les volumes de 30 Go que SeaweedFS utilise par défaut, il devient négligeable. Après la suppression de 4 fragments sur chaque volume, l’objet relu est identique à l’original, car le serveur reconstruit les fragments manquants à partir des 10 restants. Après la suppression d’un cinquième, la lecture échoue, et le journal du serveur indique qu’il n’a plus que 9 fragments, et il lui en faut au moins 10.
+
+## Compromis
+
+| Modèle | Interface | Ce qu’il fait bien | Ce qu’il fait mal (mesuré) | Usages |
+|---|---|---|---|---|
+| Bloc | lire, écrire un bloc numéroté ; un volume par machine | écritures aléatoires, synchronisation, latence faible | partage entre machines ; croissance limitée par le volume (64 Tio pour gp3) | bases de données, disques système |
+| Fichier | POSIX : ouvrir, écrire au milieu, renommer, verrouiller ; partagé par NFS | modifier en place (32 ms pour 1 octet de 100 Mo), renommer un dossier (0,06 ms) | passage à l’échelle d’une arborescence partagée, à des milliards de fichiers | répertoires partagés, applications existantes, calcul scientifique |
+| Objet | HTTP : PUT, GET, DELETE, LIST d’objets entiers | capacité sans limite pratique, durabilité, accès direct par URL présignée, classes de prix | modifier un octet (1,1 s), renommer un dossier de 1 000 objets (10 s, non atomique) | images, vidéos, sauvegardes, archives, données analytiques |
+| Réplication triple | | lectures rapides, réparation simple | 3 fois la place | données chaudes, petits objets |
+| Codage d’effacement (10, 4) | | 1,4 fois la place, perte de 4 fragments sur 14 supportée (mesuré) | lecture et réparation sur 10 disques, calcul à l’écriture | données tièdes et froides, gros objets |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : le coût de 1 Po selon la classe]
+Hypothèses : 1 Pio de données (1 048 576 Gio) dans S3, en US East (Virginie du Nord), aux prix de la liste de prix publique d’AWS publiée le 15 octobre 2026[^s3-prix] ; S3 Standard est facturé par tranches (0,023 \$ le Gio par mois pour les 50 premiers Tio, 0,022 \$ jusqu’à 500 Tio, 0,021 \$ au-delà) ; on lit 10 % des données chaque mois ; on ne compte ni les requêtes ni le transfert vers Internet.
+
+| Classe | Place par mois | Lecture de 10 % par mois | Total par an |
+|---|---|---|---|
+| S3 Standard | 51 200 × 0,023 + 460 800 × 0,022 + 536 576 × 0,021 ≈ 22 600 \$ | gratuite | ≈ 271 000 \$ |
+| S3 Standard-IA (0,0125 \$, lecture 0,01 \$ le Gio) | ≈ 13 100 \$ | ≈ 1 050 \$ | ≈ 170 000 \$ |
+| S3 One Zone-IA (0,01 \$) | ≈ 10 500 \$ | ≈ 1 050 \$ | ≈ 138 000 \$ |
+| Glacier Instant Retrieval (0,004 \$, lecture 0,03 \$) | ≈ 4 200 \$ | ≈ 3 150 \$ | ≈ 88 000 \$ |
+| Glacier Flexible Retrieval (0,0036 \$) | ≈ 3 800 \$ | après restauration | ≈ 45 000 \$ sans lecture |
+| Glacier Deep Archive (0,00099 \$, lecture standard 0,02 \$) | ≈ 1 040 \$ | ≈ 2 100 \$ | ≈ 38 000 \$ |
+
+Conclusion : la place d’un pétaoctet coûte de 271 000 \$ par an en S3 Standard à 12 500 \$ en Deep Archive, vingt-deux fois moins. Dès qu’on lit les données, les frais de lecture changent le classement, et lire 10 % par mois rend Glacier Instant Retrieval presque aussi cher en lecture qu’en place. Le choix de la classe se fait sur la fréquence de lecture prévue, et les règles de cycle de vie déplacent les objets quand ils vieillissent. L’écriture a aussi un prix, puisque 1 Pio en objets de 1 Mio représente un milliard de `PUT`, à 0,005 \$ les mille, soit 5 400 \$ une fois.
+:::
+
+:::calcul[Calcul : réplication ou codage d’effacement pour 10 Po]
+Hypothèses : 10 Po de données ; disques de 20 To à 300 \$ ; on compare la réplication triple et Reed-Solomon (10, 4) ; un disque tombe en panne avec une probabilité de 2 % par an et sa réparation prend un jour.
+
+| Grandeur | Réplication triple | Reed-Solomon (10, 4) |
+|---|---|---|
+| Place brute | 30 Po | 14 Po |
+| Disques | 1 500 | 700 |
+| Coût des disques | 450 000 \$ | 210 000 \$ |
+| Probabilité qu’un disque donné tombe pendant la réparation d’un autre | 0,02 / 365 ≈ 5,5 × 10⁻⁵ | id. |
+| Perte si, pendant la réparation, tombent… | les 2 autres copies : ≈ (5,5 × 10⁻⁵)² ≈ 3 × 10⁻⁹ | 4 des 13 autres fragments : C(13, 4) × (5,5 × 10⁻⁵)⁴ ≈ 6 × 10⁻¹⁵ |
+
+Conclusion : à place égale, le codage d’effacement est bien plus durable, et à durabilité supérieure il coûte moins de la moitié des disques. Ces probabilités supposent des pannes indépendantes ; des disques du même lot, dans la même baie, ou une panne de courant qui touche une salle entière les rendent corrélées, et c’est pourquoi on répartit les fragments sur des baies et des zones différentes.
+:::
+
+:::calcul[Calcul : la taille des parties d’un gros objet]
+Hypothèses : une sauvegarde de 2 To à envoyer dans S3 ; au plus 10 000 parties ; un lien de 1 Gb/s, coupé en moyenne une fois toutes les 2 heures.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Taille minimale d’une partie | 2 To / 10 000 | 200 Mo |
+| Durée de l’envoi | 2 × 10¹² × 8 / 10⁹ | 16 000 s, 4 h 27 |
+| En une seule requête (si elle était permise) | une coupure toutes les 2 h | ne finit presque jamais |
+| En parties de 200 Mo | chaque coupure perd au plus une partie, 1,6 s | quelques secondes perdues |
+
+Conclusion : la limite de 10 000 parties impose des parties d’au moins 200 Mo pour 2 To ; avec des parties de cette taille, une coupure ne coûte qu’une partie. Un client qui découpe en parties de 8 Mo par défaut ne peut pas envoyer plus de 80 Go.
+:::
+
+## Exemple réel
+
+**f4, le stockage tiède de Facebook.** Subramanian Muralidhar et ses collègues ont décrit en 2014 f4, le système où Facebook range les gros objets binaires (photos, vidéos, documents) qui ne sont plus lus souvent[^f4]. Facebook stockait alors plus de 400 milliards de photos. Haystack, son système d’origine, gardait trois copies de chaque objet, chacune sur des disques en RAID 6, qui ajoutaient 1,2 fois la place ; son facteur de réplication effectif était donc de 3,6. L’article mesure que la demande de lecture d’un objet décroît rapidement avec son âge, et que les objets de plus de quelques mois forment un stockage « tiède », lu trop peu pour justifier trois copies. f4 range ces objets en volumes codés en Reed-Solomon (10, 4), dont les fragments sont répartis sur des baies différentes d’un centre de données, et supporte ainsi la perte de disques, de machines et de baies, soit 1,4 fois la place dans un centre de données. Pour résister à la perte d’un centre de données entier, les volumes ont d’abord été copiés dans deux centres, soit un facteur effectif de 2,8, puis protégés par un XOR de deux volumes de deux centres différents, stocké dans un troisième, ce qui ramène le facteur à 2,1. Au moment de l’article, f4 contenait plus de 65 Po de données logiques et économisait plus de 53 Po de place par rapport à Haystack. Le codage d’effacement n’y est pas un choix de principe, puisqu’il est réservé aux données que la mesure de leur fréquence de lecture désigne comme tièdes.
+
+## Erreurs fréquentes
+
+Utiliser un stockage objet comme un système de fichiers. Modifier en place et renommer des dossiers y coûtent une réécriture complète (1,1 s pour un octet de 100 Mo) et une copie par objet (10 s pour 1 000 objets), sans atomicité.
+
+Faire passer les téléversements par les serveurs de l’application. Une URL présignée en écriture laisse le navigateur déposer le fichier directement dans le stockage.
+
+Comparer l’ETag d’un objet en parties à son MD5. Il vaut l’empreinte des empreintes des parties, suivie du nombre de parties.
+
+Oublier les téléversements en parties jamais terminés. Leurs parties restent stockées et facturées ; une règle de cycle de vie les supprime.
+
+Choisir une classe d’archive pour des données lues souvent. Les frais de lecture et les durées minimales facturées dépassent l’économie sur la place.
+
+Confondre durabilité et protection. Onze neuf de durabilité ne protègent pas d’une suppression par erreur ni d’un rançongiciel ; il faut le versionnage, le verrouillage et une copie hors du compte.
+
+Rendre un seau public pour servir des fichiers privés. Une URL présignée courte donne l’accès à un objet, pour une opération, pour quelques minutes.
+
+:::piege[Erreur fréquente : « S3 a onze neuf de durabilité, nos sauvegardes sont en sécurité »]
+La durabilité d’un service mesure ce qu’il perd par ses propres pannes : disques, machines, zones. Elle ne dit rien des données que vous effacez vous-même, qu’un script mal écrit écrase, qu’un attaquant chiffre avec vos propres clés, ou qu’une règle de cycle de vie supprime par erreur. Une sauvegarde dans le même compte, avec les mêmes droits que la production, disparaît avec elle. Il faut au moins le versionnage des objets, un verrouillage en écriture pour une durée de rétention, et une copie dans un autre compte aux accès séparés.
+:::
+
+:::entretien
+Pour des fichiers déposés par les utilisateurs (photos, vidéos, pièces jointes), décrivez le chemin : « le client demande une URL présignée en écriture, l’envoie directement au stockage objet, en parties au-delà de 100 Mo ; l’application ne reçoit que la notification ; les objets sont servis par un CDN ([ch. 15](cdn-edge.mdx)) ; une règle de cycle de vie les passe en accès peu fréquent après 30 jours ». Donnez la place et le coût par mois, et dites ce qui protège contre une suppression par erreur.
+:::
+
+## Exercices
+
+**Question 1.** Pour chacune de ces données, choisissez le modèle (bloc, fichier, objet) et justifiez : les fichiers de données d’une base PostgreSQL ; les vidéos d’une plateforme de cours ; un dossier partagé où vingt chercheurs modifient des fichiers de résultats ; les journaux d’accès d’un site, gardés deux ans pour la conformité.
+
+**Question 2.** Dans la mesure, pourquoi l’envoi en parties par 4 fils n’a-t-il pas été plus rapide que l’envoi en une requête ? Dans quelles conditions le serait-il ?
+
+**Question 3.** Une application stocke ses images dans S3 sous la clé `utilisateurs/<id>/photo.jpg` et veut permettre à un utilisateur de changer d’identifiant. Que coûte l’opération pour un utilisateur qui a 20 000 photos, et comment l’éviter dès la conception ?
+
+**Exercice de conception.** Une plateforme vidéo reçoit 20 000 vidéos par jour, de 500 Mo en moyenne, envoyées depuis des téléphones sur des réseaux mobiles. Chaque vidéo est transcodée en trois qualités (au total 1,5 fois la taille d’origine). Les vidéos sont regardées surtout pendant leur premier mois, puis rarement. Proposez le chemin de téléversement, le stockage des originaux et des versions transcodées, les classes de stockage et leur évolution dans le temps, et chiffrez la place et le coût de stockage au bout d’un an, aux prix du calcul de ce chapitre.
+
+## Corrigés
+
+**Question 1.** Les fichiers d’une base PostgreSQL vont sur du stockage bloc, car la base écrit des pages de 8 Ko à n’importe quelle position et synchronise son journal à chaque validation ([ch. 20](moteurs-stockage.mdx)). Les vidéos vont en stockage objet, puisqu’elles sont écrites une fois, lues souvent par plages d’octets, servies par un CDN, en grande quantité. Le dossier partagé des chercheurs va sur un stockage fichier partagé (NFS, EFS), parce que plusieurs machines modifient des fichiers en place et renomment des dossiers. Les journaux d’accès vont en stockage objet, dans une classe d’archive après quelques semaines, avec un verrouillage en écriture pour la durée de conservation exigée.
+
+**Question 2.** Sur le portable des mesures, le client et le serveur partagent le même processeur et le même SSD, et aucun réseau ne limite l’envoi ; une seule requête atteint déjà le débit que le serveur peut écrire, et quatre fils se le partagent. À travers un réseau, une connexion TCP est limitée par sa fenêtre divisée par l’aller-retour ([ch. 4](../partie-1/transport.mdx)) ; avec 100 ms d’aller-retour et une fenêtre de 4 Mo, une connexion plafonne à 40 Mo/s, et quatre connexions en parallèle, sur un service qui répartit les parties sur plusieurs machines, en atteignent quatre fois plus. Le gain dépend donc de la latence, de la fenêtre et du nombre de machines du service.
+
+**Question 3.** Changer de préfixe demande de copier les 20 000 objets sous leur nouvelle clé, puis de supprimer les anciens, soit 40 000 requêtes, plusieurs minutes, une facture en requêtes, et une période où une partie des photos est sous l’ancien préfixe et une partie sous le nouveau. On l’évite en ne mettant dans la clé que des identifiants qui ne changent jamais, comme `photos/<identifiant interne immuable>.jpg`, l’association entre l’utilisateur, son nom visible et ses photos étant gardée dans la base de données.
+
+**Exercice de conception.**
+
+*Téléversement.* L’application vérifie l’utilisateur et renvoie une URL présignée de téléversement en parties ; le téléphone envoie la vidéo en parties de 8 Mo, ce qui permet de reprendre après une coupure du réseau mobile en n’envoyant que les parties manquantes ; à la fin, il termine le téléversement et prévient l’application, qui publie un message pour le service de transcodage ([ch. 27](files-messages.mdx)). Une règle supprime les téléversements incomplets après 7 jours.
+
+*Volume.* 20 000 × 500 Mo = 10 To d’originaux par jour, 15 To de versions transcodées, 25 To par jour, 9 Po par an.
+
+*Classes.* Les versions transcodées restent en S3 Standard le premier mois, puis passent en Standard-IA ; les originaux, qui ne servent qu’à refaire un transcodage, passent en Glacier Instant Retrieval après une semaine, ou en Deep Archive si l’on accepte des heures pour les relire.
+
+*Coût au bout d’un an.* En régime établi, un mois de versions transcodées en Standard, 450 To, environ 10 200 \$ par mois ; onze mois en Standard-IA, 5 Po, environ 64 000 \$ ; 3,6 Po d’originaux en Glacier Instant Retrieval, environ 15 000 \$ ; soit près de 89 000 \$ par mois, plus les lectures et le transfert vers le CDN, qui dominent souvent la facture d’une plateforme vidéo.
+
+:::fiche
+- Bloc : blocs numérotés, un volume par machine, écritures aléatoires (bases de données). Fichier : arborescence POSIX, partageable, écriture au milieu et renommage atomique. Objet : clés à plat, objets entiers par HTTP, capacité sans limite, métadonnées.
+- Mesuré : modifier 1 octet de 100 Mo, 32 ms dans un fichier, 1,1 s pour un objet ; renommer 1 000 éléments, 0,06 ms contre 7,8 à 10 s non atomiques.
+- Liste par préfixe et délimiteur, par pages ; pas de dossiers, seulement des préfixes communs.
+- Multipart : parties de 5 Mio à 5 Gio, 10 000 au plus, objet de 48,8 Tio au plus ; reprise par ListParts (22 parties renvoyées sur 32, mesuré) ; ETag « -N » ; supprimer les téléversements incomplets.
+- URL présignée : opération, clé, expiration (7 jours au plus en SigV4), signature ; jeton au porteur ; téléversement direct depuis le navigateur.
+- Classes : Standard, IA (30 jours, 128 Ko min.), Glacier (90 à 180 jours, restauration) ; 1 Pio de 271 000 \$ à 12 500 \$ par an ; les lectures changent le classement.
+- Codage d’effacement (10, 4) : 1,4 fois la place, 4 pertes sur 14 supportées (lecture identique avec 10 fragments, échec avec 9, mesuré) ; la réplication triple prend 3 fois la place, avec des lectures et des réparations simples.
+:::
+
+[^ebs]: Amazon Web Services, « Amazon EBS General Purpose SSD volumes », *Amazon EBS User Guide*, [docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html](https://docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html).
+[^s3-limites]: Amazon Web Services, « Amazon S3 multipart upload limits », *Amazon S3 User Guide*, [docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html).
+[^s3-presignee]: Amazon Web Services, « Download and upload objects with presigned URLs », *Amazon S3 User Guide*, [docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html).
+[^s3-classes]: Amazon Web Services, « Understanding and managing Amazon S3 storage classes », *Amazon S3 User Guide*, [docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html).
+[^s3-prix]: Amazon Web Services, liste de prix publique d’Amazon S3 pour us-east-1, publiée le 15 octobre 2026, et celle de S3 Glacier Deep Archive, publiée le 11 septembre 2026, [pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json) ; présentation sur [aws.amazon.com/s3/pricing](https://aws.amazon.com/s3/pricing/).
+[^reed-solomon]: Irving S. Reed et Gustave Solomon, « Polynomial Codes Over Certain Finite Fields », *Journal of the Society for Industrial and Applied Mathematics*, vol. 8, n° 2, 1960, p. 300-304, [doi:10.1137/0108018](https://doi.org/10.1137/0108018).
+[^f4]: Subramanian Muralidhar, Wyatt Lloyd, Sabyasachi Roy et al., « f4: Facebook’s Warm BLOB Storage System », *11th USENIX Symposium on Operating Systems Design and Implementation (OSDI ’14)*, 2014, p. 383-398, sections 1, 4.1 et 5.2, [usenix.org/conference/osdi14/technical-sessions/presentation/muralidhar](https://www.usenix.org/conference/osdi14/technical-sessions/presentation/muralidhar).

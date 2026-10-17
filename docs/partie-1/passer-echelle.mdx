@@ -102,7 +102,7 @@ Les sessions collantes ne sont pas toujours une faute, mais il faut savoir ce qu
 | Côté client, jeton signé (cookie, JWT, ch. 54) | aucun stockage serveur, aucun aller-retour | taille limitée, révocation difficile, le client voit le contenu (sauf chiffrement) | identité et droits de courte durée |
 | Magasin clé-valeur partagé (Redis, Memcached) | rapide (quelques centaines de µs mesurées), partagé, expiration automatique | un composant de plus à rendre disponible ; Memcached ne garantit pas la persistance | sessions, paniers, limites de débit (ch. 30) |
 | Base de données | durable, transactionnelle | plus lente, et vite le goulet si tout y passe | données métier, paniers à conserver |
-| Stockage objet (ch. 29) | durable, sans limite pratique de taille | latence plus élevée, accès par objet entier | fichiers téléversés, exports |
+| Stockage objet ([ch. 29](../partie-2/stockage-objet.mdx)) | durable, sans limite pratique de taille | latence plus élevée, accès par objet entier | fichiers téléversés, exports |
 
 Les autres formes d’état se traitent de la même façon. Les fichiers téléversés vont dans un stockage objet, jamais sur le disque d’un serveur. Une tâche planifiée qui ne doit s’exécuter qu’une fois (l’envoi du récapitulatif quotidien, la purge des paniers abandonnés) ne peut pas être lancée par chaque serveur. On la confie à un ordonnanceur unique, ou à un seul serveur désigné par une élection de leader (ch. 36, ch. 79).
 

@@ -240,7 +240,7 @@ Dites pourquoi un message plutôt qu’un appel, en une phrase : « l’inscri
 
 *Débit et partitions.* 2 000 commandes par minute × 5 événements = 167 événements par seconde au pic, 167 Ko/s. Le débit est faible ; le nombre de partitions se règle sur le consommateur le plus lent. Si la facturation traite 50 événements par seconde, il lui faut 4 consommateurs, 8 au double du trafic ; 12 partitions laissent de la marge.
 
-*Rétention.* Trois mois à 167 Ko/s en continu au pic font au plus 1,3 To, 3,9 To avec trois répliques ; en moyenne sur la journée, bien moins. On garde 100 jours pour que le service de fraude dispose de ses trois mois, ou l’on archive le sujet dans un stockage objet (ch. 29) d’où il pourra être relu.
+*Rétention.* Trois mois à 167 Ko/s en continu au pic font au plus 1,3 To, 3,9 To avec trois répliques ; en moyenne sur la journée, bien moins. On garde 100 jours pour que le service de fraude dispose de ses trois mois, ou l’on archive le sujet dans un stockage objet ([ch. 29](stockage-objet.mdx)) d’où il pourra être relu.
 
 *Schémas.* Un schéma Avro ou Protobuf par type d’événement, enregistré dans un registre en compatibilité ascendante ; les consommateurs sont mis à jour avant les producteurs ; un champ n’est jamais renommé, seulement ajouté puis, plus tard, retiré.
 
