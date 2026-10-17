@@ -71,7 +71,7 @@ La quatrième partie montre le conflit qui arrête tout. La même clé primaire 
 
 ### Éviter les conflits
 
-La façon la plus sûre de gérer les conflits de plusieurs leaders est de ne pas en avoir. Si toutes les écritures sur un même enregistrement passent par le même leader, son leader d’attache (les données d’un client par la région où il habite, un document par le serveur qui l’a créé), il n’y a jamais deux écritures concurrentes sur le même enregistrement, et chaque leader ne fait que recopier les enregistrements des autres. Le conflit ne réapparaît que pendant une bascule, quand un enregistrement change de leader d’attache, ou pour les utilisateurs qui voyagent. Les identifiants générés sans coordination (UUID, intervalles réservés par leader, ch. 31) évitent aussi les conflits d’insertion de la quatrième partie.
+La façon la plus sûre de gérer les conflits de plusieurs leaders est de ne pas en avoir. Si toutes les écritures sur un même enregistrement passent par le même leader, son leader d’attache (les données d’un client par la région où il habite, un document par le serveur qui l’a créé), il n’y a jamais deux écritures concurrentes sur le même enregistrement, et chaque leader ne fait que recopier les enregistrements des autres. Le conflit ne réapparaît que pendant une bascule, quand un enregistrement change de leader d’attache, ou pour les utilisateurs qui voyagent. Les identifiants générés sans coordination (UUID, intervalles réservés par leader, [ch. 31](identifiants.mdx)) évitent aussi les conflits d’insertion de la quatrième partie.
 
 ## Sans leader
 

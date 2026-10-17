@@ -54,7 +54,7 @@ export const PARTIES: Partie[] = [
       {num: 28, titre: 'Garanties de livraison', doc: 'partie-2/garanties-livraison'},
       {num: 29, titre: 'Stockage objet, bloc, fichier', doc: 'partie-2/stockage-objet'},
       {num: 30, titre: 'Limitation de débit (rate limiting)', doc: 'partie-2/limitation-debit'},
-      {num: 31, titre: 'Identifiants uniques'},
+      {num: 31, titre: 'Identifiants uniques', doc: 'partie-2/identifiants'},
     ],
   },
   {

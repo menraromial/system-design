@@ -1,0 +1,353 @@
+---
+title: "Identifiants uniques"
+sidebar_label: "31. Identifiants uniques"
+description: "Produire des identifiants uniques : auto-incrément et séquences (trous, cache, ordre de validation), allocation par blocs, UUID v4 et v7, ULID, Snowflake (horodatage, machine, séquence, horloge qui recule) ; l'effet de la clé sur l'index B-tree de PostgreSQL mesuré sur 5 millions de lignes ; ce qu'un identifiant révèle, et le problème des chars allemands."
+partie: 2
+chapitre: 31
+---
+
+import formats from '@site/src/figures/ids-formats.svg';
+import btree from '@site/src/figures/ids-btree.svg';
+import validation from '@site/src/figures/ids-validation.svg';
+
+Une table de commandes reçoit 5 millions de lignes. Avec une clé primaire tirée d’une séquence, PostgreSQL les insère en 10 secondes, écrit 650 Mo de journal et construit un index de 107 Mo. Avec un UUID de version 4, la même insertion prend 30 secondes, écrit 1,1 Go de journal, et l’index pèse 195 Mo ; pour relire les 20 000 commandes les plus récentes, la base va chercher 13 700 pages hors de son cache au lieu de 59. Le même UUID rangé dans une colonne de texte prend 49 secondes et 3 Go de journal. À l’inverse, la séquence a ses propres défauts. Elle laisse des trous, elle attribue les numéros dans un ordre qui n’est pas celui des validations, ce qui fait manquer des lignes à un lecteur qui suit les nouveaux numéros, et elle dit à quiconque passe deux commandes à une semaine d’intervalle combien la boutique en reçoit.
+
+Un identifiant unique se choisit en fonction de plusieurs contraintes, que les formats courants satisfont chacun en partie. Ce chapitre décrit les compteurs centraux (auto-incrément et séquences), l’allocation par blocs, les UUID de versions 4 et 7, ULID et Snowflake, mesure l’effet de chacun sur l’index B-tree d’une base relationnelle, et montre ce qu’un identifiant laisse deviner.
+
+Trois expériences ont été faites pour ce chapitre. [`outils/experiences/ch31/generateurs.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch31/generateurs.py) compare les générateurs en Python seul et simule une horloge qui recule. [`postgres_ids.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch31/postgres_ids.py) insère 5 millions de lignes dans quatre tables qui ne diffèrent que par leur clé primaire, dans PostgreSQL 18.6 lancé par [`commun.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch31/commun.py) avec un cache de pages réduit à 128 Mo. [`sequences.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch31/sequences.py) mesure le comportement des séquences de PostgreSQL et l’allocation par blocs.
+
+## Ce qu’on attend d’un identifiant
+
+La première exigence est l’unicité, dont il faut préciser la portée. Un identifiant peut n’être unique que dans une table, ou dans tout un service, ou entre tous les services d’une entreprise qui fusionnent leurs données dans un entrepôt, ce qui change les méthodes possibles. Viennent ensuite des propriétés qui se contredisent en partie. On veut pouvoir le produire sans coordination, sur n’importe quelle machine, sans attendre une base centrale. On le veut court, 8 octets plutôt que 16, parce qu’il est répété dans chaque index, chaque clé étrangère et chaque message. On veut souvent qu’il se trie dans l’ordre de création, pour paginer ([ch. 7](../partie-1/styles-api.mdx)) et pour que l’index reste compact. Et on veut parfois qu’il ne révèle rien, ni le nombre d’objets, ni la date de création, ni le moyen de deviner celui du voisin.
+
+Aucun format ne coche toutes les cases. Un compteur est court, trié et facile à lire, mais il demande un point central et il se devine ; un UUID de version 4 se produit partout sans coordination et ne révèle rien, mais il est long et aléatoire, ce qui coûte cher à un B-tree ; les formats qui commencent par la date (UUID v7, ULID, Snowflake) gardent l’ordre et se produisent sans coordination, au prix de révéler l’heure de création et, pour Snowflake, de devoir attribuer un numéro à chaque générateur.
+
+## Le compteur central : séquences et auto-incrément
+
+La méthode la plus ancienne confie à la base un compteur. MySQL l’appelle `AUTO_INCREMENT` ; PostgreSQL a des objets séquence, que la syntaxe standard `GENERATED ... AS IDENTITY` ou le type `serial` créent automatiquement pour une colonne. `nextval` renvoie la valeur suivante, et deux sessions ne reçoivent jamais la même. Pour que deux transactions concurrentes n’aient pas à s’attendre, une séquence n’est pas transactionnelle. La documentation de PostgreSQL précise que les appels à `nextval` ne sont jamais annulés, et qu’une séquence ne peut donc pas servir à une numérotation sans trous[^pg-sequence]. Une numérotation sans trous demande un compteur dans une table, verrouillé par chaque transaction, ce qui sérialise toutes les insertions.
+
+`sequences.py` provoque les trois sortes de trous, puis crée une séquence avec un cache de 100 valeurs par session et interroge deux sessions à tour de rôle.
+
+```text
+1. trous dans une séquence
+   après annulation et doublon refusé : [1, 2, 5]
+   arrêt brutal (SIGKILL) : dernier id 10, suivant 34
+
+2. séquence CACHE 100, deux sessions qui alternent
+   A:1, B:101, A:2, B:102, A:3, B:103
+   après fermeture des sessions, nextval = 201
+```
+
+Les deux passages ont donné exactement ces valeurs. La transaction annulée a consommé le numéro 3, l’insertion refusée pour un doublon de référence le numéro 4, et la ligne suivante reçoit 5. Après un arrêt brutal du serveur, la séquence saute de 10 à 34. Le code de PostgreSQL l’explique par un compromis. Écrire la séquence dans le journal à chaque appel serait coûteux, si bien que le serveur y écrit une valeur 32 appels à l’avance (la constante `SEQ_LOG_VALS`), et une panne fait perdre au plus ces 32 valeurs[^pg-seqlog]. Avec un cache de 100, chaque session réserve 100 valeurs d’un coup ; les numéros attribués alternent entre 1, 101, 2, 102, et les valeurs réservées et non utilisées sont perdues quand la session se ferme, la séquence reprenant à 201.
+
+Les trous sont sans conséquence pour une clé primaire ; seule une numérotation qui doit être continue, comme peut l’exiger une règle comptable, demande un compteur dans une table. Un défaut plus discret tient à l’ordre. Le numéro est attribué quand la ligne est insérée, mais la ligne ne devient visible qu’à la validation de sa transaction, et deux transactions peuvent valider dans l’ordre inverse de leurs numéros.
+
+<Figure svg={validation} num="31.1" alt="Trois lignes de vie : session A, session B, lecteur. A insère une ligne et reçoit l’id 1 sans valider. B insère, reçoit l’id 2, et valide. Le lecteur demande les lignes d’id supérieur à 0, voit 2, et retient 2 comme dernier vu. A valide ; la ligne 1 devient visible. Le lecteur demande les lignes d’id supérieur à 2 et ne reçoit rien ; la ligne 1 n’est jamais lue.">
+L’ordre des numéros n’est pas l’ordre des validations.
+</Figure>
+
+La figure 31.1 montre la conséquence pour un lecteur qui suit les nouvelles lignes en retenant le plus grand numéro vu, ce que font beaucoup de tâches de synchronisation et de nombreuses implémentations naïves d’une table d’événements. `sequences.py` le reproduit.
+
+```text
+3. ordre d'attribution contre ordre de validation
+   dans la table : [(1, 'A, lent'), (2, 'B, rapide')]
+   vu par le lecteur (id > dernier vu) : [(2, 'B, rapide')]
+```
+
+La ligne 1 est dans la table, et le lecteur ne la lira jamais. Le défaut ne se voit qu’en charge, quand des transactions longues côtoient des transactions courtes. On l’évite en relisant avec une marge (les lignes des dernières secondes en plus des nouvelles, en éliminant les doublons), ou en lisant les changements dans l’ordre où la base les a validés, par son journal plutôt que par la clé, avec la capture des changements (change data capture, CDC) du ch. 37.
+
+## Allouer par blocs
+
+Un compteur central coûte un aller-retour par identifiant, ce qui limite le débit et rend chaque création dépendante de la base. L’allocation par blocs réserve d’un coup un intervalle de valeurs, puis les distribue localement. Une séquence `INCREMENT 1000` en est la forme la plus simple. Chaque `nextval` renvoie le début d’un bloc de 1 000 valeurs que le client utilise ensuite sans rien demander, une méthode appelée hi/lo (le bloc donne les chiffres de poids fort, le compteur local ceux de poids faible). Une table d’allocation, avec une ligne par compteur que l’on fait avancer de 1 000 à chaque `UPDATE`, fait la même chose sans objet séquence. `sequences.py` compare ces méthodes avec 8 clients Python pendant 5 secondes.
+
+```text
+4. débit, 8 clients Python pendant 5 s
+                                           id/s  allers/s  doublons
+   nextval par identifiant                13659     13659         0
+   1 000 nextval par aller-retour       1048400      1048         0
+   séquence INCREMENT 1000 (hi/lo)      3752600      3753         0
+   table allocateur, bloc de 1 000       407600       408         0
+   même table, synchronous_commit off   3871600      3872         0
+```
+
+Le second passage a donné les mêmes débits à 4 % près. Un `nextval` par identifiant plafonne à 13 700 identifiants par seconde, la limite des allers-retours de 8 clients Python, et l’allocation par blocs de 1 000 multiplie le débit par 275. La table d’allocation est dix fois plus lente que la séquence `INCREMENT 1000`, à 408 allers-retours par seconde. Ses `UPDATE` touchent tous la même ligne, et chacun attend que sa validation soit écrite sur le disque avant de rendre la ligne au suivant ; avec `synchronous_commit = off`, qui n’attend plus cette écriture, elle monte à 3 872 allers-retours par seconde, le niveau de la séquence. Une séquence n’a pas ce coût parce qu’elle n’est pas transactionnelle, et c’est ce qu’on paie par les trous après une panne.
+
+Les blocs ont deux conséquences. Les identifiants ne sont plus dans l’ordre de création entre clients, puisque chacun puise dans son propre bloc, et un client qui s’arrête perd le reste du sien. Ils permettent en revanche de produire des identifiants pendant une panne courte de la base, tant que le bloc n’est pas épuisé. La même idée sert à plusieurs leaders qui doivent créer des identifiants sans se coordonner ([ch. 25](replication-multi.mdx)) ; chacun reçoit un intervalle, ou une classe de valeurs (les impairs pour l’un, les pairs pour l’autre), comme dans l’exemple de Flickr en fin de chapitre.
+
+## Les UUID
+
+Un identifiant universel unique (universally unique identifier, UUID) fait 128 bits, s’écrit en 32 chiffres hexadécimaux séparés par quatre tirets (36 caractères), et se produit sans coordination. RFC 9562, publiée en mai 2024, a remplacé RFC 4122 et défini huit versions[^rfc9562]. Deux comptent en pratique. La version 4 contient 122 bits aléatoires, les 6 autres codant la version et la variante. La version 7 commence par 48 bits de date Unix en millisecondes, suivis de la version, de 12 bits (`rand_a`), de la variante et de 62 bits (`rand_b`) ; la RFC recommande d’utiliser la version 7 plutôt que les versions 1 et 6, fondées sur la date et l’adresse de la machine.
+
+<Figure svg={formats} num="31.2" alt="Quatre barres à l’échelle, 128 bits pour les trois premières, 64 pour la dernière. UUID v4 : 48 bits aléatoires, 4 bits de version, 12 bits aléatoires, 2 bits de variante, 62 bits aléatoires. UUID v7 : 48 bits de date Unix en ms, version, rand_a de 12 bits, variante, rand_b aléatoire de 62 bits. ULID : 48 bits de date Unix en ms, 80 bits aléatoires incrémentés dans la même ms. Snowflake : 1 bit de signe, 41 bits de ms depuis l’époque, 10 bits de machine, 12 bits de séquence ; 64 bits en tout, un bigint, 4 096 par ms et par machine.">
+La disposition des bits de quatre identifiants.
+</Figure>
+
+Sur la figure 31.2, les trois formats triables commencent par la date, si bien que leur ordre d’octets suit l’ordre de création à la milliseconde près. À l’intérieur d’une même milliseconde, la RFC laisse trois méthodes pour garder l’ordre : un compteur dans les bits qui suivent la date, une partie aléatoire incrémentée à chaque identifiant, ou des bits de date plus fins que la milliseconde. Les implémentations ont choisi différemment. La fonction `uuidv7()` de PostgreSQL 18 range dans `rand_a` une fraction de la milliseconde[^pg-uuid], et `uuid.uuid7()` de Python 3.14 utilise un compteur de 42 bits pour garantir l’ordre dans une milliseconde[^py-uuid].
+
+Deux UUID de version 4 peuvent-ils être égaux ? Le calcul est celui du paradoxe des anniversaires, déjà fait pour les identifiants de sondage du [ch. 1](../partie-0/demarche.mdx). Pour $n$ valeurs tirées uniformément parmi $N$, la probabilité d’au moins une collision vaut
+
+$$
+p \approx 1 - e^{-n^2 / 2N} .
+$$
+
+Avec $N = 2^{122} \approx 5{,}3 \times 10^{36}$, il faut environ $10^{17}$ UUID pour que $p$ atteigne 0,1 %, ce qui laisse de la marge à presque tous les systèmes, à condition que le générateur soit vraiment aléatoire. Les collisions observées en pratique viennent de générateurs mal initialisés, de machines virtuelles clonées avec le même état, ou de bibliothèques qui utilisent un générateur prévisible, pas du calcul.
+
+Le stockage compte autant que le format. Un UUID tient en 16 octets dans le type `uuid` de PostgreSQL, et en 37 octets dans une colonne de texte (36 caractères et un octet de longueur), comparé caractère par caractère selon la collation. La mesure plus bas montre ce que coûte cette différence.
+
+## ULID et Snowflake
+
+ULID (universally unique lexicographically sortable identifier) a précédé la version 7 des UUID avec la même idée, 48 bits de date en millisecondes et 80 bits aléatoires, écrits en 26 caractères dans l’alphabet base 32 de Crockford, qui exclut les lettres faciles à confondre (I, L, O, U). Sa spécification prévoit un mode monotone, où la partie aléatoire est incrémentée de 1 quand plusieurs ULID sont produits dans la même milliseconde[^ulid]. Il tient lui aussi en 16 octets, et se range dans une colonne `uuid` si l’on veut.
+
+Snowflake, publié par Twitter en 2010, tient en 64 bits, la taille d’un `bigint`[^snowflake]. Les 41 bits qui suivent le bit de signe comptent les millisecondes depuis une époque choisie par Twitter, ce qui suffit pour 69 ans ; les 10 bits suivants numérotent la machine, jusqu’à 1 024 ; les 12 derniers sont une séquence remise à zéro à chaque milliseconde, jusqu’à 4 096 valeurs. Le dépôt annonçait au moins 10 000 identifiants par seconde et par processus, et un ordre approximatif, « k-trié », dans une limite d’une seconde. Discord utilise une variante, avec 42 bits de millisecondes depuis le 1er janvier 2015, 5 bits de machine, 5 bits de processus et 12 bits d’incrément, et renvoie ses identifiants sous forme de chaînes dans son API, pour éviter les débordements d’entiers dans certains langages[^discord]. Un nombre de JavaScript ne représente exactement les entiers que jusqu’à $2^{53}$, et un Snowflake le dépasse.
+
+Snowflake demande deux choses que les UUID n’exigent pas. Chaque générateur doit avoir un numéro de machine unique, attribué par configuration ou par un service de coordination, et deux générateurs qui partagent un numéro produisent des doublons dès qu’ils créent un identifiant dans la même milliseconde. L’horloge, ensuite, ne doit pas reculer, sinon le générateur réutilise des millisecondes déjà servies. `generateurs.py` simule ces cas sur une horloge simulée.
+
+```text
+3. Snowflake, horloge simulée
+   10 000 identifiants demandés d'un coup : 10000 distincts, sur 3 ms
+      par ms : [4096, 4096, 1808] ; durée 2.18 ms (1.00 sans attente)
+   horloge reculée de 5 ms, naïf             :  49 doublons sur 400
+   horloge reculée de 5 ms, protégé (attend) :   0 doublons sur 400
+   machine 1 en avance de  0 ms :  39.9 % des événements
+      classés après un plus récent ; écart réel max   1.0 ms
+   machine 1 en avance de  1 ms :  49.8 % des événements
+      classés après un plus récent ; écart réel max   2.0 ms
+   machine 1 en avance de 10 ms :  49.9 % des événements
+      classés après un plus récent ; écart réel max  11.0 ms
+   machine 1 en avance de 50 ms :  49.9 % des événements
+      classés après un plus récent ; écart réel max  51.0 ms
+```
+
+L’horloge étant simulée, les deux passages ont donné les mêmes chiffres. Demander 10 000 identifiants d’un coup épuise la séquence de 4 096 valeurs, et le générateur attend la milliseconde suivante deux fois ; la demande prend 2,18 ms au lieu de 1. Quand l’horloge recule de 5 ms, ce qu’un réglage de l’heure par NTP peut faire, le générateur naïf repart dans des millisecondes déjà utilisées avec une séquence remise à zéro, et produit 49 doublons sur 400 identifiants ; le générateur protégé compare l’heure à la dernière servie et attend qu’elle la rattrape, comme le faisait celui de Twitter.
+
+La dernière partie mesure l’ordre entre deux machines. 100 000 événements sont répartis au hasard entre deux générateurs pendant 10 secondes. Même avec des horloges parfaitement réglées, 40 % des événements sont classés après un événement plus récent, parce que dans une même milliseconde c’est le numéro de machine qui départage, mais l’écart ne dépasse jamais 1 ms. Si l’horloge d’une machine avance de 10 ms, l’écart passe à 11 ms ; de 50 ms, à 51 ms. L’ordre des identifiants est donc celui des créations à l’erreur d’horloge près, ce que le dépôt de Twitter appelait « k-trié ». C’est suffisant pour trier un fil d’actualité, et faux pour décider lequel de deux événements proches a eu lieu le premier, ce que traite le ch. 33.
+
+## Générer, mesuré
+
+Les deux premières parties de `generateurs.py` mesurent la vitesse de chaque générateur sur un fil, et la part des identifiants consécutifs qui sont dans l’ordre croissant.
+
+```text
+1. génération (un fil, 300 000 identifiants)
+   compteur en mémoire    21.21 M/s     47 ns    8 o  19 car.
+   UUID v4                 1.26 M/s    792 ns   16 o  36 car.
+   UUID v7                 0.70 M/s   1422 ns   16 o  36 car.
+   ULID monotone           3.00 M/s    334 ns   16 o  26 car.
+   Snowflake               2.53 M/s    395 ns    8 o  19 car.
+   128 bits de secrets     4.81 M/s    208 ns   16 o  22 car.
+   exemples : v4 004d9127-d29d-4dab-a2b3-9432a627f9f0
+              v7 01a14b6d-a2b8-7753-9de8-2bb0f07879d3
+              ULID 01M55PV8NR56Y9NGF5RRDJG5R3, Snowflake 2111546281133346816
+
+2. ordre : part des paires consécutives croissantes (1 million)
+   UUID v4                 50.008 %
+   UUID v7                100.000 %
+   ULID non monotone       50.007 %
+   ULID monotone          100.000 %
+   Snowflake              100.000 %
+```
+
+Tous les générateurs produisent au moins 700 000 identifiants par seconde sur un seul fil Python, et le premier passage a donné les mêmes vitesses à 20 % près (Snowflake entre 2,0 et 2,5 millions par seconde). Aucun ne sera le goulot d’un service, qui fait bien d’autres choses par requête. Le `uuid7()` de Python est le plus lent, à 1,4 µs ; il est écrit en Python, comme tout le module `uuid`, et gère un compteur de 42 bits suivi de 32 bits aléatoires. L’ordre confirme la conception. Un UUID v4 est croissant une fois sur deux, comme un tirage au hasard ; un ULID sans mode monotone aussi, puisque à un million par seconde un millier d’entre eux partagent chaque milliseconde ; UUID v7, ULID monotone et Snowflake sont toujours croissants dans un même processus.
+
+## L’identifiant et le B-tree
+
+L’index d’une clé primaire est un B-tree ([ch. 20](moteurs-stockage.mdx)), dont les feuilles rangent les clés dans l’ordre. Où une nouvelle clé tombe dans l’arbre dépend de sa valeur, et c’est ce qui fait la différence entre les formats.
+
+<Figure svg={btree} num="31.3" alt="À gauche, clé croissante (séquence, UUID v7) : sous la racine, cinq feuilles pleines à 90 % et une dernière feuille partiellement remplie qui reçoit toutes les insertions ; feuilles pleines à 90 %, écrites une fois ; une seule feuille chaude, déjà en mémoire. À droite, clé aléatoire (UUID v4) : six feuilles remplies de 55 à 80 %, chaque insertion dans une feuille différente ; feuilles coupées en deux, remplies aux deux tiers ; toutes les feuilles doivent rester en mémoire.">
+Une clé croissante remplit la dernière feuille ; une clé aléatoire les touche toutes.
+</Figure>
+
+Sur la figure 31.3, une clé croissante va toujours dans la dernière feuille de l’arbre. Cette feuille est en mémoire, elle se remplit, et quand elle est pleine, PostgreSQL la coupe en laissant la partie gauche pleine à 90 % (le facteur de remplissage par défaut des index B-tree) et ouvre une nouvelle feuille à droite. Une clé aléatoire tombe dans n’importe quelle feuille ; chaque insertion lit une page qui n’est peut-être plus dans le cache, la modifie, et quand une feuille déborde, elle est coupée en deux moitiés qui se rempliront à leur tour au hasard. `postgres_ids.py` mesure ces deux comportements, avec un cache de 128 Mo, plus petit que les index.
+
+```text
+PostgreSQL 18.6, shared_buffers 128 Mo ; 5 millions de lignes par lots de 50 000
+
+1. insertion
+   clé                 durée  fin, l/s       WAL      FPI lus hors cache
+   bigint (séquence)     10s    485217    650 Mo       91              1
+   UUID v7               15s    308927    743 Mo       55              1
+   UUID v4               30s    111519   1109 Mo    51210         384273
+   UUID v4 en texte      49s     73586   3033 Mo   272088        1485598
+
+2. taille
+   clé                    index     table  feuilles  densité
+   bigint (séquence)     107 Mo    249 Mo     13662    90.0 %
+   UUID v7               150 Mo    287 Mo     19157    90.0 %
+   UUID v4               195 Mo    287 Mo     24779    69.7 %
+   UUID v4 en texte      364 Mo    403 Mo     46235    69.6 %
+
+3. relire les 20 000 lignes les plus récentes par leur clé (cache vide)
+   bigint (séquence)     22.8 ms,  60001 accès à des pages,     59 hors cache
+   UUID v7               25.2 ms,  60001 accès à des pages,     80 hors cache
+   UUID v4              144.2 ms,  80001 accès à des pages,  13725 hors cache
+   UUID v4 en texte     217.4 ms, 100001 accès à des pages,  16645 hors cache
+```
+
+Les deux passages ont donné les mêmes tailles et les mêmes densités, et des durées et des volumes de journal à 7 % près. La colonne « fin » donne le débit des dix derniers lots, quand l’index est déjà gros. Il reste à 485 000 lignes par seconde pour la séquence, et tombe à 112 000 pour un UUID v4 et 74 000 pour le même UUID en texte. Pendant l’insertion, les index des clés croissantes n’ont presque jamais lu une page hors du cache (1 lecture) ; celui des UUID v4 en a lu 384 000, et celui des UUID en texte 1,5 million.
+
+Le journal explique la plus grande part de l’écart. Après chaque point de contrôle, la première modification d’une page oblige PostgreSQL à écrire la page entière dans le journal (full page image, FPI), pour pouvoir la restaurer si l’écriture de la page sur le disque est interrompue à mi-chemin. Une clé croissante modifie peu de pages différentes entre deux points de contrôle, 91 images en tout ; une clé aléatoire en touche des dizaines de milliers, et ses 51 210 images de 8 Ko représentent environ 400 Mo, presque toute la différence entre 650 Mo et 1,1 Go de journal. Comme le journal grossit plus vite, les points de contrôle se rapprochent, et chacun déclenche une nouvelle série d’images.
+
+Les tailles montrent l’autre effet. Les feuilles des clés croissantes sont pleines à 90 %, celles des clés aléatoires à 70 %, si bien que l’index des UUID v4 a 30 % de feuilles de plus que celui des UUID v7 pour les mêmes clés. L’UUID v7 coûte quand même plus que le `bigint`, 150 Mo contre 107, parce que sa clé fait 16 octets au lieu de 8. Le texte double l’index (364 Mo) et la table, et ses comparaisons selon la collation ralentissent chaque descente dans l’arbre.
+
+La troisième mesure est la plus proche de l’usage. Les lignes récentes sont celles qu’une application relit le plus (les commandes du jour, les derniers messages). Avec une clé croissante, les 20 000 plus récentes occupent quelques dizaines de feuilles voisines, et le cache vide ne demande que 59 à 80 lectures. Avec une clé aléatoire, elles sont dispersées dans tout l’index, et il faut 13 700 lectures, la moitié des feuilles. Dans la mesure, ces lectures viennent du cache du système, encore chaud, ce qui limite l’écart à un facteur 6 en temps ; sur un serveur dont l’index ne tient pas en mémoire, chacune devient une lecture de disque.
+
+## Ce que révèle un identifiant
+
+Un numéro séquentiel donne le nombre d’objets créés. Pendant la Seconde Guerre mondiale, les Alliés ont estimé la production allemande de chars à partir des numéros de série relevés sur les chars capturés, et Richard Ruggles et Henry Brodie ont décrit la méthode en 1947[^ruggles]. Si l’on observe $k$ numéros tirés au hasard parmi $1, \dots, N$, et que le plus grand vaut $m$, l’estimateur sans biais de variance minimale est
+
+$$
+\hat{N} = m + \frac{m}{k} - 1 .
+$$
+
+`generateurs.py` l’applique à une boutique qui a reçu 184 000 commandes numérotées de 1 à 184 000, et à un concurrent qui voit passer $k$ numéros de commande.
+
+```text
+4. ce que révèle un identifiant
+   UUID v7 01a14b6d-b28a-7422-95fd-2902e7c0260e
+      créé le 2026-10-17 19:54:02.762 UTC
+   Snowflake de Discord 175928847299117063
+      créé le 2016-04-30 11:18:25.796 UTC, processus 0, incrément 7
+   184 000 commandes numérotées ; estimation m + m/k - 1 sur 10 000 tirages
+     5 numéros vus : erreur de -34.5 % à +18.7 % (5e-95e centiles)
+    20 numéros vus : erreur de  -9.7 % à  +4.7 % (5e-95e centiles)
+   100 numéros vus : erreur de  -2.0 % à  +0.9 % (5e-95e centiles)
+```
+
+Avec 20 numéros, l’estimation tombe à moins de 10 % du vrai nombre dans 90 % des tirages, et avec 100, à 2 %. Le concurrent n’a même pas besoin de cette méthode s’il passe lui-même deux commandes à une semaine d’intervalle, puisque la différence des deux numéros donne exactement le nombre de commandes de la semaine. Les formats triables par date révèlent autre chose. Un UUID v7 ou un Snowflake contient l’heure de création à la milliseconde, que n’importe qui peut extraire, comme le montrent la première ligne (un identifiant produit pendant la mesure) et l’exemple de la documentation de Discord ; PostgreSQL fournit même `uuid_extract_timestamp()` pour le faire.
+
+Un identifiant qui se devine pose un problème plus grave quand il sert de contrôle d’accès. Si `/factures/1042` affiche la facture 1042 à quiconque est connecté, un utilisateur lit toutes les factures en changeant le numéro. L’OWASP place ce défaut, l’autorisation manquante au niveau de l’objet (broken object level authorization), en tête de son classement des risques des API en 2023, et précise que des identifiants aléatoires ne suffisent pas à s’en protéger, car chaque accès doit vérifier que l’utilisateur a le droit d’agir sur cet objet[^owasp]. RFC 9562 dit de même qu’on ne doit pas supposer qu’un UUID est difficile à deviner, ni l’utiliser comme preuve d’autorisation[^rfc9562]. Un lien de partage secret, qui doit être impossible à deviner, se fabrique avec 128 bits d’un générateur cryptographique, comme `secrets.token_urlsafe(16)` en Python, et pas avec un UUID dont rien ne garantit la qualité du hasard.
+
+La séparation la plus courante garde deux identifiants. L’identifiant interne, une séquence ou un UUID v7, sert de clé primaire, de clé étrangère et de clé de partition, et ne sort jamais de l’application. L’identifiant public, aléatoire, apparaît dans les URL et les API, avec un index unique. On peut aussi publier l’identifiant interne chiffré par une clé de l’application, ce qui évite l’index supplémentaire mais lie toutes les URL publiées à cette clé.
+
+## Compromis
+
+| Méthode | Taille | Coordination | Ordre | B-tree (5 M de lignes, mesuré) | Révèle | Usages |
+|---|---|---|---|---|---|---|
+| Séquence, auto-incrément | 8 o | un aller-retour par identifiant ; trous, ordre d’attribution ≠ ordre de validation | croissant | 10 s, 650 Mo de journal, index 107 Mo | nombre et rythme des créations | clés internes d’une base unique |
+| Allocation par blocs (hi/lo) | 8 o | un aller-retour par bloc (×275 en débit, mesuré) | croissant par client, pas entre clients | proche de la séquence | nombre approximatif | bases réparties, insertions en masse |
+| UUID v4 | 16 o (36 car.) | aucune | aléatoire | 30 s, 1,1 Go, index 195 Mo, feuilles à 70 % ; en texte 49 s, 3 Go, 364 Mo | rien | identifiants publics, fusion de sources |
+| UUID v7, ULID | 16 o (36 ou 26 car.) | aucune | à la ms, croissant dans un processus | 15 s, 743 Mo, index 150 Mo | heure de création | clés primaires réparties |
+| Snowflake | 8 o | un numéro unique par générateur ; horloge qui ne recule pas | à l’erreur d’horloge près (k-trié) | proche de la séquence | heure, machine, rythme | grands volumes en 64 bits (Twitter, Discord) |
+| 128 bits aléatoires (`secrets`) | 16 o (22 car.) | aucune | aléatoire | comme UUID v4 | rien | liens secrets, jetons |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : les collisions des identifiants aléatoires]
+Hypothèses : $p \approx 1 - e^{-n^2/2N}$ ; un générateur vraiment aléatoire ; on compare 122 bits (UUID v4), 64 bits, et les 74 bits qui suivent la date d’un UUID v7 quand `rand_a` et `rand_b` sont aléatoires, où seules comptent les collisions dans une même milliseconde ; une année compte $3{,}2 \times 10^{10}$ ms.
+
+| Cas | Calcul | Résultat |
+|---|---|---|
+| UUID v4, 1 milliard par seconde pendant 10 ans | $n = 3{,}2 \times 10^{17}$ ; $n^2 / 2N = 10^{35} / 1{,}06 \times 10^{37}$ | $p \approx 1\ \%$ |
+| 64 bits aléatoires, 1 milliard d’identifiants | $n^2 / 2N = 10^{18} / 3{,}7 \times 10^{19}$ | $p \approx 2{,}7\ \%$ |
+| 64 bits aléatoires, 10 milliards | $10^{20} / 3{,}7 \times 10^{19} = 2{,}7$ | $p \approx 93\ \%$ |
+| UUID v7, 1 000 par milliseconde sur toute la flotte | $10^6 / (2 \times 2^{74}) = 2{,}6 \times 10^{-17}$ par ms ; × 3,2 × 10¹⁰ ms par an | $p \approx 10^{-6}$ par an |
+| UUID v7, 1 million par milliseconde | $10^{12} / (2 \times 2^{74}) = 2{,}6 \times 10^{-11}$ par ms ; × 3,2 × 10¹⁰ ms | $p \approx 56\ \%$ par an |
+
+Conclusion : 122 bits aléatoires suffisent à tout système réel, mais 64 bits aléatoires produisent une collision probable dès quelques milliards d’identifiants, ce qui est peu pour une table d’événements. Un UUID v7 n’a à éviter que les collisions dans la même milliseconde, et ses 74 bits suffisent largement à un million d’identifiants par seconde ; à un milliard par seconde, la probabilité d’une collision dans l’année dépasse une chance sur deux. Les compteurs ne changent rien entre processus, puisque `uuid7()` de Python ne garde que 32 bits aléatoires à côté de son compteur, initialisé au hasard à chaque milliseconde.
+:::
+
+:::calcul[Calcul : la place de l’index pour un milliard de lignes]
+Hypothèses : les octets par entrée mesurés sur 5 millions de lignes (taille de l’index divisée par le nombre de lignes), supposés constants jusqu’à un milliard.
+
+| Clé | Calcul | Résultat |
+|---|---|---|
+| bigint (séquence) | 107 Mio / 5 × 10⁶ = 22,4 o ; × 10⁹ | 22 Go |
+| UUID v7 | 150 Mio / 5 × 10⁶ = 31,5 o ; × 10⁹ | 31 Go |
+| UUID v4 | 195 Mio / 5 × 10⁶ = 40,9 o ; × 10⁹ | 41 Go |
+| UUID v4 en texte | 364 Mio / 5 × 10⁶ = 76,3 o ; × 10⁹ | 76 Go |
+
+Conclusion : pour un milliard de lignes, le seul index de clé primaire passe de 22 Go à 76 Go selon la clé, et chaque clé étrangère qui la référence paie le même écart. Ce qui compte pour les performances est la part de l’index qui doit rester en mémoire. Pour une clé croissante, ce sont les feuilles récentes ; pour une clé aléatoire, ce sont les 41 Go entiers dès que les insertions arrivent partout.
+:::
+
+:::calcul[Calcul : la capacité de Snowflake]
+Hypothèses : la disposition de Twitter (41, 10 et 12 bits) et celle de Discord (42 bits depuis 2015, 5 et 5 bits de machine et de processus, 12 bits).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Durée couverte, 41 bits | 2⁴¹ ms / 3,156 × 10¹⁰ ms par an | 69,7 ans |
+| Durée couverte, 42 bits (Discord) | 2⁴² ms / 3,156 × 10¹⁰ | 139 ans, jusqu’en 2154 |
+| Débit d’un générateur | 4 096 par ms | 4,1 millions par seconde |
+| Débit de la flotte | 1 024 × 4,1 × 10⁶ | 4,2 milliards par seconde |
+| Index pour 5 M de lignes | 8 o contre 16 pour un UUID v7 | 107 contre 150 Mo (mesuré) |
+
+Conclusion : Snowflake n’est presque jamais limité par sa capacité, mais par ce qu’il demande à l’exploitation, un numéro unique par générateur et des horloges qui ne reculent pas. Ses 64 bits sont son avantage, à condition de les transmettre en chaîne aux clients JavaScript.
+:::
+
+## Exemple réel
+
+**Les serveurs de tickets de Flickr.** Kay Kremerskothen a décrit en 2010 la façon dont Flickr produisait les identifiants de ses objets, répartis sur des bases MySQL partitionnées[^flickr]. Flickr a écarté les GUID, parce qu’ils sont gros et s’indexent mal dans MySQL, alors que la vitesse de la base tenait à des index qui restent en mémoire ; des identifiants séquentiels avaient aussi l’avantage de faciliter les rapports et le débogage. La solution est une table MySQL d’une seule ligne, `Tickets64`, avec une colonne `AUTO_INCREMENT` de 64 bits et une colonne `stub` unique ; pour obtenir un identifiant, on exécute `REPLACE INTO Tickets64 (stub) VALUES ('a')` puis `SELECT LAST_INSERT_ID()`, ce qui remplace la ligne et fait avancer le compteur. Pour ne pas dépendre d’un seul serveur, Flickr en faisait tourner deux, réglés avec `auto-increment-increment = 2`, l’un à `auto-increment-offset = 1` (les impairs), l’autre à 2 (les pairs), et la répartition des demandes entre les deux faisait le reste. Les deux serveurs n’avançaient pas au même rythme, et Flickr avait alors quelques centaines de milliers d’objets impairs de plus que de pairs, sans conséquence. Le système tournait depuis janvier 2006. Il illustre les compromis du chapitre, puisqu’il garde des identifiants de 64 bits à peu près croissants, au prix d’un service central qu’il a fallu dédoubler et d’un ordre qui n’est plus strict entre les deux serveurs.
+
+## Erreurs fréquentes
+
+Choisir un UUID v4 comme clé primaire d’une table très écrite. Comparé à un UUID v7, l’index grossit de 30 %, le journal de 49 %, l’insertion est deux fois plus lente, et relire les lignes récentes demande 170 fois plus de lectures (mesuré) ; un UUID v7 garde l’absence de coordination sans ces coûts.
+
+Ranger un UUID dans une colonne de texte. L’index double et l’insertion est cinq fois plus lente que pour une séquence (mesuré) ; le type `uuid` le range en 16 octets.
+
+Suivre les nouvelles lignes avec « id > dernier vu ». Une transaction lente valide après une transaction rapide au numéro plus grand, et sa ligne n’est jamais lue (mesuré) ; relire avec une marge, ou lire le journal de la base.
+
+Promettre une numérotation sans trous avec une séquence. Annulations, doublons refusés et pannes en laissent (3, 4, puis 11 à 33 perdus, mesuré).
+
+Attribuer le numéro de machine d’un Snowflake par un hachage du nom de la machine. Deux machines finissent par recevoir le même, et produisent des doublons ; il faut une attribution qui garantit l’unicité, avec un bail qu’on renouvelle.
+
+Ignorer l’horloge d’un générateur Snowflake. Une horloge qui recule de 5 ms produit 49 doublons sur 400 identifiants (mesuré) si le générateur ne le détecte pas.
+
+Envoyer un Snowflake comme nombre à un client JavaScript. Il dépasse $2^{53}$ et perd ses derniers chiffres ; on le transmet en chaîne.
+
+Compter sur un identifiant aléatoire pour protéger l’accès. Il réduit le risque d’énumération, mais seule la vérification des droits sur chaque objet protège les données.
+
+:::piege[Erreur fréquente : « un UUID v7 est un UUID, il ne révèle rien »]
+Un UUID v7 commence par l’heure de création à la milliseconde, en clair ; `uuid_extract_timestamp()` la lit dans PostgreSQL, et n’importe qui peut la lire dans une URL. Publier l’identifiant d’un compte révèle sa date d’inscription, celui d’un document la date où il a été écrit, et une suite d’identifiants le rythme d’activité d’un service. Si cette information est sensible, on garde l’UUID v7 en interne et on publie un identifiant aléatoire.
+:::
+
+:::entretien
+Quand le schéma demande des identifiants, dites lesquels et pourquoi : « clé primaire interne en UUID v7 (ou en `bigint` d’une séquence si une seule base écrit), parce qu’elle se produit sans coordination et garde l’index compact ; identifiant public aléatoire de 128 bits dans les URL ; Snowflake si les identifiants doivent tenir en 64 bits à très grand volume, avec des numéros de machine attribués par bail et des horloges surveillées ». Ajoutez que l’ordre des identifiants n’est ni l’ordre des validations ni un ordre fiable entre machines, et que l’autorisation se vérifie objet par objet.
+:::
+
+## Exercices
+
+**Question 1.** Dans la mesure, le lecteur qui suit « id > dernier vu » n’a jamais lu la ligne 1. Expliquez pourquoi le problème ne se voit presque jamais en développement, puis proposez deux corrections, et dites ce que chacune coûte.
+
+**Question 2.** Un service tourne sur 300 conteneurs, et chacun produit des identifiants Snowflake avec un numéro de machine égal au hachage de son nom modulo 1 024. Calculez le nombre moyen de paires de conteneurs qui partagent un numéro, et la probabilité qu’il y en ait au moins une. Que proposez-vous à la place ?
+
+**Question 3.** Une boutique en ligne affiche ses commandes sous l’URL `/commandes/184233`, avec un numéro tiré d’une séquence. Qu’apprend un concurrent qui passe une commande le lundi et une autre le lundi suivant ? Proposez un schéma d’identifiants qui ne révèle rien, sans dégrader l’index de la table des commandes.
+
+**Exercice de conception.** Une messagerie reçoit 500 millions de messages par jour, en pointe 20 000 par seconde, stockés dans une base partitionnée par conversation ([ch. 26](partitionnement.mdx)), et 200 conteneurs d’API les créent. Les messages d’une conversation doivent s’afficher dans l’ordre de création, l’identifiant d’un message doit être unique dans tout le système, et les clients web les reçoivent en JSON. Choisissez le format des identifiants, la façon d’attribuer ce qui doit l’être, ce qui se passe quand l’horloge d’un conteneur dérive, et ce que voit un utilisateur dans l’API. Chiffrez la place de l’index des messages sur un an.
+
+## Corrigés
+
+**Question 1.** En développement, les transactions sont courtes et rarement concurrentes, si bien que l’ordre des validations coïncide presque toujours avec celui des numéros. En production, une transaction qui attend un verrou ou un service externe valide après d’autres, plus récentes. Première correction, relire avec une marge, c’est-à-dire les lignes plus récentes que le dernier numéro vu moins une marge, ou celles des dernières secondes, en éliminant celles déjà traitées ; elle coûte des relectures et une table des lignes traitées, et ne protège pas d’une transaction plus longue que la marge. Seconde correction, lire les changements dans l’ordre de validation par le journal de la base (le décodage logique de PostgreSQL, et la capture des changements du ch. 37) ; elle est exacte, mais demande une infrastructure de plus.
+
+**Question 2.** Il y a $300 \times 299 / 2 = 44\,850$ paires de conteneurs, chacune partage un numéro avec la probabilité $1/1\,024$, soit en moyenne 43,8 paires en collision. La probabilité d’au moins une vaut $1 - e^{-43{,}8}$, autant dire 1. On attribue les numéros par un registre qui en garantit l’unicité, par exemple une table où chaque conteneur réserve un numéro libre avec un bail de quelques minutes qu’il renouvelle, et qu’il cesse d’utiliser s’il ne peut plus le renouveler ; ou on passe à un UUID v7, qui n’a pas de numéro de machine.
+
+**Question 3.** La différence entre les deux numéros donne exactement le nombre de commandes de la semaine, et répétée chaque semaine, la croissance et la saisonnalité de la boutique. On garde la séquence (ou un UUID v7) comme clé primaire interne, avec son index compact, et on ajoute une colonne `ref_publique` de 128 bits aléatoires, indexée et unique, qui seule apparaît dans les URL ; chaque accès vérifie aussi que la commande appartient à l’utilisateur.
+
+**Exercice de conception.**
+
+*Format.* Un identifiant Snowflake de 64 bits, ou un UUID v7 de 128 bits. Avec 200 conteneurs, Snowflake demande un registre de numéros ; à 20 000 messages par seconde, soit 100 par conteneur, sa capacité de 4 096 par milliseconde est sans rapport avec le besoin, et son avantage est la taille. On retient ici l’UUID v7, qui n’exige rien de l’exploitation ; la clé primaire est `(conversation_id, message_id)`, si bien que l’ordre d’affichage est celui de `message_id` dans une partition.
+
+*Horloge.* Les messages d’une conversation viennent de conteneurs différents, et une dérive de quelques millisecondes peut inverser deux messages envoyés presque en même temps, comme dans la mesure où l’écart réel maximal suivait le décalage. On surveille la dérive de chaque conteneur par NTP et on alerte au-delà de 10 ms ; si l’ordre exact compte, un compteur par conversation, attribué par la partition qui la porte, donne un ordre total au prix d’une écriture sur le leader de la partition.
+
+*API.* Les identifiants sont envoyés en chaîne ; ils révèlent l’heure d’envoi des messages, ce qui est déjà visible pour un message, et ne servent jamais d’autorisation, chaque lecture vérifiant que l’utilisateur appartient à la conversation.
+
+*Volume.* 500 millions par jour pendant un an font $1{,}8 \times 10^{11}$ messages ; à 31,5 octets par entrée pour un UUID v7 (mesuré, à doubler à peu près pour la clé composée de deux UUID), l’index de clé primaire fait de 5,7 à 11 To par an, réparti sur les partitions.
+
+:::fiche
+- Exigences : unicité (dans quelle portée), sans coordination, taille (8 ou 16 o), ordre (pagination, localité de l’index), opacité ; aucun format n’a tout.
+- Séquence : non transactionnelle, d’où des trous (annulation, doublon, +32 après une panne, mesuré) ; `CACHE` désordonne entre sessions ; ordre d’attribution ≠ ordre de validation, « id > dernier vu » manque des lignes (mesuré).
+- Allocation par blocs (hi/lo) : un aller-retour pour 1 000 identifiants, ×275 en débit (mesuré) ; une table d’allocation est limitée par l’écriture de chaque validation (408 contre 3 872 par seconde sans attente, mesuré).
+- UUID (RFC 9562) : v4, 122 bits aléatoires ; v7, 48 bits de ms puis 74 bits ; 16 o en `uuid`, 37 en texte. Collisions $p \approx 1 - e^{-n^2/2N}$.
+- ULID : 48 + 80 bits, 26 caractères Crockford. Snowflake : 41 + 10 + 12 bits, 69 ans, 4 096 par ms et par machine ; numéro de machine unique, horloge qui ne recule pas (49 doublons sur 400 sinon, mesuré), ordre à l’erreur d’horloge près.
+- B-tree, 5 M de lignes : séquence 10 s, 650 Mo de journal, index 107 Mo ; UUID v7 15 s, 743 Mo, 150 Mo ; UUID v4 30 s, 1,1 Go, 195 Mo à 70 % de remplissage ; v4 en texte 49 s, 3 Go, 364 Mo ; relire les lignes récentes, 59 contre 13 700 pages.
+- Révélations : une séquence donne le volume (chars allemands, $m + m/k - 1$, 2 % d’erreur avec 100 numéros) ; v7 et Snowflake donnent l’heure ; identifiant public aléatoire de 128 bits, et vérification des droits sur chaque objet.
+:::
+
+[^pg-sequence]: PostgreSQL Global Development Group, « CREATE SEQUENCE », *PostgreSQL 18 Documentation*, section Notes, [postgresql.org/docs/18/sql-createsequence.html](https://www.postgresql.org/docs/18/sql-createsequence.html).
+[^pg-seqlog]: Code source de PostgreSQL, `src/backend/commands/sequence.c`, branche `REL_18_STABLE`, constante `SEQ_LOG_VALS` et son commentaire, [github.com/postgres/postgres/blob/REL_18_STABLE/src/backend/commands/sequence.c](https://github.com/postgres/postgres/blob/REL_18_STABLE/src/backend/commands/sequence.c).
+[^rfc9562]: Kyzer R. Davis, Brad G. Peabody et Paul J. Leach, « Universally Unique IDentifiers (UUIDs) », RFC 9562, mai 2024, sections 5.4, 5.7, 6.2 et 8, [rfc-editor.org/rfc/rfc9562](https://www.rfc-editor.org/rfc/rfc9562.html).
+[^pg-uuid]: PostgreSQL Global Development Group, « UUID Functions », *PostgreSQL 18 Documentation*, [postgresql.org/docs/18/functions-uuid.html](https://www.postgresql.org/docs/18/functions-uuid.html).
+[^py-uuid]: Python Software Foundation, « uuid, UUID objects according to RFC 9562 », *The Python Standard Library*, version 3.14, fonction `uuid7()`, [docs.python.org/3.14/library/uuid.html](https://docs.python.org/3.14/library/uuid.html).
+[^ulid]: « Universally Unique Lexicographically Sortable Identifier », spécification ULID, [github.com/ulid/spec](https://github.com/ulid/spec).
+[^snowflake]: Twitter, « Snowflake », dépôt archivé, branche `snowflake-2010`, README, [github.com/twitter-archive/snowflake/tree/snowflake-2010](https://github.com/twitter-archive/snowflake/tree/snowflake-2010).
+[^discord]: Discord, « API Reference », section Snowflakes, *Discord Developer Documentation*, [docs.discord.com/developers/reference](https://docs.discord.com/developers/reference).
+[^ruggles]: Richard Ruggles et Henry Brodie, « An Empirical Approach to Economic Intelligence in World War II », *Journal of the American Statistical Association*, vol. 42, n° 237, mars 1947, p. 72-91, [doi:10.1080/01621459.1947.10501915](https://doi.org/10.1080/01621459.1947.10501915).
+[^owasp]: OWASP, « API1:2023 Broken Object Level Authorization », *OWASP API Security Top 10*, édition 2023, [api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization](https://api-security.owasp.org/editions/2023/en/0xa1-broken-object-level-authorization).
+[^flickr]: Kay Kremerskothen, « Ticket Servers: Distributed Unique Primary Keys on the Cheap », *code.flickr.com*, 8 février 2010, [code.flickr.net/2010/02/08/ticket-servers-distributed-unique-primary-keys-on-the-cheap](https://code.flickr.net/2010/02/08/ticket-servers-distributed-unique-primary-keys-on-the-cheap/).

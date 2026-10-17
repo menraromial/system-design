@@ -1,0 +1,37 @@
+% Disposition des bits de quatre identifiants (1,2 mm par bit).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1.1mm, y=1.1mm, note/.append style={font=\sffamily\small},
+    champ/.style={draw=#1, fill=#1Bg, line width=0.6pt, font=\sffamily\scriptsize, text=Dink, inner sep=0pt}]
+  \newcommand{\champ}[5]{% couleur, début, fin (en bits), y, texte
+    \draw[draw=#1, fill=#1Bg, line width=0.6pt] (#2,#4) rectangle (#3,{#4+7});
+    \node[font=\sffamily\footnotesize, text=Dink] at ({(#2+#3)/2},{#4+3.5}) {#5};}
+  \foreach \y/\t in {44/{UUID v4}, 30/{UUID v7}, 16/{ULID}, 2/{Snowflake}} \node[axe, anchor=east] at (-2,\y+3.5) {\t};
+  % UUID v4 : 48 aléa, 4 version, 12 aléa, 2 variante, 62 aléa
+  \champ{Dslate}{0}{48}{44}{aléatoire (48)}
+  \champ{Damber}{48}{52}{44}{v}
+  \champ{Dslate}{52}{64}{44}{12}
+  \champ{Damber}{64}{66}{44}{}
+  \champ{Dslate}{66}{128}{44}{aléatoire (62)}
+  % UUID v7 : 48 ms, 4 version, 12 rand_a, 2 variante, 62 rand_b
+  \champ{Dblue}{0}{48}{30}{date Unix en ms (48)}
+  \champ{Damber}{48}{52}{30}{v}
+  \champ{Dgreen}{52}{64}{30}{rand\_a}
+  \champ{Damber}{64}{66}{30}{}
+  \champ{Dslate}{66}{128}{30}{rand\_b, aléatoire (62)}
+  % ULID : 48 ms, 80 aléa
+  \champ{Dblue}{0}{48}{16}{date Unix en ms (48)}
+  \champ{Dslate}{48}{128}{16}{aléatoire, incrémenté dans la même ms (80)}
+  % Snowflake : 1 signe, 41 ms, 10 machine, 12 séquence
+  \champ{Damber}{0}{1}{2}{}
+  \champ{Dblue}{1}{42}{2}{ms depuis l'époque (41)}
+  \champ{Dpurple}{42}{52}{2}{10}
+  \champ{Dgreen}{52}{64}{2}{12}
+  \node[note, anchor=west, align=left] at (66,5.5) {machine (10), séquence (12) ; 64 bits en tout,\\un bigint ; 4 096 par ms et par machine};
+  % graduation
+  \foreach \b in {0,32,64,96,128} {\draw[ligne] (\b,-2) -- (\b,-3.5); \node[note, below] at (\b,-3.5) {\b};}
+  \draw[ligne] (0,-2) -- (128,-2);
+  \node[note, anchor=west] at (131,-2) {bits};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,36 @@
+% Où tombent les insertions dans les feuilles d'un B-tree : clé croissante ou aléatoire.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \newcommand{\fe}[4]{% x, y, remplissage (0 à 1), couleur
+    \draw[draw=Dslate, line width=0.6pt, fill=DslateBg] (#1,#2) rectangle ({#1+11},{#2+7});
+    \fill[#4] ({#1+0.4},{#2+0.4}) rectangle ({#1+0.4+10.2*#3},{#2+6.6});}
+  % clé croissante
+  \node[pillo=Dblue] at (36,62) {clé croissante (séquence, UUID v7)};
+  \draw[draw=Dslate, line width=0.6pt, fill=DslateBg] (33,46) rectangle (47,53);
+  \node[note] at (40,49.5) {racine};
+  \foreach \i in {0,...,4} {
+    \fe{\i*12.5}{28}{0.9}{DblueBg}
+    \draw[Dslate, line width=0.5pt] (40,46) -- ({\i*12.5+5.5},35);
+  }
+  \fe{62.5}{28}{0.35}{Dblue}
+  \draw[Dslate, line width=0.5pt] (40,46) -- (68,35);
+  \foreach \k in {0,...,5} \draw[arr=Dblue] ({60+\k*2},21) -- ({65+\k*1},27);
+  \node[note, anchor=north, text=Dblue, align=center] at (66,20) {toutes les insertions dans la dernière feuille};
+  \node[note, anchor=north, align=center] at (34,10) {feuilles pleines à 90 \%, écrites une fois ;\\une seule feuille chaude, déjà en mémoire};
+  % clé aléatoire
+  \begin{scope}[xshift=95mm]
+    \node[pillo=Dred] at (36,62) {clé aléatoire (UUID v4)};
+    \draw[draw=Dslate, line width=0.6pt, fill=DslateBg] (33,46) rectangle (47,53);
+    \node[note] at (40,49.5) {racine};
+    \foreach \i/\r in {0/0.62, 1/0.75, 2/0.55, 3/0.8, 4/0.68, 5/0.6} {
+      \fe{\i*12.5}{28}{\r}{DredBg}
+      \draw[Dslate, line width=0.5pt] (40,46) -- ({\i*12.5+5.5},35);
+      \draw[arr=Dred] ({\i*12.5+5.5},17) -- ({\i*12.5+5.5},27);
+    }
+    \node[note, anchor=north, text=Dred, align=center] at (37,16) {chaque insertion dans une feuille différente};
+    \node[note, anchor=north, align=center] at (37,10) {feuilles coupées en deux, remplies aux deux tiers ;\\toutes les feuilles doivent rester en mémoire};
+  \end{scope}
+\end{tikzpicture}
+\end{document}
