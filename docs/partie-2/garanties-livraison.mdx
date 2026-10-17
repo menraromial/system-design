@@ -1,0 +1,255 @@
+---
+title: "Garanties de livraison"
+sidebar_label: "28. Garanties de livraison"
+description: "Au plus une fois, au moins une fois, exactement une fois : ce que chacune coûte et ce que perd ou double un consommateur qui plante ; ce que « exactly-once » veut dire réellement (consommateur idempotent, transactions Kafka) ; accusés, redélivrance, messages empoisonnés, limite de livraisons et files de lettres mortes ; ordre et parallélisme ; mesures avec Kafka 4, RabbitMQ 4 et SQLite."
+partie: 2
+chapitre: 28
+---
+
+import garanties from '@site/src/figures/liv-garanties.svg';
+import dlq from '@site/src/figures/liv-dlq.svg';
+import ordre from '@site/src/figures/liv-ordre.svg';
+
+Un consommateur lit 10 000 paiements dans Kafka et enregistre chacun dans une base. Il plante cinq fois pendant le traitement, comme un processus tué par le système quand il manque de mémoire, et un nouveau processus reprend chaque fois là où le groupe en était. Selon l’ordre dans lequel il traite un paiement et valide sa position dans le sujet, il a, sur la machine des mesures, perdu 199 paiements, ou en a enregistré 326 en double, ou, avec les réglages par défaut du client, 2 678 en double. Écrit pour que l’enregistrement d’un paiement et la position de lecture soient validés dans la même transaction de la base, il n’en a perdu ni doublé aucun.
+
+Le [ch. 27](files-messages.mdx) a décrit les files et les logs qui transportent les messages. Ce chapitre traite de ce qu’ils promettent, c’est-à-dire de la question de savoir si un message produit sera traité, et combien de fois. On distingue trois garanties, au plus une fois (at-most-once), au moins une fois (at-least-once) et exactement une fois (exactly-once). La première perd des messages, la deuxième en double, et la troisième n’existe que dans un sens précis, qu’il faut connaître avant de la promettre. Le chapitre traite aussi des messages qu’on ne parvient pas à traiter, et de l’ordre des messages quand plusieurs consommateurs travaillent en parallèle.
+
+Deux expériences ont été faites pour ce chapitre, avec les scripts du dossier [`outils/experiences/ch28/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch28) : un consommateur Kafka qui plante, puis une transformation d’un sujet Kafka vers un autre, avec ou sans transaction ([`kafka_garanties.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch28/kafka_garanties.py)), et la redélivrance, les messages empoisonnés et l’ordre avec RabbitMQ ([`rabbit_garanties.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch28/rabbit_garanties.py)).
+
+## Trois garanties
+
+Un message traverse trois étapes où il peut se perdre ou se dédoubler : le producteur l’envoie au courtier, le courtier le garde, le consommateur le traite. À chaque étape, l’émetteur attend un accusé, et c’est ce qu’il fait quand l’accusé n’arrive pas qui fixe la garantie. S’il n’attend pas ou ne recommence pas, le message est livré au plus une fois. S’il recommence jusqu’à recevoir l’accusé, il est livré au moins une fois, car l’accusé a pu se perdre alors que le message était arrivé. La garantie de bout en bout est la plus faible de celles des trois étapes.
+
+Côté producteur, Kafka règle ce choix par le nombre d’accusés attendus (`acks`) et par les nouvelles tentatives. Un producteur idempotent numérote ses messages par partition, et le courtier écarte un message qu’il a déjà reçu, si bien que les nouvelles tentatives ne créent pas de doublons ; le [ch. 27](files-messages.mdx) a montré qu’il garde aussi l’ordre des messages d’une clé. Côté courtier, un message est gardé si le courtier l’a écrit sur assez de répliques avant d’accuser réception ([ch. 24](replication-leader.mdx)). C’est côté consommateur que se joue l’essentiel, et c’est ce que mesure la première expérience.
+
+## Le consommateur qui plante, mesuré
+
+Un consommateur Kafka lit un lot de messages, les traite, et valide (commit) la position atteinte, pour que le groupe reprenne au bon endroit après lui. Une panne peut survenir entre le traitement et la validation, et l’ordre des deux décide de ce qu’elle coûte.
+
+<Figure svg={garanties} num="28.1" alt="Trois lignes. Au plus une fois : lire un lot, valider la position, traiter ; une panne entre la validation et le traitement perd les messages validés mais pas traités. Au moins une fois : lire, traiter, valider ; une panne entre les deux fait retraiter les messages traités mais pas validés. Idempotent : lire, puis une seule transaction qui enregistre les effets à clé unique et la position ; une panne annule les deux, et la lecture reprend à la position enregistrée.">
+L’ordre du traitement et de la validation décide de ce qu’une panne perd ou double.
+</Figure>
+
+`kafka_garanties.py` écrit 10 000 paiements dans un sujet de 3 partitions. Le consommateur enregistre chaque paiement dans une base SQLite, puis il est tué brutalement (`os._exit`) après un nombre aléatoire de messages, entre 700 et 1 500, cinq fois de suite ; un nouveau processus reprend après chaque panne. Quatre façons de faire sont essayées. Au plus une fois, la position est validée avant le traitement du lot. Au moins une fois, elle est validée après. Avec les réglages par défaut du client, la position est validée automatiquement toutes les cinq secondes. Le consommateur idempotent, enfin, enregistre le paiement avec son identifiant pour clé unique (`INSERT OR IGNORE`) et la position atteinte dans la même transaction SQLite, et reprend, au démarrage, à la position enregistrée dans SQLite plutôt qu’à celle du groupe Kafka.
+
+```text
+Kafka 4.3.1, 10 000 paiements dans 3 partitions ; 5 plantages par essai
+
+1. effets écrits dans SQLite
+   méthode                       lignes  perdus  doublons
+   au plus une fois                9801     199         0
+   au moins une fois              10326       0       326
+   validation automatique         12678       0      2678
+   consommateur idempotent        10000       0         0
+
+2. lire, transformer, écrire dans un autre sujet
+   méthode         lecture            messages  distincts
+   simple          read_uncommitted      10342      10000
+   simple          read_committed        10342      10000
+   transaction     read_uncommitted      10373      10000
+   transaction     read_committed        10000      10000
+   débit sans plantage, messages par seconde :
+      lots de  100 : simple  3 965, transaction    905
+      lots de 1000 : simple  3 970, transaction  3 971
+```
+
+Les points de panne sont tirés avec la même graine à chaque passage, si bien que deux passages ont donné les mêmes nombres, sauf pour la validation automatique, qui dépend de l’horloge, avec 2 778 puis 2 678 doublons. Dans les deux premiers essais, le producteur transactionnel mourait avant d’avoir envoyé les messages de la transaction en cours, et rien ne différait entre les deux niveaux de lecture ; le script les envoie désormais avant la panne.
+
+Valider avant de traiter a perdu 199 paiements, ceux que le consommateur avait reçus et dont il avait validé la position, mais qu’il n’avait pas encore enregistrés au moment de la panne. Valider après en a doublé 326, enregistrés mais dont la position n’était pas encore validée, et qu’un nouveau processus a relus. La validation automatique, que beaucoup d’applications gardent sans y penser, double huit fois plus, parce que la position n’est validée que toutes les cinq secondes, et que tout ce qui a été traité depuis la dernière validation est relu. Le consommateur idempotent ne perd rien et ne double rien. La transaction SQLite contient à la fois l’effet et la position, si bien qu’une panne annule les deux ensemble, et un paiement relu après une panne est écarté par sa clé unique.
+
+### Ce que « exactement une fois » veut dire
+
+Personne ne sait livrer un message exactement une fois à travers un réseau qui peut perdre l’accusé, puisque l’émetteur ne peut pas distinguer un message perdu d’un accusé perdu. Ce qu’on obtient, c’est un effet exactement une fois. Le message peut être livré et traité plusieurs fois, mais son effet n’est enregistré qu’une fois. On y arrive de deux façons. Soit le traitement est idempotent, c’est-à-dire qu’appliqué deux fois il donne le même résultat qu’une fois (une clé unique, une mise à jour qui fixe une valeur plutôt qu’elle ne l’incrémente, un identifiant de requête vérifié, ch. 38). Soit l’effet et la position de lecture sont écrits atomiquement, dans le même système, comme dans la mesure.
+
+Kafka propose la seconde voie quand l’effet est lui-même l’écriture de messages dans Kafka. Un producteur transactionnel écrit des messages dans plusieurs partitions et valide la position de lecture du consommateur dans la même transaction, et un consommateur réglé sur `isolation.level=read_committed` ne voit que les messages des transactions validées. Neha Narkhede, qui a annoncé ces fonctions en juin 2017, précise que la garantie vaut pour les traitements qui lisent et écrivent dans Kafka, et que l’écriture vers un système externe demande que l’application gère elle-même l’idempotence ou l’enregistrement des positions avec ses données ; elle rapporte aussi, pour des messages de 1 Ko et des transactions de 100 ms, une baisse de débit de 3 % par rapport à un producteur au moins une fois qui garde l’ordre[^narkhede].
+
+La seconde partie de la mesure lit le sujet des paiements et en recopie chaque message dans un autre sujet, avec un producteur ordinaire (idempotent) qui valide la position après chaque lot, ou dans une transaction par lot, en plantant cinq fois. Avec le producteur ordinaire, le sujet de sortie contient 10 342 messages pour 10 000 paiements distincts, quel que soit le niveau de lecture. Avec la transaction, les messages de la transaction interrompue par chaque panne sont bien dans le log, et un lecteur en `read_uncommitted` en voit 10 373 ; un lecteur en `read_committed` n’en voit que 10 000, un par paiement. Le prix se lit dans le débit. Avec des lots de 100 messages, et donc une transaction tous les 100 messages, la transformation passe de 3 965 à 905 messages par seconde (766 au passage suivant) ; avec des lots de 1 000, la différence disparaît dans la mesure, où une autre limite, que l’expérience n’a pas identifiée, plafonne les deux à 4 000 messages par seconde environ. Le coût d’une transaction est fixe, et il se dilue dans les gros lots.
+
+## Accusés et redélivrance
+
+Une file de messages applique le même principe à sa façon. RabbitMQ remet un message à un consommateur et attend son accusé ; tant qu’il ne l’a pas reçu, le message reste à la charge du courtier. Si la connexion du consommateur se ferme, le courtier remet le message à un autre consommateur, marqué comme redélivré (`redelivered`). Le nombre de messages remis d’avance à un consommateur et pas encore acquittés est borné par le préchargement (prefetch). Amazon SQS fait de même avec son délai d’invisibilité ([ch. 27](files-messages.mdx)).
+
+`rabbit_garanties.py` dépose 1 000 messages dans une file. Un consommateur A, avec un préchargement de 50, en acquitte 300, puis sa connexion se ferme ; un consommateur B lit le reste.
+
+```text
+RabbitMQ 4.3.6
+
+1. redélivrance après une panne du consommateur (quorum, prefetch 50)
+   A acquitte 300 messages, puis sa connexion se ferme
+   B reçoit 700 messages, dont 50 marqués redelivered
+   (déjà remis à A, jamais acquittés)
+```
+
+B reçoit les 700 messages restants, dont 50 marqués comme redélivrés. Ce sont les 50 messages que le courtier avait remis d’avance à A et que A n’avait pas acquittés. Si A avait commencé à les traiter, ils seront traités une seconde fois par B. C’est le fonctionnement normal d’une file, qui livre au moins une fois, et le consommateur doit en tenir compte.
+
+## Messages empoisonnés et lettres mortes
+
+Un message empoisonné (poison message) est un message que le consommateur ne parvient jamais à traiter : un format inattendu, une référence à un objet supprimé, un cas que le code ne prévoit pas. Si le consommateur le remet dans la file à chaque échec, il revient aussitôt, échoue de nouveau, et occupe le consommateur indéfiniment.
+
+<Figure svg={dlq} num="28.2" alt="En haut, sans limite : un message empoisonné va de la file au consommateur, échoue, est remis dans la file, et revient sans fin. En bas, avec limite et lettres mortes : après un premier échec, le message part dans une file de nouvelle tentative après 1 minute, puis dans une seconde après 10 minutes, puis, au troisième échec, dans une file de lettres mortes ; la file principale continue, et le message écarté est examiné, corrigé ou rejoué à la main.">
+Un message empoisonné remis sans fin, ou écarté après quelques essais vers une file de lettres mortes.
+</Figure>
+
+La deuxième partie de la mesure place un message empoisonné parmi 100 messages, que le consommateur refuse et remet dans la file à chaque essai.
+
+```text
+2. un message empoisonné parmi 100, refusé et remis dans la file
+   file classique, reject : 99 messages normaux traités ;
+      message empoisonné reçu 17946 fois en 6 s,
+      toujours dans la file (1)
+   file quorum, limite par défaut, nack : reçu 521 fois en 6 s,
+      toujours dans la file (1)
+   file quorum, limite par défaut, reject, sans DLQ : reçu 21 fois,
+      puis supprimé ; messages restant dans la file : 0
+   file quorum, x-delivery-limit = 3, reject, avec DLQ : reçu 4 fois ;
+      dans la DLQ : poison (raison : delivery_limit)
+```
+
+Dans une file classique, il a été reçu près de 18 000 fois en 6 secondes (15 561 au passage précédent), et y était encore à la fin ; les 99 autres messages ont été traités, mais le consommateur a passé son temps sur le message empoisonné. Les files quorum de RabbitMQ comptent les livraisons ratées, et la documentation indique que depuis RabbitMQ 4.0, la limite vaut 20 par défaut ; au-delà, le message est supprimé, ou envoyé dans une file de lettres mortes si l’on en a configuré une[^rabbit-quorum]. La mesure confirme le comportement avec `basic.reject`, puisque le message a été reçu 21 fois puis supprimé, sans laisser de trace. Elle montre aussi un piège. Refusé par `basic.nack`, le même message a été reçu plus de 500 fois en 6 secondes sans jamais être écarté. La documentation précise en effet que `nack` ne compte pas comme une livraison ratée, alors que `reject` et la perte de la connexion comptent[^rabbit-quorum]. Avec une limite de 3 et une file de lettres mortes, le message a été reçu 4 fois puis déposé dans la file de lettres mortes, avec la raison `delivery_limit`.
+
+Une file de lettres mortes (dead-letter queue, DLQ) reçoit les messages écartés après un nombre fixé d’échecs, pour qu’on puisse les examiner sans bloquer les autres. Elle doit être surveillée, car un message qui y arrive est une erreur, et une DLQ qui se remplit sans que personne la regarde est une perte de données différée. On y ajoute souvent des files de nouvelle tentative avec un délai croissant, pour les échecs passagers (un service indisponible quelques minutes), avant la DLQ, réservée aux échecs durables.
+
+## Ordre et parallélisme
+
+Un seul consommateur sur une file traite les messages dans l’ordre, mais à son rythme. Plusieurs consommateurs sur la même file vont plus vite, mais deux messages consécutifs d’une même clé peuvent partir vers deux consommateurs, et le second peut être traité avant le premier.
+
+<Figure svg={ordre} num="28.3" alt="À gauche, une file et quatre consommateurs : les messages A1, A2, B1, A3, B2 partent vers quatre consommateurs, et A3 peut être traité avant A2. À droite, une file par groupe de clés, choisie par hachage de la clé : A1, A2, A3 dans une file lue par le consommateur 1, B1 et B2 dans une autre lue par le consommateur 2 ; l’ordre de chaque clé est gardé.">
+Plusieurs consommateurs sur une file défont l’ordre d’une clé ; une file par groupe de clés le garde.
+</Figure>
+
+La troisième partie de la mesure publie 2 000 messages de 20 clés, numérotés par clé, et arrivant par rafales de cinq messages d’une même clé, comme les événements successifs d’une même commande. Le traitement prend de 1 à 4 ms. Elle compare un consommateur, quatre consommateurs sur la même file, et quatre files choisies par hachage de la clé, chacune lue par un consommateur.
+
+```text
+3. ordre : 2 000 messages, 20 clés par rafales de 5, traitement de 1 à 4 ms
+   configuration                                durée  désordre
+   1 file, 1 consommateur                       6.0 s         0
+   1 file, 4 consommateurs                      1.4 s       667
+   4 files par clé, 1 consommateur par file     1.7 s         0
+```
+
+Le second passage a donné 546 messages dans le désordre au lieu de 667, et les mêmes durées à 0,1 s près.
+
+Quatre consommateurs sur la même file vont quatre fois plus vite, mais traitent des messages d’une même clé dans le désordre. Quatre files choisies par la clé vont aussi vite et gardent l’ordre de chaque clé, puisqu’une clé n’a qu’un lecteur. C’est le principe des partitions de Kafka ([ch. 27](files-messages.mdx)), reproduit dans RabbitMQ, qui fournit d’ailleurs un échange par hachage cohérent pour router les messages ainsi. Le prix est celui de toute partition, puisqu’une clé très active ralentit sa file, et les autres consommateurs ne peuvent pas l’aider. Un message en échec pose un autre problème d’ordre. Le remettre dans la file ou l’envoyer en nouvelle tentative laisse passer les messages suivants de la même clé avant lui ; si l’ordre compte, le consommateur doit retenir les messages suivants de cette clé, ou le traitement doit tolérer le désordre, par exemple en ignorant un événement plus ancien que l’état connu.
+
+## Compromis
+
+| Garantie | Ce qu’une panne coûte (mesuré, 5 pannes, 10 000 messages) | Ce qu’elle demande | À utiliser pour |
+|---|---|---|---|
+| Au plus une fois | 199 messages perdus | valider avant de traiter | métriques, journaux, données qu’on peut perdre |
+| Au moins une fois | 326 doublons (2 678 avec la validation automatique) | valider après le traitement | presque tout, avec un traitement idempotent |
+| Effet exactement une fois, consommateur idempotent | 0 perte, 0 doublon | effet à clé unique et position dans la même transaction, ou opération idempotente | paiements, commandes, tout effet qu’on ne doit ni perdre ni doubler |
+| Transactions Kafka | 0 doublon en `read_committed` (373 messages abandonnés visibles en `read_uncommitted`) | producteur transactionnel, position dans la transaction, lecteurs en `read_committed` | traitements de Kafka vers Kafka |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : les doublons d’un redémarrage]
+Hypothèses : un consommateur traite 2 000 messages par seconde ; il valide sa position automatiquement toutes les 5 secondes ; il redémarre 3 fois par jour (déploiements) et plante 1 fois par semaine.
+
+| Situation | Calcul | Messages retraités |
+|---|---|---|
+| Arrêt propre (validation à la fermeture) | | 0 |
+| Plantage, validation automatique toutes les 5 s | 2 000 × 2,5 s en moyenne | ≈ 5 000 |
+| Plantage, validation après chaque lot de 100 | 100 au plus | ≈ 50 |
+| Par an, 52 plantages, validation automatique | 52 × 5 000 | ≈ 260 000 |
+
+Conclusion : même avec peu de pannes, un consommateur au moins une fois traite des centaines de milliers de messages en double par an. Le traitement doit être idempotent ; réduire l’intervalle de validation réduit le nombre de doublons sans le rendre nul.
+:::
+
+:::calcul[Calcul : le coût d’une transaction par lot]
+Hypothèses : la mesure donne 3 965 messages par seconde sans transaction et 905 avec une transaction tous les 100 messages ; on suppose que la différence est un coût fixe par transaction.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Durée de 100 messages sans transaction | 100 / 3 965 | 25 ms |
+| Durée de 100 messages avec transaction | 100 / 905 | 110 ms |
+| Coût fixe d’une transaction | 110 − 25 | ≈ 85 ms |
+| Surcoût pour des lots de 1 000 | 85 / (1 000 / 3 965 × 1 000) | ≈ 34 % |
+| Surcoût pour des lots de 10 000 | 85 / 2 520 | ≈ 3 % |
+
+Conclusion : une transaction coûte un temps fixe, ici de l’ordre de 85 ms sur une seule machine, et son surcoût relatif dépend de la taille des lots. Le chiffre de 3 % publié par Confluent a été mesuré avec des transactions de 100 ms ; avec des transactions de quelques millisecondes, la transaction divise le débit.
+:::
+
+:::calcul[Calcul : la place d’une file de lettres mortes]
+Hypothèses : 50 millions de messages par jour ; 0,01 % échouent durablement ; un message fait 2 Ko ; on garde la DLQ 14 jours.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Messages écartés par jour | 50 × 10⁶ × 10⁻⁴ | 5 000 |
+| Sur 14 jours | 5 000 × 14 | 70 000 |
+| Place | 70 000 × 2 Ko | 140 Mo |
+
+Conclusion : une DLQ ne coûte presque rien en place ; elle coûte en attention. 5 000 messages écartés par jour, ce sont 5 000 opérations qui n’ont pas eu lieu, et il faut une alerte sur son remplissage et une procédure pour les rejouer.
+:::
+
+## Exemple réel
+
+**Les files de nouvelle tentative d’Uber.** Ning Xia a décrit en février 2018 le traitement des primes d’assurance du programme Driver Injury Protection d’Uber, qui fonctionnait dans plus de 200 villes en prélevant, à chaque course, une prime au kilomètre (en miles) pour les chauffeurs inscrits[^uber]. Les événements arrivaient par Kafka. Le premier défaut était celui de la mesure. Un consommateur Kafka qui ne valide pas sa position tant que le traitement n’a pas réussi bloque les messages suivants derrière un message en échec, et l’article note que des messages qui échouent de façon répétée peuvent engorger le traitement par lots. L’équipe a séparé les échecs du flux principal. Un message en échec est publié dans un sujet de nouvelle tentative, et le consommateur principal valide sa position et continue. Chaque niveau de nouvelle tentative a son propre consommateur, qui impose un délai croissant d’un sujet au suivant, ce que l’article rattache à un seau percé (leaky bucket). Le dernier sujet est la file de lettres mortes, où les messages restent pour être examinés et, après correction, republiés dans le premier sujet de nouvelle tentative. Les retards d’un service dont dépend le traitement ne bloquent plus les autres primes, et chaque message garde la trace de ses tentatives.
+
+## Erreurs fréquentes
+
+Promettre « exactement une fois » de bout en bout. Le courtier livre au moins une fois ; seul un traitement idempotent ou une écriture atomique de l’effet et de la position donne un effet exactement une fois.
+
+Garder la validation automatique des positions sans traitement idempotent. Elle a produit 2 678 doublons pour 5 pannes.
+
+Valider la position avant le traitement pour éviter les doublons. On échange des doublons contre des pertes (199 paiements perdus).
+
+Lire un sujet alimenté par des transactions en `read_uncommitted`, la valeur par défaut du consommateur Java (librdkafka, lui, lit par défaut en `read_committed`[^librdkafka]). On voit les messages des transactions abandonnées (373 dans la mesure).
+
+Remettre indéfiniment dans la file un message qui échoue. Il a été reçu plus de 15 000 fois en 6 secondes.
+
+Refuser par `nack` dans une file quorum en comptant sur la limite de livraisons. Elle ne s’applique qu’aux `reject` et aux connexions perdues.
+
+Laisser une file quorum supprimer les messages qui atteignent la limite sans file de lettres mortes. Le message a disparu sans trace après 21 livraisons.
+
+Ajouter des consommateurs à une file dont l’ordre compte. Les messages d’une même clé sont traités dans le désordre ; il faut une file ou une partition par groupe de clés.
+
+:::piege[Erreur fréquente : « Kafka garantit exactly-once, donc mon service n’a rien à faire »]
+Les transactions Kafka garantissent qu’un traitement qui lit dans Kafka et écrit dans Kafka publie chaque résultat une fois, pour les lecteurs en `read_committed`. Dès que le traitement écrit ailleurs (une base, un appel HTTP, un e-mail), cette garantie ne couvre plus l’effet, comme le rappelle l’annonce de ces fonctions. L’envoi d’un e-mail après un message Kafka reste au moins une fois, et l’e-mail partira deux fois si le consommateur plante entre l’envoi et la validation. Il faut une clé d’idempotence côté destinataire, ou l’enregistrement de la position avec l’effet.
+:::
+
+:::entretien
+Pour chaque flux de messages, dites la garantie et comment vous l’obtenez : « au moins une fois depuis Kafka, position validée après chaque lot ; traitement idempotent par l’identifiant du paiement, contrainte d’unicité dans la base ». Dites ce que devient un message en échec (nouvelles tentatives avec délai, puis file de lettres mortes surveillée), et ce qui garantit l’ordre quand il compte (une clé de partition, un seul lecteur par clé).
+:::
+
+## Exercices
+
+**Question 1.** Un consommateur lit des commandes dans Kafka et, pour chacune, débite le client par un appel HTTP à un prestataire de paiement, puis valide sa position. Que se passe-t-il s’il plante juste après l’appel ? Que proposez-vous, sachant que le prestataire accepte une clé d’idempotence par requête ?
+
+**Question 2.** Dans la mesure, pourquoi la validation automatique produit-elle huit fois plus de doublons que la validation après chaque lot ? Peut-elle aussi perdre des messages ?
+
+**Question 3.** Un service reçoit des événements « stock modifié » (produit, quantité absolue) par une file RabbitMQ lue par 8 consommateurs. Il constate que le stock affiché est parfois faux. Expliquez une cause possible liée à l’ordre, et deux corrections.
+
+**Exercice de conception.** Un service d’envoi de SMS reçoit 300 messages par seconde d’autres services, par une file. Un SMS ne doit jamais partir deux fois (il est facturé, et un code envoyé deux fois trouble l’utilisateur), et ne doit pas être perdu. Le prestataire SMS répond parfois en plus de 30 s ou refuse temporairement. Proposez la file, la garantie, le traitement des échecs et le moyen d’éviter les doublons. Chiffrez la place et le contenu de la file de lettres mortes si 0,05 % des messages échouent durablement.
+
+## Corrigés
+
+**Question 1.** Si le consommateur plante après l’appel et avant la validation, le nouveau processus relit la commande et débite le client une seconde fois. Valider avant l’appel éviterait le doublon en risquant de ne jamais débiter. La bonne solution envoie avec chaque débit une clé d’idempotence tirée de la commande (son identifiant, ou identifiant et numéro de tentative de paiement) ; le prestataire reconnaît la seconde requête et renvoie le résultat de la première sans débiter de nouveau. Le consommateur reste au moins une fois, l’effet devient exactement une fois.
+
+**Question 2.** Après chaque lot, au plus 100 messages ont été traités sans être validés au moment d’une panne, 50 en moyenne. Avec la validation toutes les 5 secondes, ce sont tous les messages traités depuis la dernière validation, plusieurs centaines à quelques milliers selon le débit. Elle peut aussi perdre des messages. Le client librdkafka enregistre la position d’un message dès qu’il le remet à l’application (`enable.auto.offset.store`, actif par défaut[^librdkafka]) ; si une validation automatique a lieu après la remise et avant la fin du traitement, et que le processus plante entre les deux, ces messages sont comptés comme lus sans avoir été traités. Dans la mesure, les lots étaient traités vite et aucun message n’a été perdu ainsi.
+
+**Question 3.** Deux événements successifs du même produit, « 12 » puis « 10 », peuvent partir vers deux consommateurs ; si le second écrit avant le premier, le stock finit à 12 au lieu de 10. La première correction consiste à router les événements par produit, une file (ou une partition) par groupe de produits, un seul lecteur par produit. La seconde consiste à numéroter les événements d’un produit (une version) et à n’appliquer un événement que si sa version est plus grande que celle enregistrée, ce qui rend le traitement indifférent à l’ordre.
+
+**Exercice de conception.**
+
+*File.* Une file quorum RabbitMQ (ou SQS), car chaque SMS est une tâche à faire une fois, que plusieurs consommateurs se partagent. Le débit, 300 par seconde, est faible.
+
+*Garantie.* Au moins une fois à la livraison, effet exactement une fois par idempotence. Chaque demande porte un identifiant fixé par le service émetteur. Avant d’appeler le prestataire, le consommateur enregistre l’identifiant dans une table à clé unique, avec l’état « en cours » ; s’il existe déjà avec l’état « envoyé », il acquitte sans rien faire. Si le prestataire accepte une clé d’idempotence, on lui passe le même identifiant, ce qui couvre le cas d’une panne entre l’appel et l’enregistrement de l’état « envoyé ». Sans cette clé, ce cas reste possible, et il faut choisir entre un doublon rare et une perte rare, ou interroger le prestataire sur l’état de l’envoi avant de recommencer.
+
+*Échecs.* Délai d’attente de l’appel inférieur au délai de traitement accordé par la file, refus par `reject` pour que la limite de livraisons compte, puis files de nouvelle tentative à 1 minute et 10 minutes pour les refus temporaires du prestataire, et file de lettres mortes après la troisième tentative, avec une alerte.
+
+*Lettres mortes.* 300 × 86 400 = 26 millions de SMS par jour ; 0,05 % donne 13 000 messages par jour dans la DLQ, à 1 Ko environ, 13 Mo par jour. La place est négligeable ; c’est le volume à examiner qui ne l’est pas, et il faut classer les causes (numéro invalide, refus définitif du prestataire) pour traiter les plus fréquentes automatiquement.
+
+:::fiche
+- Au plus une fois : valider avant de traiter, une panne perd (199 sur 10 000 avec 5 pannes, mesuré).
+- Au moins une fois : traiter puis valider, une panne double (326, et 2 678 avec la validation automatique toutes les 5 s, mesuré).
+- Exactement une fois = un effet unique : traitement idempotent (clé unique, identifiant de requête) ou effet et position dans la même transaction (0 perte, 0 doublon, mesuré).
+- Transactions Kafka : de Kafka vers Kafka seulement ; lecteurs en `read_committed` (10 000 contre 10 373 en `read_uncommitted`) ; coût fixe par transaction, qui se dilue dans de gros lots.
+- Files : accusé, redélivrance marquée `redelivered` (50 messages préchargés et non acquittés, mesuré).
+- Message empoisonné : limite de livraisons (20 par défaut dans les files quorum de RabbitMQ 4, sur `reject` et pertes de connexion, pas sur `nack`), nouvelles tentatives avec délai, file de lettres mortes surveillée.
+- Ordre : plusieurs consommateurs sur une file le défont ; une file ou une partition par groupe de clés le garde.
+:::
+
+[^narkhede]: Neha Narkhede, « Exactly-once Semantics are Possible: Here’s How Apache Kafka Does it », blog de Confluent, 30 juin 2017, [confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it](https://www.confluent.io/blog/exactly-once-semantics-are-possible-heres-how-apache-kafka-does-it/).
+[^rabbit-quorum]: RabbitMQ, « Quorum Queues », section « Poison Message Handling », documentation, [rabbitmq.com/docs/quorum-queues](https://www.rabbitmq.com/docs/quorum-queues).
+[^librdkafka]: librdkafka, « Configuration properties », propriétés `isolation.level`, `enable.auto.offset.store` et `auto.commit.interval.ms`, [github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md](https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md).
+[^uber]: Ning Xia, « Building Reliable Reprocessing and Dead Letter Queues with Apache Kafka », blog d’ingénierie d’Uber, 16 février 2018, [uber.com/blog/reliable-reprocessing](https://www.uber.com/blog/reliable-reprocessing/).

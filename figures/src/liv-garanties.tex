@@ -1,0 +1,27 @@
+% Où se place la validation de la position par rapport au traitement, et ce
+% qu'une panne entre les deux perd ou double.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    e/.style={draw=#1, fill=#1Bg, line width=0.6pt, rounded corners=2pt, minimum width=24mm, minimum height=7mm, font=\sffamily\footnotesize, align=center}]
+  \foreach \y/\titre/\a/\b/\ca/\cb/\effet/\c in {
+      48/{au plus une fois}/{valider la\\position}/{traiter}/Dslate/Dorange/{la panne perd les messages\\déjà validés, pas traités}/Dred,
+      28/{au moins une fois}/{traiter}/{valider la\\position}/Dorange/Dslate/{la panne fait retraiter les\\messages traités, pas validés}/Dred} {
+    \node[note, anchor=east, align=right] at (-4,\y) {\textbf{\titre}};
+    \node[e=Dblue] (l) at (12,\y) {lire un lot};
+    \node[e=\ca] (x) at (42,\y) {\a};
+    \node[e=\cb] (y) at (72,\y) {\b};
+    \draw[arr=Dslate] (l) -- (x);
+    \draw[arr=Dslate] (x) -- (y);
+    \node[text=Dred, font=\sffamily\bfseries\large] at (57,\y+6) {\(\times\)};
+    \node[note, anchor=west, align=left, text=\c] at (88,\y) {\effet};
+  }
+  \node[note, anchor=east, align=right] at (-4,8) {\textbf{idempotent}};
+  \node[e=Dblue] (l) at (12,8) {lire un lot};
+  \node[e=Dgreen, minimum width=54mm] (t) at (57,8) {une transaction : effets à clé unique\\+ position enregistrée};
+  \draw[arr=Dslate] (l) -- (t);
+  \node[note, anchor=west, align=left, text=Dgreen] at (88,8) {la panne annule les deux ;\\on reprend à la position enregistrée};
+  \node[note, anchor=north, align=center] at (50,-3) {\(\times\) : panne du consommateur entre les deux étapes};
+\end{tikzpicture}
+\end{document}

@@ -25,7 +25,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 2 · Briques de base',
       collapsed: false,
       link: {type: 'doc', id: 'partie-2/index'},
-      items: ['partie-2/repartition-charge', 'partie-2/proxy-passerelle', 'partie-2/cdn-edge', 'partie-2/cache-strategies', 'partie-2/cache-invalidation', 'partie-2/transactions-isolation', 'partie-2/index-modelisation', 'partie-2/moteurs-stockage', 'partie-2/nosql-modeles', 'partie-2/nosql-specialisees', 'partie-2/choisir-base', 'partie-2/replication-leader', 'partie-2/replication-multi', 'partie-2/partitionnement', 'partie-2/files-messages'],
+      items: ['partie-2/repartition-charge', 'partie-2/proxy-passerelle', 'partie-2/cdn-edge', 'partie-2/cache-strategies', 'partie-2/cache-invalidation', 'partie-2/transactions-isolation', 'partie-2/index-modelisation', 'partie-2/moteurs-stockage', 'partie-2/nosql-modeles', 'partie-2/nosql-specialisees', 'partie-2/choisir-base', 'partie-2/replication-leader', 'partie-2/replication-multi', 'partie-2/partitionnement', 'partie-2/files-messages', 'partie-2/garanties-livraison'],
     },
   ],
 };

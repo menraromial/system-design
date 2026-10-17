@@ -1,0 +1,24 @@
+% Quatre consommateurs sur une file défont l'ordre d'une clé ; une file par
+% groupe de clés le garde.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    m/.style={draw=#1, fill=#1Bg, line width=0.5pt, minimum width=8mm, minimum height=7mm, font=\sffamily\scriptsize, inner sep=0pt},
+    c/.style={draw=Dslate, fill=DslateBg, line width=0.6pt, rounded corners=2pt, minimum width=20mm, minimum height=6mm, font=\sffamily\scriptsize}]
+  \node[pillo=Dred] at (40,58) {une file, quatre consommateurs};
+  \foreach \k/\t/\col in {0/A1/Dblue, 1/A2/Dblue, 2/B1/Dorange, 3/A3/Dblue, 4/B2/Dorange} \node[m=\col] at ({\k*9},44) {\t};
+  \foreach \k in {0,...,3} {\node[c] (c\k) at (70,{52-\k*7}) {consommateur \the\numexpr\k+1\relax}; \draw[arr=Dslate] (40,44) -- (c\k.west);}
+  \node[note, anchor=north, align=center, text=Dred] at (40,24) {A1, A2 et A3 partent vers trois consommateurs ;\\A3 peut être traité avant A2};
+  \begin{scope}[xshift=105mm]
+    \node[pillo=Dgreen] at (40,58) {une file par groupe de clés};
+    \foreach \k/\t in {0/A1, 1/A2, 2/A3} \node[m=Dblue] at ({\k*9},50) {\t};
+    \foreach \k/\t in {0/B1, 1/B2} \node[m=Dorange] at ({\k*9},38) {\t};
+    \node[c] (d1) at (60,50) {consommateur 1};
+    \node[c] (d2) at (60,38) {consommateur 2};
+    \draw[arr=Dslate] (24,50) -- (d1.west);
+    \draw[arr=Dslate] (15,38) -- (d2.west);
+    \node[note, anchor=north, align=center, text=Dgreen] at (35,24) {file choisie par hachage de la clé :\\un seul lecteur par clé, l'ordre est gardé};
+  \end{scope}
+\end{tikzpicture}
+\end{document}
