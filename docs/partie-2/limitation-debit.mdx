@@ -1,0 +1,405 @@
+---
+title: "Limitation de débit"
+sidebar_label: "30. Limitation de débit"
+description: "Limiter le nombre de requêtes d'un client : fenêtre fixe, journal glissant, compteur à fenêtre glissante, seau à jetons, seau percé et GCRA, comparés en précision, en mémoire et en rafales ; le module limit_req de nginx mesuré ; où limiter et par quelle clé ; la réponse 429, Retry-After et les en-têtes RateLimit ; le comportement des clients, mesuré."
+partie: 2
+chapitre: 30
+---
+
+import seaux from '@site/src/figures/limite-seaux.svg';
+import fenetres from '@site/src/figures/limite-fenetres.svg';
+import placement from '@site/src/figures/limite-placement.svg';
+
+Une API annonce une limite de 100 requêtes par minute et la compte avec un compteur par minute, remis à zéro à chaque minute pleine. Un client envoie 100 requêtes dans la dernière seconde d’une minute, puis 100 dans la première seconde de la suivante : les 200 sont acceptées, en 2 secondes. Un autre client, qui reçoit des refus, renvoie aussitôt chaque requête refusée ; pour obtenir 150 réponses, il envoie 129 000 requêtes en 13 secondes, et le serveur passe 10,6 secondes de processeur à les refuser. Les deux mesures viennent de ce chapitre. La première vient d’un algorithme mal choisi, la seconde d’un client qui ne lit pas la réponse qu’on lui fait.
+
+La limitation de débit (rate limiting) borne le nombre de requêtes qu’un client peut faire dans un intervalle de temps. Ce chapitre décrit les cinq algorithmes courants, ce que chacun garantit, ce qu’il coûte en mémoire et comment il traite les rafales, puis où placer la limite, quelle clé compter, et ce que le serveur doit répondre. La version répartie, où plusieurs instances partagent les mêmes compteurs, est traitée au ch. 59.
+
+Trois expériences ont été faites pour ce chapitre. [`outils/experiences/ch30/algorithmes.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch30/algorithmes.py) compare les algorithmes en simulation, sur une horloge simulée, et mesure leur mémoire et leur vitesse. [`nginx.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch30/nginx.py) mesure le module `limit_req` de nginx 1.30 dans un conteneur. [`http429.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch30/http429.py) lance un petit service HTTP limité ([`serveur.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch30/serveur.py)) et mesure plusieurs comportements de clients.
+
+## Ce que la limite protège
+
+Un service a une capacité finie. Le [ch. 9](../partie-1/latence-debit.mdx) a montré que ses temps de réponse explosent quand il approche de la saturation, parce que les files s’allongent ; les clients dépassent alors leurs délais, réessaient, et la charge augmente encore. La limitation de débit attribue une part de cette capacité à chaque client. Un script qui s’emballe chez un client ne consomme alors que la part de ce client, et les autres continuent d’être servis.
+
+Elle sert aussi à des fins qui n’ont rien à voir avec la surcharge. Une API payante vend des forfaits, et le forfait gratuit se distingue du forfait payant par sa limite. Une page de connexion limite les essais par compte et par adresse, pour ralentir les attaques qui essaient des mots de passe volés (credential stuffing). Une API dont chaque appel coûte cher à servir, une génération de texte par un modèle de langage ou un envoi de SMS, limite la dépense qu’un client peut provoquer.
+
+Trois mécanismes voisins sont souvent confondus. La limitation de débit compte des requêtes par client et par unité de temps. La limitation de concurrence compte les requêtes en cours d’un client, quelle que soit leur durée, et protège contre les requêtes lentes qu’un compteur par seconde ne voit pas. Le délestage (load shedding) regarde l’état du serveur lui-même, sa file ou son processeur, et refuse du travail quand il est saturé, quel que soit le client. Les quotas, enfin, comptent sur des périodes longues, une journée ou un mois, et relèvent de la facturation plus que de la protection. Une API sérieuse combine en général les quatre, et l’exemple de Stripe, en fin de chapitre, en décrit une.
+
+Une limite n’ajoute aucune capacité. Si 1 000 clients ont chacun droit à 100 requêtes par seconde et que le service en traite 20 000, la somme des droits (100 000) dépasse la capacité, et la limite par client ne protège pas d’une hausse simultanée. On accepte ce surbooking parce que les clients atteignent rarement leur limite en même temps, mais le délestage reste nécessaire derrière.
+
+## Cinq algorithmes
+
+### La fenêtre fixe
+
+Le plus simple découpe le temps en fenêtres de durée $F$ alignées sur l’horloge (chaque minute pleine, par exemple), et garde par clé un compteur et le numéro de la fenêtre courante. Une requête qui arrive pendant la fenêtre $k = \lfloor t / F \rfloor$ incrémente le compteur, remis à zéro au changement de fenêtre, et elle est refusée si le compteur atteint la limite $L$. Avec Redis, c’est un `INCR` sur une clé qui contient le numéro de la fenêtre, et un `EXPIRE` pour qu’elle disparaisse ensuite.
+
+L’état tient en deux entiers par clé, et la décision coûte une addition. Le défaut est aux frontières. La limite est respectée dans chaque fenêtre, mais pas dans un intervalle de durée $F$ qui chevauche deux fenêtres, et un client peut faire $2L$ requêtes en très peu de temps, $L$ juste avant la frontière et $L$ juste après. L’expérience le montre plus bas, avec 200 requêtes acceptées en 2 secondes pour une limite de 100 par minute.
+
+### Le journal glissant
+
+Le journal glissant (sliding log) garde l’horodatage de chaque requête acceptée. À l’arrivée d’une requête à l’heure $t$, il retire les horodatages antérieurs à $t - F$, compte ceux qui restent, et accepte si le compte est inférieur à $L$. C’est l’algorithme exact, celui dont la garantie correspond à ce que dit la documentation d’une API : jamais plus de $L$ requêtes dans un intervalle de $F$ secondes, où qu’on le place.
+
+Son coût est la mémoire, qui croît avec la limite. Une clé saturée garde $L$ horodatages, soit 1 000 pour une limite de 1 000 par heure, là où les autres algorithmes gardent deux nombres. Avec Redis, le journal est un ensemble trié par horodatage (`ZADD`, `ZREMRANGEBYSCORE`, `ZCARD`), dont la version répartie est décrite au ch. 59.
+
+### Le compteur à fenêtre glissante
+
+Le compteur à fenêtre glissante (sliding window counter) garde les compteurs de la fenêtre courante et de la précédente, et estime le nombre de requêtes des $F$ dernières secondes en supposant que celles de la fenêtre précédente étaient réparties uniformément. Si $n_{k-1}$ et $n_k$ sont les deux compteurs, et que la fenêtre courante a commencé à l’heure $kF$, l’estimation vaut
+
+$$
+\hat{n}(t) = n_{k-1} \cdot \frac{F - (t - kF)}{F} + n_k .
+$$
+
+Julien Desgats, de Cloudflare, en donne l’exemple suivant[^cloudflare]. Pour une limite de 50 requêtes par minute, 42 requêtes dans la minute précédente et 18 dans la minute courante, commencée depuis 15 secondes, l’estimation vaut $42 \times 45/60 + 18 = 49{,}5$, et la requête suivante est encore acceptée. L’état tient en trois nombres par clé, et l’effet de frontière disparaît presque, puisque le compte de la fenêtre précédente ne retombe pas d’un coup à zéro.
+
+<Figure svg={fenetres} num="30.1" alt="Une ligne de temps de 0 à 120 secondes, coupée en minute 1 et minute 2. Fenêtre fixe : 100 requêtes juste avant 60 s et 100 juste après, le compteur étant remis à zéro, 200 requêtes en 2 s toutes acceptées. Journal glissant : des points pour chaque requête des 60 dernières secondes, un horodatage stocké par requête, exact, mémoire proportionnelle à la limite. Compteur glissant : la fenêtre précédente compte 42, la courante 18 à t = 75 s, 45 s sur 60 de la précédente encore couvertes, estimation 42 × 45/60 + 18 = 49,5, deux compteurs par clé.">
+Trois façons de compter les requêtes de la dernière minute.
+</Figure>
+
+Sur la figure 30.1, la fenêtre fixe ne voit que le compteur de la minute courante, et les deux paquets de 100 requêtes tombent chacun dans une minute différente. Le journal voit chaque requête de l’intervalle glissant. Le compteur glissant remplace les requêtes de la minute précédente par une fraction de leur nombre, ce qui est exact si elles étaient régulières et faux sinon.
+
+### Le seau à jetons
+
+Le seau à jetons (token bucket) contient au plus $b$ jetons, et il en reçoit $r$ par seconde. Chaque requête prend un jeton, et une requête qui n’en trouve pas est refusée. On n’a pas besoin d’un minuteur qui ajoute les jetons. Il suffit de garder par clé le nombre de jetons et l’heure du dernier calcul, et de rattraper l’écart à l’arrivée de chaque requête :
+
+$$
+j \leftarrow \min\bigl(b,\; j + r\,(t - t_{\text{dernier}})\bigr).
+$$
+
+Les deux paramètres ont des rôles séparés. $r$ est le débit moyen permis, $b$ la rafale (burst) qu’un client resté silencieux peut envoyer d’un coup. Sur tout intervalle de durée $T$, le nombre de requêtes acceptées vérifie
+
+$$
+N(T) \le b + r\,T ,
+$$
+
+puisque le seau, plein au début de l’intervalle, ne peut fournir que ses $b$ jetons et ceux qu’il reçoit pendant $T$. Cette borne est la garantie du seau à jetons. Elle diffère de « $L$ requêtes par fenêtre » ; un seau réglé à $r = 100/60$ par seconde et $b = 100$ laisse passer jusqu’à $100 + 100 = 200$ requêtes en une minute, la même borne que la fenêtre fixe, et c’est la mesure qui le montre plus bas. Pour garantir 100 requêtes par minute, il faut choisir $b + 60\,r \le 100$, par exemple $b = 10$ et $r = 1{,}5$ par seconde.
+
+### Le seau percé et GCRA
+
+Le seau percé (leaky bucket) désigne deux mécanismes différents, ce qui crée des malentendus. Dans le premier sens, c’est une file. Les requêtes y entrent, en sortent à un débit fixe $r$, et une requête qui trouve la file pleine est refusée. Le débit de sortie est parfaitement régulier, et les requêtes en surplus attendent au lieu d’être refusées, ce qui ajoute de la latence. C’est un lisseur de trafic (traffic shaper), utile devant un service qui supporte mal les rafales.
+
+Dans le second sens, c’est un compteur qui décide sans faire attendre, et il équivaut alors au seau à jetons. L’algorithme générique de débit cellulaire (generic cell rate algorithm, GCRA), recommandé par l’ATM Forum pour les réseaux ATM, en est la forme la plus économe[^gcra]. Il garde par clé une seule heure, l’heure d’arrivée théorique (theoretical arrival time, TAT) de la prochaine requête. Avec $T = 1/r$ l’intervalle entre deux requêtes et $\tau$ la tolérance, une requête qui arrive à l’heure $t$ fait
+
+$$
+\text{TAT} \leftarrow \max(\text{TAT}, t), \qquad \text{acceptée si } \text{TAT} - t \le \tau, \text{ et alors } \text{TAT} \leftarrow \text{TAT} + T .
+$$
+
+Avec $\tau = (b - 1)\,T$, GCRA accepte exactement les mêmes requêtes qu’un seau à jetons de capacité $b$, et la mesure le confirme. Son état est un nombre au lieu de deux, et l’heure TAT dit directement au client quand réessayer, puisque $\text{TAT} - \tau - t$ est l’attente avant la prochaine requête acceptée.
+
+<Figure svg={seaux} num="30.2" alt="À gauche, le seau à jetons : r jetons par seconde tombent dans un seau de capacité b ; une requête passe si elle trouve un jeton ; chaque requête prend un jeton, sans jeton refus ; jusqu’à b requêtes d’un coup, r par seconde ensuite. À droite, le seau percé utilisé comme file : les requêtes entrent dans une file d’une taille donnée et sortent par le bas à r par seconde, régulièrement ; file pleine, refus ; les requêtes attendent leur tour et le débit de sortie ne dépasse jamais r.">
+Le seau à jetons refuse ce qui dépasse ; le seau percé utilisé comme file fait attendre.
+</Figure>
+
+Sur la figure 30.2, les deux seaux ont le même débit $r$. Le seau à jetons laisse passer une rafale de $b$ requêtes à la vitesse où elles arrivent ; le seau percé utilisé comme file la fait sortir à $r$ par seconde, au prix d’une attente qui croît avec la place de la requête dans la file.
+
+## Les cinq, mesurés
+
+`algorithmes.py` implémente les cinq algorithmes avec la même interface, une méthode qui reçoit la clé et l’heure de la requête et répond oui ou non. La limite est de 100 requêtes par minute, et les seaux sont réglés à $r = 100/60$ par seconde. Deux traces de trafic sont rejouées. La première envoie 100 requêtes dans la dernière seconde de chaque minute et 100 dans la première seconde de la suivante, cinq fois. La seconde est un client régulier à 3 requêtes par seconde pendant 10 minutes, soit 1,8 fois la limite. Pour chaque algorithme, le script compte les requêtes acceptées, puis le plus grand nombre de requêtes acceptées dans un intervalle glissant de 60 s et dans un intervalle de 2 s.
+
+```text
+1. rafales de part et d'autre des frontières de fenêtre
+   limite 100 requêtes par 60 s ; 5 fois : 100 requêtes dans
+   la dernière seconde d'une minute, 100 dans la première de la suivante
+                            acceptées  max/60 s  max/2 s
+   fenêtre fixe                   600       200      200
+   journal glissant               500       100      100
+   compteur glissant              502       103      102
+   seau à jetons (b = 100)        503       104      103
+   seau à jetons (b = 10)          65        14       13
+   GCRA (rafale 10)                65        14       13
+
+2. client constant à 3 requêtes par seconde pendant 10 min
+                            acceptées  max/60 s  max/2 s
+   fenêtre fixe                  1000       101        7
+   journal glissant              1000       100        7
+   compteur glissant             1000       101        7
+   seau à jetons (b = 100)       1099       181        7
+   seau à jetons (b = 10)        1009       109        7
+   GCRA (rafale 10)              1009       109        7
+   seau percé en file (10) : 1010 servies, 790 refusées, attente max 6.0 s
+```
+
+L’horloge étant simulée, les deux passages ont donné des chiffres identiques. Sur les rafales aux frontières, la fenêtre fixe accepte 200 requêtes en 2 secondes, deux fois la limite, cinq fois de suite. Le journal glissant n’en accepte jamais plus de 100 sur 60 secondes. Le compteur glissant et le seau à jetons de capacité 100 dépassent de peu (103 et 104), parce que les jetons ou la fraction de la fenêtre précédente se reconstituent pendant les deux secondes de la rafale.
+
+Le client régulier montre l’autre face du seau à jetons. Réglé à $b = 100$, il accepte 181 requêtes dans une minute, puisque sa borne est $b + 60\,r = 200$ et non 100 ; il accepte aussi 1 099 requêtes en 10 minutes, les 1 000 de son débit moyen et la rafale initiale. Réglé à $b = 10$, il retombe à 109 requêtes par minute au plus, soit $10 + 100 - 1$. GCRA avec une tolérance de 10 accepte exactement les mêmes requêtes que le seau de capacité 10, à l’unité près. Le seau percé utilisé comme file sert 1 010 requêtes, refuse les autres quand la file de 10 est pleine, et fait attendre les requêtes servies jusqu’à 6 secondes, la place dans la file multipliée par l’intervalle de 0,6 s.
+
+La troisième partie rejoue un trafic moins artificiel. 2 000 sources envoient des requêtes à des instants aléatoires (un processus de Poisson), chacune à un débit tiré entre 0,5 et 2 fois la limite, pendant 10 minutes. Le script calcule d’abord l’écart entre l’estimation du compteur glissant et le compte exact des 60 dernières secondes, sur toutes les requêtes reçues, comme l’a fait Cloudflare. Il fait ensuite passer chaque source par chaque limiteur, et cherche le plus grand nombre de requêtes acceptées sur 60 secondes.
+
+```text
+3. 2 000 sources de 0,5 à 2 fois la limite pendant 10 min
+   tirage 1 : 2395607 requêtes ; compteur glissant : écart moyen 3.3 %,
+      53528 décisions « au-dessus de 100 » différentes du compte exact,
+      soit 2.23 % des requêtes
+   fenêtre fixe             1768903 acceptées, 1628 sources > 100, max 200
+   journal glissant         1726621 acceptées,    0 sources > 100, max 100
+   compteur glissant        1754971 acceptées, 1623 sources > 100, max 155
+   seau à jetons (b = 100)  1880702 acceptées, 1628 sources > 100, max 199
+   tirage 2 : 2334388 requêtes ; compteur glissant : écart moyen 3.3 %,
+      54587 décisions « au-dessus de 100 » différentes du compte exact,
+      soit 2.34 % des requêtes
+   fenêtre fixe             1739827 acceptées, 1551 sources > 100, max 200
+   journal glissant         1700464 acceptées,    0 sources > 100, max 100
+   compteur glissant        1726798 acceptées, 1549 sources > 100, max 156
+   seau à jetons (b = 100)  1843685 acceptées, 1551 sources > 100, max 199
+```
+
+Sur le trafic reçu, l’estimation du compteur glissant s’écarte en moyenne de 3,3 % du compte exact, dans les deux tirages, et la décision « au-dessus de la limite ou non » diffère pour 2,2 à 2,3 % des requêtes. Cloudflare a mesuré 6 % d’écart moyen et 0,003 % de requêtes mal décidées, sur 400 millions de requêtes venant de 270 000 sources[^cloudflare]. L’écart sur les décisions s’explique par la construction de l’expérience, où toutes les sources ont un débit proche de la limite, là où les décisions se jouent, alors que la plupart des sources réelles en sont très loin.
+
+Le compteur glissant laisse pourtant passer jusqu’à 155 et 156 requêtes en une minute, quand il compte les requêtes qu’il accepte. Le mécanisme vient du limiteur lui-même. Au début d’une fenêtre, le compte pondéré de la précédente est proche de la limite, et presque tout est refusé ; à mesure que la pondération diminue, le limiteur accepte davantage, si bien que les requêtes acceptées s’entassent vers la fin de chaque fenêtre. La fenêtre suivante suppose alors ces requêtes réparties uniformément, sous-estime celles qui sont encore dans l’intervalle glissant, et en accepte trop. Le compteur glissant est une bonne estimation du débit d’une source ; il ne garantit pas une limite stricte.
+
+Les parties 4 et 5 mesurent la mémoire par clé, avec 2 000 clés saturées sous une limite de 1 000 par heure, et le nombre de décisions par seconde sur un seul fil.
+
+```text
+4. mémoire par clé, 2 000 clés saturées, limite 1 000 par heure
+   fenêtre fixe               165 octets par clé
+   compteur glissant          173 octets par clé
+   seau à jetons              182 octets par clé
+   GCRA                        86 octets par clé
+   journal (deque)          33270 octets par clé
+   journal (array d)         8383 octets par clé
+
+5. décisions par seconde (un fil, 10 000 clés, 1 million de requêtes)
+   fenêtre fixe              4.50 million(s) par s
+   journal glissant          2.16 million(s) par s
+   compteur glissant         2.84 million(s) par s
+   seau à jetons (b = 100)   3.71 million(s) par s
+   GCRA (rafale 10)          5.18 million(s) par s
+```
+
+La mémoire est identique dans les deux passages. Les quatre algorithmes à compteurs prennent de 86 à 182 octets par clé en Python, presque tout en surcoût de l’interpréteur (l’objet liste, les entiers, l’entrée du dictionnaire), GCRA moitié moins puisqu’il ne garde qu’un nombre. Le journal glissant prend 33 Ko par clé avec une `deque` d’objets flottants, et encore 8,4 Ko avec un tableau compact de flottants de 8 octets, soit 1 000 fois 8 octets. Dans une structure compacte en C, les compteurs tiendraient en 8 à 16 octets ; le journal resterait à 8 Ko, cinq cents fois plus. Le second passage a donné des débits à 3 % près, sauf pour le journal (2,16 contre 2,56 millions de décisions par seconde), dont la décision dépend du nombre d’horodatages à retirer. Tous décident en moins d’une microseconde, et ce n’est jamais l’algorithme qui limite le limiteur, mais l’accès à l’état quand il est partagé entre plusieurs machines (ch. 59).
+
+## Le seau percé de nginx
+
+nginx limite les requêtes avec le module `ngx_http_limit_req_module`, dont la documentation précise qu’il utilise la méthode du seau percé[^nginx]. Une zone de mémoire partagée garde l’état de chaque clé, et un emplacement l’applique :
+
+```nginx
+limit_req_zone $binary_remote_addr zone=api:1m rate=10r/s;
+server {
+    location /api {
+        limit_req zone=api burst=10 nodelay;
+        limit_req_status 429;
+    }
+}
+```
+
+Le débit `rate` s’exprime en requêtes par seconde ou par minute. Sans `burst`, nginx refuse toute requête qui arrive moins de $1/r$ après la précédente acceptée. Avec `burst=10`, il accepte jusqu’à 10 requêtes en surplus, mais les fait attendre pour les sortir au débit $r$, comme une file. `nodelay` les sert tout de suite, ce qui en fait un seau à jetons de capacité 11. `delay=5`, ajouté en version 1.15.7, sert les 5 premières tout de suite et fait attendre les suivantes. Par défaut, les requêtes refusées reçoivent le code 503, et `limit_req_status` le change. Chaque état occupe 128 octets sur une plateforme 64 bits, et une zone de 1 Mo en garde environ 8 000.
+
+`nginx.py` lance nginx 1.30 avec cinq emplacements, chacun avec sa zone et une limite de 10 requêtes par seconde, et envoie d’abord 30 requêtes simultanées à chacun, puis un client régulier à 25 requêtes par seconde pendant 10 secondes.
+
+```text
+nginx/1.30.5 ; limite 10r/s par emplacement
+
+1. 30 requêtes simultanées
+   emplacement          codes            attente des acceptées
+   sans rafale          1×200 29×503        5 à    5 ms, méd.    5
+   burst=10             11×200 19×503       3 à 1002 ms, méd.  502
+   burst=10 nodelay     11×200 19×503       3 à    4 ms, méd.    3
+   burst=10 delay=5     11×200 19×503       2 à  500 ms, méd.    2
+   nodelay, statut 429  11×200 19×429       2 à    3 ms, méd.    3
+
+2. client régulier à 25 requêtes par seconde, 10 s
+   sans rafale            8.4 acceptées/s, attente max     2 ms
+   burst=10              11.0 acceptées/s, attente max  1002 ms
+   burst=10 nodelay      11.0 acceptées/s, attente max     2 ms
+   burst=10 delay=5      11.0 acceptées/s, attente max   502 ms
+```
+
+Les deux passages ont donné les mêmes codes et les mêmes débits, et des temps à 2 ms près. Sans `burst`, une seule des 30 requêtes simultanées passe. Avec `burst=10`, 11 passent, mais la dernière attend 1 seconde, et la moitié des acceptées attendent plus de 500 ms. C’est le comportement d’une file, que l’on n’attend pas forcément d’une API. `nodelay` sert les 11 en quelques millisecondes, et `delay=5` sert les 6 premières immédiatement et étale les 5 suivantes jusqu’à 500 ms. Les refus portent le code 503 tant qu’on ne change pas `limit_req_status`, ce qui fait croire au client à une panne du serveur alors qu’il a dépassé sa limite.
+
+Le client régulier révèle un détail du réglage sans rafale. À 25 requêtes par seconde, une requête arrive toutes les 40 ms, et nginx exige 100 ms depuis la précédente acceptée. La troisième requête après une acceptée arrive à 120 ms, si bien que le client n’obtient qu’une requête toutes les 120 ms, 8,4 par seconde au lieu de 10. Avec une rafale, même de quelques requêtes, le seau absorbe ce décalage, et le débit accepté monte à 11 par seconde, les 10 du débit et la rafale initiale, sur 10 secondes.
+
+## Où limiter, et par quelle clé
+
+<Figure svg={placement} num="30.3" alt="Quatre étages de gauche à droite : client, bord (CDN, WAF), passerelle d’API, service. Client : respecte Retry-After, recul exponentiel, gigue, limitation adaptative. Bord : clé adresse IP ou préfixe, volume par IP, inondations, robots, grossier. Passerelle : clé d’API ou utilisateur, quota du forfait, rafales, 429 et en-têtes RateLimit. Service : clé locataire ou ressource, requêtes en cours, opérations coûteuses, délestage. Une flèche rouge revient de la passerelle au client avec 429 et Retry-After.">
+Chaque étage limite avec la clé qu’il connaît.
+</Figure>
+
+Chaque étage de la figure 30.3 voit des informations différentes, et limite avec la clé qu’il connaît. Le bord du réseau, un CDN ou un pare-feu applicatif (web application firewall, WAF), ne connaît souvent que l’adresse IP. Il arrête les inondations et les robots avant qu’ils coûtent quoi que ce soit à l’origine, avec des limites larges. La passerelle d’API ([ch. 14](proxy-passerelle.mdx)) a vérifié la clé d’API ou le jeton, et applique la limite du forfait de chaque client. Le service connaît ce que coûte chaque opération, et limite ce que les étages précédents ne voient pas : le nombre de requêtes en cours d’un locataire, les exports qui durent une minute, les écritures sur une ressource partagée. Le client, enfin, se limite lui-même quand il respecte les réponses du serveur.
+
+La clé décide de ce qui est équitable. RFC 6585, qui définit le code 429, laisse le serveur libre de compter par ressource, sur tout le serveur ou sur un groupe de serveurs, et d’identifier l’utilisateur par ses identifiants ou par un cookie[^rfc6585]. L’adresse IP est la clé la plus facile et la plus trompeuse. Derrière une traduction d’adresses (NAT, [ch. 3](../partie-1/client-serveur-dns.mdx)), un réseau d’entreprise, une université ou un opérateur mobile font partager une seule adresse IPv4 à des milliers d’utilisateurs ; à l’inverse, un attaquant qui dispose d’un bloc IPv6 change d’adresse à chaque requête, puisqu’un abonné reçoit en général au moins un préfixe /64, soit $2^{64}$ adresses. Limiter par IPv6 se fait donc sur le préfixe, pas sur l’adresse.
+
+`http429.py` mesure l’effet de la clé. 19 utilisateurs envoient chacun 1 requête par seconde et un utilisateur abusif en envoie 30, tous depuis la même adresse, pendant 20 secondes. Le service accepte 10 requêtes par seconde avec des rafales de 20, par clé, et la clé est d’abord l’adresse IP, puis la clé d’API de chaque utilisateur.
+
+```text
+2. 19 utilisateurs à 1/s et un abusif à 30/s, même IP, 20 s
+   clé = adresse IP   utilisateurs :   9.0 % servis ; abusif : 184 sur 601
+   clé = clé d'API    utilisateurs : 100.0 % servis ; abusif : 219 sur 601
+```
+
+Avec l’adresse IP comme clé, les 49 requêtes par seconde du groupe se partagent 10 jetons, et l’abusif, qui envoie 61 % des requêtes, prend la plupart d’entre eux, si bien que les utilisateurs ordinaires ne sont servis qu’à 9 % (7 % au premier passage). Avec la clé d’API, chacun a son seau, les utilisateurs sont tous servis, et seul l’abusif est limité, à 219 requêtes, les 20 de sa rafale et 10 par seconde pendant 20 secondes.
+
+Plusieurs instances posent un problème de plus. Si la passerelle tourne sur 8 instances et que chacune garde ses compteurs en mémoire, un client dont les requêtes sont réparties sur les 8 obtient 8 fois sa limite. Diviser la limite par le nombre d’instances ne marche que si la répartition est régulière, ce qui n’est pas le cas avec des connexions longues ou un hachage par client. Partager l’état dans un magasin comme Redis donne la limite exacte, au prix d’un aller-retour réseau par décision et d’une dépendance de plus ; c’est l’objet du ch. 59.
+
+Le limiteur ne doit pas devenir la panne. Si le magasin qui garde les compteurs ne répond plus, la question est de savoir s’il faut tout refuser ou tout laisser passer. Stripe a choisi de laisser passer, en attrapant toutes les erreurs du limiteur pour que l’API reste disponible[^stripe]. Une limite qui protège une ressource fragile peut faire l’autre choix, mais il doit être pris en connaissance de cause, et pas découvert à la première panne.
+
+## Répondre 429
+
+Le code 429 (Too Many Requests), défini par RFC 6585 en 2012, signifie que l’utilisateur a envoyé trop de requêtes dans un intervalle de temps[^rfc6585]. La réponse devrait expliquer la situation, peut inclure un en-tête `Retry-After`, et ne doit pas être gardée par un cache. Le code 503 (Service Unavailable) signale au contraire que le serveur ne peut pas répondre, quel que soit le client ; un client qui reçoit 503 conclut à une panne, alors qu’un 429 lui dit que c’est lui qui doit ralentir. Le délestage, qui refuse à cause de l’état du serveur, répond 503, et la limitation par client répond 429.
+
+`Retry-After` donne soit un nombre entier de secondes, soit une date HTTP[^rfc9110]. L’entier est une contrainte réelle, car un service qui limite à 10 requêtes par seconde ne peut pas dire « réessayez dans 100 ms » avec cet en-tête, et doit arrondir à 1 seconde. Pour que le client se règle avant d’être refusé, le groupe de travail httpapi de l’IETF prépare deux champs, `RateLimit-Policy`, qui décrit la politique (quota `q` sur une fenêtre `w` en secondes), et `RateLimit`, qui donne le quota restant `r` et le délai `t` avant qu’il se reconstitue[^ratelimit] :
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 1
+RateLimit-Policy: "par-cle";q=10;w=1
+RateLimit: "par-cle";r=0;t=1
+Content-Type: application/json
+
+{"erreur": "trop de requêtes"}
+```
+
+Le texte est encore un brouillon (sa version 11 date du 23 mai 2026), et les API publiques utilisent souvent leurs propres en-têtes. GitHub renvoie `x-ratelimit-limit`, `x-ratelimit-remaining`, `x-ratelimit-used` et `x-ratelimit-reset` (l’heure Unix de la remise à zéro), limite les requêtes authentifiées à 5 000 par heure et les requêtes anonymes à 60, et répond 403 ou 429 quand la limite est dépassée[^github].
+
+Ce que fait le client de la réponse compte autant que l’algorithme du serveur. Trois clients veulent chacun 150 réponses, avec 4 requêtes en vol, d’un service limité à 10 par seconde avec des rafales de 20. Le premier renvoie aussitôt chaque requête refusée. Le deuxième attend la durée de `Retry-After`. Le troisième applique un recul exponentiel avec gigue (exponential backoff with jitter), dans la variante « gigue complète » de Marc Brooker. Après le $n$-ième refus consécutif, il attend une durée tirée au hasard entre 0 et $\min(5\ \text{s},\; 0{,}05\ \text{s} \times 2^n)$[^brooker].
+
+```text
+1. un client veut 150 réponses ; limite 10/s, rafale 20
+   stratégie                durée  envoyées     429  CPU serveur
+   réessai immédiat         13.0s    129310  129160      10.61 s
+   attendre Retry-After     14.1s       205      55       0.04 s
+   recul exp. + gigue       13.3s       421     271       0.21 s
+```
+
+Le temps minimal est de 13 secondes, les 20 premières réponses venant de la rafale et les 130 suivantes au débit de 10 par seconde. Le client qui réessaie aussitôt l’atteint, mais il envoie 129 310 requêtes (129 371 au premier passage) pour 150 réponses, et le serveur passe 10,6 secondes de processeur sur 13 à les refuser, soit 82 µs par refus dans ce service Python. Le client qui respecte `Retry-After` envoie 205 requêtes, dont 55 refusées, et prend 14,1 secondes dans les deux passages, une seconde de plus que le minimum, à cause de l’arrondi à la seconde entière. Le recul avec gigue envoie 421 à 425 requêtes et finit en 13,3 à 17,4 secondes selon le tirage, plus lent quand plusieurs refus consécutifs tirent de longues attentes.
+
+Un refus n’est donc pas gratuit. Il coûte une connexion, l’analyse de la requête, la lecture de l’état et l’écriture d’une réponse, et un client qui boucle sur les refus peut saturer à lui seul le limiteur censé protéger le service. La limitation côté client complète celle du serveur. Le livre de Google sur l’ingénierie de la fiabilité décrit une limitation adaptative (adaptive throttling) où chaque client compte, sur les deux dernières minutes, ses requêtes et celles que le serveur a acceptées, et rejette lui-même une nouvelle requête avec la probabilité[^sre]
+
+$$
+p = \max\left(0,\; \frac{\text{requêtes} - K \times \text{acceptées}}{\text{requêtes} + 1}\right),
+$$
+
+avec $K = 2$ en général. Tant que le serveur accepte, $p$ reste nul ; quand il refuse presque tout, le client ne lui envoie plus qu’environ deux fois ce qu’il accepte, et les refus ne coûtent plus rien au serveur.
+
+## Compromis
+
+| Algorithme | État par clé | Garantie | Rafales | Mesuré | Usages |
+|---|---|---|---|---|---|
+| Fenêtre fixe | 2 nombres | $L$ par fenêtre alignée, jusqu’à $2L$ sur un intervalle de $F$ | doubles aux frontières | 200 en 2 s pour 100/min | quotas journaliers, compteurs simples |
+| Journal glissant | $L$ horodatages | exacte : $L$ sur tout intervalle de $F$ | aucune au-delà de $L$ | 100 au plus ; 8,4 à 33 Ko par clé | limites contractuelles strictes, faibles volumes |
+| Compteur glissant | 3 nombres | approchée | lissées | écart moyen 3,3 % ; jusqu’à 156/min | grands volumes, estimation du débit (Cloudflare) |
+| Seau à jetons | 2 nombres | $b + rT$ sur tout intervalle $T$ | jusqu’à $b$ | 181/min avec $b = 100$ ; 109 avec $b = 10$ | API, passerelles (Stripe, Envoy) |
+| GCRA | 1 nombre | identique au seau à jetons | jusqu’à $b$ | mêmes décisions que le seau, 86 o par clé | magasins partagés, état minimal |
+| Seau percé en file | 1 nombre et une file | débit de sortie $\le r$ | mises en attente | attente jusqu’à 1 s (nginx `burst`), 6 s (simulation) | lissage devant un service fragile |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la mémoire de 10 millions de clés]
+Hypothèses : 10 millions de clés d’API ou d’utilisateurs actifs ; une limite de 1 000 requêtes par heure ; un état stocké en binaire compact, sans le surcoût d’un langage ni d’un magasin ; horodatages et compteurs sur 8 octets.
+
+| Algorithme | Calcul | Résultat |
+|---|---|---|
+| GCRA | 10⁷ × 8 octets | 80 Mo |
+| Seau à jetons, fenêtre fixe | 10⁷ × 16 octets | 160 Mo |
+| Compteur glissant | 10⁷ × 24 octets | 240 Mo |
+| Journal glissant, clés saturées | 10⁷ × 1 000 × 8 octets | 80 Go |
+| Journal glissant en Python (`deque`, mesuré à 33 Ko) | 10⁷ × 33 Ko | 330 Go |
+
+Conclusion : les algorithmes à compteurs tiennent dans la mémoire d’un seul serveur, même pour 10 millions de clés, et le journal glissant demande mille fois plus dès que la limite atteint quelques milliers. Le journal se réserve aux limites faibles (quelques essais de connexion par minute) ou aux clés peu nombreuses. Le surcoût réel d’un magasin comme Redis, par clé et par élément, s’ajoute à ces chiffres et se mesure au ch. 59.
+:::
+
+:::calcul[Calcul : régler un seau à jetons pour une application mobile]
+Hypothèses : un écran de l’application envoie 6 requêtes à l’ouverture ; un utilisateur actif ouvre un écran toutes les 5 secondes en moyenne, et parfois 3 écrans de suite en une seconde ; la documentation promet « 150 requêtes par minute ».
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Débit moyen d’un utilisateur actif | 6 / 5 s | 1,2 requête/s |
+| Rafale à absorber | 3 écrans × 6 | 18 requêtes |
+| Débit choisi, avec une marge de 1,5 | 1,2 × 1,5 | $r$ = 1,8 requête/s, arrondi à 2 |
+| Capacité choisie | une rafale de 3 écrans, plus un écran | $b$ = 24 |
+| Borne sur une minute | $b + 60\,r$ = 24 + 120 | 144 requêtes ≤ 150 |
+| Temps pour remplir le seau vide | $b / r$ = 24 / 2 | 12 s |
+
+Conclusion : $r = 2$ par seconde et $b = 24$ servent l’usage normal sans refus, absorbent trois écrans ouverts d’un coup, et respectent la promesse de la documentation, puisque la borne $b + 60\,r$ reste sous 150. Un seau réglé à $b = 150$, « pour coller à la documentation », laisserait passer jusqu’à 270 requêtes dans une minute.
+:::
+
+:::calcul[Calcul : ce que coûtent des clients qui réessaient sans attendre]
+Hypothèses : le coût mesuré d’un refus, 10,61 s de processeur pour 129 160 refus dans le service Python ; un client en boucle envoie environ 10 000 requêtes par seconde (129 310 en 13 s) ; une version mal écrite d’un SDK est déployée chez 500 clients à la fois ; on suppose qu’un limiteur compilé, au bord, refuse en 5 µs.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Coût d’un refus | 10,61 s / 129 160 | 82 µs |
+| Requêtes par seconde des 500 clients | 500 × 10 000 | 5 millions/s |
+| Cœurs occupés à refuser | 5 × 10⁶ × 82 × 10⁻⁶ | 410 cœurs |
+| Même charge, refus à 5 µs | 5 × 10⁶ × 5 × 10⁻⁶ | 25 cœurs |
+| Clients qui respectent Retry-After | 500 × 205 / 14 s | 7 300 requêtes/s |
+
+Conclusion : des clients qui bouclent sur les refus transforment la limite en attaque par saturation, que le serveur paie même s’il ne sert rien. Refuser au bord, avec un limiteur rapide, en réduit le coût ; seul le comportement du client le supprime, d’où l’importance de `Retry-After`, du recul avec gigue dans les SDK, et d’une limitation adaptative chez les clients internes.
+:::
+
+## Exemple réel
+
+**Les quatre limiteurs de Stripe.** Paul Tarjan a décrit en 2017 les limiteurs de l’API de paiement de Stripe[^stripe]. Le premier, une limitation de débit par utilisateur à $N$ requêtes par seconde, fondée sur un seau à jetons gardé dans Redis, refusait alors des millions de requêtes par mois ; Stripe lui a ajouté la possibilité de dépasser brièvement la limite lors d’événements prévus, comme une vente flash. Le deuxième limite la concurrence, à 20 requêtes en cours par utilisateur, et vise les points d’accès coûteux ; il s’était déclenché 12 000 fois dans le mois. Les deux derniers sont des délesteurs. L’un réserve une part de la flotte aux méthodes critiques (créer un paiement). Avec une réserve de 20 %, toute requête non critique au-delà de ses 80 % reçoit un 503. L’autre délaisse le trafic de faible priorité quand les processus de travail sont saturés, et n’avait refusé que 100 requêtes dans le mois. Les deux premiers répondent 429, les délesteurs 503. L’article recommande de lancer chaque limiteur à blanc d’abord, en observant ce qu’il aurait refusé, et de faire en sorte qu’une erreur dans le limiteur, ou une panne de Redis, laisse passer les requêtes.
+
+## Erreurs fréquentes
+
+Compter par fenêtre fixe une limite présentée comme « par minute ». Le client peut en faire le double en deux secondes, de part et d’autre d’une frontière (200 pour une limite de 100, mesuré).
+
+Régler la capacité d’un seau à jetons sur la limite annoncée. Avec $b = L$ et $r = L/F$, la borne est $2L$ par intervalle de $F$ (181 requêtes par minute pour 100, mesuré) ; il faut $b + rF \le L$.
+
+Confondre le seau percé en file et le seau à jetons. Avec `burst` sans `nodelay`, nginx fait attendre les requêtes en surplus jusqu’à une seconde au lieu de les servir.
+
+Laisser nginx répondre 503 aux clients qui dépassent leur limite. Le client croit le serveur en panne ; `limit_req_status 429` corrige la réponse.
+
+Limiter par adresse IP seule. Les utilisateurs derrière le même NAT se partagent une limite, et un abusif en prive les autres (9 % de requêtes servies, mesuré) ; en IPv6, il faut compter par préfixe.
+
+Garder les compteurs dans la mémoire de chaque instance sans le savoir. Un client réparti sur 8 instances obtient 8 fois sa limite.
+
+Réessayer aussitôt après un 429. Pour 150 réponses, le client mesuré envoie 129 000 requêtes, et le serveur dépense 10,6 s de processeur à les refuser.
+
+Mettre en cache une réponse 429. RFC 6585 l’interdit, et un cache partagé la servirait à des clients qui n’ont pas dépassé leur limite.
+
+:::piege[Erreur fréquente : « la limitation de débit protège le service de la surcharge »]
+Une limite par client borne ce que chaque client peut demander, pas ce que tous demandent ensemble. La somme des limites dépasse presque toujours la capacité, et un afflux de clients qui restent chacun sous leur limite sature le service quand même. Les refus eux-mêmes consomment de la capacité, 82 µs par refus dans le service mesuré, et des clients qui bouclent peuvent saturer le limiteur. La protection contre la surcharge demande en plus un délestage qui regarde l’état du serveur (file, processeur, requêtes en cours) et répond 503, et des clients qui reculent.
+:::
+
+:::entretien
+Quand on vous demande un limiteur, commencez par les questions qui fixent la conception : « que protège-t-on (capacité, coût, équité, forfait commercial) ; par quelle clé (IP au bord, clé d’API à la passerelle, locataire dans le service) ; quelle garantie (stricte ou approchée) ; et combien de clés ». Choisissez ensuite un seau à jetons ou GCRA, en donnant $r$ et $b$ et la borne $b + rT$ qui en découle ; dites où vit l’état (en mémoire locale, ou partagé comme au ch. 59) et ce qui se passe s’il devient indisponible ; décrivez la réponse 429 avec `Retry-After` et les en-têtes de quota, et ce que le SDK client fait en la recevant.
+:::
+
+## Exercices
+
+**Question 1.** Un seau à jetons est réglé à $r = 10$ par seconde et $b = 50$. Combien de requêtes peut-il accepter au plus en 1 seconde ? en 10 secondes ? Un client resté silencieux se met à envoyer 15 requêtes par seconde, régulièrement ; au bout de combien de temps reçoit-il ses premiers refus, et quel débit obtient-il ensuite ?
+
+**Question 2.** Dans la mesure, le compteur glissant a laissé passer jusqu’à 156 requêtes en une minute pour une limite de 100. Un contrat garantit à un partenaire « jamais plus de 100 requêtes par minute vers son système », et votre service doit le respecter en appelant son API. Quels algorithmes conviennent, avec quels réglages, et que perdez-vous ?
+
+**Question 3.** Une application mobile très utilisée dans un pays où l’opérateur principal fait passer ses abonnés par un NAT d’opérateur reçoit des plaintes d’utilisateurs qui obtiennent des 429 alors qu’ils n’ont fait que quelques requêtes. Le CDN limite à 300 requêtes par minute et par adresse IP. Expliquez le phénomène et proposez une correction qui garde une protection au bord.
+
+**Exercice de conception.** Une API météo publique a deux forfaits. Le forfait gratuit permet 1 000 requêtes par jour et 5 par seconde, le forfait payant 200 000 par jour et 100 par seconde. Elle reçoit au total 30 000 requêtes par seconde en pointe, de 2 millions de clés d’API, à travers 6 instances de passerelle derrière un répartiteur de charge. Certaines requêtes (historique sur dix ans) coûtent cent fois plus que les autres. Proposez les limiteurs (algorithmes, clés, paramètres, étage), l’endroit où vit leur état, la réponse aux clients, le comportement de votre SDK, et ce qui se passe quand le magasin des compteurs tombe en panne.
+
+## Corrigés
+
+**Question 1.** La borne est $b + rT$, soit 60 requêtes en 1 seconde et 150 en 10 secondes. À 15 requêtes par seconde, le seau se vide de $15 - 10 = 5$ jetons par seconde ; plein au départ avec 50 jetons, il est vide au bout de 10 secondes. Le client a alors reçu 150 réponses ; il obtient ensuite 10 réponses par seconde, et 5 de ses requêtes par seconde sont refusées.
+
+**Question 2.** Le journal glissant garantit exactement 100 requêtes sur tout intervalle de 60 secondes, et convient puisqu’il n’y a qu’une clé (le partenaire), donc 100 horodatages en mémoire. Un seau à jetons ou GCRA convient aussi, à condition de régler $b + 60\,r \le 100$, par exemple $b = 10$ et $r = 1{,}5$ par seconde ; on perd alors une partie du débit moyen (90 requêtes par minute de débit soutenu au lieu de 100) et la possibilité de grosses rafales. Côté appelant, le seau percé en file a l’avantage de faire attendre les requêtes au lieu de les échouer. Le compteur glissant et la fenêtre fixe ne conviennent pas, puisqu’ils dépassent la limite sur certains intervalles (156 et 200 mesurés).
+
+**Question 3.** Le NAT d’opérateur fait partager une même adresse IPv4 à des centaines ou des milliers d’abonnés, et 300 requêtes par minute pour toute cette population sont épuisées en quelques secondes ; les utilisateurs se partagent la limite, comme dans la mesure où ils n’étaient servis qu’à 9 %. On garde au bord une limite par adresse IP beaucoup plus large, qui n’arrête que les inondations (par exemple 20 000 par minute), éventuellement plus large encore pour les plages d’adresses connues de l’opérateur ; on déplace la limite fine à la passerelle, avec la clé d’API ou l’identifiant de l’utilisateur authentifié comme clé. En IPv6, la limite au bord compte par préfixe /64.
+
+**Exercice de conception.**
+
+*Étages et clés.* Au bord (CDN), une limite large par adresse IP et par préfixe IPv6 /64, contre les inondations. À la passerelle, deux limiteurs par clé d’API : un seau à jetons pour le débit, réglé à $r = 5$ et $b = 10$ pour le gratuit, $r = 100$ et $b = 200$ pour le payant ; et un quota journalier, en fenêtre fixe par jour UTC, où l’effet de frontière (2 000 requêtes autour de minuit) est acceptable puisqu’il ne s’agit que de facturation. Dans le service, une limite de concurrence sur l’historique, par exemple 2 requêtes d’historique en cours par clé, et un coût de 100 jetons par requête d’historique dans le seau de la passerelle.
+
+*État.* 2 millions de clés en GCRA ou en seau à jetons tiennent en quelques dizaines de mégaoctets ; on les garde dans un Redis partagé par les 6 instances, pour que la limite soit exacte quelle que soit la répartition (ch. 59). À 30 000 requêtes par seconde, deux opérations Redis par requête, 60 000 par seconde, restent sous les 100 000 lectures par seconde qu’un seul nœud Redis a servies au [ch. 17](cache-invalidation.mdx). En cas de panne de Redis, chaque instance bascule sur un seau local à $1/6$ de la limite, ce qui laisse passer et reste borné, au lieu de tout refuser.
+
+*Réponse.* 429 avec `Retry-After`, les en-têtes `RateLimit-Policy` et `RateLimit` (débit et quota journalier), et un corps qui nomme la limite dépassée ; 503 pour le délestage, quand le service lui-même est saturé.
+
+*SDK.* Le SDK respecte `Retry-After`, applique un recul exponentiel avec gigue complète plafonné à 30 secondes, ne réessaie que les requêtes idempotentes ([ch. 28](garanties-livraison.mdx)), lit le quota restant pour ralentir avant d’être refusé, et cesse de réessayer quand le quota journalier est épuisé, jusqu’à l’heure de remise à zéro.
+
+:::fiche
+- Limitation de débit : une part de capacité par client et par intervalle ; à distinguer de la limitation de concurrence, du délestage (503, état du serveur) et des quotas (jour, mois).
+- Fenêtre fixe : 2 nombres, jusqu’à $2L$ aux frontières (200 en 2 s pour 100/min, mesuré). Journal glissant : exact, $L$ horodatages par clé (8,4 à 33 Ko pour $L$ = 1 000, mesuré).
+- Compteur glissant : $n_{k-1} \cdot (F - (t - kF))/F + n_k$ ; écart moyen 3,3 % sur le débit, mais jusqu’à 156/min acceptées pour 100 (mesuré).
+- Seau à jetons : $r$ et $b$, borne $b + rT$ ; régler $b + rF \le L$ pour garantir $L$ par $F$. GCRA : une seule heure (TAT), mêmes décisions que le seau.
+- Seau percé en file : fait attendre (nginx `burst` sans `nodelay`, jusqu’à 1 s mesurée) ; nginx répond 503 par défaut, `limit_req_status 429`.
+- Clé : IP au bord (NAT, préfixe IPv6 /64), clé d’API à la passerelle, locataire et coût dans le service ; compteurs locaux à $N$ instances donnent $N$ fois la limite.
+- 429 + `Retry-After` (entier de secondes) + `RateLimit` ; ne pas mettre en cache ; réessai immédiat : 129 000 requêtes pour 150 réponses et 10,6 s de processeur (mesuré).
+- Client : `Retry-After`, recul exponentiel avec gigue complète, limitation adaptative $p = \max(0, (\text{req} - K \cdot \text{acc})/(\text{req} + 1))$.
+:::
+
+[^cloudflare]: Julien Desgats, « How we built rate limiting capable of scaling to millions of domains », *The Cloudflare Blog*, 7 juin 2017, [blog.cloudflare.com/counting-things-a-lot-of-different-things](https://blog.cloudflare.com/counting-things-a-lot-of-different-things/).
+[^gcra]: Brandur Leach, « Rate Limiting, Cells, and GCRA », 18 septembre 2015, [brandur.org/rate-limiting](https://brandur.org/rate-limiting).
+[^nginx]: nginx, « Module ngx_http_limit_req_module », documentation de nginx, [nginx.org/en/docs/http/ngx_http_limit_req_module.html](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html).
+[^rfc6585]: Mark Nottingham et Roy T. Fielding, « Additional HTTP Status Codes », RFC 6585, avril 2012, section 4, [rfc-editor.org/rfc/rfc6585](https://www.rfc-editor.org/rfc/rfc6585.html).
+[^rfc9110]: Roy T. Fielding, Mark Nottingham et Julian Reschke, « HTTP Semantics », RFC 9110, juin 2022, section 10.2.3, [rfc-editor.org/rfc/rfc9110#section-10.2.3](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3).
+[^ratelimit]: Roberto Polli, Alejandro Martinez Ruiz et Darrel Miller, « RateLimit header fields for HTTP », draft-ietf-httpapi-ratelimit-headers-11, 23 mai 2026, [datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/).
+[^github]: GitHub, « Rate limits for the REST API », *GitHub Docs*, [docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+[^brooker]: Marc Brooker, « Exponential Backoff And Jitter », *AWS Architecture Blog*, 4 mars 2015, [aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/).
+[^sre]: Alejandro Forero Cuervo, « Handling Overload », chapitre 21 de Betsy Beyer, Chris Jones, Jennifer Petoff et Niall Richard Murphy (dir.), *Site Reliability Engineering*, O’Reilly, 2016, section « Client-side throttling », [sre.google/sre-book/handling-overload](https://sre.google/sre-book/handling-overload/).
+[^stripe]: Paul Tarjan, « Scaling your API with rate limiters », *Stripe Blog*, 30 mars 2017, [stripe.com/blog/rate-limiters](https://stripe.com/blog/rate-limiters).

@@ -100,7 +100,7 @@ Les sessions collantes ne sont pas toujours une faute, mais il faut savoir ce qu
 |---|---|---|---|
 | Mémoire du processus | le plus rapide (environ 2 µs mesurées) | perdu à chaque redémarrage, invisible des autres serveurs | caches recalculables, données en lecture seule |
 | Côté client, jeton signé (cookie, JWT, ch. 54) | aucun stockage serveur, aucun aller-retour | taille limitée, révocation difficile, le client voit le contenu (sauf chiffrement) | identité et droits de courte durée |
-| Magasin clé-valeur partagé (Redis, Memcached) | rapide (quelques centaines de µs mesurées), partagé, expiration automatique | un composant de plus à rendre disponible ; Memcached ne garantit pas la persistance | sessions, paniers, limites de débit (ch. 30) |
+| Magasin clé-valeur partagé (Redis, Memcached) | rapide (quelques centaines de µs mesurées), partagé, expiration automatique | un composant de plus à rendre disponible ; Memcached ne garantit pas la persistance | sessions, paniers, limites de débit ([ch. 30](../partie-2/limitation-debit.mdx)) |
 | Base de données | durable, transactionnelle | plus lente, et vite le goulet si tout y passe | données métier, paniers à conserver |
 | Stockage objet ([ch. 29](../partie-2/stockage-objet.mdx)) | durable, sans limite pratique de taille | latence plus élevée, accès par objet entier | fichiers téléversés, exports |
 

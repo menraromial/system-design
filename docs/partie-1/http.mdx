@@ -62,7 +62,7 @@ Le code tient en trois chiffres, et le premier donne la classe : 1xx informatio
 | 304 Not Modified | la copie du client est encore valable | réutiliser sa copie |
 | 400, 401, 403, 404 | requête invalide, non authentifiée, interdite, ressource absente | corriger, ne pas réessayer tel quel |
 | 409 Conflict | conflit avec l’état de la ressource | relire l’état, puis décider |
-| 429 Too Many Requests | trop de requêtes (ch. 30) | attendre la durée indiquée par `Retry-After` |
+| 429 Too Many Requests | trop de requêtes ([ch. 30](../partie-2/limitation-debit.mdx)) | attendre la durée indiquée par `Retry-After` |
 | 500 Internal Server Error | erreur du serveur | réessayer seulement si la requête est idempotente |
 | 502 Bad Gateway, 504 Gateway Timeout | un intermédiaire n’a pas obtenu de réponse valide du serveur | réessayer avec prudence (ch. 38) |
 | 503 Service Unavailable | serveur surchargé ou en maintenance | attendre, `Retry-After` si présent |

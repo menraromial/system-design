@@ -1,0 +1,39 @@
+% Fenêtre fixe, journal glissant et compteur glissant (limite 100 par minute).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  % axe
+  \draw[ligne] (0,-8) -- (150,-8);
+  \foreach \t/\l in {0/{0 s}, 60/{60 s}, 120/{120 s}} {
+    \draw[Dink, line width=0.9pt] (\t,-10) -- (\t,64);
+    \node[note, below] at (\t,-10) {\l};
+  }
+  \node[axe, anchor=south] at (30,64) {minute 1};
+  \node[axe, anchor=south] at (90,64) {minute 2};
+  % fenêtre fixe
+  \node[axe, anchor=east] at (-3,54) {fenêtre fixe};
+  \fill[DredBg, draw=Dred, line width=0.6pt] (57,49) rectangle (60,59);
+  \fill[DredBg, draw=Dred, line width=0.6pt] (60,49) rectangle (63,59);
+  \node[note, text=Dred, anchor=east] at (56,54) {100};
+  \node[note, text=Dred, anchor=west, fill=white] at (64,54) {100 : compteur remis à zéro};
+  \node[note, text=Dred, anchor=west, fill=white] at (64,49.5) {200 requêtes en 2 s, toutes acceptées};
+  % journal glissant
+  \node[axe, anchor=east] at (-3,30) {journal glissant};
+  \foreach \x in {16,22,31,37,44,51,58,66,73} \fill[Dgreen] (\x,30) circle (1);
+  \draw[decorate, decoration={brace, amplitude=2mm}, line width=0.6pt, Dgreen] (15,34) -- (75,34);
+  \node[note, text=Dgreen, anchor=south, fill=white] at (45,37) {les 60 dernières secondes, requête par requête};
+  \node[note, anchor=west, align=left, fill=white] at (78,30) {un horodatage stocké par requête :\\exact, mémoire proportionnelle à la limite};
+  % compteur glissant
+  \node[axe, anchor=east] at (-3,12) {compteur glissant};
+  \fill[DslateBg, draw=Dslate, line width=0.5pt] (0,9) rectangle (60,15);
+  \node[note] at (30,12) {précédente : 42};
+  \fill[DblueBg, draw=Dblue, line width=0.5pt] (60,9) rectangle (75,15);
+  \node[note, text=Dblue] at (67.5,12) {18};
+  \draw[Dblue, line width=1.2pt] (75,6) -- (75,18);
+  \node[note, text=Dblue, anchor=north] at (75,6) {t = 75 s};
+  \draw[decorate, decoration={brace, amplitude=2mm, mirror}, line width=0.6pt, Dblue] (15,6) -- (60,6);
+  \node[note, text=Dblue, anchor=north, fill=white] at (37.5,2.5) {45 s sur 60 encore couvertes};
+  \node[note, anchor=west, align=left, fill=white] at (80,12) {estimation : 42 × 45/60 + 18 = 49,5 ;\\deux compteurs par clé};
+\end{tikzpicture}
+\end{document}

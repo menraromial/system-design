@@ -1,0 +1,30 @@
+% Seau à jetons et seau percé utilisé comme file.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  % seau à jetons
+  \node[pillo=Dblue] at (25,62) {seau à jetons};
+  \draw[arr=Dblue] (25,54) -- node[lblc=Dblue, right] {r jetons par seconde} (25,46);
+  \draw[draw=Dblue, line width=1pt] (10,44) -- (10,14) -- (40,14) -- (40,44);
+  \foreach \x/\y in {14/17, 20/17, 26/17, 32/17, 17/22, 23/22, 29/22, 20/27}
+    \fill[DblueBg, draw=Dblue, line width=0.5pt] (\x+2,\y+2) circle (2.2);
+  \draw[Dblue, dash pattern=on 2pt off 1.5pt, line width=0.6pt] (8,40) -- (42,40);
+  \node[note, anchor=west, text=Dblue] at (43,40) {capacité b};
+  \draw[arr=Dink] (-14,20) -- node[lbl, above, align=center] {requête} (8,20);
+  \draw[arr=Dgreen] (42,20) -- node[lblc=Dgreen, above, align=center] {passe si un jeton} (66,20);
+  \node[note, anchor=north, align=center] at (25,10) {chaque requête prend un jeton ; sans jeton, refus ;\\jusqu'à b requêtes d'un coup, r par seconde ensuite};
+  % seau percé
+  \begin{scope}[xshift=105mm]
+    \node[pillo=Dorange] at (25,62) {seau percé (file)};
+    \draw[arr=Dink] (25,56) -- node[lbl, right] {requêtes} (25,46);
+    \draw[draw=Dorange, line width=1pt] (10,44) -- (10,22) -- (22,14) -- (28,14) -- (40,22) -- (40,44);
+    \foreach \y in {24, 29, 34} \fill[DorangeBg, draw=Dorange, line width=0.5pt] (14,\y) rectangle (36,\y+4);
+    \draw[Dorange, dash pattern=on 2pt off 1.5pt, line width=0.6pt] (8,40) -- (42,40);
+    \node[note, anchor=east, text=Dorange] at (7,40) {taille de la file};
+    \draw[arr=Dgreen] (25,13) -- node[lblc=Dgreen, right] {r par seconde, régulier} (25,3);
+    \draw[arr=Dred] (42,46) -- node[lblc=Dred, above] {file pleine : refus} (68,46);
+    \node[note, anchor=north, align=center] at (25,0) {les requêtes attendent leur tour ;\\le débit de sortie ne dépasse jamais r};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,23 @@
+% Où limiter : client, bord du réseau, passerelle, service ; la clé à chaque étage.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    etage/.style={soft=#1, rounded corners=3pt, minimum width=34mm, minimum height=10mm, font=\sffamily\small\bfseries}]
+  \foreach \x/\c/\t in {0/Dslate/client, 44/Dteal/{bord (CDN, WAF)}, 88/Dblue/passerelle d'API, 132/Dpurple/service} {
+    \node[etage=\c] (n\x) at (\x,40) {\t};
+  }
+  \draw[arr=Dink] (n0) -- (n44);
+  \draw[arr=Dink] (n44) -- (n88);
+  \draw[arr=Dink] (n88) -- (n132);
+  \foreach \x/\cle/\quoi in {
+      0/{respecte Retry-After}/{recul exponentiel, gigue,\\limitation adaptative},
+      44/{clé : adresse IP, préfixe}/{volume par IP, inondations,\\robots ; grossier},
+      88/{clé : clé d'API, utilisateur}/{quota du forfait, rafales,\\429 et en-têtes RateLimit},
+      132/{clé : locataire, ressource}/{requêtes en cours, opérations\\coûteuses, délestage}} {
+    \node[note, anchor=north, font=\sffamily\small\bfseries] at (\x,32) {\cle};
+    \node[note, anchor=north, align=center] at (\x,26) {\quoi};
+  }
+  \draw[arr=Dred] (88,47) to[bend right=20] node[lblc=Dred, above] {429 + Retry-After} (0,47);
+\end{tikzpicture}
+\end{document}
