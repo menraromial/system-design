@@ -32,7 +32,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 3 · Systèmes distribués',
       collapsed: false,
       link: {type: 'doc', id: 'partie-3/index'},
-      items: ['partie-3/pannes-partielles'],
+      items: ['partie-3/pannes-partielles', 'partie-3/temps'],
     },
   ],
 };

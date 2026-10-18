@@ -1,0 +1,22 @@
+% Un échange NTP : quatre instants, décalage et délai.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \node[pillo=Dblue] at (0,56) {client};
+  \node[pillo=Dgreen] at (70,56) {serveur NTP};
+  \draw[seqlife=Dslate] (0,52) -- (0,0);
+  \draw[seqlife=Dslate] (70,52) -- (70,0);
+  \draw[arr=Dblue] (0,46) -- node[lblc=Dblue, above, sloped] {requête} (70,34);
+  \draw[arr=Dgreen] (70,26) -- node[lblc=Dgreen, above, sloped] {réponse (T2, T3)} (0,10);
+  \foreach \x/\y/\t/\a in {0/46/T1/east, 70/34/T2/west, 70/26/T3/west, 0/10/T4/east} {
+    \fill[Dink] (\x,\y) circle (0.9);
+    \node[note, anchor=\a, font=\sffamily\small\bfseries] at ({\x + (\x > 0 ? 2 : -2)},\y) {\t};
+  }
+  \draw[Damber, line width=1pt] (68,34) -- (66,34) -- (66,26) -- (68,26);
+  \node[note, anchor=east, text=Damber] at (65,30) {traitement};
+  \node[note, anchor=west, align=left] at (88,40) {décalage $\theta = \dfrac{(T_2 - T_1) + (T_3 - T_4)}{2}$};
+  \node[note, anchor=west, align=left] at (88,24) {délai $\delta = (T_4 - T_1) - (T_3 - T_2)$};
+  \node[note, anchor=west, align=left] at (88,10) {$\theta$ est exact si l'aller et le retour\\durent autant ; sinon, l'erreur peut\\atteindre $\pm\,\delta/2$};
+\end{tikzpicture}
+\end{document}

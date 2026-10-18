@@ -1,0 +1,27 @@
+% Trois processus, trois messages, et les horodatages de Lamport (bleu) et vectoriels (vert).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    ev/.style={circle, fill=Dink, inner sep=0pt, minimum size=2.4mm}]
+  \foreach \y/\p in {40/P1, 20/P2, 0/P3} {
+    \node[axe, anchor=east] at (-3,\y) {\p};
+    \draw[Dslate, line width=0.7pt, -{Stealth[length=2mm]}] (0,\y) -- (115,\y);
+  }
+  \foreach \x/\y/\n/\l/\v/\cote in {10/40/a/1/{[1,0,0]}/north, 30/40/b/2/{[2,0,0]}/north, 85/40/f/5/{[3,3,1]}/north,
+                                    33/20/d/2/{[0,1,1]}/south, 50/20/c/3/{[2,2,1]}/south, 65/20/e/4/{[2,3,1]}/south,
+                                    15/0/x/1/{[0,0,1]}/south, 100/0/g/2/{[0,0,2]}/south} {
+    \node[ev] (\n) at (\x,\y) {};
+  }
+  \foreach \n/\l/\v in {a/1/{[1,0,0]}, b/2/{[2,0,0]}, f/5/{[3,3,1]}, d/2/{[0,1,1]}}
+    \node[note, anchor=south, align=center] at ([yshift=1.5mm]\n) {\textbf{\n}\\\textcolor{Dblue}{\l}\ \ \textcolor{Dgreen}{\v}};
+  \foreach \n/\l/\v in {c/3/{[2,2,1]}, e/4/{[2,3,1]}, x/1/{[0,0,1]}, g/2/{[0,0,2]}}
+    \node[note, anchor=north, align=center] at ([yshift=-1.5mm]\n) {\textcolor{Dblue}{\l}\ \ \textcolor{Dgreen}{\v}\\\textbf{\n}};
+  \draw[arr=Dink] (b) -- (c);
+  \draw[arr=Dink] (x) -- (d);
+  \draw[arr=Dink] (e) -- (f);
+  \node[note, anchor=north west, align=left, text width=118mm] at (0,-13) {\textcolor{Dblue}{Lamport} : $L = \max(L_{\text{local}}, L_{\text{reçu}}) + 1$ ; si $a \rightarrow b$ alors $L(a) < L(b)$, mais $L(g) = 2 < L(f) = 5$ alors que $g$ et $f$ sont concurrents\\[1mm]
+    \textcolor{Dgreen}{vecteur} : un compteur par processus ; $a \rightarrow b$ si et seulement si $V(a) \le V(b)$, composante par composante, et $V(a) \ne V(b)$\\
+    $V(b) = [2,0,0]$ et $V(d) = [0,1,1]$ ne se comparent pas : $b$ et $d$ sont concurrents};
+\end{tikzpicture}
+\end{document}

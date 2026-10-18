@@ -63,7 +63,7 @@ export const PARTIES: Partie[] = [
     resume: 'Pannes partielles, temps, consensus, coordination, transactions distribuées, résilience, structures probabilistes, convergence.',
     chapitres: [
       {num: 32, titre: 'Pannes partielles et détection de panne', doc: 'partie-3/pannes-partielles'},
-      {num: 33, titre: 'Le temps dans un système distribué'},
+      {num: 33, titre: 'Le temps dans un système distribué', doc: 'partie-3/temps'},
       {num: 34, titre: 'Consensus (1) : le problème et Paxos'},
       {num: 35, titre: 'Consensus (2) : Raft en détail'},
       {num: 36, titre: 'Coordination : ZooKeeper, etcd, service discovery'},

@@ -1,0 +1,28 @@
+% TrueTime : un intervalle d'incertitude, et l'attente de validation.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \draw[ligne, -{Stealth[length=2mm]}] (0,0) -- (130,0);
+  \node[axe, anchor=west] at (131,0) {temps réel};
+  % premier appel
+  \draw[Dblue, line width=5pt, opacity=0.35] (10,14) -- (40,14);
+  \draw[Dblue, line width=0.8pt] (10,11) -- (10,17); \draw[Dblue, line width=0.8pt] (40,11) -- (40,17);
+  \node[note, text=Dblue, anchor=south] at (25,18) {TT.now() à la validation};
+  \node[note, anchor=north] at (10,10) {earliest};
+  \node[note, anchor=north] at (40,10) {latest = $s$};
+  \fill[Dred] (25,0) circle (1);
+  \node[note, text=Dred, anchor=north] at (25,-2) {instant réel};
+  \draw[Dslate, line width=0.5pt] (25,1) -- (25,13);
+  \draw[decorate, decoration={brace, amplitude=1.5mm}, line width=0.6pt] (10,22) -- (40,22);
+  \node[note, anchor=south] at (25,24.5) {$2\varepsilon$};
+  % attente
+  \draw[Damber, line width=1.3pt, -{Stealth[length=2mm]}] (40,30) -- node[lblc=Damber, above] {attente de validation, ≈ 2ε} (95,30);
+  % second appel
+  \draw[Dgreen, line width=5pt, opacity=0.35] (70,14) -- (100,14);
+  \draw[Dgreen, line width=0.8pt] (70,11) -- (70,17); \draw[Dgreen, line width=0.8pt] (100,11) -- (100,17);
+  \node[note, text=Dgreen, anchor=south] at (85,18) {TT.now() plus tard};
+  \node[note, anchor=north, align=center] at (85,10) {earliest > $s$ : $s$ est passé\\à coup sûr, on rend la réponse};
+  \draw[Dslate, line width=0.5pt, dash pattern=on 2pt off 1.5pt] (40,10) -- (40,0);
+\end{tikzpicture}
+\end{document}

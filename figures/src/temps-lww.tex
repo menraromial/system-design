@@ -1,0 +1,20 @@
+% La dernière écriture gagne : un client à l'horloge en retard perd son écriture.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \draw[ligne] (0,0) -- (95,0);
+  \node[axe, anchor=north] at (47,-6) {temps réel};
+  \foreach \x/\l in {20/{t}, 60/{t + 100 ms}} {\draw[ligne] (\x,0) -- (\x,-1.5); \node[note, below] at (\x,-1.5) {\l};}
+  \node[pillo=Dblue, anchor=east, align=center] at (-2,34) {client A\\heure juste};
+  \node[pillo=Dorange, anchor=east, align=center] at (-2,18) {client B\\retard de 500 ms};
+  \fill[Dblue] (20,34) circle (1.3);
+  \node[note, text=Dblue, anchor=south] at (20,36) {écrit v = A, horodatage 12:00:00,000};
+  \fill[Dorange] (60,18) circle (1.3);
+  \node[note, text=Dorange, anchor=north] at (60,16) {écrit v = B, horodatage 11:59:59,600};
+  \draw[arr=Dslate, dash pattern=on 2pt off 1.5pt] (20,32) -- (88,26);
+  \draw[arr=Dslate, dash pattern=on 2pt off 1.5pt] (60,20) -- (88,24);
+  \node[soft=Dgreen, rounded corners=3pt, font=\sffamily\small, align=center, minimum width=26mm] at (100,25) {réplique :\\garde A};
+  \node[note, text=Dred, anchor=north, align=center] at (100,17) {B, écrite après A,\\est perdue sans erreur};
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,307 @@
+---
+title: "Le temps dans un système distribué"
+sidebar_label: "33. Le temps"
+description: "Horloges physiques, dérive, NTP et ses incertitudes, sauts d'horloge et secondes intercalaires ; pourquoi ordonner des écritures par horodatage perd des données (mesuré avec Cassandra) ; horloges de Lamport, horloges vectorielles, horloges hybrides (HLC) ; TrueTime de Spanner et l'attente de validation ; mesures sur l'horloge d'un portable, des serveurs NTP réels et une simulation de causalité."
+partie: 3
+chapitre: 33
+---
+
+import ntp from '@site/src/figures/temps-ntp.svg';
+import lww from '@site/src/figures/temps-lww.svg';
+import lamport from '@site/src/figures/temps-lamport.svg';
+import truetime from '@site/src/figures/temps-truetime.svg';
+
+Deux clients écrivent la même clé dans Cassandra. Le second écrit 100 ms après le premier, mais son horloge retarde de 150 ms ; Cassandra garde la valeur dont l’horodatage est le plus grand, celle du premier, et l’écriture la plus récente disparaît sans erreur ni avertissement. Un retard de 150 ms n’a rien d’exceptionnel. L’horloge du portable sur lequel les mesures de ce chapitre ont été faites, synchronisée par NTP, était décalée de −20 à +45 ms selon le serveur qu’on interrogeait, et ce décalage n’était connu qu’à 26 à 150 ms près ; le noyau lui-même annonçait une erreur maximale de 235 puis 475 ms.
+
+Sur une seule machine, le temps ne pose presque pas de question, puisqu’il y a une horloge et un seul ordre des événements. Sur plusieurs, chaque machine a son horloge, qui avance à sa propre vitesse et qu’une synchronisation corrige de façon imparfaite, et l’ordre dans lequel deux machines ont fait quelque chose n’est pas toujours celui que donnent leurs horloges. Ce chapitre décrit les horloges physiques et leur synchronisation, montre ce qui se perd quand on ordonne des écritures par leur horodatage, puis présente les horloges logiques de Lamport, les horloges vectorielles et les horloges hybrides, qui ordonnent les événements sans faire confiance à l’heure, et TrueTime, qui fait confiance à l’heure en mesurant son incertitude.
+
+Quatre expériences ont été faites pour ce chapitre. [`outils/experiences/ch33/horloges.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch33/horloges.py) mesure les horloges de la machine et lit, sans la modifier, l’état de leur synchronisation dans le noyau. [`ntp.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch33/ntp.py) interroge quatre serveurs NTP publics. [`lww.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch33/lww.py) écrit dans Cassandra 5 depuis deux clients dont les horloges diffèrent. [`causalite.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch33/causalite.py) simule des processus qui échangent des messages et compare les horodatages physiques, de Lamport, vectoriels et hybrides, puis l’attente de validation de TrueTime.
+
+## Deux horloges dans chaque machine
+
+Une machine compte le temps avec un oscillateur à quartz, dont la fréquence réelle s’écarte de sa valeur nominale de quelques à quelques dizaines de millionièmes (parties par million, ppm) et varie avec la température. Une erreur de 50 ppm fait 4,3 secondes par jour. Le noyau corrige cette dérive à partir de ce que lui dit un service de synchronisation, et donne aux programmes plusieurs horloges qui ne se comportent pas de la même façon. La page de manuel de `clock_gettime` de Linux en décrit trois principales[^clock]. `CLOCK_REALTIME` donne l’heure du mur (wall clock), celle qu’on peut régler, et elle saute quand un administrateur ou un service de synchronisation la change d’un coup. `CLOCK_MONOTONIC` ne saute jamais et ne recule jamais, mais sa vitesse est ajustée par les corrections de fréquence de NTP. `CLOCK_MONOTONIC_RAW` suit l’oscillateur brut, sans aucune correction.
+
+`horloges.py` mesure le coût de lecture de ces horloges depuis Python, lit l’état de la synchronisation par l’appel système `adjtimex`, en lecture seule, ce qui ne demande aucun privilège[^adjtimex], et compare pendant 60 secondes l’horloge monotone à l’horloge brute.
+
+```text
+1. lecture des horloges (1 million de lectures)
+   CLOCK_REALTIME        résolution   1 ns, lecture   85 ns
+   CLOCK_MONOTONIC       résolution   1 ns, lecture   75 ns
+   CLOCK_MONOTONIC_RAW   résolution   1 ns, lecture   75 ns
+
+2. discipline de l'horloge par le noyau (adjtimex, lecture seule)
+   état TIME_OK, horloge synchronisée
+   correction de fréquence +4.672 ppm (tolérance 500 ppm)
+   erreur estimée 0 µs, erreur maximale 475000 µs
+
+3. CLOCK_MONOTONIC contre CLOCK_MONOTONIC_RAW sur 60 s
+   la monotone a avancé de +1073.1 µs de plus que la brute,
+   soit +17.886 ppm
+```
+
+Lire une horloge coûte 75 à 85 ns, de quoi horodater des millions d’événements par seconde. Le noyau applique une correction de fréquence de +4,672 ppm, celle qu’a calculée `systemd-timesyncd` ; sans elle, l’horloge perdrait 0,4 s par jour. L’erreur maximale annoncée par le noyau valait 235 ms au premier passage et 475 ms au second ; c’est la borne qu’il garantit sur l’écart à l’heure vraie, et elle grandit tant qu’aucune nouvelle mesure ne la réduit. L’horloge monotone a avancé de 17,9 ppm plus vite que l’horloge brute (38,5 ppm au premier passage), plus que la seule correction de fréquence, parce que le noyau rattrape aussi, progressivement, le décalage mesuré par NTP, plutôt que de faire sauter l’heure.
+
+On en tire la règle la plus simple du chapitre. Une durée, un délai d’attente, un intervalle entre deux battements de cœur ([ch. 32](pannes-partielles.mdx)) se mesurent avec l’horloge monotone ; l’heure du mur ne sert qu’à dater, pour un humain ou pour un autre système, et on ne soustrait jamais deux heures du mur pour obtenir une durée.
+
+## Synchroniser par NTP
+
+NTP (Network Time Protocol), décrit dans sa version 4 par RFC 5905, organise les serveurs de temps en strates[^rfc5905]. Une strate 0 est une horloge de référence (récepteur GPS, horloge atomique) ; un serveur de strate 1 y est relié directement ; un serveur de strate 2 se synchronise sur des serveurs de strate 1, et ainsi de suite. Un client échange un paquet avec un serveur et en tire deux grandeurs.
+
+<Figure svg={ntp} num="33.1" alt="Chronogramme entre un client et un serveur NTP. Le client envoie la requête à T1, le serveur la reçoit à T2, la traite et répond à T3, le client reçoit la réponse à T4. Décalage θ = ((T2 − T1) + (T3 − T4)) / 2 ; délai δ = (T4 − T1) − (T3 − T2). θ est exact si l’aller et le retour durent autant ; sinon l’erreur peut atteindre plus ou moins δ/2.">
+Un échange NTP : quatre instants, un décalage et un délai.
+</Figure>
+
+Sur la figure 33.1, $T_1$ et $T_4$ sont lus sur l’horloge du client, $T_2$ et $T_3$ sur celle du serveur. Le délai $\delta$ est le temps passé sur le réseau, aller et retour, et le décalage $\theta$ est l’écart entre les deux horloges, à condition que l’aller et le retour durent autant. Rien ne permet de le vérifier, et si tout le délai était à l’aller, ou tout au retour, $\theta$ serait faux de $\delta/2$. L’incertitude d’une synchronisation par NTP est donc au moins la moitié du temps d’aller-retour vers le serveur.
+
+`ntp.py` interroge quatre serveurs publics, six fois chacun, depuis le portable des mesures, dont la connexion met plus de 50 ms à atteindre chacun d’eux.
+
+```text
+décalage θ de l'horloge locale par rapport au serveur, délai δ
+   serveur             str.   δ min  θ à δ min       θ min..max  ± δ/2
+   time.cloudflare.com    3   135ms    +29.2ms    +4.2..+258.5ms   67ms
+   time.google.com        1   218ms    +11.1ms   -43.9..+231.3ms  109ms
+   pool.ntp.org           3    58ms    +37.3ms   +32.3.. +63.2ms   29ms
+                       écartées : 3 × refus RATE
+   ntp.ubuntu.com         2   260ms    +45.4ms   -38.7.. +67.7ms  130ms
+   (6 requêtes par serveur ; δ min = la requête la plus rapide)
+```
+
+Le second passage a donné des décalages de −20 à +35 ms pour la requête la plus rapide de chaque serveur, et des délais du même ordre. Les quatre serveurs ne s’accordent qu’à quelques dizaines de millisecondes près, ce qui reste dans leurs incertitudes de ± 29 à ± 130 ms. D’une requête à l’autre, le décalage calculé varie bien davantage, jusqu’à +258 ms, parce qu’une requête ralentie dans un seul sens fausse le calcul ; c’est pourquoi un client NTP garde plusieurs échantillons et retient ceux dont le délai est le plus court. Trois réponses de `pool.ntp.org` étaient des refus, des paquets « kiss-o’-death » de code `RATE` qui demandent au client d’espacer ses requêtes, la limitation de débit du [ch. 30](../partie-2/limitation-debit.mdx) appliquée au temps ; RFC 5905 demande au client de les respecter. Dans un centre de données, avec un serveur de temps à quelques centaines de microsecondes, la même méthode donne une incertitude de l’ordre de la milliseconde ; à travers Internet, de l’ordre de la dizaine ou de la centaine.
+
+Un client NTP corrige l’horloge de deux façons. Il l’ajuste progressivement (slewing), en accélérant ou en ralentissant légèrement l’horloge, ce que montrait la mesure précédente ; ou il la fait sauter (stepping) quand l’écart est trop grand, au démarrage ou après une longue coupure. Un saut fait reculer l’heure du mur, et tout code qui mesure une durée avec elle obtient une valeur négative. Les secondes intercalaires (leap seconds), ajoutées au temps universel pour suivre la rotation de la Terre, posent le même problème. Google les répartit sur ses serveurs de temps par un lissage linéaire de 24 heures, de midi à midi UTC, qui ralentit les horloges d’environ 11,6 ppm[^smear] ; l’heure lissée s’écarte alors du temps universel d’au plus une demi-seconde, et il ne faut pas mélanger dans un même groupe de machines des serveurs qui lissent et d’autres qui ne lissent pas.
+
+## Pourquoi ordonner par horodatage est dangereux
+
+De nombreux systèmes ordonnent des écritures concurrentes par leur horodatage, selon la règle « la dernière écriture gagne » (last write wins, LWW) : Cassandra pour chaque cellule, de nombreuses bases à plusieurs leaders ([ch. 25](../partie-2/replication-multi.mdx)), les caches qui gardent la version la plus récente. La règle est simple et converge, puisque toutes les répliques gardent la même valeur. Mais « la plus récente » veut dire « celle dont l’horodatage est le plus grand », et l’horodatage vient d’une horloge.
+
+<Figure svg={lww} num="33.2" alt="Ligne de temps réel. Le client A, à l’heure juste, écrit v = A à l’instant t avec l’horodatage 12:00:00,000. Le client B, dont l’horloge retarde de 500 ms, écrit v = B à t + 100 ms avec l’horodatage 11:59:59,600. La réplique garde A ; B, écrite après A, est perdue sans erreur.">
+La dernière écriture gagne, selon les horloges.
+</Figure>
+
+La figure 33.2 montre le mécanisme. Cassandra range chaque cellule avec un horodatage en microsecondes, et le pilote Python de Cassandra le fixe côté client, à partir de l’heure du mur, par son générateur `MonotonicTimestampGenerator`, qui renvoie `int(time.time() * 1e6)`[^pilote]. `lww.py` fait écrire deux clients sur la même clé ; le second écrit 100 ms après le premier, et son générateur est décalé du retard indiqué, comme le serait celui d’un client dont l’horloge retarde.
+
+```text
+Cassandra 5.0.9 ; le client A écrit, puis le client B écrit 100 ms plus tard
+    retard de B    tB - tA  valeur lue  écriture perdue
+           0 ms  +120.5 ms           B  A
+           5 ms   +99.4 ms           B  A
+          50 ms   +54.5 ms           B  A
+         100 ms    +3.5 ms           B  A
+         150 ms   -46.6 ms           A  B, la plus récente
+         500 ms  -396.5 ms           A  B, la plus récente
+        2000 ms -1896.7 ms           A  B, la plus récente
+
+   égalité d'horodatage : deux écritures au même instant
+   « aaa » puis « zzz » : on lit « zzz »
+   « zzz » puis « aaa » : on lit « zzz »
+```
+
+Le second passage a donné les mêmes valeurs lues et des écarts d’horodatage à 3 ms près. Tant que le retard de l’horloge de B est inférieur à l’écart réel entre les deux écritures, environ 105 à 120 ms ici, l’ordre est respecté. Au-delà, l’horodatage de B est plus petit que celui de A, et c’est l’écriture la plus récente qui est perdue ; Cassandra ne signale rien, puisque de son point de vue il n’y a pas de conflit, seulement une écriture plus ancienne à ignorer. À horodatage égal, Cassandra départage par la valeur, et « zzz » l’emporte sur « aaa » quel que soit l’ordre des écritures. La documentation de Cassandra signale d’ailleurs que, dans un lot, des égalités d’horodatage peuvent faire appliquer les opérations dans un autre ordre que celui où elles sont écrites[^cassandra-dml].
+
+Avec une synchronisation NTP qui laisse des écarts de quelques dizaines de millisecondes entre les machines, deux écritures sur la même clé séparées de moins que cet écart ont donc une chance d’être inversées. Le même défaut touche tout ce qui compare des horodatages venus de machines différentes : fusionner des journaux de plusieurs serveurs dans l’ordre de leurs horodatages, calculer la durée d’une requête dans une trace répartie à partir de deux machines, décider qu’un bail ou un verrou a expiré (ch. 36), ou garder « la dernière modification » d’un document édité depuis deux appareils.
+
+## Les horloges logiques de Lamport
+
+Leslie Lamport a montré en 1978 qu’on n’a souvent pas besoin de l’heure, mais seulement de l’ordre dans lequel les événements ont pu s’influencer[^lamport]. Il définit la relation « s’est produit avant » (happened-before), notée $a \rightarrow b$. Elle est vraie si $a$ et $b$ ont lieu sur le même processus et que $a$ vient en premier, si $a$ est l’envoi d’un message et $b$ sa réception, ou par transitivité. Deux événements qu’aucune chaîne ne relie sont concurrents, et aucun des deux n’a pu influencer l’autre.
+
+Une horloge de Lamport est un simple compteur par processus. Chaque événement l’incrémente, chaque message emporte la valeur de son émetteur, et le récepteur prend le maximum de la sienne et de celle reçue, plus un. Lamport en tire la condition d’horloge : si $a \rightarrow b$, alors $L(a) < L(b)$. En départageant les égalités par le numéro du processus, on obtient un ordre total de tous les événements, compatible avec la causalité, que l’article utilise pour un verrou réparti.
+
+L’implication ne vaut que dans un sens. $L(a) < L(b)$ ne dit pas si $a$ a précédé $b$ ou s’ils sont concurrents, et une horloge de Lamport ne permet donc pas de détecter un conflit entre deux écritures. Les horloges vectorielles, proposées indépendamment par Colin Fidge[^fidge] et Friedemann Mattern[^mattern] en 1988, comblent ce manque. Chaque processus garde un vecteur d’un compteur par processus ; il incrémente le sien à chaque événement, et à la réception d’un message prend le maximum composante par composante. Alors $a \rightarrow b$ si et seulement si $V(a) \le V(b)$ composante par composante et $V(a) \ne V(b)$, et deux vecteurs qui ne se comparent pas désignent des événements concurrents. Les vecteurs de versions de Dynamo et de Riak, qui détectent les écritures concurrentes sur une même clé ([ch. 25](../partie-2/replication-multi.mdx)), en sont une variante.
+
+<Figure svg={lamport} num="33.3" alt="Trois processus P1, P2, P3 sur des lignes horizontales. P1 : a (1, [1,0,0]), b (2, [2,0,0]), f (5, [3,3,1]). P2 : d (2, [0,1,1]), c (3, [2,2,1]), e (4, [2,3,1]). P3 : x (1, [0,0,1]), g (2, [0,0,2]). Messages : b vers c, x vers d, e vers f. Lamport : L = max(L local, L reçu) + 1 ; si a précède b alors L(a) < L(b), mais L(g) = 2 < L(f) = 5 alors que g et f sont concurrents. Vecteur : a précède b si et seulement si V(a) ≤ V(b) composante par composante et V(a) ≠ V(b) ; V(b) = [2,0,0] et V(d) = [0,1,1] ne se comparent pas, b et d sont concurrents.">
+Horodatages de Lamport (bleu) et vectoriels (vert) sur trois processus.
+</Figure>
+
+Sur la figure 33.3, $f$ reçoit le message de $e$, qui avait lui-même reçu ceux de $b$ et de $x$ ; son vecteur [3,3,1] domine ceux de tous ces événements. L’événement $g$, sur P3, n’a reçu aucun message après $x$. Son horodatage de Lamport, 2, est plus petit que celui de $f$, 5, ce qui ne dit rien, et son vecteur [0,0,2] ne se compare pas à [3,3,1], si bien que les deux événements sont concurrents. Le prix des vecteurs est leur taille, un compteur par processus dans chaque message.
+
+## Les horloges hybrides
+
+Une horloge de Lamport ne dit rien de l’heure ; on ne peut pas lui demander « l’état au 18 octobre à 10 h ». Sandeep Kulkarni et ses collègues ont proposé en 2014 l’horloge logique hybride (hybrid logical clock, HLC), qui combine les deux[^hlc]. Un horodatage HLC est une paire $(l, c)$. $l$ est la plus grande heure physique que le processus a vue, la sienne ou celle d’un message reçu, et $c$ un petit compteur qui départage les événements de même $l$. À chaque événement, $l$ prend le maximum de l’ancienne valeur, de l’heure physique locale et, pour une réception, de la valeur reçue ; $c$ est remis à zéro si $l$ a avancé, incrémenté sinon. L’article montre que la HLC respecte la causalité comme une horloge de Lamport, que $l$ ne s’écarte jamais de l’heure physique de plus que l’écart maximal entre les horloges, et que $c$ reste petit ; elle tient en 64 bits, si bien qu’elle remplace un horodatage physique sans changer de format.
+
+CockroachDB ordonne ses transactions avec des horloges hybrides et suppose que les horloges de ses nœuds ne s’écartent pas de plus d’une borne, l’option `--max-offset`, de 500 ms par défaut. Sa documentation précise qu’un nœud qui observe un écart plus grand s’arrête, pour réduire le risque de lire des données incohérentes, et qu’augmenter la borne allonge le temps de reprise après une panne et multiplie les redémarrages de lectures dus à l’incertitude[^crdb].
+
+`causalite.py` simule 5 processus qui produisent chacun 1 000 événements par seconde pendant 2 secondes ; un événement sur deux envoie un message, reçu après 0,1 à 1 ms. Les horloges physiques sont décalées d’au plus ± ε et dérivent de ± 50 ppm. Chaque événement reçoit les quatre horodatages, et les horloges vectorielles, exactes, servent de référence pour la causalité. Le script compte les messages reçus « avant » d’avoir été envoyés selon les horloges physiques, puis tire 200 000 paires d’événements séparés de moins de 5 ms et compte, parmi les paires liées causalement, celles que chaque horodatage met dans le mauvais ordre.
+
+```text
+simulation, graine 1 ; 5 processus, 1 000 événements/s chacun pendant 2 s ;
+délai réseau 0,1 à 1 ms ; un événement sur deux envoie un message
+
+1. ordre causal et horodatages (paires séparées de moins de 5 ms)
+         ε  msg inversés  causales  concur.  physique  Lamport  HLC
+     0.0ms        0.08 %    103032    94414    0.00 %        0    0
+     0.1ms        0.00 %    104625    92701    0.00 %        0    0
+     1.0ms       32.64 %    104535    92743    1.67 %        0    0
+    10.0ms       49.82 %    105759    91581   20.49 %        0    0
+   100.0ms       49.48 %    105436    91954   29.20 %        0    0
+
+   horloge hybride (l, c) : avance de l sur l'horloge physique
+         ε  avance max de l  c max
+     0.0ms          0.04 ms      1
+     0.1ms          0.00 ms      0
+     1.0ms          1.52 ms      9
+    10.0ms         18.40 ms     21
+   100.0ms         76.23 ms     29
+
+2. taille d'un horodatage transmis avec chaque message
+       5 processus : Lamport 8 o, HLC 12 o, vecteur 40 o
+     100 processus : Lamport 8 o, HLC 12 o, vecteur 800 o
+    1000 processus : Lamport 8 o, HLC 12 o, vecteur 8000 o
+```
+
+La seconde graine a donné 0,69 % de paires causales mal ordonnées par l’horloge physique à ε = 1 ms, 19,0 % à 10 ms et 31,3 % à 100 ms. Dès que l’écart entre les horloges dépasse le délai du réseau, une partie des messages arrive « avant » d’être partie, 20 à 33 % à ε = 1 ms selon les décalages tirés, et la moitié au-delà, puisqu’un message va alors aussi souvent vers une horloge en retard que vers une horloge en avance. Même sans décalage, la dérive de 50 ppm, 100 µs en 2 secondes, inverse quelques messages au délai le plus court. Lamport et HLC ne se trompent jamais sur une paire causale, comme le garantit leur construction. L’horloge hybride reste proche de l’heure physique, puisque son avance maximale suit l’écart entre les horloges (1,5 ms pour ε = 1 ms, 76 à 115 ms pour 100 ms), et son compteur ne dépasse pas 44. Près de la moitié des paires d’événements proches sont concurrentes ; seules les horloges vectorielles le savent, et leur taille croît avec le nombre de processus, 8 Ko par message pour 1 000.
+
+## TrueTime et l’attente de validation
+
+Spanner, la base répartie de Google, prend le problème à l’envers. Au lieu de se passer de l’heure, il mesure son incertitude et l’attend[^spanner]. Son interface TrueTime renvoie, pour `TT.now()`, un intervalle `[earliest, latest]` qui contient à coup sûr l’heure vraie. Chaque centre de données a des maîtres de temps, la plupart équipés de récepteurs GPS, d’autres d’horloges atomiques (que l’article appelle « maîtres Armageddon »), dont les pannes ne sont pas corrélées. Chaque machine interroge plusieurs maîtres et élargit l’intervalle au fil du temps avec une dérive supposée de 200 µs par seconde. L’article donne une demi-largeur ε en dents de scie, de 1 à 7 ms entre deux interrogations faites toutes les 30 secondes, soit 4 ms la plupart du temps.
+
+<Figure svg={truetime} num="33.4" alt="Ligne de temps réel. TT.now() à la validation renvoie un intervalle de largeur 2ε, de earliest à latest ; l’instant réel est quelque part dedans ; l’horodatage s de la transaction est latest. Une flèche indique l’attente de validation, environ 2ε. Un TT.now() plus tard renvoie un intervalle dont earliest dépasse s : s est passé à coup sûr, on rend la réponse.">
+L’attente de validation de TrueTime.
+</Figure>
+
+La règle de validation est sur la figure 33.4. Une transaction en écriture reçoit l’horodatage $s$ = `TT.now().latest`, et le coordinateur ne rend sa réponse, ni ne rend ses écritures visibles, qu’une fois `TT.after(s)` vrai, c’est-à-dire quand le `earliest` d’un nouvel appel dépasse $s$. L’article appelle cette pause l’attente de validation (commit wait), et en évalue la durée moyenne à au moins $2\bar{\varepsilon}$. Elle garantit la cohérence externe : si une transaction $T_2$ commence après que $T_1$ a été validée, en temps réel, alors $s_2 > s_1$, quelles que soient les machines.
+
+La dernière partie de `causalite.py` simule deux serveurs dont les horloges sont fausses d’au plus ε. $T_1$ est validée sur le premier ; dès que le client a la réponse, il lance $T_2$ sur le second, 0,5 ms plus tard. Le script compte les cas où $s_2 < s_1$, sans attente et avec l’attente de TrueTime.
+
+```text
+3. horodatages de validation sur deux serveurs (20 000 paires)
+        ε   sans attente   avec attente  attente moyenne
+      1ms      5727 viol.         0 viol.          2.0 ms
+      4ms      8692 viol.         0 viol.          8.0 ms
+      7ms      9225 viol.         0 viol.         14.0 ms
+```
+
+Sans attente, de 28 % (pour ε = 1 ms) à 46 % (pour 7 ms) des paires reçoivent des horodatages dans l’ordre inverse de leur ordre réel, et un lecteur qui lirait « à l’instant $s_1$ » verrait $T_2$ sans $T_1$. La seconde graine a donné 5 585 à 9 359 violations. Avec l’attente, il n’y en a aucune, et chaque transaction paie 2ε, soit 8 ms pour les 4 ms habituels de Spanner. C’est pourquoi Google a investi dans des maîtres GPS et atomiques dans chaque centre de données, parce que l’attente coûte deux fois l’incertitude et que c’est l’incertitude qu’il faut réduire.
+
+## Compromis
+
+| Horodatage | Taille | Garantie sur la causalité | Proche de l’heure ? | Détecte la concurrence | Mesuré | Usages |
+|---|---|---|---|---|---|---|
+| Heure physique (NTP) | 8 o | aucune ; erreur de l’ordre de l’incertitude NTP | oui, à ± δ/2 près (± 26 à 150 ms via Internet) | non | 0,7 à 1,7 % de paires causales inversées pour ε = 1 ms, 29 à 31 % pour 100 ms ; écriture la plus récente perdue dès 150 ms de retard | journaux, affichage, LWW quand la perte est acceptable |
+| Lamport | 8 o | si $a \rightarrow b$ alors $L(a) < L(b)$ | non | non | aucune paire causale inversée | ordre total, verrou réparti, numéros de terme et d’époque |
+| Vectorielle | 8 o × $n$ | $a \rightarrow b \iff V(a) < V(b)$ | non | oui | 8 Ko par message pour 1 000 processus | détection de conflits (Dynamo, Riak) |
+| Hybride (HLC) | 8 à 12 o | comme Lamport | oui, à l’écart maximal près | non | aucune inversion ; avance ≤ écart entre horloges, $c$ ≤ 44 | CockroachDB, instantanés cohérents |
+| TrueTime | intervalle | cohérence externe, avec l’attente | oui, à ε près | non | aucune violation ; attente 2ε (8 ms pour ε = 4 ms) | Spanner |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la dérive d’une horloge non corrigée]
+Hypothèses : une correction de fréquence de 4,672 ppm (mesurée), une erreur typique de quartz de 50 ppm, et une machine qui perd sa synchronisation pendant une semaine.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Dérive par jour, 4,672 ppm | 4,672 × 10⁻⁶ × 86 400 s | 0,40 s |
+| Dérive par jour, 50 ppm | 50 × 10⁻⁶ × 86 400 s | 4,3 s |
+| Après une semaine sans synchronisation, 50 ppm | 4,3 × 7 | 30 s |
+| Tolérance de fréquence du noyau | 500 ppm (adjtimex) | 43 s par jour au plus |
+
+Conclusion : une horloge laissée à elle-même s’écarte d’une demi-seconde à quelques secondes par jour. C’est assez pour inverser des écritures séparées de plusieurs secondes, et pour faire dépasser à une base comme CockroachDB sa borne de 500 ms en quelques heures si sa synchronisation tombe.
+:::
+
+:::calcul[Calcul : l’écart minimal entre deux écritures pour que LWW ne se trompe pas]
+Hypothèses : deux clients synchronisés chacun par NTP, avec une incertitude de ± δ/2 ; on veut que l’écriture faite en second ait toujours le plus grand horodatage.
+
+| Situation | Écart maximal entre deux horloges | Écart minimal entre les écritures |
+|---|---|---|
+| Même centre de données, serveur de temps local (δ ≈ 1 ms) | 2 × 0,5 ms | 1 ms |
+| À travers Internet depuis le portable des mesures (δ min de 52 à 301 ms) | 2 × 150 ms | 300 ms |
+| Mesuré avec Cassandra | retard de 150 ms, écart de 105 à 120 ms | B perdue |
+
+Conclusion : LWW ne respecte l’ordre que pour des écritures plus espacées que l’écart entre les horloges, de l’ordre de la milliseconde dans un centre de données bien synchronisé, de plusieurs centaines de millisecondes entre des clients sur Internet. Une application dont deux utilisateurs modifient la même valeur à quelques secondes d’intervalle, depuis leurs téléphones, ne doit pas laisser leurs horloges décider.
+:::
+
+:::calcul[Calcul : ce que coûte l’attente de validation]
+Hypothèses : ε moyen de 4 ms (Spanner) ; des transactions qui modifient la même ligne les unes après les autres, chacune attendant la validation de la précédente ; une réplication par Paxos de 10 ms entre trois régions proches.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Attente de validation | 2 × 4 ms | 8 ms |
+| Transactions successives sur une ligne, attente seule | 1 000 / 8 | 125 par seconde |
+| Avec la réplication, si l’attente ne se recouvre pas | 1 000 / (10 + 8) | 55 par seconde |
+| Si l’attente se recouvre avec la réplication (Spanner les fait en parallèle) | 1 000 / max(10, 8) | 100 par seconde |
+| Avec ε = 50 ms (NTP via Internet) | 2 × 50 | 100 ms, 10 par seconde |
+
+Conclusion : avec l’incertitude de Spanner, l’attente de validation coûte moins que la réplication elle-même, et l’article note qu’elle se recouvre en général avec la communication Paxos. Avec l’incertitude d’une synchronisation NTP ordinaire, elle deviendrait le coût principal ; TrueTime n’est intéressant que parce que ε est petit.
+:::
+
+## Exemple réel
+
+**La seconde intercalaire de 2017 chez Cloudflare.** Le 1er janvier 2017 à minuit UTC, une seconde intercalaire a été ajoutée au temps universel, et le logiciel DNS de Cloudflare, RRDNS, écrit en Go, a vu le temps reculer[^cloudflare]. Pour choisir le serveur amont le plus rapide, RRDNS mesurait le temps d’aller-retour de chaque requête en soustrayant deux lectures de l’heure du mur. Pendant la seconde intercalaire, une mesure a donné une durée négative, transmise à la fonction `rand.Int63n` de Go, qui s’interrompt en erreur (panic) quand son argument est négatif. Au plus fort, environ 0,2 % des requêtes DNS adressées à Cloudflare ont été touchées, et moins de 1 % des requêtes HTTP ont reçu une erreur ; seuls les clients qui utilisaient des enregistrements CNAME étaient concernés. Les machines les plus touchées ont été corrigées en 90 minutes, et le correctif déployé partout à 6 h 45 UTC. L’article note que Go n’offrait pas alors de source de temps monotone, et renvoie au ticket 12914 du langage ; la version 1.9 de Go a ensuite fait suivre à chaque valeur `time.Time` une lecture de l’horloge monotone, qui rend sûr le calcul d’une durée entre deux valeurs malgré les réglages de l’heure du mur[^go19].
+
+## Erreurs fréquentes
+
+Mesurer une durée avec l’heure du mur. Un réglage ou une seconde intercalaire la rend négative, comme chez Cloudflare ; l’horloge monotone ne recule jamais.
+
+Ordonner des écritures venues de machines différentes par leur horodatage. Avec 150 ms d’écart d’horloge, l’écriture la plus récente est perdue sans erreur (mesuré) ; il faut une horloge logique, une détection de conflit ou une écriture qui passe par un seul leader.
+
+Croire qu’une machine synchronisée par NTP est à l’heure. Elle l’est à ± δ/2 près, de ± 26 à ± 150 ms pour le portable des mesures, et son noyau annonçait jusqu’à 475 ms d’erreur maximale.
+
+Prendre l’ordre de Lamport pour l’ordre causal. $L(a) < L(b)$ n’implique pas que $a$ ait précédé $b$ ; seules les horloges vectorielles détectent la concurrence.
+
+Transporter des horloges vectorielles dans un système de milliers de processus. Elles coûtent 8 octets par processus et par message, 8 Ko pour 1 000.
+
+Faire dépendre la sûreté d’un bail ou d’un verrou d’horloges non bornées. Un détenteur dont l’horloge retarde croit garder le bail après son expiration (ch. 36).
+
+Mélanger des serveurs de temps qui lissent les secondes intercalaires et d’autres qui ne les lissent pas. Pendant le lissage, ils diffèrent d’une demi-seconde.
+
+Interroger un serveur NTP public trop souvent. Il répond par des refus `RATE` (trois sur six requêtes espacées de 8 s, mesuré) ; un client doit respecter l’intervalle qu’on lui impose.
+
+:::piege[Erreur fréquente : « nos serveurs sont synchronisés par NTP, on peut comparer leurs horodatages »]
+Synchronisés veut dire « à l’incertitude de NTP près », c’est-à-dire au moins la moitié du temps d’aller-retour vers le serveur de temps, plus la dérive depuis la dernière mesure. Dans un centre de données bien équipé, c’est de l’ordre de la milliseconde ; à travers Internet, de quelques dizaines à quelques centaines de millisecondes. Deux événements séparés de moins que cet écart peuvent avoir des horodatages inversés, et un saut d’horloge peut même faire reculer l’heure d’une machine. On peut comparer des horodatages de machines différentes pour l’affichage et l’analyse approximative ; pas pour décider quelle écriture garder, quel verrou est libre ou dans quel ordre appliquer des opérations.
+:::
+
+:::entretien
+Quand votre conception ordonne des événements venus de plusieurs machines, dites avec quoi : « les écritures sur une même clé passent par le leader de sa partition, qui les numérote ; les versions concurrentes venues de répliques différentes sont détectées par des vecteurs de versions et fusionnées ; les horodatages physiques ne servent qu’à l’affichage et aux traces ; les durées sont mesurées avec l’horloge monotone ». Si l’on vous parle de Spanner, expliquez TrueTime par l’intervalle d’incertitude et l’attente de validation de 2ε, et dites que son intérêt tient à des ε de quelques millisecondes.
+:::
+
+## Exercices
+
+**Question 1.** Un service mesure la durée de chaque requête par `fin = time.time(); duree = fin - debut` et alerte si la durée dépasse 2 s. Que se passe-t-il quand NTP fait reculer l’horloge de 300 ms, puis quand il l’avance d’une seconde ? Corrigez le code.
+
+**Question 2.** Sur la figure 33.3, donnez la relation entre $a$ et $f$, entre $x$ et $c$, entre $d$ et $b$, et entre $g$ et $e$, d’abord avec les horloges de Lamport, puis avec les horloges vectorielles. Pour lesquelles les deux méthodes donnent-elles la même réponse ?
+
+**Question 3.** Deux répliques Cassandra dans deux centres de données reçoivent des écritures sur la même clé depuis des clients synchronisés par NTP à ± 20 ms. Un utilisateur modifie son adresse depuis son téléphone, puis la corrige 10 ms plus tard depuis son ordinateur. Que peut-on lire ensuite, et comment éviter la perte ?
+
+**Exercice de conception.** Une application de listes de courses partagées est utilisée hors ligne sur des téléphones, puis synchronisée avec un serveur. Deux membres d’une famille ajoutent, cochent ou suppriment des articles de la même liste, parfois en même temps, parfois plusieurs heures avant de se reconnecter, et les horloges des téléphones peuvent être fausses de plusieurs minutes. Proposez la façon de dater et d’ordonner les modifications, de détecter celles qui sont concurrentes et de les fusionner, et ce que l’application affiche comme « modifié à ». Chiffrez la taille des métadonnées pour une famille de 5 appareils.
+
+## Corrigés
+
+**Question 1.** Si l’horloge recule de 300 ms pendant une requête, la durée calculée est trop courte de 300 ms, voire négative pour une requête rapide ; si elle avance d’une seconde, une requête de 1,5 s apparaît à 2,5 s et déclenche une fausse alerte. On mesure avec l’horloge monotone, `debut = time.monotonic()` puis `duree = time.monotonic() - debut`, qui ne saute jamais, et l’on garde `time.time()` pour dater la requête dans le journal.
+
+**Question 2.** On a $a \rightarrow f$, que montrent $L(a) = 1 < L(f) = 5$ et $[1,0,0] \le [3,3,1]$ ; les deux méthodes l’ordonnent, et seuls les vecteurs prouvent la causalité. On a aussi $x \rightarrow c$, par la chaîne $x \rightarrow d \rightarrow c$, avec $1 < 3$ et $[0,0,1] \le [2,2,1]$. $d$ et $b$ ont le même horodatage de Lamport, 2, qui ne dit rien, et leurs vecteurs $[0,1,1]$ et $[2,0,0]$ ne se comparent pas, si bien qu’ils sont concurrents. Pour $g$ et $e$, $L(g) = 2 < L(e) = 4$ ne dit rien non plus, et $[0,0,2]$ et $[2,3,1]$ ne se comparent pas ; ils sont concurrents. Les deux méthodes ne donnent la même conclusion que pour les paires causales ; pour les paires concurrentes, Lamport donne un ordre arbitraire.
+
+**Question 3.** Les deux horloges peuvent différer de 40 ms, plus que les 10 ms entre les écritures. Si l’ordinateur retarde sur le téléphone de plus de 10 ms, la correction a un horodatage plus petit, et toutes les répliques gardent l’adresse erronée, sans erreur. On peut faire passer les écritures d’un même utilisateur par une seule partition qui les numérote (un leader par clé), ou utiliser une transaction légère de Cassandra (compare-and-set), qui ordonne les écritures par consensus, ou encore faire porter à chaque écriture la version qu’elle remplace et refuser une écriture fondée sur une version périmée.
+
+**Exercice de conception.**
+
+*Identifier et ordonner.* Chaque appareil a un identifiant, et chaque modification porte un horodatage HLC de l’appareil et la version qu’elle remplace. Les horloges des téléphones ne servent qu’à initialiser la partie physique de la HLC ; à chaque synchronisation, l’appareil reçoit les HLC des autres et avance la sienne au maximum, si bien qu’une modification faite après avoir vu une autre a toujours un horodatage plus grand.
+
+*Détecter et fusionner.* Chaque article porte un vecteur de versions d’une entrée par appareil qui l’a modifié. Deux modifications dont les vecteurs ne se comparent pas sont concurrentes. On les fusionne par type d’opération plutôt que par horodatage : un ajout et une suppression concurrents gardent l’article (l’ajout gagne), deux changements de quantité gardent le plus grand, une coche et une décoche concurrentes gardent la coche ; ce sont des structures de données convergentes, que le ch. 41 décrit.
+
+*« Modifié à ».* L’application affiche l’heure physique de l’appareil qui a fait la modification, à titre indicatif, sans jamais s’en servir pour décider.
+
+*Taille.* Pour 5 appareils, un vecteur fait 5 × 8 = 40 octets par article, plus 12 octets de HLC et 8 octets d’identifiant d’appareil, soit environ 60 octets par article ; une liste de 100 articles porte 6 Ko de métadonnées, ce qui reste négligeable sur un téléphone.
+
+:::fiche
+- Horloges : `CLOCK_REALTIME` (heure du mur, saute), `CLOCK_MONOTONIC` (ne recule pas, vitesse corrigée), `CLOCK_MONOTONIC_RAW` (oscillateur brut). Durées avec la monotone, toujours. Lecture : 75 à 85 ns (mesuré).
+- Dérive : 4,672 ppm corrigés sur le portable des mesures, 0,4 s par jour ; 50 ppm font 4,3 s par jour ; erreur maximale du noyau 235 à 475 ms (mesuré).
+- NTP : strates ; θ = ((T₂ − T₁) + (T₃ − T₄)) / 2, δ = (T₄ − T₁) − (T₃ − T₂) ; incertitude ± δ/2 (± 26 à 150 ms via Internet, mesuré) ; refus `RATE` ; ajustement progressif ou saut ; secondes intercalaires et lissage de 24 h (11,6 ppm).
+- LWW : l’horodatage le plus grand gagne ; dès que le retard d’une horloge dépasse l’écart entre deux écritures, la plus récente est perdue sans erreur (Cassandra, 150 ms, mesuré) ; à égalité, la plus grande valeur gagne.
+- Lamport : $a \rightarrow b \Rightarrow L(a) < L(b)$, pas l’inverse. Vecteurs : $a \rightarrow b \iff V(a) < V(b)$, détectent la concurrence, $8n$ octets.
+- HLC : $(l, c)$, causalité comme Lamport, $l$ à l’écart d’horloge près de l’heure physique, $c$ petit (≤ 44 mesuré) ; CockroachDB, `--max-offset` 500 ms.
+- TrueTime : `TT.now()` = [earliest, latest], ε ≈ 4 ms (1 à 7) ; $s$ = latest, attendre `TT.after(s)`, ≈ 2ε ; aucune violation de la cohérence externe contre 28 à 46 % sans attente (simulé).
+:::
+
+[^clock]: Michael Kerrisk et al., « clock_getres, clock_gettime, clock_settime », *Linux man-pages*, section 2, [man7.org/linux/man-pages/man2/clock_gettime.2.html](https://man7.org/linux/man-pages/man2/clock_gettime.2.html).
+[^adjtimex]: « adjtimex, clock_adjtime, ntp_adjtime », *Linux man-pages*, section 2 (champs `freq`, `maxerror`, `esterror`, `tolerance` ; un utilisateur ordinaire peut lire avec `modes` = 0), [man7.org/linux/man-pages/man2/adjtimex.2.html](https://man7.org/linux/man-pages/man2/adjtimex.2.html).
+[^rfc5905]: David L. Mills, Jim Martin, Jack Burbank et William Kasch, « Network Time Protocol Version 4: Protocol and Algorithms Specification », RFC 5905, juin 2010, sections 3, 7.4 (kiss-o’-death) et 8 (décalage et délai), [rfc-editor.org/rfc/rfc5905](https://www.rfc-editor.org/rfc/rfc5905.html).
+[^smear]: Google, « Leap Smear », *Google Public NTP*, [developers.google.com/time/smear](https://developers.google.com/time/smear).
+[^pilote]: DataStax, pilote Python de Cassandra (cassandra-driver 3.30), `cassandra/timestamps.py` (`MonotonicTimestampGenerator`) et `cassandra/cluster.py` (générateur par défaut d’un `Cluster`), [github.com/datastax/python-driver](https://github.com/datastax/python-driver/blob/master/cassandra/timestamps.py).
+[^cassandra-dml]: Apache Cassandra, « Data Manipulation », documentation de CQL, sections `USING TIMESTAMP` et `BATCH`, [cassandra.apache.org/doc/latest/cassandra/developing/cql/dml.html](https://cassandra.apache.org/doc/latest/cassandra/developing/cql/dml.html).
+[^lamport]: Leslie Lamport, « Time, Clocks, and the Ordering of Events in a Distributed System », *Communications of the ACM*, vol. 21, n° 7, juillet 1978, p. 558-565, [doi:10.1145/359545.359563](https://doi.org/10.1145/359545.359563).
+[^fidge]: Colin J. Fidge, « Timestamps in Message-Passing Systems That Preserve the Partial Ordering », *Proceedings of the 11th Australian Computer Science Conference*, 1988, p. 56-66.
+[^mattern]: Friedemann Mattern, « Virtual Time and Global States of Distributed Systems », dans Michel Cosnard et al. (dir.), *Parallel and Distributed Algorithms*, North-Holland, 1989, p. 215-226.
+[^hlc]: Sandeep S. Kulkarni, Murat Demirbas, Deepak Madappa, Bharadwaj Avva et Marcelo Leone, « Logical Physical Clocks », *Principles of Distributed Systems (OPODIS 2014)*, Lecture Notes in Computer Science, vol. 8878, Springer, 2014, p. 17-32, [doi:10.1007/978-3-319-14472-6_2](https://doi.org/10.1007/978-3-319-14472-6_2).
+[^crdb]: Cockroach Labs, « cockroach start », documentation de CockroachDB, option `--max-offset`, [docs.cockroachlabs.com/docs/stable/cockroach-start](https://docs.cockroachlabs.com/docs/stable/cockroach-start).
+[^spanner]: James C. Corbett, Jeffrey Dean, Michael Epstein et al., « Spanner: Google’s Globally-Distributed Database », *10th USENIX Symposium on Operating Systems Design and Implementation (OSDI ’12)*, 2012, sections 3 (TrueTime), 4.1.2 (horodatages et attente de validation) et 4.2.1 (durée de l’attente), [usenix.org/conference/osdi12/technical-sessions/presentation/corbett](https://www.usenix.org/conference/osdi12/technical-sessions/presentation/corbett) ; version revue dans *ACM Transactions on Computer Systems*, vol. 31, n° 3, 2013, [doi:10.1145/2491245](https://doi.org/10.1145/2491245).
+[^cloudflare]: John Graham-Cumming, « How and why the leap second affected Cloudflare DNS », *The Cloudflare Blog*, 1er janvier 2017, [blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns](https://blog.cloudflare.com/how-and-why-the-leap-second-affected-cloudflare-dns/).
+[^go19]: The Go Authors, « Go 1.9 Release Notes », section *Transparent Monotonic Time support*, [go.dev/doc/go1.9](https://go.dev/doc/go1.9).

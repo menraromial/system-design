@@ -210,7 +210,7 @@ Une chaîne incomplète produit une panne déroutante, quand le serveur n’envo
 
 L’épinglage de certificats (certificate pinning) dans une application mobile, qui n’accepte qu’un certificat ou une clé précise, transforme chaque renouvellement en risque de panne pour toutes les versions de l’application déjà installées. S’il est indispensable, on épingle la clé d’une autorité, ou plusieurs clés, et l’on prévoit la rotation.
 
-L’horloge d’un client compte aussi, car un appareil dont la date est fausse voit des certificats « pas encore valides » ou « expirés ». Pour un système embarqué ou un objet connecté, la synchronisation de l’heure (ch. 33) fait partie de la conception TLS.
+L’horloge d’un client compte aussi, car un appareil dont la date est fausse voit des certificats « pas encore valides » ou « expirés ». Pour un système embarqué ou un objet connecté, la synchronisation de l’heure ([ch. 33](../partie-3/temps.mdx)) fait partie de la conception TLS.
 
 En entretien, l’erreur habituelle est d’écrire « HTTPS » sur un schéma sans dire où se termine TLS ni qui détient les clés. Une phrase suffit pour montrer qu’on y a pensé : « TLS terminé au répartiteur, rechiffré vers les serveurs, mTLS entre services, certificats émis et renouvelés automatiquement. »
 
