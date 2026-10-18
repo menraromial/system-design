@@ -1,0 +1,31 @@
+% Une saga de commande : orchestration et chorégraphie.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=24mm, minimum height=9mm, font=\sffamily\small\bfseries, align=center},
+    ev/.style={draw=#1, fill=white, rounded corners=6pt, line width=0.8pt, font=\sffamily\scriptsize, text=#1, inner sep=3pt, align=center}]
+  % orchestration
+  \node[pillo=Dblue, anchor=west] at (-14,64) {orchestration};
+  \node[b=Dblue] (o) at (50,52) {orchestrateur\\[-1pt]{\normalfont\scriptsize + journal des sagas}};
+  \node[b=Dteal] (st) at (0,26) {stock};
+  \node[b=Dpurple] (pa) at (50,26) {paiement};
+  \node[b=Dgreen] (li) at (100,26) {livraison};
+  \draw[arr=Dink] (o.south west) -- node[lbl, sloped, below, pos=0.5] {T1 réserver} (st.north east);
+  \draw[arr=Dink] ($(o.south)+(-5,0)$) -- node[lbl, left, pos=0.5] {T2 débiter} ($(pa.north)+(-5,0)$);
+  \draw[arr=Dink] (o.south east) -- node[lbl, sloped, above, pos=0.55] {T3 expédier} (li.north west);
+  \draw[arr=Dred, dash pattern=on 3pt off 2pt] (o.west) to[bend right=25] node[lblc=Dred, above left, pos=0.4] {C1 libérer} (st.north);
+  \draw[arr=Dred, dash pattern=on 3pt off 2pt] ($(o.south)+(5,0)$) -- node[lblc=Dred, right, pos=0.5] {C2 rembourser} ($(pa.north)+(5,0)$);
+  \node[note, anchor=west, align=left] at (118,40) {T1, T2, T3 : transactions locales,\\chacune dans sa base ; un refus\\fait exécuter C2 puis C1 ;\\pas de compensation après T3,\\le point de non-retour};
+  % chorégraphie
+  \node[pillo=Dorange, anchor=west] at (-14,8) {chorégraphie};
+  \node[ev=Dslate] (e1) at (0,-6) {commande\\créée};
+  \node[ev=Dteal] (e2) at (36,-6) {stock\\réservé};
+  \node[ev=Dred] (e3) at (72,-6) {paiement\\refusé};
+  \node[ev=Dteal] (e4) at (108,-6) {stock\\libéré};
+  \node[ev=Dslate] (e5) at (144,-6) {commande\\annulée};
+  \foreach \a/\b/\s in {e1/e2/stock, e2/e3/paiement, e3/e4/stock, e4/e5/commandes}
+    \draw[arr=Dorange] (\a) -- node[lblc=Dorange, below=3pt, font=\sffamily\scriptsize] {\s} (\b);
+  \node[note, anchor=north, align=center] at (72,-16) {chaque service réagit aux événements des autres ; aucun ne connaît la saga entière};
+\end{tikzpicture}
+\end{document}

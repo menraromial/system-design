@@ -54,7 +54,7 @@ La figure 31.1 montre la conséquence pour un lecteur qui suit les nouvelles lig
    vu par le lecteur (id > dernier vu) : [(2, 'B, rapide')]
 ```
 
-La ligne 1 est dans la table, et le lecteur ne la lira jamais. Le défaut ne se voit qu’en charge, quand des transactions longues côtoient des transactions courtes. On l’évite en relisant avec une marge (les lignes des dernières secondes en plus des nouvelles, en éliminant les doublons), ou en lisant les changements dans l’ordre où la base les a validés, par son journal plutôt que par la clé, avec la capture des changements (change data capture, CDC) du ch. 37.
+La ligne 1 est dans la table, et le lecteur ne la lira jamais. Le défaut ne se voit qu’en charge, quand des transactions longues côtoient des transactions courtes. On l’évite en relisant avec une marge (les lignes des dernières secondes en plus des nouvelles, en éliminant les doublons), ou en lisant les changements dans l’ordre où la base les a validés, par son journal plutôt que par la clé, avec la capture des changements (change data capture, CDC) du [ch. 37](../partie-3/transactions-distribuees.mdx).
 
 ## Allouer par blocs
 
@@ -314,7 +314,7 @@ Quand le schéma demande des identifiants, dites lesquels et pourquoi : « cl�
 
 ## Corrigés
 
-**Question 1.** En développement, les transactions sont courtes et rarement concurrentes, si bien que l’ordre des validations coïncide presque toujours avec celui des numéros. En production, une transaction qui attend un verrou ou un service externe valide après d’autres, plus récentes. Première correction, relire avec une marge, c’est-à-dire les lignes plus récentes que le dernier numéro vu moins une marge, ou celles des dernières secondes, en éliminant celles déjà traitées ; elle coûte des relectures et une table des lignes traitées, et ne protège pas d’une transaction plus longue que la marge. Seconde correction, lire les changements dans l’ordre de validation par le journal de la base (le décodage logique de PostgreSQL, et la capture des changements du ch. 37) ; elle est exacte, mais demande une infrastructure de plus.
+**Question 1.** En développement, les transactions sont courtes et rarement concurrentes, si bien que l’ordre des validations coïncide presque toujours avec celui des numéros. En production, une transaction qui attend un verrou ou un service externe valide après d’autres, plus récentes. Première correction, relire avec une marge, c’est-à-dire les lignes plus récentes que le dernier numéro vu moins une marge, ou celles des dernières secondes, en éliminant celles déjà traitées ; elle coûte des relectures et une table des lignes traitées, et ne protège pas d’une transaction plus longue que la marge. Seconde correction, lire les changements dans l’ordre de validation par le journal de la base (le décodage logique de PostgreSQL, et la capture des changements du [ch. 37](../partie-3/transactions-distribuees.mdx)) ; elle est exacte, mais demande une infrastructure de plus.
 
 **Question 2.** Il y a $300 \times 299 / 2 = 44\,850$ paires de conteneurs, chacune partage un numéro avec la probabilité $1/1\,024$, soit en moyenne 43,8 paires en collision. La probabilité d’au moins une vaut $1 - e^{-43{,}8}$, autant dire 1. On attribue les numéros par un registre qui en garantit l’unicité, par exemple une table où chaque conteneur réserve un numéro libre avec un bail de quelques minutes qu’il renouvelle, et qu’il cesse d’utiliser s’il ne peut plus le renouveler ; ou on passe à un UUID v7, qui n’a pas de numéro de machine.
 

@@ -1,0 +1,19 @@
+% Un interblocage distribué que ni pg1 ni pg2 ne voient.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=26mm, minimum height=9mm, font=\sffamily\small\bfseries, align=center}]
+  \node[b=Dpurple] (r1) at (0,30) {pg1\\[-1pt]{\normalfont compte 1}};
+  \node[b=Dteal] (r2) at (90,30) {pg2\\[-1pt]{\normalfont compte 7}};
+  \node[b=Dblue] (a) at (45,52) {client A};
+  \node[b=Dorange] (b) at (45,8) {client B};
+  \draw[arr=Dgreen, line width=1.1pt] (a) -- node[lblc=Dgreen, sloped, above] {tient} (r1);
+  \draw[arr=Dred, line width=1.1pt, dash pattern=on 3pt off 2pt] (a) -- node[lblc=Dred, sloped, above] {attend} (r2);
+  \draw[arr=Dgreen, line width=1.1pt] (b) -- node[lblc=Dgreen, sloped, below] {tient} (r2);
+  \draw[arr=Dred, line width=1.1pt, dash pattern=on 3pt off 2pt] (b) -- node[lblc=Dred, sloped, below] {attend} (r1);
+  \node[note, anchor=east, align=right] at (-16,30) {pg1 voit :\\B attend A};
+  \node[note, anchor=west, align=left] at (106,30) {pg2 voit :\\A attend B};
+  \node[note, anchor=north, align=center, text=Dred] at (45,0) {aucun serveur ne voit de cycle : 16 clients figés en 0,2 s (mesuré)};
+\end{tikzpicture}
+\end{document}

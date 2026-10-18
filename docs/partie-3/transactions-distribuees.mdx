@@ -1,0 +1,363 @@
+---
+title: "Transactions distribuées : 2PC, sagas, outbox"
+sidebar_label: "37. Transactions distribuées"
+description: "Faire réussir ou échouer ensemble des écritures dans plusieurs bases : validation à deux phases et son blocage, interblocage distribué, double écriture entre une base et un courtier, boîte d'envoi (outbox) et capture des changements, sagas orchestrées et chorégraphiées, compensations ; mesures sur deux PostgreSQL 18 et Kafka 4.3 (coût du 2PC, compte chaud, panne du coordinateur, service et relais tués, rétention du WAL, saga dont l'orchestrateur est tué)."
+partie: 3
+chapitre: 37
+---
+
+import deuxphases from '@site/src/figures/tx-2pc.svg';
+import interblocage from '@site/src/figures/tx-interblocage.svg';
+import outbox from '@site/src/figures/tx-outbox.svg';
+import saga from '@site/src/figures/tx-saga.svg';
+
+Un virement débite un compte d’une base PostgreSQL et crédite un compte d’une seconde base. Fait par une validation à deux phases (two-phase commit, 2PC), il prend 14,5 à 15,4 ms, contre 3,7 ms quand les deux comptes sont dans la même base. Seize clients qui débitent le même compte en font 71 par seconde, contre 364 à 400 dans une seule base. Quand chacun verrouille ses deux comptes en même temps, les seize se figent au bout de 3 virements, en 0,11 s, dans un interblocage qu’aucune des deux bases ne détecte. Si l’on tue le coordinateur juste après la première phase, les deux bases gardent le compte verrouillé ; un client attend 10 s, jusqu’à ce qu’on relance le coordinateur, et ce verrou survit même au redémarrage d’une des bases. Ces trois résultats expliquent pourquoi la plupart des systèmes répartis évitent les transactions qui couvrent plusieurs bases, et les remplacent par une boîte d’envoi (outbox) ou par une saga.
+
+Une transaction dans une seule base est atomique ([ch. 18](../partie-2/transactions-isolation.mdx)) ; ses écritures sont toutes validées ou toutes annulées. Dès que les données sont réparties, entre partitions ([ch. 26](../partie-2/partitionnement.mdx)), entre services qui ont chacun leur base, ou entre une base et un courtier de messages ([ch. 27](../partie-2/files-messages.mdx)), cette garantie disparaît. Ce chapitre décrit les trois façons de la retrouver, au moins en partie. La validation à deux phases rend une transaction atomique sur plusieurs bases, au prix de la latence et du blocage. La boîte d’envoi traite le cas le plus fréquent, une écriture en base qui doit produire un message. Une saga découpe une opération en transactions locales, chacune assortie d’une compensation.
+
+Trois expériences ont été faites pour ce chapitre, sur deux serveurs PostgreSQL 18.6 et un courtier Kafka 4.3.1 lancés dans des conteneurs par [`outils/experiences/ch37/commun.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch37/commun.py). [`deux_phases.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch37/deux_phases.py) fait des virements entre les deux bases par `PREPARE TRANSACTION` et `COMMIT PREPARED`, directement ou à travers un relais qui retarde chaque sens de 5 ms, et tue le coordinateur. [`double_ecriture.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch37/double_ecriture.py) enregistre 2 000 commandes qui doivent chacune produire un message Kafka, en tuant le service et son relais au hasard. [`saga.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch37/saga.py) fait passer 1 000 commandes par trois services qui ont chacun leur base, sous un orchestrateur que l’on tue. Chaque script a été lancé deux fois.
+
+## Le problème : une décision commune
+
+Le problème de la validation atomique (atomic commitment) est le suivant. Plusieurs participants ont chacun fait une partie d’une transaction ; tous doivent prendre la même décision, valider ou annuler, et la décision ne peut être « valider » que si tous ont voté pour. Philip Bernstein, Vassos Hadzilacos et Nathan Goodman en donnent les conditions précises dans leur livre de 1987, dont deux comptent pour la suite[^bhg]. Un participant peut décider seul d’annuler tant qu’il n’a pas voté oui. Une fois qu’il a voté oui, il ne peut plus rien décider seul.
+
+Ce problème ressemble au consensus des [ch. 34](consensus-paxos.mdx) et [35](consensus-raft.mdx), mais il est plus exigeant sur un point. Dans le consensus, une majorité suffit, et la valeur choisie peut venir de n’importe quel proposeur. Ici, chaque participant a un droit de veto. Une base qui manque de place, qui viole une contrainte ou qui est tombée avant de voter impose l’annulation, et l’on ne peut pas valider sans l’avis de chacune.
+
+## La validation à deux phases
+
+<Figure svg={deuxphases} num="37.1" alt="Diagramme de séquence entre un coordinateur, pg1 et pg2. Le coordinateur envoie BEGIN et UPDATE aux deux bases. Phase 1 : PREPARE TRANSACTION aux deux, qui répondent prêt (vote oui). Le coordinateur écrit sa décision dans son journal et le synchronise. Phase 2 : COMMIT PREPARED aux deux, qui répondent validé. Entre leur vote et la réception de la décision, pg1 et pg2 sont incertains : ils ont voté oui, tiennent leurs verrous et ne peuvent ni valider ni annuler seuls. Si le coordinateur tombe après la phase 1, pg1 et pg2 restent préparés et gardent leurs verrous jusqu’à sa reprise : 10 s dans la mesure, sans limite en général.">
+La validation à deux phases et la période d’incertitude des participants.
+</Figure>
+
+Le protocole a un coordinateur et des participants (figure 37.1). Pendant la transaction, chaque participant fait ses écritures et prend ses verrous, comme pour une transaction locale. Pour valider, le coordinateur demande d’abord à chacun de se préparer. Un participant qui se prépare écrit sur disque tout ce qu’il lui faut pour valider plus tard, même après un redémarrage, puis vote oui ; s’il ne peut pas, il vote non et annule. C’est la première phase. Quand tous ont voté oui, le coordinateur écrit la décision « valider » dans son propre journal, le synchronise, puis l’envoie à tous ; si un seul a voté non ou n’a pas répondu, il décide « annuler ». C’est la seconde phase. Sans panne, le protocole fait trois tours de messages (demande de vote, votes, décision) et envoie $3n$ messages pour $n$ participants[^bhg].
+
+PostgreSQL fournit le rôle de participant. `PREPARE TRANSACTION 'id'` prépare la transaction en cours et la détache de la session ; elle apparaît dans la vue `pg_prepared_xacts` jusqu’à ce que quelqu’un exécute `COMMIT PREPARED 'id'` ou `ROLLBACK PREPARED 'id'`, depuis n’importe quelle session[^pg-prepare]. Le rôle de coordinateur revient à un gestionnaire de transactions externe, et la documentation renvoie aux normes qui en décrivent, comme X/Open XA. Le paramètre `max_prepared_transactions` vaut 0 par défaut, ce qui désactive la fonction, et la documentation recommande de le laisser ainsi si aucun gestionnaire de transactions ne surveille les transactions préparées. `deux_phases.py` joue le coordinateur, avec un journal dans un fichier synchronisé par `fsync`.
+
+```text
+PostgreSQL 18.6, deux serveurs ; journal du coordinateur synchronisé (fsync)
+
+1. durée d'un virement (300 virements, comptes au hasard)
+   mode                     médiane    99e c.
+   une base                  3.72ms    4.95ms
+   sans 2PC                  4.99ms    5.86ms
+   2PC                      14.54ms   17.05ms
+   une base, 5 ms           48.60ms   52.21ms
+   sans 2PC, 5 ms           28.50ms   30.58ms
+   2PC, 5 ms                61.23ms   66.51ms
+```
+
+Le second passage a donné 3,65, 5,35, 15,39, 49,61, 28,89 et 60,76 ms en médiane. Dans une seule base, le virement est une transaction, validée par une écriture synchronisée du journal. « Sans 2PC », chaque base valide sa propre mise à jour, l’une après l’autre ; c’est plus rapide que le 2PC, mais une panne entre les deux validations laisse un compte débité et l’autre pas. Le 2PC coûte quatre fois la transaction locale, car il enchaîne trois écritures synchronisées, celle de la préparation sur chaque participant, celle de la décision dans le journal du coordinateur et celle de la validation sur chaque participant. À travers un relais qui retarde chaque sens de 5 ms, soit 10 ms d’aller-retour, c’est le nombre d’allers-retours qui compte. La transaction locale en fait quatre (`BEGIN`, deux mises à jour, `COMMIT`), et le 2PC à peine plus, puisque le coordinateur s’adresse aux deux bases en même temps ; l’écart tombe à 11 à 13 ms.
+
+## Des verrous tenus plus longtemps
+
+Le coût le plus lourd du 2PC n’est pas la latence d’un virement, mais la durée pendant laquelle ses verrous sont tenus. Un participant garde les verrous de la transaction de la première écriture jusqu’à la réception de la décision, donc pendant deux phases et l’écriture du journal du coordinateur. Sur une donnée que tout le monde modifie, un compte très sollicité ou un compteur, cette durée fixe le débit maximal, puisque les transactions passent l’une après l’autre. La deuxième partie de `deux_phases.py` fait débiter le même compte de pg1 par 16 clients, chacun créditant l’un de 20 comptes de pg2.
+
+```text
+2. 16 clients débitent tous le compte 1 (pg1) et créditent l'un de
+   20 comptes (pg2), pendant 5 s
+   mode                               virements/s  abandons     durée
+   une base                                   364         0  44.11 ms
+   2PC, verrous en parallèle          figé après 3 virements (0.11 s) ;
+                                      aucun serveur ne le détecte
+     + attente des verrous 200 ms              26       108 340.99 ms
+   2PC, pg1 puis pg2                           71         0 228.64 ms
+   une base, 5 ms                              39         0 427.29 ms
+   2PC, pg1 puis pg2, 5 ms                     18         0 931.77 ms
+```
+
+Le second passage a donné 400, 24 (avec 124 abandons), 71, 39 et 18 virements par seconde, et le même gel après 3 virements. La colonne « durée » est la durée moyenne d’un virement, attente du verrou comprise ; avec 16 clients en file, elle vaut environ seize fois la durée pendant laquelle le verrou est tenu. Celle-ci se lit plus simplement dans le débit, qui en est l’inverse. Elle vaut 2,5 à 2,7 ms dans une seule base, 14 ms en 2PC, 26 ms dans une seule base à 10 ms d’aller-retour et 56 ms en 2PC à la même distance. Le 2PC divise le débit du compte chaud par cinq sur une machine, et par plus de vingt quand les bases sont à quelques millisecondes l’une de l’autre.
+
+## L’interblocage que personne ne voit
+
+La ligne « verrous en parallèle » demande une explication. Pour gagner du temps, le coordinateur envoie les deux mises à jour en même temps. Il arrive alors qu’un client A ait verrouillé le compte 1 sur pg1 et attende le compte 7 sur pg2, pendant qu’un client B a verrouillé le compte 7 sur pg2 et attend le compte 1 sur pg1 (figure 37.2). C’est un interblocage (deadlock) ordinaire. Mais pg1 ne voit qu’une attente, B attend A, et pg2 ne voit que l’autre, A attend B ; aucun ne voit de cycle. PostgreSQL cherche les interblocages dans son propre graphe d’attente, au bout de `deadlock_timeout` (1 s par défaut)[^pg-verrous], et il ne connaît pas les attentes des autres serveurs. A et B attendent indéfiniment, puis les 14 autres clients, qui attendent le compte 1, se figent derrière eux. Dans la mesure, le système s’est arrêté au bout de 3 virements et 0,11 s, dans les deux passages, et il a fallu terminer les sessions de l’extérieur.
+
+<Figure svg={interblocage} num="37.2" alt="Deux serveurs, pg1 avec le compte 1 et pg2 avec le compte 7. Le client A tient le compte 1 et attend le compte 7 ; le client B tient le compte 7 et attend le compte 1. pg1 voit seulement que B attend A, pg2 que A attend B. Aucun serveur ne voit de cycle : 16 clients figés en 0,11 s, mesuré.">
+Un interblocage distribué, invisible pour chaque serveur.
+</Figure>
+
+Il y a trois remèdes. Le premier impose un ordre global de prise des verrous ; si toute transaction verrouille d’abord sur pg1, puis sur pg2, aucun cycle n’est possible, et la mesure donne 71 virements par seconde sans aucun abandon. Le deuxième borne l’attente d’un verrou (`lock_timeout`) et fait recommencer la transaction qui dépasse ; il fonctionne, mais un délai de 200 ms abandonne aussi des transactions qui attendaient simplement leur tour, et le débit tombe à 24 à 26 virements par seconde avec 108 à 124 abandons en 5 s. Le troisième prévient les cycles par une règle sur l’âge des transactions. Spanner, la base répartie de Google, emploie wound-wait, où une transaction plus ancienne qui attend un verrou tenu par une plus jeune fait annuler la plus jeune, tandis qu’une plus jeune attend une plus ancienne[^spanner].
+
+## Le blocage quand le coordinateur tombe
+
+Entre son vote oui et la réception de la décision, un participant est dans ce que Bernstein et ses coauteurs appellent sa période d’incertitude (uncertainty period)[^bhg]. Il ne sait pas si la transaction sera validée ou annulée, et il ne peut ni valider seul, puisqu’un autre participant a peut-être voté non, ni annuler seul, puisque le coordinateur a peut-être déjà décidé de valider et que d’autres participants ont peut-être déjà validé. Si le coordinateur tombe à ce moment, ou si le réseau le sépare des participants, ceux-ci sont bloqués jusqu’à son retour. Le livre en tire deux propositions générales. Si les pannes de communication ou la panne de tous les sites sont possibles, tout protocole de validation atomique peut bloquer ; aucun ne permet à un participant tombé de se rétablir sans consulter les autres.
+
+La troisième partie de `deux_phases.py` le vérifie. Un coordinateur prépare un virement sur pg1 et pg2, écrit (ou non) sa décision, puis il est tué.
+
+```text
+3. panne du coordinateur après la préparation sur pg1 et pg2
+
+   décision écrite avant la panne : oui
+   pg1 et pg2 voient : ['virement-42'] et ['virement-42']
+   écriture du compte 7 : bloquée, abandon au bout de 3.00 s
+   écriture du compte 8 : réussie en 13.7 ms
+   lecture du compte 7 : 1000000, non bloquée
+   20 000 mises à jour d'une autre table, puis VACUUM : 20000
+   versions mortes conservées
+   pg1 redémarré, voit encore : ['virement-42']
+   reprise : le journal dit « valider », commit prepared
+   un client a attendu le verrou du compte 7 10.02 s, jusqu'à la reprise
+   soldes du compte 7 : 1000101 sur pg1 (avec ce client), 1000100 sur pg2
+   VACUUM après la reprise : 0 versions mortes
+
+   décision écrite avant la panne : non
+   pg1 et pg2 voient : ['virement-42'] et ['virement-42']
+   écriture du compte 7 : bloquée, abandon au bout de 3.00 s
+   écriture du compte 8 : réussie en 14.1 ms
+   lecture du compte 7 : 1000000, non bloquée
+   20 000 mises à jour d'une autre table, puis VACUUM : 20000
+   versions mortes conservées
+   pg1 redémarré, voit encore : ['virement-42']
+   reprise : le journal dit « annuler », rollback prepared
+   un client a attendu le verrou du compte 7 10.02 s, jusqu'à la reprise
+   soldes du compte 7 : 1000001 sur pg1 (avec ce client), 1000000 sur pg2
+   VACUUM après la reprise : 0 versions mortes
+```
+
+Le second passage a donné les mêmes résultats, à la durée de l’écriture du compte 8 près (13,4 et 4,5 ms). Les deux cas se ressemblent ligne pour ligne jusqu’à la reprise. pg1 et pg2 voient la même transaction préparée, que la décision ait été « valider » ou qu’il n’y en ait eu aucune, et rien dans leur état ne permet de trancher ; seul le journal du coordinateur le permet. Pendant ce temps, la transaction préparée garde son verrou sur le compte 7. Une écriture de ce compte attend, et une écriture d’un autre compte passe. Une lecture passe aussi, parce que PostgreSQL lit sans verrou une version antérieure ([ch. 18](../partie-2/transactions-isolation.mdx)), et elle voit l’ancien solde. Le verrou survit au redémarrage de pg1, puisque la préparation est durable par construction. Enfin, la transaction préparée retient l’horizon de nettoyage de toute la base. Après 20 000 mises à jour d’une autre table, `VACUUM` n’a pu retirer aucune des 20 000 versions mortes, et il les a toutes retirées après la reprise. La documentation de PostgreSQL met en garde contre ces deux effets, et ajoute qu’une transaction préparée oubliée peut aller jusqu’à forcer l’arrêt de la base pour éviter le rebouclage des identifiants de transaction[^pg-prepare].
+
+Il existe des protocoles qui bloquent moins. La validation à trois phases (three-phase commit) ajoute une phase entre le vote et la décision, pour qu’aucun participant ne puisse avoir validé tant qu’un autre est encore incertain. Elle ne bloque plus quand des sites tombent, sauf s’ils tombent tous, mais une coupure du réseau peut lui faire prendre des décisions contradictoires, et sa variante qui supporte les coupures bloque de nouveau[^bhg]. La solution des systèmes actuels consiste plutôt à rendre le coordinateur lui-même tolérant aux pannes, en répliquant son état par consensus. Chaque participant de Spanner est un groupe de réplicas tenu par Paxos, et l’un de ces groupes joue le coordinateur ; l’état du gestionnaire de transactions est stocké dans le groupe, si bien que la panne de la machine du coordinateur fait élire un autre leader du groupe, qui connaît la décision[^spanner].
+
+Le blocage reste rare tant que le coordinateur est fiable, mais ses effets sont lourds quand il survient. Toute la difficulté pratique du 2PC est là. Un gestionnaire de transactions doit garder son journal sur un disque fiable, reprendre au redémarrage chaque transaction préparée dont il connaît la décision, et l’équipe d’exploitation doit savoir trouver et résoudre à la main les transactions restées en doute dans `pg_prepared_xacts`. Beaucoup de services y renoncent, et les courtiers de messages comme la plupart des bases NoSQL n’offrent pas de rôle de participant.
+
+## La double écriture
+
+Le cas le plus fréquent n’est pas un virement entre deux bases, mais un service qui enregistre une donnée dans sa base et doit l’annoncer aux autres par un message, une commande créée qui doit déclencher la préparation, la facturation et l’envoi d’un courriel. La base et le courtier n’ont pas de transaction commune. Le service écrit donc dans l’un, puis dans l’autre, et une panne entre les deux écritures laisse l’un sans l’autre ; c’est la double écriture (dual write). Il y a deux ordres possibles, et tous deux sont faux (figure 37.3). Valider puis publier perd le message si le service tombe entre les deux. Publier puis valider annonce une commande qui n’existera pas si la validation échoue, par une panne ou parce que la base refuse l’écriture.
+
+<Figure svg={outbox} num="37.3" alt="Trois schémas. Valider puis publier : le service valide dans la base, puis une panne l’empêche de publier vers Kafka, d’où une commande sans message (perte). Publier puis valider : le service publie dans Kafka, puis la base refuse ou le service tombe, d’où un message sans commande (fantôme). Boîte d’envoi : le service écrit la commande et une ligne de la table outbox dans une même transaction ; un relais lit la table par scrutation ou par le WAL et publie dans Kafka. Le message est publié si et seulement si la transaction est validée, au moins une fois, et le consommateur écarte les doublons par l’identifiant de l’événement.">
+La double écriture, et la boîte d’envoi.
+</Figure>
+
+La première partie de `double_ecriture.py` enregistre 2 000 commandes, dont une sur 50 a un montant négatif que la base refuse par une contrainte `CHECK`. On tue le service toutes les 0,5 à 1,5 s ; il redémarre à la commande suivante, la commande en cours au moment de la panne étant abandonnée, comme une requête dont le client a reçu une erreur. On compare à la fin les commandes de la base et les messages du sujet Kafka.
+
+```text
+PostgreSQL 18.6, Kafka 4.3.1 (un courtier, acks=all)
+
+1. 2000 commandes, service tué toutes les 0,5 à 1,5 s ; une sur 50 refusée
+   mode                     pannes commandes  perdus fantômes doublons
+   valider puis publier        6+0      1960       4        0        0
+   publier puis valider        7+0      1960       0       40        0
+   outbox, scrutation          8+7      1959       0        0        2
+   outbox, capture             6+6      1958       0        0        2
+   (pannes : du service + du relais)
+```
+
+Le second passage a donné 7 messages perdus pour 8 pannes, 41 fantômes, puis 1 et 2 doublons pour les deux boîtes d’envoi, toujours sans perte ni fantôme. Avec « valider puis publier », plus de la moitié des pannes tombent entre la validation et l’accusé de réception de Kafka, et chacune laisse une commande que personne d’autre ne connaîtra jamais. Avec « publier puis valider », les pannes comptent peu (une seule a produit un fantôme, au second passage), et ce sont les 40 commandes refusées par la base qui deviennent 40 messages fantômes ; dans un vrai système, chaque refus d’une contrainte, chaque conflit et chaque transaction annulée produirait ainsi un message sur une commande inexistante.
+
+## La boîte d’envoi
+
+La boîte d’envoi (transactional outbox) supprime la seconde écriture du chemin de la requête. Le service écrit sa donnée et, dans la même transaction locale, une ligne dans une table `outbox` qui décrit l’événement à publier. La transaction valide les deux ou aucun. Un relais (message relay), processus séparé, lit ensuite cette table et publie chaque événement. Chris Richardson, qui décrit le motif sur microservices.io, résume la garantie obtenue : le message est envoyé si et seulement si la transaction est validée, et dans l’ordre où l’application l’a écrit[^outbox]. Il en donne aussi la contrepartie. Le relais peut publier un message plusieurs fois, s’il tombe après avoir publié et avant d’avoir noté qu’il l’a fait, et le consommateur doit donc être idempotent, en retenant les identifiants des messages déjà traités ([ch. 28](../partie-2/garanties-livraison.mdx)).
+
+Dans la mesure, le service et le relais sont tués tous les deux, 12 à 15 fois au total. Les deux relais n’ont perdu aucun événement et n’en ont inventé aucun ; ils ont publié 1 ou 2 doublons chacun, que le consommateur écarte par l’identifiant `commande-N` de l’événement. Le premier relais lit la table par scrutation (polling). Toutes les 100 ms, il cherche les lignes non envoyées, les publie, attend l’accusé de Kafka, puis les marque envoyées. Le second lit le journal de PostgreSQL.
+
+## La capture des changements
+
+La capture des changements (change data capture, CDC) lit les modifications d’une base dans son journal, au lieu d’interroger ses tables. PostgreSQL l’offre par le décodage logique ([ch. 24](../partie-2/replication-leader.mdx)). Un emplacement de réplication (replication slot) logique décode le WAL en une suite de modifications validées, dans l’ordre des validations, et retient la position que son lecteur a confirmée. Le relais de `double_ecriture.py` s’y abonne avec le module de sortie `test_decoding`, publie chaque insertion dans `outbox`, puis confirme la position de cette insertion. Debezium fait la même chose en production, dans un connecteur Kafka Connect qui lit le décodage logique de PostgreSQL (module `pgoutput` ou `decoderbufs`), et il fournit un routeur d’événements dédié au motif de la boîte d’envoi[^debezium-outbox]. Sa documentation prévient qu’après une panne il peut émettre des doublons, et qu’il offre donc une livraison au moins une fois[^debezium-pg].
+
+```text
+2. validation puis réception, 500 commandes à 50 par seconde
+   mode                                   médiane    99e c.
+   publication après la validation          4.4ms     6.8ms
+   outbox, scrutation toutes les 100 ms    55.9ms   106.2ms
+   outbox, scrutation chaque seconde      505.3ms   999.2ms
+   outbox, capture des changements          5.5ms     7.1ms
+```
+
+Le second passage a donné 4,4, 56,3, 501,9 et 5,4 ms en médiane. Le délai part d’un instant noté juste avant la validation et s’arrête à la réception par un consommateur. La publication directe, qui n’est pas fiable, sert de référence. La scrutation ajoute en moyenne la moitié de son intervalle, et au plus l’intervalle entier ; on la règle donc entre la fraîcheur voulue et la charge qu’elle impose à la base, une requête par intervalle et par relais même quand il n’y a rien à publier. La capture ne coûte qu’une milliseconde de plus que la publication directe, puisque PostgreSQL envoie chaque transaction validée au lecteur dès qu’elle est écrite dans son journal.
+
+La capture a un coût caché. Un emplacement de réplication retient tout le WAL que son lecteur n’a pas confirmé, même quand ce lecteur est arrêté. La documentation de PostgreSQL le dit sans détour : les emplacements survivent aux pannes, ne savent rien de l’état de leurs lecteurs et empêchent la suppression du WAL et des lignes du catalogue dont ils ont besoin, au point, dans les cas extrêmes, de forcer l’arrêt de la base[^pg-slots]. La troisième partie de `double_ecriture.py` crée un emplacement, n’y lit rien, et écrit un million d’événements.
+
+```text
+3. emplacement de capture dont le lecteur est arrêté
+   max_slot_wal_keep_size = -1
+      250000 événements : retenu   83.5 Mo, pg_wal  112 Mo, reserved
+      500000 événements : retenu  167.1 Mo, pg_wal  192 Mo, reserved
+      750000 événements : retenu  250.6 Mo, pg_wal  272 Mo, reserved
+     1000000 événements : retenu  334.2 Mo, pg_wal  352 Mo, reserved
+   lecteur rattrapé : retenu   0.0 Mo, pg_wal  192 Mo
+   max_slot_wal_keep_size = 200MB
+      250000 événements : retenu   83.5 Mo, pg_wal  192 Mo, reserved
+      500000 événements : retenu  167.1 Mo, pg_wal  192 Mo, reserved
+      750000 événements : retenu    ---   , pg_wal  208 Mo, lost
+     1000000 événements : retenu    ---   , pg_wal  208 Mo, lost
+   lecteur relancé : can no longer access replication slot "relais"
+```
+
+Le second passage a donné exactement les mêmes tailles. Par défaut (`max_slot_wal_keep_size = -1`), l’emplacement retient tout, 334 Mo pour un million d’événements de 200 octets, soit 350 octets de WAL par événement, et le répertoire `pg_wal` grossit d’autant. Ce WAL n’est libéré qu’une fois le lecteur rattrapé. Avec une limite de 200 Mo, PostgreSQL protège son disque en sacrifiant l’emplacement, qui passe à l’état `lost` au premier point de contrôle qui dépasse la limite[^pg-slot-size]. Le lecteur ne peut plus reprendre ; les événements écrits entre sa dernière position et la perte de l’emplacement ne lui parviendront jamais, et il faut recopier la table entière pour repartir. Il faut donc choisir entre un disque qui se remplit et une capture qui se rompt, et surveiller dans les deux cas le retard de chaque emplacement dans `pg_replication_slots`. Debezium ajoute un piège voisin. Un connecteur qui suit une base peu active, sur un serveur où une autre base écrit beaucoup, ne reçoit presque aucun événement, ne confirme donc aucune position, et l’emplacement retient le WAL de l’autre base ; sa documentation conseille d’écrire régulièrement dans une table de battements de cœur[^debezium-pg].
+
+## Les sagas
+
+Quand une opération traverse plusieurs services qui ont chacun leur base, une commande qui réserve un article dans le service de stock, débite le client dans le service de paiement et crée une expédition dans le service de livraison, ni le 2PC ni la boîte d’envoi ne suffisent. Hector Garcia-Molina et Kenneth Salem ont proposé en 1987 la saga pour un problème voisin, les transactions longues qui gardaient leurs verrous des heures[^sagas]. Une saga est une suite de transactions locales $T_1, T_2, \dots, T_n$, chacune validée seule, et le système garantit que s’exécute soit la suite entière, soit $T_1, \dots, T_j$ suivies des compensations $C_j, \dots, C_1$, où chaque $C_i$ défait sémantiquement l’effet de $T_i$. Une compensation n’est pas une annulation. $T_2$ a été validée, d’autres transactions ont pu lire le débit qu’elle a fait, et $C_2$ est une nouvelle transaction, un remboursement, qui laisse une trace. L’article précise que d’autres transactions peuvent voir les effets d’une saga partiellement exécutée, et que rien n’est fait pour les prévenir quand une compensation les défait.
+
+<Figure svg={saga} num="37.4" alt="En haut, l’orchestration : un orchestrateur, avec un journal des sagas, appelle le stock (T1 réserver), le paiement (T2 débiter) et la livraison (T3 expédier) ; en cas de refus, il appelle C2 rembourser puis C1 libérer. T1, T2 et T3 sont des transactions locales, chacune dans sa base ; il n’y a pas de compensation après T3, le point de non-retour. En bas, la chorégraphie : une chaîne d’événements, commande créée, stock réservé, paiement refusé, stock libéré, commande annulée, chacun émis par un service et consommé par le suivant ; aucun ne connaît la saga entière.">
+Une saga de commande, par orchestration et par chorégraphie.
+</Figure>
+
+Une saga se coordonne de deux façons (figure 37.4)[^saga-motif]. Dans l’orchestration, un orchestrateur dit à chaque service quelle transaction locale exécuter, et il connaît l’état de chaque saga. Dans la chorégraphie, chaque transaction locale publie un événement, par une boîte d’envoi, qui déclenche la transaction suivante dans un autre service. La chorégraphie n’a pas de composant central, mais la logique de la saga est répartie dans tous les services, et plus personne ne sait dire où en est une commande sans reconstituer la chaîne de ses événements. L’orchestration rend cet état explicite et se prête mieux aux sagas de plus de deux ou trois étapes.
+
+Une saga fiable demande trois choses. L’orchestrateur doit écrire l’état de chaque saga dans sa base après chaque étape, pour reprendre après une panne là où il s’était arrêté ; c’est le journal des sagas, que Garcia-Molina et Salem placent déjà au cœur de leur mécanisme. Chaque étape et chaque compensation doivent être idempotentes, puisque l’orchestrateur qui reprend ne sait pas si sa dernière demande a été exécutée avant la panne, et doit la renvoyer. Les étapes qu’on ne peut pas compenser, envoyer un courriel ou expédier un colis, doivent venir en dernier, après le point de non-retour (pivot) au-delà duquel la saga ne peut plus qu’avancer. Il faut aussi prévoir le cas où la compensation arrive avant l’étape qu’elle défait, quand une demande de réservation, retardée par le réseau, arrive après la libération envoyée parce qu’elle semblait perdue. Le service de stock de `saga.py` écrit pour cela une « pierre tombale » (tombstone) en libérant une réservation qu’il n’a jamais vue, et refuse ensuite toute réservation tardive pour cette saga.
+
+```text
+1000 commandes, 300 exemplaires, 8 fils ; orchestrateur tué toutes les
+0,5 à 1,5 s
+
+   orchestrateur et services       pannes  fin.  ann.  ref. incoh. doubl.
+   journal, idempotents                 8   300   138   562      0      0
+      9.6 s ; commandes oubliées : 0 ; exemplaires perdus : 0
+      refus de stock : 585, dont 15 pendant une réservation annulée ensuite
+   journal, non idempotents             7   277   137   568     18     18
+      9.3 s ; commandes oubliées : 0 ; exemplaires perdus : 0
+      refus de stock : 587, dont 0 pendant une réservation annulée ensuite
+   en mémoire, idempotents              6   270   124   561     30      0
+      8.7 s ; commandes oubliées : 15 ; exemplaires perdus : 0
+      refus de stock : 574, dont 0 pendant une réservation annulée ensuite
+```
+
+Le second passage a donné de nouveau 0 incohérence avec le journal et des services idempotents (8 pannes), 26 sagas en double sans idempotence, et 38 sagas incohérentes et 23 oubliées avec l’état en mémoire (8 pannes). Les colonnes donnent le nombre de sagas terminées, annulées (débit ou expédition refusés, puis compensées), refusées (plus de stock), incohérentes (dont l’état dans les trois bases ne correspond ni à une saga terminée, ni à une saga sans aucun effet) et en double (une étape exécutée deux fois). Avec un journal et des services idempotents, les 1 000 commandes finissent dans un état cohérent malgré 8 pannes de l’orchestrateur, avec 300 sagas terminées, autant que d’exemplaires, 138 annulées et 562 refusées. Avec les mêmes pannes et des services qui ne reconnaissent pas une demande répétée, chaque panne fait répéter les étapes en cours dans les 8 fils, et 18 puis 26 sagas ont réservé deux exemplaires ou débité deux fois le client. Avec un orchestrateur qui garde l’état en mémoire, les sagas en cours au moment de chaque panne sont abandonnées. 30 puis 38 restent à mi-chemin, par exemple avec un exemplaire réservé sans paiement ou un client débité sans expédition, et 15 puis 23 sont oubliées avant toute étape, des commandes acceptées que personne ne traitera. Le total, 45 sagas pour 6 pannes et 61 pour 8, vaut presque huit par panne, une par fil.
+
+La dernière ligne de chaque variante mesure l’absence d’isolation. Un refus de stock est compté quand, au moment du refus, au moins un exemplaire était tenu par une saga qui a été annulée ensuite ; le client a été refusé à cause d’une réservation qui n’a finalement pas compté. Le nombre varie de 0 à 16 sur 574 à 587 refus selon l’entrelacement des fils. Garcia-Molina et Salem l’acceptaient, et Chris Richardson range le problème parmi les anomalies que les sagas imposent de traiter par des contre-mesures de conception[^saga-motif]. On peut par exemple afficher un état « en attente » plutôt qu’un refus, ou ordonner les étapes pour que la plus souvent refusée vienne en premier ; ici, débiter avant de réserver aurait évité de bloquer des exemplaires pour des clients sans provision, au prix d’un remboursement pour chaque commande refusée faute de stock.
+
+## Compromis
+
+| Méthode | Garantie | Coût | Mesuré | Quand |
+|---|---|---|---|---|
+| Une seule base | atomicité, isolation | rien de plus | virement en 3,7 ms ; 364 à 400 par seconde sur un compte chaud | toujours, si les données peuvent y tenir |
+| 2PC | atomicité sur plusieurs bases | trois écritures synchronisées, verrous tenus deux phases, blocage si le coordinateur tombe | 14,5 à 15,4 ms ; 71 par seconde sur un compte chaud ; verrous tenus 10 s après la panne du coordinateur | dans un système qui réplique son coordinateur (Spanner) ; rarement entre services |
+| 2PC à verrous en parallèle | idem | interblocage distribué invisible | figé en 0,11 s | jamais sans ordre global ou délai d’attente |
+| Valider puis publier | aucune | messages perdus | 4 à 7 pertes sur 2 000 | jamais pour un événement qui compte |
+| Publier puis valider | aucune | messages fantômes | 40 à 41 fantômes sur 2 000 | jamais |
+| Boîte d’envoi, scrutation | publié si et seulement si validé, au moins une fois | une table, un relais, des doublons, un délai | 0 perte, 1 ou 2 doublons ; 56 ms à 100 ms d’intervalle | cas général, sans infrastructure de plus |
+| Boîte d’envoi, capture des changements | idem, dans l’ordre des validations | un emplacement de réplication à surveiller | 5,4 à 5,5 ms ; 334 Mo de WAL retenus par million d’événements, lecteur arrêté | débit élevé, faible délai, Debezium déjà en place |
+| Saga orchestrée avec journal | chaque saga finit entière ou compensée | compensations à écrire, pas d’isolation | 0 incohérence sur 1 000 commandes, 8 pannes | processus métier entre services |
+| Saga sans idempotence | aucune après une panne | étapes répétées | 18 et 26 sagas en double | jamais |
+| Saga sans journal | aucune après une panne | sagas abandonnées | 45 et 61 sagas incohérentes ou oubliées | jamais |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : le débit d’une donnée chaude en 2PC]
+Hypothèses : une donnée que toutes les transactions modifient, et dont le verrou est donc tenu par une transaction à la fois ; les durées de verrou mesurées dans ce chapitre ; entre régions, 70 ms d’aller-retour et trois allers-retours pendant que le verrou est tenu (exécution, préparation, validation), plus trois écritures synchronisées de 3 ms.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Une base, sur la machine | verrou de 2,5 ms (mesuré) | 400 transactions par seconde |
+| 2PC, sur la machine | verrou de 14 ms (mesuré) | 71 par seconde |
+| 2PC, 10 ms d’aller-retour | verrou de 56 ms (mesuré) | 18 par seconde |
+| 2PC entre régions | 3 × 70 + 3 × 3 = 219 ms | 4,6 par seconde |
+
+Conclusion : le débit d’une donnée chaude vaut l’inverse de la durée de son verrou, et le 2PC allonge cette durée de toutes ses phases. Entre régions, un compte, un stock ou un compteur partagé ne supporte plus que quelques transactions par seconde ; on évite alors qu’une même donnée soit modifiée par des transactions qui traversent les régions, en la partitionnant par région ([ch. 26](../partie-2/partitionnement.mdx)).
+:::
+
+:::calcul[Calcul : un emplacement de capture dont le lecteur est arrêté une nuit]
+Hypothèses : une base qui écrit 5 Mo de WAL par seconde, toutes tables confondues, puisque l’emplacement retient tout le WAL du serveur et pas seulement celui de la table `outbox` ; 200 Go libres pour `pg_wal` ; 1 000 événements par seconde dans la boîte d’envoi, à 350 octets de WAL chacun (mesuré).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| WAL écrit par jour | 5 Mo × 86 400 | 432 Go |
+| Durée avant de remplir le disque, sans limite | 200 000 Mo / 5 Mo/s | 40 000 s, 11 heures |
+| Avec `max_slot_wal_keep_size = 100GB` | 100 000 / 5 | emplacement perdu au bout de 5,6 heures |
+| Part de la boîte d’envoi dans le WAL | 1 000 × 350 o = 0,35 Mo/s, sur 5 | 7 % |
+
+Conclusion : un relais de capture arrêté du soir au matin remplit le disque d’une base active ou perd son emplacement, et dans le second cas il faut recopier la table. On surveille le retard de chaque emplacement, en octets (`pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)`), avec une alerte bien avant la limite, et l’on supprime les emplacements des lecteurs abandonnés.
+:::
+
+:::calcul[Calcul : les sagas en cours au moment d’une panne]
+Hypothèses : 200 commandes par seconde ; une saga dure 1,2 s en moyenne, dont 1 s pour l’appel au prestataire de paiement ; l’orchestrateur redémarre deux fois par jour, aux déploiements.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Sagas en cours à tout instant | 200 × 1,2 (loi de Little, [ch. 9](../partie-1/latence-debit.mdx)) | 240 |
+| Sans journal, sagas abandonnées par jour | 240 × 2 | 480, 175 000 par an |
+| Vérification sur la mesure | 8 fils, donc au plus 8 sagas en cours | 7,5 et 7,6 sagas abandonnées par panne |
+| Avec journal, étapes renvoyées à la reprise | jusqu’à 240 par redémarrage | autant de doublons si les services ne sont pas idempotents |
+| Mesuré sans idempotence | 18 et 26 doublons pour 7 pannes de 8 fils | 2,6 à 3,7 par panne |
+
+Conclusion : une saga en mémoire perd à chaque redémarrage toutes les sagas en cours, des centaines dans un service modeste, et un journal sans idempotence les fait répéter. Les deux protections vont ensemble, et elles coûtent quelques écritures en base par saga.
+:::
+
+## Exemple réel
+
+**La validation à deux phases de Spanner.** Google décrit en 2012 comment sa base Spanner rend le 2PC acceptable à grande échelle[^spanner]. Chaque partition de données est un groupe de réplicas tenu par Paxos ([ch. 34](consensus-paxos.mdx)), dont le leader tient les verrous. Une transaction qui ne touche qu’un groupe s’en contente. Une transaction qui en touche plusieurs fait un 2PC entre les leaders de ces groupes, et l’un des groupes joue le coordinateur ; l’état de chaque gestionnaire de transactions est écrit dans son groupe Paxos, donc répliqué. La panne de la machine du coordinateur n’arrête pas la transaction, puisque le groupe élit un autre leader qui connaît son état ; les auteurs écrivent que faire tourner le 2PC sur Paxos atténue ses problèmes de disponibilité. Les interblocages sont évités par wound-wait. Ils comparent aussi leur choix à la validation par Paxos (Paxos Commit) de Jim Gray et Leslie Lamport, non bloquante, mais qui envoie plus de messages que le 2PC, ce qui alourdirait les validations entre groupes éloignés. Le tableau 4 de l’article chiffre le coût selon le nombre de participants, sur trois zones de 25 serveurs. Une validation prend en moyenne 17 ms avec un participant, 24,5 ms avec deux, 42,7 ms avec 50, 71,4 ms avec 100 et 150,5 ms avec 200. Le tableau 6 donne les durées vues sur 24 heures par F1, la base de la régie publicitaire de Google, construite sur Spanner. Les 31,2 millions de validations dans un seul site ont pris 72,3 ms en moyenne, et les 32,1 millions de validations sur plusieurs sites, dont les réplicas sont répartis entre centres de données, 103,0 ms. Les auteurs assument ce coût. Ils jugent préférable que les développeurs traitent les problèmes de performance dus à l’abus de transactions quand ils apparaissent, plutôt que de toujours programmer en l’absence de transactions.
+
+## Erreurs fréquentes
+
+Écrire en base puis publier un message, ou l’inverse, en comptant sur la rareté des pannes. Sur 2 000 commandes, 4 à 7 messages ont été perdus ou 40 à 41 fantômes publiés (mesuré).
+
+Croire qu’une boîte d’envoi publie chaque événement exactement une fois. Le relais tombé après la publication et avant le marquage republie (1 ou 2 doublons, mesuré) ; le consommateur écarte les doublons par l’identifiant de l’événement.
+
+Faire avancer le relais par scrutation sur « identifiant supérieur au dernier lu ». Les identifiants sont attribués à l’insertion et non à la validation, et une transaction plus ancienne peut valider après une plus récente ; ses lignes sont sautées (question 2).
+
+Laisser un emplacement de réplication sans lecteur. Il retient tout le WAL du serveur (334 Mo par million d’événements, mesuré), ou se perd si l’on a fixé une limite.
+
+Activer les transactions préparées sans gestionnaire de transactions qui les résout. Une transaction préparée oubliée tient ses verrous et empêche `VACUUM` de nettoyer toute la base (20 000 versions mortes conservées, mesuré).
+
+Verrouiller en parallèle sur plusieurs bases sans ordre global ni délai d’attente. L’interblocage distribué fige tout, et aucun serveur ne le voit (16 clients en 0,11 s, mesuré).
+
+Garder l’état d’une saga en mémoire. Chaque redémarrage abandonne les sagas en cours (7,5 par panne pour 8 fils, mesuré).
+
+Écrire des étapes de saga qui ne reconnaissent pas une demande répétée. Une reprise débite deux fois (18 et 26 doublons, mesuré).
+
+Placer une étape qu’on ne peut pas compenser avant une étape qui peut échouer. Un courriel de confirmation envoyé avant le débit ne se rattrape pas.
+
+Oublier qu’une saga n’isole pas. Un autre client voit les réservations d’une saga qui sera compensée (jusqu’à 16 refus évitables, mesuré).
+
+:::piege[Erreur fréquente : « avec la validation à deux phases, les bases restent cohérentes même en cas de panne »]
+Le 2PC garantit l’atomicité ; il ne garantit pas que la transaction se termine. Dans la mesure, le coordinateur tué après la préparation a laissé un verrou sur pg1 et pg2, qui a bloqué un client 10 s, a survécu au redémarrage de pg1 et a empêché tout nettoyage de la base, jusqu’à ce que le coordinateur relise son journal. Sans ce journal, personne ne sait s’il faut valider ou annuler, puisque les participants voient exactement la même chose dans les deux cas. La cohérence tient, mais la disponibilité dépend du coordinateur, et un coordinateur non répliqué est un point unique de défaillance pour toutes les bases qu’il touche.
+:::
+
+:::entretien
+Si l’on vous demande comment garder cohérents deux services qui ont chacun leur base, commencez par demander si les données doivent vraiment être séparées. Si un service doit annoncer ses changements, proposez « une boîte d’envoi écrite dans la transaction locale, un relais par scrutation ou par capture des changements, et des consommateurs idempotents qui écartent les doublons par l’identifiant de l’événement ». Si l’opération traverse plusieurs services, proposez une saga orchestrée : un journal des sagas, des étapes et des compensations idempotentes, l’étape la plus souvent refusée en premier et les étapes irréversibles après le point de non-retour. Réservez le 2PC aux bases qui répliquent leur coordinateur, et dites pourquoi, chiffres à l’appui, puisqu’il coûte trois écritures synchronisées, tient ses verrous pendant deux phases et bloque quand le coordinateur tombe.
+:::
+
+## Exercices
+
+**Question 1.** Une validation à deux phases a trois participants, P1, P2 et P3. Le coordinateur tombe après avoir reçu le vote oui de P1 et de P2, alors que P3 n’a pas encore voté. Que peut faire P3 ? Que peuvent faire P1 et P2 s’ils peuvent parler à P3 ? Et si P3 avait déjà voté oui ?
+
+**Question 2.** Un relais de boîte d’envoi lit `select * from outbox where id > $dernier order by id`, publie les lignes, puis retient le plus grand `id` lu. La table a une colonne `id bigserial`, et plusieurs instances du service écrivent en même temps. Montrez un scénario où un événement n’est jamais publié. Proposez deux corrections.
+
+**Question 3.** Une saga de commande enchaîne quatre étapes : réserver l’article (refusé dans 5 % des cas, faute de stock), débiter le client (refusé dans 25 % des cas), expédier et envoyer un courriel de confirmation. Dans quel ordre faut-il placer les deux premières étapes pour avoir le moins de compensations ? Où est le point de non-retour ?
+
+**Exercice de conception.** Une agence de voyages en ligne vend des séjours composés d’un vol, d’un hôtel et d’une voiture, réservés chez trois prestataires différents. Chaque prestataire offre une API qui pose une option de 15 minutes, la confirme ou l’annule, et répond en 300 ms à 2 s ; il arrive qu’une demande expire sans réponse. L’agence prévoit 50 séjours par seconde en pointe. Proposez la coordination (2PC, saga orchestrée ou chorégraphiée), le contenu du journal, la façon de traiter une réponse qui n’arrive pas, ce qui se passe si une annulation échoue, et la façon d’annoncer le séjour confirmé aux autres services (facturation, courriels). Chiffrez le nombre de sagas en cours et les écritures dans le journal.
+
+## Corrigés
+
+**Question 1.** P3 n’a pas voté oui ; il peut décider seul d’annuler, et c’est ce qu’il fait quand le coordinateur ne répond plus. P1 et P2 sont incertains, mais ils peuvent interroger P3. Un participant qui a annulé, ou qui n’a pas encore voté et annule, leur permet de décider « annuler » sans le coordinateur. Bernstein et ses coauteurs appellent cette consultation le protocole de terminaison coopératif (cooperative termination protocol)[^bhg]. Si P3 avait déjà voté oui, les trois participants seraient incertains ; aucun ne sait si le coordinateur a décidé de valider avant de tomber, et tous restent bloqués jusqu’à son retour.
+
+**Question 2.** La transaction T1 insère un événement et reçoit l’`id` 41, puis prend du temps avant de valider. La transaction T2 insère un événement, reçoit l’`id` 42 et valide aussitôt. Le relais lit les lignes au-delà de 40, ne voit que 42, puisque 41 n’est pas encore validée, le publie et retient 42. T1 valide ensuite ; sa ligne 41 ne sera jamais lue. Une séquence attribue ses valeurs sans attendre la validation, et l’ordre des identifiants n’est pas celui des validations. On peut marquer chaque ligne publiée (`envoye = true`) et lire les lignes non marquées, comme le relais de `double_ecriture.py`, ou lire le journal par capture des changements, qui livre les transactions dans l’ordre de leurs validations. Une troisième correction, plus fragile, ne lit que les lignes plus anciennes que la plus ancienne transaction encore en cours.
+
+**Question 3.** Si l’on réserve d’abord, une saga sur quatre qui a obtenu l’article voit son débit refusé et doit libérer l’article, soit $0{,}95 \times 0{,}25 \approx 24\ \%$ des sagas avec une compensation. Si l’on débite d’abord, seules les commandes payées mais sans stock doivent être remboursées, soit $0{,}75 \times 0{,}05 \approx 3{,}8\ \%$. Débiter d’abord fait six fois moins de compensations, mais chacune est un remboursement, visible par le client et parfois facturé par le prestataire de paiement. On peut pour cette raison séparer l’autorisation du paiement, qui réserve le montant, de sa capture après l’expédition, quand le prestataire de paiement le permet. Le point de non-retour est l’expédition. Après elle, la saga ne peut plus qu’avancer, et le courriel vient en dernier.
+
+**Exercice de conception.**
+
+*Coordination.* Le 2PC est exclu, puisque les prestataires n’offrent pas de rôle de participant et qu’on ne peut pas tenir leurs verrous. Une saga orchestrée convient, car les trois étapes et leurs compensations sont connues et l’agence doit pouvoir dire à tout moment où en est un séjour. Les options de 15 minutes des prestataires jouent le rôle de verrous sémantiques. La saga pose les trois options, puis confirme les trois ; si une option est refusée, elle annule les options posées.
+
+*Journal.* Une ligne par séjour, avec l’état de chaque étape (à poser, posée, confirmée, annulée), la clé d’idempotence envoyée à chaque prestataire et l’échéance des options. L’orchestrateur écrit l’état avant et après chaque appel.
+
+*Réponse absente.* Une demande expirée a peut-être été exécutée. L’orchestrateur la renvoie avec la même clé d’idempotence, ou interroge le prestataire sur l’état de cette clé, jusqu’à obtenir une réponse ; il ne suppose jamais l’échec (ch. 38).
+
+*Annulation qui échoue.* Une compensation ne peut pas être abandonnée. On la renvoie avec une attente croissante, et, au-delà d’un seuil, on la passe à une file traitée par une personne. L’option de 15 minutes limite le dommage, puisqu’une option jamais confirmée expire seule.
+
+*Annonce.* La confirmation du séjour est écrite dans la base de l’agence avec une ligne de boîte d’envoi, dans la même transaction ; la facturation et les courriels consomment l’événement et écartent les doublons.
+
+*Chiffres.* Une saga fait six appels (trois poses, trois confirmations) de 300 ms à 2 s, faits en parallèle trois par trois, soit 0,6 à 4 s, disons 2 s en moyenne ; à 50 séjours par seconde, il y a $50 \times 2 = 100$ sagas en cours. Le journal reçoit environ 13 écritures par saga (avant et après chacun des six appels, plus la fin), soit 650 écritures par seconde, à la portée d’une seule base PostgreSQL ; la boîte d’envoi en ajoute 50.
+
+:::fiche
+- Validation atomique : tous valident ou tous annulent ; chaque participant a un veto ; après son vote oui, il ne décide plus seul (période d’incertitude).
+- 2PC : préparer (écriture durable, vote), écrire la décision dans le journal du coordinateur, valider ; trois tours, $3n$ messages. PostgreSQL : `PREPARE TRANSACTION`, `COMMIT PREPARED`, `pg_prepared_xacts`, `max_prepared_transactions = 0` par défaut.
+- Mesuré : 14,5 à 15,4 ms contre 3,7 ms dans une base ; 71 virements par seconde contre 364 à 400 sur un compte chaud ; 18 par seconde à 10 ms d’aller-retour.
+- Interblocage distribué : invisible pour chaque serveur, 16 clients figés en 0,11 s ; ordre global des verrous (71 par seconde), délai d’attente (24 à 26 par seconde, 108 à 124 abandons), wound-wait (Spanner).
+- Coordinateur tué : participants identiques qu’il ait décidé ou non ; verrou tenu 10 s, durable au redémarrage, `VACUUM` bloqué. Le 3PC ne bloque pas quand des sites tombent, mais bloque ou se contredit en cas de coupure. Spanner : coordinateur répliqué par Paxos.
+- Double écriture : valider puis publier perd (4 à 7 sur 2 000) ; publier puis valider invente (40 à 41).
+- Boîte d’envoi : même transaction, relais, au moins une fois (1 ou 2 doublons), consommateur idempotent. Scrutation, la moitié de l’intervalle en plus ; capture des changements, 5,4 à 5,5 ms, mais un emplacement retient tout le WAL (334 Mo par million d’événements) ou se perd au-delà de `max_slot_wal_keep_size`.
+- Saga : transactions locales et compensations, orchestrée ou chorégraphiée, sans isolation. Journal + idempotence : 0 incohérence ; sans idempotence, 18 et 26 doublons ; en mémoire, 45 et 61 sagas abandonnées. Étape la plus refusée d’abord, irréversible après le point de non-retour, pierre tombale contre la compensation précoce.
+:::
+
+[^bhg]: Philip A. Bernstein, Vassos Hadzilacos et Nathan Goodman, *Concurrency Control and Recovery in Database Systems*, Addison-Wesley, 1987, chapitre 7, sections 7.3 (validation atomique, période d’incertitude, propositions 7.1 et 7.2), 7.4 (validation à deux phases, protocole de terminaison coopératif, complexité) et 7.5 (validation à trois phases), [microsoft.com/en-us/research/people/philbe/book](https://www.microsoft.com/en-us/research/people/philbe/book/).
+[^pg-prepare]: PostgreSQL, « PREPARE TRANSACTION », documentation de PostgreSQL 18 (vue `pg_prepared_xacts`, mise en garde sur `VACUUM`, les verrous et le rebouclage des identifiants, `max_prepared_transactions`, X/Open XA), [postgresql.org/docs/18/sql-prepare-transaction.html](https://www.postgresql.org/docs/18/sql-prepare-transaction.html).
+[^pg-verrous]: PostgreSQL, « Lock Management », documentation de PostgreSQL 18 (`deadlock_timeout`), [postgresql.org/docs/18/runtime-config-locks.html](https://www.postgresql.org/docs/18/runtime-config-locks.html).
+[^spanner]: James C. Corbett, Jeffrey Dean, Michael Epstein et al., « Spanner: Google’s Globally-Distributed Database », *10th USENIX Symposium on Operating Systems Design and Implementation (OSDI ’12)*, 2012, sections 2.1 (gestionnaire de transactions répliqué par Paxos), 2.3 (2PC sur Paxos), 4.2.1 (wound-wait), 5.1 (tableau 4), 5.4 (tableau 6) et 6 (Paxos Commit), [research.google.com/archive/spanner-osdi2012.pdf](https://research.google.com/archive/spanner-osdi2012.pdf).
+[^outbox]: Chris Richardson, « Pattern: Transactional outbox », microservices.io, [microservices.io/patterns/data/transactional-outbox.html](https://microservices.io/patterns/data/transactional-outbox.html).
+[^debezium-outbox]: Debezium, « Outbox Event Router », documentation de référence, [debezium.io/documentation/reference/stable/transformations/outbox-event-router.html](https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html).
+[^debezium-pg]: Debezium, « Debezium connector for PostgreSQL », documentation de référence, sections « WAL disk space consumption » et « Behavior when things go wrong » (livraison au moins une fois), [debezium.io/documentation/reference/stable/connectors/postgresql.html](https://debezium.io/documentation/reference/stable/connectors/postgresql.html).
+[^pg-slots]: PostgreSQL, « Logical Decoding Concepts », documentation de PostgreSQL 18 (emplacements de réplication, mise en garde), [postgresql.org/docs/18/logicaldecoding-explanation.html](https://www.postgresql.org/docs/18/logicaldecoding-explanation.html).
+[^pg-slot-size]: PostgreSQL, « Replication », documentation de PostgreSQL 18 (`max_slot_wal_keep_size`), [postgresql.org/docs/18/runtime-config-replication.html](https://www.postgresql.org/docs/18/runtime-config-replication.html).
+[^sagas]: Hector Garcia-Molina et Kenneth Salem, « Sagas », *Proceedings of the 1987 ACM SIGMOD International Conference on Management of Data*, p. 249-259, sections 1 (définition, p. 250) et 4 (reprise en arrière et en avant, p. 253), [doi.org/10.1145/38713.38742](https://doi.org/10.1145/38713.38742).
+[^saga-motif]: Chris Richardson, « Pattern: Saga », microservices.io (chorégraphie et orchestration, absence d’isolation et contre-mesures), [microservices.io/patterns/data/saga.html](https://microservices.io/patterns/data/saga.html).

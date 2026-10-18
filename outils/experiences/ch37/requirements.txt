@@ -1,0 +1,4 @@
+aiohttp
+psycopg[binary]
+psycopg2-binary
+confluent-kafka

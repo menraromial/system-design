@@ -268,7 +268,7 @@ Dites la clé de partition et pourquoi : « par identifiant de client, car tou
 
 *Grandes entreprises.* La plus grande a 300 millions de fichiers, 150 Go, 250 fois une partition moyenne. On l’isole dans ses propres partitions, par une clé composée (entreprise, dossier racine) ou par une plage de dossiers, comme Citus isole un client ; elle reçoit ses propres nœuds. On isole de même toute entreprise qui dépasse, par exemple, dix fois la taille moyenne.
 
-*Recherche par nom.* Elle ne connaît pas le dossier, et interrogerait toutes les partitions de l’entreprise, voire toutes si l’entreprise est isolée sur plusieurs. Comme elle est rare, deux choix existent : un index global par (entreprise, nom), mis à jour de façon asynchrone, ou une copie des noms dans un moteur de recherche par entreprise ([ch. 22](nosql-specialisees.mdx)), alimentée par un flux de modifications (ch. 37), avec un retard de quelques secondes accepté.
+*Recherche par nom.* Elle ne connaît pas le dossier, et interrogerait toutes les partitions de l’entreprise, voire toutes si l’entreprise est isolée sur plusieurs. Comme elle est rare, deux choix existent : un index global par (entreprise, nom), mis à jour de façon asynchrone, ou une copie des noms dans un moteur de recherche par entreprise ([ch. 22](nosql-specialisees.mdx)), alimentée par un flux de modifications ([ch. 37](../partie-3/transactions-distribuees.mdx)), avec un retard de quelques secondes accepté.
 
 :::fiche
 - Partitionner découpe les données et les écritures entre machines ; on combine avec la réplication de chaque partition.

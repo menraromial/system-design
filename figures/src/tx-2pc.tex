@@ -1,0 +1,39 @@
+% La validation à deux phases entre un coordinateur et deux participants, et la
+% période d'incertitude des participants.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    lab/.style={font=\sffamily\small, text=#1, fill=white, inner sep=1.5pt},
+    lab/.default=Dink]
+  \node[seqhead=Dblue] (c) at (0,0) {\stack{cogs}{Coordinateur}};
+  \node[seqhead=Dpurple] (p1) at (62,0) {\stack{database}{pg1}};
+  \node[seqhead=Dteal] (p2) at (124,0) {\stack{database}{pg2}};
+  \seqlife{-82}{c,p1,p2}
+  % périodes d'incertitude
+  \foreach \x/\co in {62/Dpurple, 124/Dteal} {
+    \fill[DamberBg] (\x-1.4,-33) rectangle (\x+1.4,-57);
+    \draw[Damber, line width=0.7pt] (\x-1.4,-33) rectangle (\x+1.4,-57);
+  }
+  \draw[accol, Damber] (127,-33) -- node[right=6pt, note, align=left, text=Damber, font=\sffamily\footnotesize] {incertain : a voté oui,\\tient ses verrous,\\ne peut ni valider\\ni annuler seul} (127,-57);
+  % travail
+  \draw[arr=Dblue] (0,-12) -- node[lab, above=1pt] {BEGIN ; UPDATE} (62,-12);
+  \draw[arr=Dblue] (0,-15) -- (124,-15);
+  % phase 1
+  \draw[arr=Dblue] (0,-25) -- node[lab, above=1pt] {PREPARE TRANSACTION} (62,-25);
+  \draw[arr=Dblue] (0,-28) -- (124,-28);
+  \node[num=Dblue] at (0,-25) {1};
+  \draw[darr=Dpurple, line width=0.9pt] (62,-33) -- node[lab=Dslate, above=1pt, pos=0.5] {prêt (vote oui)} (0,-33);
+  \draw[darr=Dteal, line width=0.9pt] (124,-36) -- (0,-36);
+  % décision
+  \node[seqnote, anchor=west] at (2,-45) {décision écrite et synchronisée\\dans le journal du coordinateur};
+  \draw[Dred, line width=1.4pt] (-8,-43) -- (-4,-47) (-8,-47) -- (-4,-43);
+  % phase 2
+  \draw[arr=Dblue] (0,-54) -- node[lab, above=1pt] {COMMIT PREPARED} (62,-54);
+  \draw[arr=Dblue] (0,-57) -- (124,-57);
+  \node[num=Dblue] at (0,-54) {2};
+  \draw[darr=Dpurple, line width=0.9pt] (62,-63) -- node[lab=Dslate, above=1pt] {validé} (0,-63);
+  \draw[darr=Dteal, line width=0.9pt] (124,-66) -- (0,-66);
+  \node[note, text=Dred, anchor=north west, align=left, font=\sffamily\footnotesize, fill=white] at (-12,-72) {si le coordinateur tombe après la phase 1 (croix rouge), pg1 et pg2 restent préparés et gardent\\leurs verrous jusqu’à sa reprise : 10 s dans la mesure, sans limite en général};
+\end{tikzpicture}
+\end{document}

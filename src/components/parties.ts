@@ -67,7 +67,7 @@ export const PARTIES: Partie[] = [
       {num: 34, titre: 'Consensus (1) : le problème et Paxos', doc: 'partie-3/consensus-paxos'},
       {num: 35, titre: 'Consensus (2) : Raft en détail', doc: 'partie-3/consensus-raft'},
       {num: 36, titre: 'Coordination : ZooKeeper, etcd, service discovery', doc: 'partie-3/coordination'},
-      {num: 37, titre: 'Transactions distribuées : 2PC, sagas, outbox'},
+      {num: 37, titre: 'Transactions distribuées : 2PC, sagas, outbox', doc: 'partie-3/transactions-distribuees'},
       {num: 38, titre: 'Résilience (1) : idempotence, retries, timeouts'},
       {num: 39, titre: 'Résilience (2) : circuit breaker, bulkhead, back-pressure'},
       {num: 40, titre: 'Structures probabilistes'},

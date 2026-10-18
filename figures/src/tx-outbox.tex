@@ -1,0 +1,37 @@
+% La double écriture, et la boîte d'envoi.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=22mm, minimum height=8mm, font=\sffamily\small\bfseries, align=center}]
+  % 1. valider puis publier
+  \node[pillo=Dred, anchor=west] at (-12,64) {valider puis publier};
+  \node[b=Dblue] (s1) at (0,52) {service};
+  \node[b=Dpurple] (d1) at (40,52) {base};
+  \node[b=Dslate] (k1) at (80,52) {Kafka};
+  \draw[arr=Dgreen] (s1) -- node[lblc=Dgreen, above] {validé} (d1);
+  \draw[arr=Dred, dash pattern=on 3pt off 2pt] (s1.south east) to[bend right=14] node[lblc=Dred, below, pos=0.7] {panne : jamais publié} (k1.south west);
+  \node[note, anchor=west, text=Dred, align=left] at (96,52) {commande sans message\\(perte)};
+  % 2. publier puis valider
+  \node[pillo=Dred, anchor=west] at (-12,34) {publier puis valider};
+  \node[b=Dblue] (s2) at (0,22) {service};
+  \node[b=Dslate] (k2) at (40,22) {Kafka};
+  \node[b=Dpurple] (d2) at (80,22) {base};
+  \draw[arr=Dgreen] (s2) -- node[lblc=Dgreen, above] {publié} (k2);
+  \draw[arr=Dred, dash pattern=on 3pt off 2pt] (s2.south east) to[bend right=14] node[lblc=Dred, below, pos=0.7] {refus ou panne} (d2.south west);
+  \node[note, anchor=west, text=Dred, align=left] at (96,22) {message sans commande\\(fantôme)};
+  % 3. boîte d'envoi
+  \node[pillo=Dgreen, anchor=west] at (-12,4) {boîte d’envoi (outbox)};
+  \node[b=Dblue] (s3) at (0,-10) {service};
+  \node[group=Dpurple, minimum width=34mm, minimum height=20mm, inner sep=2mm] (g) at (40,-10) {};
+  \node[font=\sffamily\scriptsize\bfseries, text=Dpurple, anchor=north] at (g.north) {une transaction};
+  \node[draw=Dpurple, fill=white, font=\ttfamily\scriptsize, inner sep=2pt] at (40,-8) {commandes};
+  \node[draw=Dpurple, fill=white, font=\ttfamily\scriptsize, inner sep=2pt] at (40,-15) {outbox};
+  \node[b=Dorange] (r3) at (80,-10) {relais};
+  \node[b=Dslate] (k3) at (118,-10) {Kafka};
+  \draw[arr=Dgreen] (s3) -- (g);
+  \draw[arr=Dorange] (g) -- node[lblc=Dorange, above, align=center, font=\sffamily\scriptsize] {scrutation\\ou WAL} (r3);
+  \draw[arr=Dgreen] (r3) -- node[lblc=Dgreen, above] {publie} (k3);
+  \node[note, anchor=north, align=center] at (80,-20) {publié si et seulement si validé ; au moins une fois :\\le consommateur écarte les doublons par l’identifiant de l’événement};
+\end{tikzpicture}
+\end{document}
