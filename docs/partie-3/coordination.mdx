@@ -1,0 +1,305 @@
+---
+title: "Coordination : ZooKeeper, etcd, service discovery"
+sidebar_label: "36. Coordination"
+description: "Les services de coordination et ce qu'on en fait : modèles de données de ZooKeeper et d'etcd, sessions et baux, nœuds éphémères, watches, élection d'un leader, verrous et effet de troupeau, jetons d'isolement (fencing tokens) et séquenceurs de Chubby, découverte de services côté client, côté serveur et par le DNS ; mesures sur ZooKeeper 3.9, etcd 3.7 et Consul 1.20 (disparition d'un nœud éphémère, délai des notifications, 50 clients sur un verrou, processus suspendu qui croit tenir le verrou, instance tuée vue par cinq clients différents)."
+partie: 3
+chapitre: 36
+---
+
+import modele from '@site/src/figures/coord-modele.svg';
+import troupeau from '@site/src/figures/coord-troupeau.svg';
+import cloture from '@site/src/figures/coord-cloture.svg';
+import decouverte from '@site/src/figures/coord-decouverte.svg';
+
+Deux processus, A et B, se partagent une tâche qu’un seul doit exécuter à la fois. Ils prennent pour cela un verrou dans etcd, avec un bail de 2 s que le détenteur renouvelle toutes les demi-secondes. A obtient le verrou et écrit toutes les 50 ms dans un service de stockage. Puis on le suspend pendant 4 s, ce que ferait une longue pause du ramasse-miettes ou la migration d’une machine virtuelle. Son bail expire, et B obtient le verrou 2,1 à 2,5 s après le début de la suspension. Quand A reprend, il ne sait rien de tout cela ; il écrit encore 10 fois en 504 ms, persuadé de détenir le verrou, et le stockage accepte ces 10 écritures au milieu de celles de B. Si le stockage compare un numéro joint à chaque écriture, le jeton d’isolement (fencing token), au plus grand qu’il ait déjà vu, il refuse les 10. Le verrou seul n’a rien protégé ; c’est le contrôle fait par la ressource qui a protégé les données.
+
+Le [ch. 35](consensus-raft.mdx) a décrit Raft, et le [ch. 34](consensus-paxos.mdx) Paxos. Presque aucune application ne les implémente elle-même. Elle confie ses décisions de coordination (qui est le leader, qui détient tel verrou, quelles instances d’un service sont vivantes, quelle est la configuration courante) à un service spécialisé, qui fait tourner le consensus sur trois ou cinq serveurs et offre quelques primitives simples. Google a décrit le sien, Chubby, en 2006[^chubby], Yahoo! le sien, ZooKeeper, en 2010[^zk] ; etcd est celui de Kubernetes, et Consul ajoute la découverte de services et les contrôles de santé. Ce chapitre décrit ces primitives, les recettes qu’on construit avec elles, et les deux pièges dans lesquels tombent la plupart des systèmes, le verrou qui ne protège pas et l’annuaire qui garde des instances mortes.
+
+Trois expériences ont été faites pour ce chapitre, sur un serveur ZooKeeper 3.9.6, un serveur etcd 3.7 et un agent Consul 1.20.6 en mode développement, lancés dans des conteneurs par [`outils/experiences/ch36/commun.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch36/commun.py). [`primitives.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch36/primitives.py) mesure la disparition d’un nœud éphémère et d’une clé à bail, le délai des notifications et l’effet de troupeau ; [`verrou.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch36/verrou.py) reproduit la scène ci-dessus ; [`decouverte.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch36/decouverte.py) tue une instance d’un service et compte les requêtes que lui envoient encore cinq clients différents. Chaque script a été lancé deux fois.
+
+## Ce qu’offre un service de coordination
+
+Un service de coordination garde peu de données, quelques mégaoctets à quelques gigaoctets, et les garde de façon sûre. Chaque écriture passe par le consensus ; elle est donc lente (quelques millisecondes, un disque synchronisé et un aller-retour) mais ordonnée, et elle survit à la panne d’une minorité de serveurs. Au-dessus de ce stockage, il offre trois mécanismes que l’on retrouve, sous des noms différents, dans Chubby, ZooKeeper, etcd et Consul : une façon de savoir qu’un client est vivant (session ou bail), des données qui disparaissent quand ce client meurt, et des notifications quand une donnée change (watches).
+
+Chubby a été conçu comme un service de verrous à gros grain (coarse-grained), tenus des heures ou des jours, avec de petits fichiers attachés. L’article de Mike Burrows rapporte que son usage principal est devenu tout autre. Dans la cellule étudiée, 46 % des fichiers servaient au nommage, 27 % à des listes d’accès et de la configuration, 11 % aux métadonnées de GFS et de Bigtable, et les appels `Acquire`, qui prennent un verrou, ne représentaient que 31 appels par million ; 93 % des appels étaient les messages de maintien de session[^chubby]. ZooKeeper a tiré la leçon de cette expérience. Son API ne contient aucun verrou ; elle offre des opérations sur un arbre de petits fichiers, qui ne bloquent jamais (wait-free), et les verrous, élections et barrières sont des recettes que le client construit avec ces opérations[^zk].
+
+<Figure svg={modele} num="36.1" alt="À gauche, l’arbre de ZooKeeper : la racine, /services/api avec deux enfants instance-0000000007 et instance-0000000009, éphémères, et /verrous/tache avec deux enfants v-0000000041 (éphémère, séquentiel) et v-0000000042. Un nœud éphémère disparaît avec la session ; un watch se déclenche une seule fois. À droite, etcd : trois clés /services/api/11610 (valeur 11610, révision 12, bail 7a1f), /services/api/11611 (révision 13, bail 7a20) et /verrous/tache (valeur A, révision 33, bail 7a2b). Un espace de clés plat et trié ; chaque écriture augmente la révision globale ; une clé peut dépendre d’un bail renouvelé par son propriétaire ; un watch suit un préfixe sans fin, depuis une révision donnée.">
+Les modèles de données de ZooKeeper et d’etcd.
+</Figure>
+
+Dans ZooKeeper (figure 36.1, à gauche), les données sont des znodes, nœuds d’un arbre nommés par un chemin comme dans un système de fichiers, qui portent chacun une petite donnée (moins de 1 Mo, et quelques kilooctets en pratique, selon la documentation[^zk-prog]) et peuvent avoir des enfants. Un znode est normal ou éphémère. Un nœud normal reste jusqu’à ce qu’on le supprime ; un nœud éphémère est supprimé automatiquement quand la session du client qui l’a créé se termine, volontairement ou par une panne. À la création, un client peut aussi demander un nœud séquentiel. ZooKeeper ajoute alors au nom un compteur croissant, propre au parent, et garantit qu’aucun nœud séquentiel créé plus tard sous ce parent n’aura un numéro plus petit[^zk]. Les écritures sont linéarisables et passent par le leader, qui les diffuse par Zab, le protocole de diffusion atomique de ZooKeeper. Les lectures, elles, sont servies par le serveur auquel le client est connecté, sans consensus, ce qui les rend rapides mais peut-être en retard ; un client qui veut lire la dernière valeur appelle d’abord `sync`. Le tableau 1 de l’article chiffre ce choix. Trois serveurs saturés traitaient 87 000 lectures ou 21 000 écritures par seconde, treize serveurs 460 000 lectures mais seulement 8 000 écritures, puisque chaque serveur ajouté sert des lectures, mais que chaque écriture doit atteindre une majorité plus grande[^zk]. La charge réelle s’y prête. Sur un serveur du service d’exploration du Web de Yahoo!, le rapport entre lectures et écritures allait de 10 pour 1 à 100 pour 1.
+
+etcd (à droite) n’a pas d’arbre, mais un espace de clés plat et trié, que l’on parcourt par préfixe. Chaque écriture augmente un compteur global, la révision, et chaque clé garde la révision de sa création (`create_revision`), celle de sa dernière modification (`mod_revision`) et le nombre de ses versions. Une clé peut être attachée à un bail (lease), créé avec une durée de vie (TTL) que son propriétaire prolonge par des messages `LeaseKeepAlive` ; quand le bail expire ou qu’on le révoque, toutes ses clés sont supprimées[^etcd-api]. Le bail tient le rôle de la session de ZooKeeper, à ceci près qu’un même client peut en tenir plusieurs, de durées différentes. Les transactions d’etcd sont de la forme « si ces comparaisons sont vraies, alors ces opérations, sinon celles-là », et les comparaisons portent sur la valeur, la version ou les révisions des clés. Les lectures sont linéarisables par défaut ([ch. 35](consensus-raft.mdx)).
+
+## Sessions et baux : savoir qu’un client est mort
+
+Un client ZooKeeper ouvre une session en indiquant un délai d’expiration. Le serveur accepte ce délai s’il est compris entre 2 et 20 fois son unité de temps, `tickTime` (2 s dans l’image Docker officielle), et le ramène dans cet intervalle sinon[^zk-admin]. Le client entretient sa session par ses requêtes, et quand il n’a rien à demander, il envoie un `PING`. C’est l’ensemble des serveurs qui décide de l’expiration, pas le client. Si le serveur n’a rien reçu pendant le délai, il supprime les nœuds éphémères de la session et prévient ceux qui les surveillaient ; le client, lui, reste déconnecté et n’apprend l’expiration de sa session qu’en réussissant à se reconnecter[^zk-prog]. Pour éviter de suivre chaque session à la milliseconde, le serveur range les échéances dans des cases de `tickTime` (la fonction `roundToNextInterval` arrondit chaque échéance au multiple suivant) et les vérifie case par case[^zk-expiry]. Une session de 4 s expire donc entre 4 et 6 s après le dernier message du client.
+
+Dans etcd, le client crée un bail d’une durée donnée, y attache ses clés, et le prolonge régulièrement ; un bail non prolongé expire, et ses clés disparaissent. Chubby fait de même avec des sessions dont le serveur prolonge l’échéance de 12 s par défaut à chaque message de maintien. Le client y tient en plus sa propre estimation, prudente, de cette échéance. Quand elle passe sans réponse, il vide son cache et considère sa session « en péril » (jeopardy), puis attend encore une période de grâce de 45 s par défaut. Cette période laisse le temps d’élire un nouveau maître du service, et l’application ne voit alors qu’un retard[^chubby].
+
+La première partie de `primitives.py` crée un nœud éphémère avec une session de 4 s, ou une clé à bail de 4 s renouvelé chaque seconde, dans un processus que l’on tue ensuite par `SIGKILL` (trois fois) ou qui se ferme proprement (une fois). Un observateur mesure le temps entre la fin du processus et la notification de la suppression.
+
+```text
+zookeeper-3.9.6, etcd 3.7 ; un serveur chacun
+
+1. durée avant la disparition d'un nœud éphémère (session de 4 s)
+   ou d'une clé attachée à un bail (TTL de 4 s), 3 essais
+   ZooKeeper  processus tué : 4.54, 5.89, 5.88 s
+              fermeture propre : 37 ms
+   etcd       processus tué : 3.77, 4.13, 4.13 s
+              fermeture propre : 32 ms
+```
+
+Le second passage a donné 4,60, 5,88 et 5,89 s pour ZooKeeper, 4,16, 4,14 et 4,13 s pour etcd, et 37 et 36 ms pour les fermetures propres. Les durées de ZooKeeper se placent entre 4 et 6 s, comme le prévoient les cases de 2 s. Celles d’etcd sont un peu inférieures ou un peu supérieures à 4 s. Le processus est tué 0,3 s environ après son dernier renouvellement, le bail court donc encore 3,7 s, et etcd vérifie les baux échus par intervalles, ce qui ajoute jusqu’à quelques centaines de millisecondes. L’écart entre les deux lignes de chaque service est la leçon pratique. Un processus qui ferme sa session ou révoque son bail en s’arrêtant libère ses nœuds en 32 à 37 ms ; un processus qui meurt sans prévenir les garde le temps du délai entier, 4 à 6 s ici, 15 à 40 s avec les réglages de Kubernetes. Un service qui s’arrête doit donc intercepter `SIGTERM` et fermer sa session avant de sortir, exactement comme il se retire du répartiteur de charge avant de s’arrêter ([ch. 13](../partie-2/repartition-charge.mdx)).
+
+Le délai d’expiration se règle comme un détecteur de panne ([ch. 32](pannes-partielles.mdx)). Trop court, il fait expirer la session d’un client vivant pendant une pause du ramasse-miettes ou une coupure réseau d’une seconde, et lui retire ses verrous et ses nœuds éphémères ; trop long, il garde longtemps un client mort. Kubernetes en donne deux exemples. Chaque kubelet tient un objet `Lease` à son nom dans l’espace de noms `kube-node-lease`, et le renouvelle toutes les 10 s avec une durée de 40 s par défaut[^k8s-lease] ; un nœud n’est donc déclaré injoignable qu’après plusieurs renouvellements manqués. Le `kube-controller-manager` tient de même un bail pour son élection, avec une durée de 15 s, un délai de renouvellement de 10 s et une nouvelle tentative toutes les 2 s[^k8s-kcm].
+
+## Les watches : être prévenu sans interroger
+
+Un client qui attend un changement pourrait relire la donnée toutes les secondes. Avec 10 000 clients, cela fait 10 000 lectures par seconde, presque toutes inutiles, et chaque client voit le changement avec une seconde de retard en moyenne. Les watches remplacent cette scrutation par une notification. Dans ZooKeeper, toute lecture (`getData`, `getChildren`, `exists`) peut poser un watch, et le serveur prévient le client au premier changement de ce qu’il a lu. Le watch est à usage unique (one-time trigger) ; il disparaît après une notification, et le client doit relire la donnée en posant un nouveau watch. Entre la notification et la nouvelle lecture, la donnée a pu changer plusieurs fois, et la documentation prévient qu’on ne voit pas de façon fiable chaque changement d’un nœud[^zk-prog]. On voit toujours le dernier état, ce qui suffit à la plupart des recettes. Depuis la version 3.6, ZooKeeper offre aussi des watches persistants, qui restent en place après une notification.
+
+Le watch d’etcd est un flux. Le client demande les changements d’une clé ou d’un préfixe à partir d’une révision donnée, et reçoit tous les événements (`PUT` ou `DELETE`) dans l’ordre, sans en perdre aucun tant que cette révision n’a pas été effacée par le compactage de l’historique[^etcd-api]. Un client qui perd sa connexion reprend son watch à la révision qui suit le dernier événement reçu, et ne manque rien.
+
+```text
+2. écriture puis notification d'un observateur (200 mesures)
+   ZooKeeper : médiane  4.38 ms, 99e c.  9.80 ms
+   etcd      : médiane  4.14 ms, 99e c. 10.87 ms
+```
+
+Le second passage a donné 4,48 et 9,96 ms pour ZooKeeper, 4,81 et 13,21 ms pour etcd. Ces durées comprennent l’écriture elle-même, que chaque service valide sur son disque avant de prévenir quiconque ; la notification ajoute peu à l’écriture, et les deux services sont équivalents. Un watch transmet donc un changement en moins de 10 ms dans 99 % des cas sur une machine, et un aller-retour de plus entre machines.
+
+## Élire un leader, prendre un verrou
+
+Avec ces primitives, un verrou se construit en quelques lignes. La version la plus simple est celle que l’article de ZooKeeper décrit en premier. Pour prendre le verrou, un client crée un nœud éphémère `/verrou` ; s’il y parvient, il détient le verrou, sinon il pose un watch sur ce nœud et attend sa suppression pour réessayer. Il libère le verrou en supprimant le nœud, ou en mourant, puisque le nœud est éphémère[^zk]. Une élection de leader est le même mécanisme, où le détenteur du verrou est le leader et écrit son adresse dans le nœud, et où les autres lisent ce nœud pour savoir à qui s’adresser.
+
+<Figure svg={troupeau} num="36.2" alt="À gauche, tous les clients c1 à c5 surveillent le nœud /verrou ; quand il est supprimé, tous sont réveillés et se ruent sur le verrou : environ 550 notifications et 600 créations tentées pour 50 clients, mesuré. À droite, chaque client a créé un nœud séquentiel v-1 à v-5 et surveille celui qui le précède : la suppression de v-1 ne réveille que c2 ; 48 ou 49 notifications pour 50 clients, 2,3 à 2,9 fois plus rapide, mesuré.">
+L’effet de troupeau, et la recette qui l’évite.
+</Figure>
+
+Cette version fonctionne, mais elle souffre de l’effet de troupeau (herd effect). Quand le verrou est libéré, tous les clients qui attendent sont réveillés et tentent tous de créer le nœud, alors qu’un seul réussira (figure 36.2, à gauche). La recette sans effet de troupeau met les clients en file. Chacun crée un nœud éphémère et séquentiel sous `/verrous/tache`, liste les enfants, et détient le verrou si son numéro est le plus petit ; sinon, il surveille le seul nœud qui le précède dans l’ordre, et recommence la vérification quand celui-ci disparaît[^zk]. La suppression d’un nœud ne réveille ainsi qu’un client. Ce client doit tout de même relister les enfants, car son prédécesseur a pu disparaître en abandonnant sa demande, et non en libérant le verrou. Les recettes de la documentation de ZooKeeper appliquent la même idée à l’élection, où chaque candidat surveille le candidat de numéro immédiatement inférieur[^zk-recipes]. La troisième partie de `primitives.py` fait prendre un verrou tour à tour à 50 clients connectés en même temps, avec chacune des deux recettes.
+
+```text
+3. verrou ZooKeeper pris tour à tour par 50 clients
+   recette                                  notifications  créations   durée
+   tous surveillent le nœud du verrou                 554        604   0.77s
+   chacun surveille son prédécesseur                   49         50   0.27s
+```
+
+Le second passage a donné 552 notifications, 602 créations et 0,81 s pour la première recette, 48 notifications, 50 créations et 0,35 s pour la seconde. Avec la recette naïve, chaque libération réveille tous les clients qui attendent encore, et un client fait en moyenne 12 tentatives pour obtenir le verrou une fois. Le pire cas serait de 49 + 48 + … + 1 = 1 225 notifications ; on en mesure moins de la moitié, car beaucoup de clients n’ont pas encore posé leur watch quand le verrou se libère. Avec la recette séquentielle, il y a une création par client et une notification par libération, et l’ensemble va 2,3 à 2,9 fois plus vite. Avec 50 clients sur une machine, l’effet de troupeau coûte une demi-seconde ; avec 5 000 clients répartis sur un réseau, le nombre de notifications croît comme le carré du nombre de clients, et chaque libération envoie un pic de milliers de requêtes à un service qui en traite quelques dizaines de milliers par seconde.
+
+etcd fournit ces recettes dans son client Go, le paquet `concurrency`. Un `Mutex` y crée une clé sous un préfixe, attachée au bail de la session du client, et retient la révision de cette création. Il détient le verrou si aucune clé du préfixe n’a une révision de création plus petite ; sinon, la fonction `waitDeletes` attend la suppression de la dernière clé créée avant la sienne, puis recommence[^etcd-mutex]. La révision de création joue le rôle du numéro de séquence, et l’on évite l’effet de troupeau de la même façon.
+
+## Un verrou ne protège rien seul : les jetons d’isolement
+
+Un verrou distribué garantit qu’à un instant donné, un seul client a obtenu le verrou et ne l’a pas encore perdu selon le service. Il ne garantit pas que le client sait qu’il l’a perdu. Le détenteur peut être suspendu au milieu de son travail, par une pause du ramasse-miettes, la migration de sa machine virtuelle, une page mémoire relue depuis le disque ou un paquet réseau retardé, plus longtemps que son bail. Le service donne alors le verrou à un autre client, et le premier reprend son travail sans rien savoir. Martin Kleppmann décrit ce scénario dans sa critique de Redlock, l’algorithme de verrou de Redis, et note que les pauses de ramasse-miettes « ont parfois duré plusieurs minutes » et que HBase a eu ce problème[^kleppmann]. Vérifier qu’on détient encore le verrou juste avant d’écrire ne suffit pas, car la pause peut survenir entre la vérification et l’écriture.
+
+<Figure svg={cloture} num="36.3" alt="Trois lignes de temps : client A, client B, stockage. A prend le verrou avec le jeton 3 et écrit ; il est suspendu 4 s par SIGSTOP et son bail expire. B prend le verrou avec le jeton 5, 2,1 à 2,5 s après le début de la suspension, et écrit toutes les 50 ms. À sa reprise, A croit tenir le verrou pendant 504 ms et écrit 10 fois. Sans contrôle, les 10 écritures de A sont acceptées au milieu de celles de B ; avec contrôle, le jeton 3 est plus petit que le jeton 5 déjà vu, et elles sont toutes refusées.">
+Un détenteur suspendu, et ce que le jeton d’isolement change.
+</Figure>
+
+La solution porte sur la ressource protégée, et non sur le verrou. À chaque prise du verrou, le service donne un nombre qui croît d’une prise à l’autre, le jeton d’isolement. Le client joint ce jeton à chaque requête vers la ressource, et la ressource refuse toute requête dont le jeton est plus petit que le plus grand qu’elle ait déjà reçu (figure 36.3). Dans etcd, la révision de la clé du verrou convient, puisque la révision globale ne fait que croître ; dans ZooKeeper, l’identifiant de transaction (`zxid`) ou le numéro de version du nœud[^kleppmann]. Chubby fournit un séquenceur (sequencer), une chaîne opaque qui contient le nom du verrou, son mode et un numéro de génération. Le serveur de la ressource le vérifie auprès de Chubby (`CheckSequencer`) ou le compare au plus récent qu’il ait vu[^chubby]. Pour les serveurs qui ne savent pas vérifier de séquenceur, Chubby a un mécanisme plus faible, le délai de verrou (lock-delay). Quand un détenteur meurt ou devient injoignable sans libérer son verrou, Chubby refuse de le redonner pendant une durée choisie par le client, d’une minute au plus, pour laisser s’écouler les requêtes retardées de l’ancien détenteur.
+
+`verrou.py` reproduit la scène de l’introduction. Le jeton est la révision etcd de la transaction qui a créé la clé du verrou, et le stockage est un petit service HTTP qui garde le journal des écritures.
+
+```text
+verrou etcd : bail de 2 s renouvelé toutes les 0,5 s ;
+A écrit toutes les 50 ms, puis il est suspendu 4 s ; B attend
+
+sans contrôle du jeton par le stockage :
+   jetons : A 3, B 5 ; B prend le verrou 2.40 s après
+   la suspension de A ; à sa reprise, A écrit encore 10 fois avant
+   de voir son bail perdu, pendant 504 ms
+   écritures de A pendant le verrou de B : 10 acceptées, 0 refusées
+avec contrôle du jeton par le stockage :
+   jetons : A 7, B 9 ; B prend le verrou 2.51 s après
+   la suspension de A ; à sa reprise, A écrit encore 10 fois avant
+   de voir son bail perdu, pendant 504 ms
+   écritures de A pendant le verrou de B : 0 acceptées, 10 refusées
+```
+
+Le second passage a donné les mêmes nombres sans contrôle (B obtient le verrou au bout de 2,47 s, 10 écritures acceptées). Avec contrôle, B l’a obtenu au bout de 2,11 s, et A n’a écrit qu’une fois, refusée, et a vu la perte de son bail en 3 ms. L’écart entre 504 et 3 ms s’explique, et il vaut d’être compris. Une version du travailleur qui note chaque renouvellement montre que, dans trois essais sur trois, la suspension a surpris le fil de renouvellement 1 ms après l’envoi d’un `LeaseKeepAlive`. etcd y a répondu avec un TTL de 2 s, mais le travailleur, suspendu, n’a lu cette réponse que 4 s plus tard ; il l’a crue, s’est rendormi une demi-seconde, et n’a appris la perte du bail qu’au renouvellement suivant. Le TTL renvoyé par le service décrit le bail à l’instant de la réponse, pas à l’instant où le client la lit. Quand la suspension surprend le fil pendant son sommeil, il renouvelle dès la reprise, reçoit une réponse sans TTL et voit la perte en quelques millisecondes. Dans les deux cas, A a écrit au moins une fois après avoir perdu le verrou, et seul le contrôle du jeton par le stockage a refusé ces écritures.
+
+Kyle Kingsbury a trouvé pire dans etcd 3.4.3 avec Jepsen. Plusieurs clients pouvaient détenir le même verrou à la fois, même dans une grappe saine aux horloges parfaitement synchronisées, en partie à cause d’un défaut : un client qui attendait le verrou, perdait son bail pendant l’attente, puis voyait le verrou libéré, était déclaré détenteur sans que le serveur revérifie son bail[^jepsen]. Sa recommandation est celle de Kleppmann, utiliser la révision de la clé du verrou comme jeton d’isolement.
+
+Le jeton a ses limites. La ressource doit savoir le vérifier, et la vérification et l’écriture doivent être atomiques chez elle ; une base de données le fait par une écriture conditionnelle (`UPDATE … WHERE jeton <= $1`), un service tiers comme un fournisseur de courriels ne le fait pas. Chaque ressource vérifie pour elle-même : si A écrit dans un second stockage que B n’a pas encore touché, ce stockage n’a jamais vu le jeton 5 et accepte le jeton 3. Pour les ressources qui ne vérifient rien, il reste le délai de verrou de Chubby, et des opérations idempotentes (ch. 38) qui rendent inoffensive une seconde exécution.
+
+## La découverte de services
+
+Un service tourne sur plusieurs instances, dont les adresses changent sans cesse. On en ajoute quand la charge monte, on les remplace à chaque déploiement, une machine tombe. Les clients doivent connaître à tout moment la liste des instances vivantes, et c’est le rôle d’un annuaire de services (service registry). Deux décisions définissent une solution. La première porte sur la façon dont une instance entre dans l’annuaire et en sort. Elle peut s’y inscrire elle-même avec un nœud éphémère ou une clé à bail, et en sortir quand sa session expire ; un tiers peut aussi l’inscrire et la surveiller, comme le plan de contrôle de Kubernetes qui tient à jour la liste des adresses des pods prêts derrière un `Service`, ou l’agent Consul qui interroge lui-même le point de santé de chaque instance. La seconde décision porte sur la façon dont le client obtient la liste.
+
+<Figure svg={decouverte} num="36.4" alt="Trois schémas. Côté client : les instances s’inscrivent avec un bail dans le registre, le client suit le registre par un watch et appelle directement une instance qu’il choisit ; il faut une bibliothèque dans chaque langage. Côté serveur : le client envoie sa requête à un répartiteur, qui suit le registre et transmet à une instance ; le client ne connaît qu’une adresse, au prix d’un saut de plus. Par le DNS : le client, avec un cache, interroge le DNS (enregistrements SRV ou A, avec un TTL) puis appelle une instance ; c’est universel, mais le cache garde les instances mortes jusqu’au TTL.">
+Trois façons de trouver les instances d’un service.
+</Figure>
+
+Dans la découverte côté client (figure 36.4, à gauche), le client suit lui-même l’annuaire, par un watch, et choisit l’instance à appeler. Il n’y a pas de saut supplémentaire, et le client peut répartir finement sa charge, mais chaque langage utilisé dans l’entreprise doit avoir une bibliothèque qui le fait correctement. Dans la découverte côté serveur, le client envoie toutes ses requêtes à un répartiteur de charge ou à un mandataire ([ch. 13](../partie-2/repartition-charge.mdx) et [14](../partie-2/proxy-passerelle.mdx)), qui suit l’annuaire ; le client ne connaît qu’une adresse, et paie un saut de plus. La découverte par le DNS fonctionne avec tous les clients, puisque tous savent résoudre un nom. Consul répond ainsi aux requêtes sur `api.service.consul`, avec des enregistrements A (adresses) ou SRV (adresses et ports) des seules instances qui passent leurs contrôles. Le DNS a été conçu avec des caches, et une réponse peut être gardée pendant sa durée de vie (TTL), par le résolveur du système, par la bibliothèque du langage ou par l’application. Consul renvoie par défaut un TTL nul, pour empêcher tout cache[^consul-dns], mais rien n’oblige les caches intermédiaires à le respecter.
+
+`decouverte.py` lance trois instances d’une petite API, qui s’inscrivent dans etcd avec un bail de 3 s renouvelé chaque seconde, ou dans Consul avec un contrôle HTTP de leur page `/sante` toutes les secondes (délai de 500 ms). Un client envoie une requête toutes les 10 ms, à tour de rôle aux instances qu’il connaît, pendant 6 s, et l’on tue une instance par `SIGKILL` à 1,5 s. Le client suit etcd par un watch, ou Consul par des requêtes bloquantes, des lectures que le serveur ne termine qu’au prochain changement de la liste (paramètre `index`, attente maximale `wait`)[^consul-blocking] ; ou il résout le nom par le DNS de Consul avant chaque requête ; ou il garde la réponse DNS 30 s en cache, sans puis avec un nouvel essai sur une autre instance quand une requête échoue.
+
+```text
+etcd 3.7, Consul 1.20.6 ; 3 instances, une requête toutes les 10 ms,
+une instance tuée à 1,5 s ; 6 s en tout
+
+   registre et client                 vers la morte  dernière échecs vus
+   etcd, watch (bail de 3 s)                     81     2.69s    81 / 531
+   Consul, requêtes bloquantes                    4     0.12s     4 / 511
+   Consul, DNS à chaque requête                   5     0.18s     5 / 439
+                                      (TTL des réponses DNS : 0 s)
+   DNS gardé 30 s en cache                      133     4.49s   133 / 526
+     + nouvel essai sur une autre               135     4.49s     0 / 538
+```
+
+La colonne « vers la morte » compte les tentatives envoyées à l’instance tuée, « dernière » donne l’instant de la dernière, après la mort, et « échecs vus » les requêtes dont toutes les tentatives ont échoué. Le second passage a donné 79 tentatives jusqu’à 2,58 s pour etcd, 0 pour les requêtes bloquantes, 19 jusqu’à 0,73 s pour le DNS à chaque requête, 136 et 134 tentatives jusqu’à la fin de l’essai avec le cache, et toujours 0 échec vu avec le nouvel essai.
+
+Avec etcd, la clé de l’instance tuée disparaît quand son bail expire, de 2 à 3 s après la mort selon l’instant du dernier renouvellement ; on mesure 2,6 à 2,7 s, pendant lesquelles une requête sur trois échoue. Avec Consul, l’agent constate la mort au contrôle suivant, au plus une seconde plus tard, et prévient aussitôt les requêtes bloquantes et le DNS ; les quatre mesures donnent 0 à 0,73 s, selon le moment de la mort par rapport au contrôle. Une instance qui meurt ne prévient personne, et un contrôle actif fréquent la détecte plus vite qu’un bail qu’elle a cessé de renouveler. Le DNS sans cache est aussi frais que les requêtes bloquantes, mais chaque requête paie une résolution, et le client en a fait 439 à 460 au lieu de 511 dans le même temps. Le cache de 30 s est le cas le plus courant en production, et le pire. Le client garde l’instance morte jusqu’à la fin de l’essai, et une requête sur trois échoue pendant 4,5 s ; avec un vrai cache de 30 s, elle échouerait pendant 30 s.
+
+Le nouvel essai sur une autre instance supprime tous les échecs visibles, mais les 134 et 135 tentatives vers l’instance morte ont toujours lieu. Elles ne coûtent rien ici, car l’instance tuée laisse une machine vivante qui répond par un refus de connexion en une fraction de milliseconde. Une machine tombée ne répond rien ; chaque tentative attend alors la fin de son délai de connexion, 500 ms dans ce client, et une requête sur trois prend une demi-seconde de plus jusqu’à la fin du cache. Les mandataires comme Envoy ajoutent pour cette raison une détection passive (outlier detection), qui retire une instance de la répartition après des échecs consécutifs constatés sur le trafic réel, sans attendre l’annuaire ni le contrôle actif[^envoy] ; et les nouveaux essais doivent respecter les règles du ch. 38.
+
+## Compromis
+
+| Choix | Ce qu’il donne | Ce qu’il coûte | Mesuré | Quand |
+|---|---|---|---|---|
+| ZooKeeper | arbre, nœuds éphémères et séquentiels, lectures locales rapides | watches à usage unique, lectures peut-être en retard sans `sync` | nœud éphémère supprimé 4,5 à 5,9 s après la mort (session de 4 s) ; notification en 4,4 ms | lectures nombreuses, recettes éprouvées |
+| etcd | baux, watch en flux sans perte depuis une révision, transactions, lectures linéarisables | une écriture par consensus pour tout | clé à bail supprimée 3,8 à 4,2 s après la mort (bail de 4 s) ; notification en 4,1 à 4,8 ms | Kubernetes, configuration, élection, verrous à jeton |
+| Recette naïve de verrou | simple | effet de troupeau | 552 à 554 notifications, 0,77 à 0,81 s pour 50 clients | presque jamais |
+| Recette séquentielle | un réveil par libération, ordre d’arrivée | un nœud par client | 48 ou 49 notifications, 0,27 à 0,35 s | tout verrou attendu par plusieurs clients |
+| Verrou sans jeton d’isolement | rien à changer dans la ressource | un détenteur suspendu écrit après avoir perdu le verrou | 10 écritures acceptées sur 10 | tâche dont un doublon est sans gravité |
+| Verrou avec jeton d’isolement | la ressource refuse l’ancien détenteur | la ressource doit vérifier, atomiquement | 10 écritures refusées sur 10 | toute ressource qui peut vérifier |
+| Découverte par bail (etcd) | l’instance s’inscrit seule | une instance morte reste jusqu’à l’expiration du bail | 79 à 81 échecs pendant 2,6 à 2,7 s (bail de 3 s) | client qui suit l’annuaire |
+| Contrôles actifs (Consul) | détection au contrôle suivant | l’agent interroge chaque instance | 0 à 19 échecs, au plus 0,73 s (contrôle chaque seconde) | services hétérogènes |
+| DNS mis en cache 30 s | aucun code dans le client | les instances mortes restent jusqu’au TTL | 133 à 136 échecs, jusqu’à la fin de l’essai | instances stables, avec nouveaux essais |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la charge d’un DNS à TTL court, l’exemple de Chubby]
+Hypothèses : une tâche de 3 000 processus, où chacun parle à tous les autres et doit donc garder 3 000 noms à jour ; un TTL de 60 s ; un serveur DNS qui traite 50 000 requêtes par seconde (chiffres de l’article de Chubby, section 4.3).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Noms à garder à jour | 3 000 × 3 000 | 9 millions |
+| Résolutions par seconde, TTL de 60 s | 9 000 000 / 60 | 150 000 par seconde |
+| Serveurs DNS pour cette seule tâche | 150 000 / 50 000 | 3 |
+| Même tâche, TTL de 5 s | 9 000 000 / 5 | 1,8 million par seconde, 36 serveurs |
+| Annuaire avec notifications, chaque processus remplacé une fois par jour | 3 000 remplacements × 3 000 abonnés / 86 400 s | 104 notifications par seconde |
+
+Conclusion : avec un cache à durée de vie, raccourcir le délai de détection multiplie la charge, qui croît en outre comme le carré de la taille de la tâche ; avec des notifications, la charge suit le nombre de changements, pas le nombre de lectures. C’est ce qui a fait de Chubby le service de noms de Google.
+:::
+
+:::calcul[Calcul : les requêtes perdues pendant que l’annuaire ignore une panne]
+Hypothèses : un service de 20 instances reçoit 10 000 requêtes par seconde réparties également ; une instance meurt ; les clients ne refont pas les requêtes échouées.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Requêtes reçues par instance | 10 000 / 20 | 500 par seconde |
+| Contrôle actif chaque seconde, délai de 500 ms | 500 × 1,5 s au pire | 750 requêtes perdues |
+| Bail de 10 s renouvelé toutes les 3 s | 500 × 10 s au pire | 5 000 |
+| Cache DNS de 30 s après la détection | 500 × (1,5 + 30) s | 15 750 |
+| Vérification sur la mesure du chapitre | 90 requêtes par seconde × 2,6 s / 3 instances | 78, contre 79 à 81 mesurées |
+
+Conclusion : les requêtes perdues valent le débit d’une instance multiplié par la fenêtre pendant laquelle les clients ignorent sa mort. Le cache DNS domine tous les autres termes ; on le raccourcit, ou l’on fait refaire les requêtes ailleurs, ce qui ne supprime pas les tentatives vers l’instance morte.
+:::
+
+:::calcul[Calcul : les écritures dues aux baux de Kubernetes]
+Hypothèses : une grappe de 5 000 nœuds, la limite documentée par Kubernetes[^k8s-large] ; chaque kubelet renouvelle son bail toutes les 10 s, avec une durée de 40 s ; deux composants élus (gestionnaire des contrôleurs et ordonnanceur), renouvelés toutes les 2 s.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Renouvellements des nœuds | 5 000 / 10 s | 500 écritures par seconde dans etcd |
+| Renouvellements des composants élus | 2 / 2 s | 1 écriture par seconde |
+| Renouvellements manqués avant l’expiration d’un nœud | 40 / 10 | 4 |
+| Reprise après la mort du leader des contrôleurs | durée du bail 15 s + une tentative toutes les 2 s | 15 à 17 s |
+| Écart entre l’abandon par le leader et la reprise | 15 s − 10 s | 5 s de marge contre les dérives d’horloge |
+
+Conclusion : à grande échelle, les battements des nœuds sont une part importante des écritures du service de coordination. Avant les objets `Lease`, chaque battement réécrivait l’objet `Node` entier, souvent plus de 15 Ko, et la proposition KEP-589 rapporte qu’au-delà de 2 000 nœuds, la base d’etcd atteignait sa taille limite et refusait toute écriture ; un `Lease` ne contient presque rien d’autre que l’heure du renouvellement[^kep589]. La marge de 5 s entre l’abandon et la reprise suppose que les horloges des deux candidats avancent à peu près à la même vitesse ; elle ne protège pas contre une pause du leader, contre laquelle il faut un jeton d’isolement.
+:::
+
+## Exemple réel
+
+**Chubby devenu le service de noms de Google.** L’article de Mike Burrows consacre une section entière à un usage que les concepteurs n’avaient pas prévu[^chubby]. Les développeurs de Google lançaient souvent des tâches de milliers de processus qui communiquaient tous entre eux, et ils voulaient remplacer rapidement un processus défaillant. Avec le DNS, cela demandait un TTL court, et le calcul de l’article montre qu’un TTL de 60 s imposait déjà 150 000 résolutions par seconde pour une seule tâche de 3 000 processus, trois fois ce que traitait un serveur DNS ; l’article précise que la variabilité de cette charge avait été un problème sérieux pour Google avant Chubby. Le cache de Chubby, lui, n’expire pas. Le serveur invalide explicitement les entrées modifiées, si bien qu’un client garde indéfiniment autant de noms qu’il veut avec un débit constant de messages de maintien. Un seul maître de Chubby, sur une machine à deux processeurs Xeon à 2,6 GHz, a servi 90 000 clients connectés directement, et Chubby est devenu le service de noms de la plupart des systèmes de l’entreprise. Le démarrage d’une tâche de 3 000 processus restait un pic (9 millions de requêtes, qui pouvaient mettre le maître à genoux), et l’équipe a regroupé les noms d’une même tâche par lots, une seule résolution rapportant les adresses d’une centaine de processus. Elle a aussi ajouté des serveurs de conversion, dont un serveur DNS qui expose les noms de Chubby aux clients qui ne parlent que DNS, comme les navigateurs. L’article note que la sémantique de cache de Chubby est plus stricte que ce qu’exige un service de noms, qui n’a besoin que d’être prévenu à temps. Le partage entre un registre cohérent qui notifie et un DNS qui en expose une vue reste celui de Consul et de Kubernetes.
+
+## Erreurs fréquentes
+
+Croire qu’un verrou distribué garantit l’exclusion. Un détenteur suspendu reprend sans savoir qu’il a perdu son verrou (10 écritures acceptées en 504 ms, mesuré) ; seule une ressource qui vérifie un jeton d’isolement refuse ses écritures.
+
+Vérifier qu’on détient encore le verrou avant chaque écriture, et s’en contenter. La pause peut survenir entre la vérification et l’écriture, et la réponse du service peut elle-même être périmée quand on la lit.
+
+Implémenter un verrou où tous les clients surveillent le même nœud. Chaque libération réveille tous les clients (554 notifications pour 50 clients, mesuré, et une croissance comme le carré du nombre de clients).
+
+Ne pas fermer la session ou révoquer le bail à l’arrêt. Les nœuds éphémères restent pendant tout le délai d’expiration (4 à 6 s mesurées pour une session de 4 s, contre 37 ms pour une fermeture propre).
+
+Régler un délai de session plus court que les pauses du client. Une pause du ramasse-miettes fait expirer la session d’un client vivant, qui perd ses verrous et ses inscriptions.
+
+Supposer qu’un watch ZooKeeper montre chaque changement. Il est à usage unique, et les changements survenus entre la notification et la nouvelle lecture sont fusionnés.
+
+Ranger beaucoup de données dans le service de coordination, ou y faire passer un trafic d’application. Chaque écriture passe par le consensus ; on y garde des métadonnées, des verrous et des noms.
+
+Garder une réponse DNS en cache au-delà de son TTL, ou mettre en cache des réponses à TTL nul. Une instance morte reçoit alors une requête sur trois pendant toute la durée du cache (133 à 136 échecs en 4,5 s, mesuré).
+
+Compter sur les nouveaux essais pour masquer une instance morte. Ils suppriment les échecs visibles, mais chaque tentative vers une machine tombée attend son délai de connexion.
+
+:::piege[Erreur fréquente : « le service m’a répondu que mon bail a encore 2 s, j’ai donc le temps de finir »]
+Dans la mesure, le renouvellement est parti 1 ms avant la suspension du processus, etcd a répondu « TTL de 2 s », et le processus a lu cette réponse 4 s plus tard, bien après l’expiration du bail. Il a continué d’écrire pendant 504 ms. Une durée restante annoncée par un serveur décrit l’instant de la réponse ; entre cet instant et l’usage qu’en fait le client, il peut s’écouler un temps arbitraire, à cause d’une pause, d’un ordonnanceur surchargé ou d’un paquet retardé. Le client ne peut pas savoir s’il détient encore un verrou ; il peut seulement présenter son jeton à une ressource qui sait, elle, quel est le plus récent.
+:::
+
+:::entretien
+Si l’on vous demande d’ajouter un verrou distribué à une conception, demandez d’abord ce qu’il protège. S’il s’agit d’éviter un travail en double sans gravité, un bail dans etcd ou ZooKeeper suffit. S’il s’agit de l’exactitude des données, dites : « je prends le verrou dans etcd, j’utilise la révision de la clé comme jeton d’isolement, et la base refuse toute écriture portant un jeton plus ancien que le dernier vu ; pour les effets que je ne peux pas protéger ainsi, j’utilise des opérations idempotentes ». Pour la découverte de services, chiffrez la fenêtre pendant laquelle une instance morte reçoit encore du trafic, contrôle de santé, bail ou TTL du DNS, et ce qu’elle coûte en requêtes perdues.
+:::
+
+## Exercices
+
+**Question 1.** Cent clients attendent un verrou ZooKeeper implémenté par la recette naïve. Combien de notifications le service envoie-t-il au pire avant que tous aient obtenu le verrou une fois ? Et avec la recette séquentielle ? Pourquoi la mesure sur 50 clients donne-t-elle moins que le pire cas ?
+
+**Question 2.** Un serveur ZooKeeper a un `tickTime` de 3 s. Un client demande une session de 4 s, crée un nœud éphémère et meurt. Entre quelles durées le nœud disparaît-il ? Que faut-il changer pour qu’il disparaisse en moins de 5 s ?
+
+**Question 3.** Un travailleur détient un verrou avec le jeton 41 et écrit dans deux bases, X et Y, qui vérifient chacune le jeton. Il est suspendu ; un second travailleur prend le verrou avec le jeton 42 et écrit dans X seulement. Le premier reprend et écrit dans X et dans Y. Qu’acceptent X et Y ? Que proposez-vous ?
+
+**Exercice de conception.** Une plateforme d’envoi de factures a trois répliques d’un ordonnanceur. Une seule doit être active ; elle lit chaque minute les factures à émettre dans PostgreSQL, les marque « émises », et demande à un prestataire externe d’envoyer le courriel correspondant. Les travailleurs qui produisent les PDF sont 40 instances, ajoutées et retirées selon la charge, que l’ordonnanceur appelle en HTTP. Proposez l’élection de l’ordonnanceur (service, durée du bail, renouvellement), ce qui empêche deux répliques de marquer ou d’envoyer la même facture, et la découverte des travailleurs. Chiffrez la durée sans ordonnanceur après une panne, et les requêtes perdues quand un travailleur meurt, à 200 requêtes par seconde.
+
+## Corrigés
+
+**Question 1.** Avec la recette naïve, au pire, chaque libération réveille tous les clients qui attendent encore : 99 + 98 + … + 1 = 4 950 notifications, et autant de tentatives de création qui échouent presque toutes. Avec la recette séquentielle, chaque libération réveille un client, soit 99 notifications et 100 créations. La mesure donne environ 550 notifications pour 50 clients, contre 1 225 au pire, parce que les clients ne posent leur watch qu’après une création ratée ; un client qui n’a pas encore essayé n’est pas réveillé, et certains obtiennent le verrou du premier coup juste après une libération.
+
+**Question 2.** Le serveur accepte des sessions de 2 à 20 fois `tickTime`, soit de 6 à 60 s ; il porte donc la session de 4 s à 6 s. Les échéances sont arrondies à la case de 3 s suivante, et le nœud disparaît entre 6 et 9 s après le dernier message du client. Pour descendre sous 5 s, il faut un `tickTime` plus petit, par exemple 1 s, qui autorise une session de 2 s ou plus, avec une échéance arrondie à la seconde ; une session de 3 s donnerait 3 à 4 s. Le risque est de perdre la session d’un client vivant à chaque pause de plus de 3 s.
+
+**Question 3.** X a vu le jeton 42 et refuse l’écriture du premier travailleur. Y n’a vu que le jeton 41 et l’accepte ; X et Y ne sont plus cohérents entre eux, X porte l’état du second travailleur et Y celui du premier. Chaque ressource ne protège qu’elle-même. On peut faire écrire au nouveau détenteur son jeton dans toutes les ressources dès la prise du verrou, avant tout travail, ce qui ferme Y à l’ancien ; ou mettre les deux écritures dans une même transaction d’une même base, si X et Y peuvent être réunies ; ou rendre les écritures idempotentes et rejouables, pour que le second travailleur réécrive Y à son tour. Les transactions qui couvrent plusieurs bases sont l’objet du ch. 37.
+
+**Exercice de conception.**
+
+*Élection.* Un bail etcd, ou l’objet `Lease` de Kubernetes si la plateforme y tourne, avec une durée de 15 s, un renouvellement toutes les 2 s, et un abandon par le leader s’il n’a pas renouvelé depuis 10 s. Après la mort de l’ordonnanceur actif, une autre réplique le remplace en 15 à 17 s ; une tâche lancée chaque minute peut se permettre ce délai. Chaque réplique ferme sa session à l’arrêt, ce qui réduit un arrêt prévu à quelques dizaines de millisecondes.
+
+*Marquage des factures.* L’ordonnanceur utilise la révision etcd de sa clé de leader comme jeton. PostgreSQL garde le plus grand jeton vu dans une table d’une ligne, et chaque passe commence par `UPDATE jeton SET valeur = $1 WHERE valeur <= $1` dans la même transaction que le marquage ; si la mise à jour ne touche aucune ligne, un leader plus récent existe, et la transaction est annulée. Le marquage lui-même est conditionnel (`UPDATE factures SET etat = 'emise' WHERE id = … AND etat = 'a_emettre'`).
+
+*Envoi des courriels.* Le prestataire ne vérifie pas de jeton. On lui envoie une clé d’idempotence égale à l’identifiant de la facture, s’il en accepte une ; sinon, on enregistre l’intention d’envoi dans PostgreSQL dans la transaction du marquage, et un expéditeur unique la consomme (boîte d’envoi, ch. 37). Un doublon reste alors possible après une panne au mauvais moment, mais il ne vient plus de deux ordonnanceurs actifs.
+
+*Travailleurs.* Ils s’inscrivent dans Consul ou derrière un `Service` Kubernetes, avec un contrôle de santé toutes les secondes et un délai de 500 ms. L’ordonnanceur suit la liste par requêtes bloquantes, ou par le DNS sans cache, et refait une requête échouée sur une autre instance avec une clé d’idempotence.
+
+*Chiffres.* Une instance reçoit 200 / 40 = 5 requêtes par seconde ; avec une détection en 1,5 s au pire, sa mort fait échouer au plus 8 requêtes, toutes refaites ailleurs. Avec un cache DNS de 30 s, ce serait 158 tentatives vers l’instance morte, chacune retardée du délai de connexion si la machine est tombée.
+
+:::fiche
+- Service de coordination : peu de données, écritures par consensus ; sessions ou baux, données qui meurent avec le client, notifications. Chubby (2006), ZooKeeper (2010), etcd, Consul.
+- ZooKeeper : arbre de znodes, éphémères et séquentiels ; watches à usage unique ; lectures locales, peut-être en retard (`sync`) ; 3 serveurs, 87 000 lectures ou 21 000 écritures par seconde (article).
+- etcd : clés plates, révision globale, baux, watch en flux depuis une révision, transactions sur révisions et valeurs.
+- Session de 4 s : nœud supprimé 4,5 à 5,9 s après la mort (cases de `tickTime`) ; bail de 4 s, 3,8 à 4,2 s ; fermeture propre, 32 à 37 ms. Fermer sa session à l’arrêt.
+- Notification après une écriture : 4,1 à 4,8 ms en médiane, 10 à 13 ms au 99e centile.
+- Verrou : la recette naïve réveille tous les clients (552 à 554 notifications pour 50 clients) ; la recette séquentielle, chacun surveillant son prédécesseur, un seul (48 ou 49), 2,3 à 2,9 fois plus vite.
+- Un verrou ne garantit pas l’exclusion : détenteur suspendu, 10 écritures acceptées après la perte du verrou ; avec jeton d’isolement vérifié par la ressource, 10 refusées. Jeton : révision etcd, `zxid`, séquenceur de Chubby ; délai de verrou en dernier recours.
+- Découverte : côté client (watch), côté serveur (répartiteur), DNS (TTL). Instance tuée : 79 à 81 échecs avec un bail de 3 s, 0 à 19 avec un contrôle chaque seconde, 133 à 136 avec un cache DNS de 30 s ; un nouvel essai masque les échecs, pas les tentatives.
+- Kubernetes : bail de nœud de 40 s renouvelé toutes les 10 s ; élection 15 s, 10 s, 2 s.
+:::
+
+[^chubby]: Mike Burrows, « The Chubby lock service for loosely-coupled distributed systems », *7th USENIX Symposium on Operating Systems Design and Implementation (OSDI ’06)*, 2006, sections 2.4 (verrous, séquenceurs, délai de verrou), 2.8 (sessions, prolongation de 12 s, période de grâce de 45 s), 4.1 (statistiques d’une cellule) et 4.3 (usage comme service de noms), [research.google.com/archive/chubby-osdi06.pdf](https://research.google.com/archive/chubby-osdi06.pdf).
+[^zk]: Patrick Hunt, Mahadev Konar, Flavio P. Junqueira et Benjamin Reed, « ZooKeeper: Wait-free coordination for Internet-scale systems », *2010 USENIX Annual Technical Conference (USENIX ATC ’10)*, sections 2.1 (znodes, watches), 2.4 (verrous, verrous sans effet de troupeau), 3 (applications de Yahoo!) et 5.1 (tableau 1), [usenix.org/legacy/event/atc10/tech/full_papers/Hunt.pdf](https://www.usenix.org/legacy/event/atc10/tech/full_papers/Hunt.pdf).
+[^zk-admin]: Apache ZooKeeper, « ZooKeeper Administrator’s Guide », documentation 3.9 (`tickTime`, `minSessionTimeout` et `maxSessionTimeout`, 2 et 20 fois `tickTime` par défaut), [zookeeper.apache.org/doc/current/zookeeperAdmin.html](https://zookeeper.apache.org/doc/current/zookeeperAdmin.html).
+[^zk-prog]: Apache ZooKeeper, « ZooKeeper Programmer’s Guide », documentation 3.9, sections « ZooKeeper Sessions » et « ZooKeeper Watches », [zookeeper.apache.org/doc/current/zookeeperProgrammers.html](https://zookeeper.apache.org/doc/current/zookeeperProgrammers.html).
+[^zk-expiry]: apache/zookeeper, `zookeeper-server/src/main/java/org/apache/zookeeper/server/ExpiryQueue.java` (fonction `roundToNextInterval`) et `SessionTrackerImpl.java` (file d’échéances par cases de `tickTime`), [github.com/apache/zookeeper](https://github.com/apache/zookeeper/blob/master/zookeeper-server/src/main/java/org/apache/zookeeper/server/ExpiryQueue.java).
+[^zk-recipes]: Apache ZooKeeper, « ZooKeeper Recipes and Solutions », documentation 3.9, sections « Locks » et « Leader Election », [zookeeper.apache.org/doc/current/recipes.html](https://zookeeper.apache.org/doc/current/recipes.html).
+[^etcd-api]: etcd, « etcd API », documentation d’etcd v3.6 (révisions, transactions, watches, baux), [etcd.io/docs/v3.6/learning/api](https://etcd.io/docs/v3.6/learning/api/).
+[^etcd-mutex]: etcd-io/etcd, `client/v3/concurrency/mutex.go` et `key.go` (fonction `waitDeletes`), [github.com/etcd-io/etcd](https://github.com/etcd-io/etcd/tree/main/client/v3/concurrency).
+[^kleppmann]: Martin Kleppmann, « How to do distributed locking », 8 février 2016, [martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html).
+[^jepsen]: Kyle Kingsbury, « Jepsen: etcd 3.4.3 », 30 janvier 2020, [jepsen.io/analyses/etcd-3.4.3](https://jepsen.io/analyses/etcd-3.4.3).
+[^k8s-lease]: Kubernetes, « Leases », [kubernetes.io/docs/concepts/architecture/leases](https://kubernetes.io/docs/concepts/architecture/leases/), et « Kubelet Configuration (v1beta1) », champ `nodeLeaseDurationSeconds` (40 s par défaut, renouvellement toutes les 10 s), [kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1](https://kubernetes.io/docs/reference/config-api/kubelet-config.v1beta1/).
+[^k8s-kcm]: Kubernetes, « kube-controller-manager », options `--leader-elect-lease-duration` (15 s), `--leader-elect-renew-deadline` (10 s) et `--leader-elect-retry-period` (2 s), [kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/).
+[^k8s-large]: Kubernetes, « Considerations for large clusters » (au plus 5 000 nœuds), [kubernetes.io/docs/setup/best-practices/cluster-large](https://kubernetes.io/docs/setup/best-practices/cluster-large/).
+[^envoy]: Envoy, « Outlier detection », documentation d’Envoy, [envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/outlier).
+[^kep589]: Kubernetes Enhancement Proposal 589, « Efficient Node Heartbeats », section « Motivation », [github.com/kubernetes/enhancements/tree/master/keps/sig-node/589-efficient-node-heartbeats](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/589-efficient-node-heartbeats).
+[^consul-dns]: HashiCorp, « Configure Consul DNS behavior », documentation de Consul (TTL nuls par défaut, lectures périmées autorisées), [developer.hashicorp.com/consul/docs/discover/dns/configure](https://developer.hashicorp.com/consul/docs/discover/dns/configure).
+[^consul-blocking]: HashiCorp, « Blocking queries », documentation de l’API de Consul (`index`, `X-Consul-Index`, attente de 5 min par défaut, 10 min au plus), [developer.hashicorp.com/consul/api-docs/features/blocking](https://developer.hashicorp.com/consul/api-docs/features/blocking).

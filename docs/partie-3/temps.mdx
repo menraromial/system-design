@@ -98,7 +98,7 @@ Cassandra 5.0.9 ; le client A écrit, puis le client B écrit 100 ms plus tard
 
 Le second passage a donné les mêmes valeurs lues et des écarts d’horodatage à 3 ms près. Tant que le retard de l’horloge de B est inférieur à l’écart réel entre les deux écritures, environ 105 à 120 ms ici, l’ordre est respecté. Au-delà, l’horodatage de B est plus petit que celui de A, et c’est l’écriture la plus récente qui est perdue ; Cassandra ne signale rien, puisque de son point de vue il n’y a pas de conflit, seulement une écriture plus ancienne à ignorer. À horodatage égal, Cassandra départage par la valeur, et « zzz » l’emporte sur « aaa » quel que soit l’ordre des écritures. La documentation de Cassandra signale d’ailleurs que, dans un lot, des égalités d’horodatage peuvent faire appliquer les opérations dans un autre ordre que celui où elles sont écrites[^cassandra-dml].
 
-Avec une synchronisation NTP qui laisse des écarts de quelques dizaines de millisecondes entre les machines, deux écritures sur la même clé séparées de moins que cet écart ont donc une chance d’être inversées. Le même défaut touche tout ce qui compare des horodatages venus de machines différentes : fusionner des journaux de plusieurs serveurs dans l’ordre de leurs horodatages, calculer la durée d’une requête dans une trace répartie à partir de deux machines, décider qu’un bail ou un verrou a expiré (ch. 36), ou garder « la dernière modification » d’un document édité depuis deux appareils.
+Avec une synchronisation NTP qui laisse des écarts de quelques dizaines de millisecondes entre les machines, deux écritures sur la même clé séparées de moins que cet écart ont donc une chance d’être inversées. Le même défaut touche tout ce qui compare des horodatages venus de machines différentes : fusionner des journaux de plusieurs serveurs dans l’ordre de leurs horodatages, calculer la durée d’une requête dans une trace répartie à partir de deux machines, décider qu’un bail ou un verrou a expiré ([ch. 36](coordination.mdx)), ou garder « la dernière modification » d’un document édité depuis deux appareils.
 
 ## Les horloges logiques de Lamport
 
@@ -239,7 +239,7 @@ Prendre l’ordre de Lamport pour l’ordre causal. $L(a) < L(b)$ n’implique p
 
 Transporter des horloges vectorielles dans un système de milliers de processus. Elles coûtent 8 octets par processus et par message, 8 Ko pour 1 000.
 
-Faire dépendre la sûreté d’un bail ou d’un verrou d’horloges non bornées. Un détenteur dont l’horloge retarde croit garder le bail après son expiration (ch. 36).
+Faire dépendre la sûreté d’un bail ou d’un verrou d’horloges non bornées. Un détenteur dont l’horloge retarde croit garder le bail après son expiration ([ch. 36](coordination.mdx)).
 
 Mélanger des serveurs de temps qui lissent les secondes intercalaires et d’autres qui ne les lissent pas. Pendant le lissage, ils diffèrent d’une demi-seconde.
 

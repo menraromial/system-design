@@ -111,7 +111,7 @@ Les données d’une zone sont des enregistrements de ressource (resource record
 | MX | les serveurs de messagerie du domaine, avec une priorité | où livrer le courrier adressé à `@example.com` (ch. 63) |
 | TXT | du texte libre | preuves de propriété, politiques d’envoi de courrier |
 | SOA | les paramètres de la zone | numéro de version, durée du cache négatif |
-| SRV | l’hôte et le port d’un service | découverte de services (ch. 36) |
+| SRV | l’hôte et le port d’un service | découverte de services ([ch. 36](../partie-3/coordination.mdx)) |
 | PTR | un nom, à partir d’une adresse | résolution inverse, utilisée par les serveurs de courrier |
 
 Le CNAME a une contrainte qui piège souvent. Un nom qui porte un CNAME ne peut porter aucun autre enregistrement[^rfc1034]. Or le sommet d’une zone (`example.com` lui-même, sans préfixe) porte obligatoirement ses enregistrements SOA et NS ; on ne peut donc pas y mettre de CNAME vers un hébergeur. Les fournisseurs de DNS contournent la règle par des enregistrements propriétaires (ALIAS, ANAME, aplatissement de CNAME) qu’ils résolvent eux-mêmes et servent comme des A ordinaires.

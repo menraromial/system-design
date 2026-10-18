@@ -1,0 +1,22 @@
+% L'effet de troupeau : tous surveillent le verrou, ou chacun son prédécesseur.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    cl/.style={circle, draw=#1, fill=#1Bg, line width=0.6pt, minimum size=7mm, font=\sffamily\scriptsize, inner sep=0pt}]
+  \node[pillo=Dred] at (25,46) {tous surveillent le verrou};
+  \node[soft=Damber, rounded corners=2pt, font=\ttfamily\scriptsize] (v) at (25,34) {/verrou (supprimé)};
+  \foreach \i/\x in {1/0, 2/12, 3/24, 4/36, 5/48} {
+    \node[cl=Dslate] (c\i) at (\x,12) {c\i};
+    \draw[arr=Dred] (v) -- (c\i);
+  }
+  \node[note, anchor=north, align=center] at (25,5) {chaque libération réveille tous les clients,\\qui se ruent sur le verrou : environ\\550 notifications et 600 créations tentées\\pour 50 clients (mesuré)};
+  \begin{scope}[xshift=82mm]
+    \node[pillo=Dgreen] at (25,46) {chacun surveille son prédécesseur};
+    \foreach \i/\x in {1/0, 2/12, 3/24, 4/36, 5/48} \node[soft=Dteal, rounded corners=2pt, font=\ttfamily\scriptsize, minimum width=10mm] (n\i) at (\x,34) {v-\i};
+    \foreach \i/\x in {1/0, 2/12, 3/24, 4/36, 5/48} \node[cl=Dslate] (k\i) at (\x,12) {c\i};
+    \foreach \a/\b in {1/2, 2/3, 3/4, 4/5} \draw[arr=Dgreen] (n\a) -- (k\b);
+    \node[note, anchor=north, align=center] at (25,5) {la suppression de v-1 ne réveille que c2 :\\48 ou 49 notifications pour 50 clients,\\2,3 à 2,9 fois plus rapide (mesuré)};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -151,7 +151,7 @@ La quatrième partie de la mesure montre une autre forme de partition chaude, le
 
 ## Router les requêtes
 
-Il reste à savoir, pour chaque requête, quel nœud porte la partition. C’est un problème de découverte de services (ch. 36), et trois architectures existent.
+Il reste à savoir, pour chaque requête, quel nœud porte la partition. C’est un problème de découverte de services ([ch. 36](../partie-3/coordination.mdx)), et trois architectures existent.
 
 <Figure svg={routage} num="26.4" alt="Trois schémas. À gauche, le client connaît la carte des partitions et parle directement au nœud 3 (pilotes Cassandra à jetons, clients Redis Cluster). Au milieu, le client parle à un routeur, qui transmet au nœud 3 (mongos, coordinateur Citus, Vitess). À droite, le client parle au nœud 1, qui transmet au nœud 3 (coordinateur Cassandra, passerelle CockroachDB). En bas, la carte des partitions est tenue par ZooKeeper, etcd ou une propagation entre nœuds.">
 Trois façons de trouver la partition d’une clé.

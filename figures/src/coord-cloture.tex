@@ -1,0 +1,27 @@
+% Un verrou avec bail, une pause, et le jeton d'isolement (mesure de verrou.py).
+% Échelle : 15 mm par seconde.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \foreach \y/\t in {36/{client A}, 20/{client B}, 4/{stockage}} {
+    \node[axe, anchor=east] at (-3,\y) {\t};
+    \draw[Dslate, line width=0.6pt] (0,\y) -- (150,\y);
+  }
+  % A : verrou, suspension de 4 s, reprise pendant 504 ms
+  \fill[DorangeBg, draw=Dorange] (10,33) rectangle (30,39);
+  \node[note, font=\sffamily\scriptsize] at (20,36) {verrou, jeton 3};
+  \fill[DslateBg, draw=Dslate] (30,33) rectangle (90,39);
+  \node[note, font=\sffamily\scriptsize] at (60,36) {suspendu (SIGSTOP 4 s) ; bail expiré};
+  \fill[DredBg, draw=Dred] (90,33) rectangle (97.5,39);
+  \node[note, anchor=south, text=Dred, align=center] at (94,40) {reprise : croit tenir le verrou\\504 ms, 10 écritures};
+  % B : verrou 2,1 à 2,5 s après la suspension
+  \fill[DgreenBg, draw=Dgreen] (66,17) rectangle (150,23);
+  \node[note, font=\sffamily\scriptsize] at (126,20) {verrou, jeton 5};
+  \node[note, anchor=south east, font=\sffamily\scriptsize] at (65,23.5) {après 2,1 à 2,5 s};
+  \foreach \x in {14,18,22,26} \draw[arr=Dorange] (\x,33) -- (\x+1,7);
+  \foreach \x in {72,80,88,104,112,120,128,136,144} \draw[arr=Dgreen] (\x,17) -- (\x+1,7);
+  \foreach \x in {91,93.5,96} \draw[arr=Dred] (\x,33) -- (\x+1,7);
+  \node[note, anchor=north west, align=left, text=Dred] at (80,1) {sans contrôle : les 10 écritures de A sont acceptées\\au milieu de celles de B ;\\avec contrôle : jeton 3 < 5 déjà vu, toutes refusées};
+\end{tikzpicture}
+\end{document}

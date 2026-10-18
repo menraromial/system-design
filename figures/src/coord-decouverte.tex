@@ -1,0 +1,39 @@
+% Trois façons de trouver les instances d'un service.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, rounded corners=3pt, minimum width=22mm, minimum height=8mm, font=\sffamily\small\bfseries, align=center}]
+  \foreach \c/\x/\t in {0/0/{côté client}, 1/72/{côté serveur}, 2/144/{par le DNS}} {
+    \node[pillo=Dslate] at ({\x+20},58) {\t};
+  }
+  % client
+  \node[b=Dblue] (c1) at (0,44) {client};
+  \node[b=Dteal] (r1) at (40,44) {registre};
+  \node[b=Dgreen] (i1) at (20,16) {instances};
+  \draw[arr=Dink] (i1) -- node[lbl, right, pos=0.4] {s’inscrivent (bail)} (r1);
+  \draw[arr=Dink, <->] (c1) -- node[lbl, above] {watch} (r1);
+  \draw[arr=Dblue] (c1) -- node[lbl, left, pos=0.4] {appelle} (i1);
+  \node[note, anchor=north, align=center] at (20,7) {le client choisit l’instance ;\\bibliothèque dans chaque langage};
+  % serveur
+  \begin{scope}[xshift=72mm]
+    \node[b=Dblue] (c2) at (0,44) {client};
+    \node[b=Dorange] (p2) at (40,44) {répartiteur};
+    \node[b=Dteal] (r2) at (40,30) {registre};
+    \node[b=Dgreen] (i2) at (20,16) {instances};
+    \draw[arr=Dblue] (c2) -- (p2);
+    \draw[arr=Dink, <->] (p2) -- (r2);
+    \draw[arr=Dorange] (p2.south west) -- (i2.north);
+    \node[note, anchor=north, align=center] at (20,7) {le client ne connaît qu’une adresse ;\\un saut de plus (ch. 13, 14)};
+  \end{scope}
+  % DNS
+  \begin{scope}[xshift=144mm]
+    \node[b=Dblue] (c3) at (0,44) {client\\+ cache};
+    \node[b=Dteal] (d3) at (40,44) {DNS};
+    \node[b=Dgreen] (i3) at (20,16) {instances};
+    \draw[arr=Dink, <->] (c3) -- node[lbl, above] {SRV, A ; TTL} (d3);
+    \draw[arr=Dblue] (c3) -- (i3);
+    \node[note, anchor=north, align=center] at (20,7) {universel, mais le cache garde\\les morts jusqu’au TTL};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

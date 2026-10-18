@@ -1,0 +1,26 @@
+% Le modèle de données de ZooKeeper (arbre de znodes) et celui d'etcd (clés, révisions, baux).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    zn/.style={draw=#1, fill=#1Bg, line width=0.6pt, rounded corners=2pt, font=\ttfamily\scriptsize, inner sep=2pt, anchor=west}]
+  \node[pillo=Dblue] at (30,62) {ZooKeeper : un arbre de znodes};
+  \node[zn=Dslate] (r) at (0,52) {/};
+  \node[zn=Dslate] (s) at (8,44) {/services/api};
+  \node[zn=Dgreen] (i1) at (16,36) {instance-0000000007  (éphémère)};
+  \node[zn=Dgreen] (i2) at (16,29) {instance-0000000009  (éphémère)};
+  \node[zn=Dslate] (v) at (8,21) {/verrous/tache};
+  \node[zn=Damber] (v1) at (16,13) {v-0000000041  (éphémère, séquentiel)};
+  \node[zn=Damber] (v2) at (16,6) {v-0000000042};
+  \foreach \a/\b in {r/s, s/i1, s/i2, r/v, v/v1, v/v2} \draw[Dslate, line width=0.5pt] (\a.south west) ++(2,0) |- (\b.west);
+  \node[note, anchor=north, align=center] at (30,0) {un nœud éphémère disparaît avec la session ;\\un watch se déclenche une seule fois};
+  \begin{scope}[xshift=90mm]
+    \node[pillo=Dteal] at (30,62) {etcd : des clés et des révisions};
+    \foreach \y/\cle/\val/\rev/\bai in {50/{/services/api/11610}/{11610}/{rév. 12}/{bail 7a1f}, 42/{/services/api/11611}/{11611}/{rév. 13}/{bail 7a20}, 34/{/verrous/tache}/{A}/{rév. 33}/{bail 7a2b}} {
+      \node[zn=Dteal] at (0,\y) {\cle};
+      \node[note, anchor=west, font=\sffamily\scriptsize] at (36,\y) {\val{} ; \rev{} ; \bai};
+    }
+    \node[note, anchor=north, align=center] at (30,26) {un espace de clés plat, trié ; chaque écriture\\augmente la révision globale ; une clé peut\\dépendre d’un bail (TTL), renouvelé par son\\propriétaire ; un watch suit un préfixe sans fin,\\depuis une révision donnée};
+  \end{scope}
+\end{tikzpicture}
+\end{document}
