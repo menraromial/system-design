@@ -244,7 +244,7 @@ Utiliser le dernier écrivain gagne avec des horloges non synchronisées, ou pou
 Rejouer une transaction légère au résultat inconnu comme si elle avait échoué. Le compteur a fini entre 1 608 et 1 619 au lieu de 1 600.
 
 :::piege[Erreur fréquente : « QUORUM, donc cohérence forte »]
-$R + W > N$ garantit qu’une lecture rencontre une réplique qui a la dernière écriture confirmée, à condition que les quorums soient stricts, que les écritures ne soient pas concurrentes et que les horloges classent correctement les estampilles. La mesure en donne deux contre-exemples avec des écritures toutes en `QUORUM`. Une écriture faite par un client à l’horloge en retard a disparu, et des incrémentations concurrentes se sont écrasées. Pour une opération qui doit être linéarisable (un identifiant unique, une réservation), il faut une transaction légère ou une base à consensus ([ch. 34](../partie-3/consensus-paxos.mdx) et 35).
+$R + W > N$ garantit qu’une lecture rencontre une réplique qui a la dernière écriture confirmée, à condition que les quorums soient stricts, que les écritures ne soient pas concurrentes et que les horloges classent correctement les estampilles. La mesure en donne deux contre-exemples avec des écritures toutes en `QUORUM`. Une écriture faite par un client à l’horloge en retard a disparu, et des incrémentations concurrentes se sont écrasées. Pour une opération qui doit être linéarisable (un identifiant unique, une réservation), il faut une transaction légère ou une base à consensus ([ch. 34](../partie-3/consensus-paxos.mdx) et [35](../partie-3/consensus-raft.mdx)).
 :::
 
 :::entretien

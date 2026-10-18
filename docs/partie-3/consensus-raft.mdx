@@ -1,0 +1,338 @@
+---
+title: "Consensus (2) : Raft en détail"
+sidebar_label: "35. Consensus (2) : Raft"
+description: "Raft pas à pas : rôles, mandats, élection et délais aléatoires, réplication du journal, règle de validation, restriction d'élection et figure 8, pré-vote et vérification du quorum, lectures linéarisables, instantanés, changement de membres ; mesures sur une vraie grappe etcd 3.7 (durée des écritures, panne et isolement du leader, membre isolé avec et sans pré-vote, retards réseau) et simulation de Raft et de deux variantes fautives."
+partie: 3
+chapitre: 35
+---
+
+import etats from '@site/src/figures/raft-etats.svg';
+import journal from '@site/src/figures/raft-journal.svg';
+import figure8 from '@site/src/figures/raft-figure8.svg';
+import prevote from '@site/src/figures/raft-prevote.svg';
+
+Une grappe etcd de trois membres reçoit une écriture toutes les 5 ms. On arrête son leader d’un coup ; pendant 1,55 s, plus aucune écriture n’aboutit, puis un autre membre est élu et tout reprend, sans qu’aucune écriture confirmée ne soit perdue. Avec des délais d’élection quatre fois plus courts, la coupure tombe à 0,3 à 0,5 s. On isole ensuite un simple suiveur pendant dix secondes, sans toucher au leader. Si le pré-vote est désactivé, le suiveur isolé fait monter son numéro de mandat de 2 à 9 ; à son retour, il oblige le leader à abdiquer, et les écritures sont bloquées pendant 1,2 à 2,6 s. Avec le pré-vote, réglage par défaut d’etcd, son retour passe inaperçu. Ces comportements découlent de règles précises de Raft, l’algorithme de consensus qu’utilisent etcd, et donc Kubernetes, Consul, CockroachDB ou TiKV.
+
+Le [ch. 34](consensus-paxos.mdx) a décrit Paxos et ce qu’il laisse ouvert : l’élection du leader, la gestion du journal, les changements de membres. Diego Ongaro et John Ousterhout ont conçu Raft en 2014 pour fixer tous ces points dans un algorithme qu’on puisse comprendre et implémenter sans ambiguïté[^raft]. Ce chapitre le décrit règle par règle, avec les déroulés qui montrent pourquoi chaque règle est nécessaire, puis mesure son comportement sur une vraie grappe etcd et dans une simulation.
+
+Deux expériences ont été faites pour ce chapitre. [`outils/experiences/ch35/etcd_raft.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch35/etcd_raft.py) monte des grappes etcd 3.7 de 1, 3 ou 5 membres dans des conteneurs. Un conteneur auxiliaire par membre, qui partage son espace réseau, y ajoute des retards par `tc` ou coupe le trafic entre pairs par `iptables`, et le script lit l’état Raft de chaque membre dans `/debug/vars`. [`raft_sim.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch35/raft_sim.py) simule Raft sur cinq serveurs, avec des pannes et des partitions, et vérifie qu’aucune position du journal n’est validée deux fois avec des entrées différentes.
+
+## Un leader fort et des mandats
+
+L’article de Raft part du constat que Paxos est difficile à comprendre, et les systèmes réels qui s’en réclament s’en écartent tous[^raft]. Raft vise la compréhensibilité. Il découpe le consensus en trois problèmes séparés (l’élection du leader, la réplication du journal, la sûreté) et donne au leader un rôle plus fort que dans Paxos, puisque les entrées du journal ne circulent que du leader vers les autres serveurs. Les auteurs ont mesuré l’effet de ce choix sur 43 étudiants de deux universités, qui ont mieux réussi le questionnaire sur Raft que celui sur Paxos.
+
+<Figure svg={etats} num="35.1" alt="Trois états : suiveur, candidat, leader. Un suiveur devient candidat quand son délai d’élection s’écoule sans nouvelles du leader ; un candidat devient leader avec les votes d’une majorité, recommence dans un nouveau terme si les votes sont partagés, et redevient suiveur s’il découvre un leader ou un terme plus grand ; un leader redevient suiveur s’il découvre un terme plus grand. Sous les états, une ligne de temps découpée en termes : terme 1, leader S1 ; terme 2, élection sans vainqueur ; terme 3, leader S3 ; terme 4, leader S2. Chaque terme commence par une élection, au plus un leader par terme.">
+Les trois états d’un serveur Raft, et les termes.
+</Figure>
+
+Chaque serveur est dans l’un des trois états de la figure 35.1. Le temps est découpé en mandats, appelés termes (terms), numérotés par des entiers croissants. Chaque terme commence par une élection, et il a au plus un leader ; une élection qui ne désigne personne, comme le terme 2 de la figure, ouvre aussitôt un nouveau terme. Les serveurs joignent leur terme courant à chaque message. Un serveur qui voit un terme plus grand que le sien l’adopte et redevient suiveur, et un serveur qui reçoit un message d’un terme plus petit le rejette. Le terme joue le rôle du numéro de proposition de Paxos ([ch. 34](consensus-paxos.mdx)), et c’est lui qui rend inoffensif un ancien leader qui revient d’une pause, puisque ses messages portent un terme périmé.
+
+Trois données doivent survivre à un redémarrage, et sont écrites sur disque avant toute réponse : le terme courant, le candidat pour lequel le serveur a voté dans ce terme, et le journal. Le reste (l’index de validation, les états des suiveurs vus par le leader) se reconstruit.
+
+## L’élection du leader
+
+Le leader envoie régulièrement des battements de cœur, des appels `AppendEntries` vides. Un suiveur qui n’en reçoit plus pendant son délai d’élection (election timeout) suppose que le leader est tombé, incrémente son terme, passe candidat, vote pour lui-même et demande leur voix aux autres par `RequestVote`. Chaque serveur ne vote qu’une fois par terme, pour le premier candidat qui le demande et qui satisfait la restriction décrite plus bas. Un candidat qui obtient les voix d’une majorité devient leader et envoie aussitôt des battements, qui font redevenir suiveurs les autres candidats.
+
+Si plusieurs suiveurs expirent en même temps, ils se partagent les voix, aucun n’obtient de majorité, et l’élection recommence dans un nouveau terme ; si leurs délais restent égaux, elle peut recommencer indéfiniment. Raft évite ces votes partagés en tirant chaque délai d’élection au hasard dans un intervalle, par exemple de 150 à 300 ms. Le premier suiveur qui expire a alors le temps de gagner avant que les autres ne se présentent. L’article l’a mesuré sur une grappe de cinq serveurs dont le leader tombait juste après avoir envoyé un battement à tous, le pire cas. Sans hasard, l’élection prenait plus de 10 secondes, à cause des votes partagés successifs, et avec 5 ms de hasard seulement, l’indisponibilité médiane tombait à 287 ms ; avec un délai de 12 à 24 ms, elle tombait à 35 ms en moyenne[^raft]. `raft_sim.py` reproduit la même expérience.
+
+```text
+simulation de Raft, graine 1
+
+1. durée d'une élection après la panne du leader (5 serveurs,
+   le leader envoie un battement à tous puis tombe)
+    délai d’élection      latence   médiane    99e c.       max
+      150-150 ms         2 ms   10000ms   10000ms   10000ms
+      150-155 ms       1-5 ms     315ms    2135ms    3665ms
+      150-200 ms       1-5 ms     170ms     350ms     515ms
+      150-300 ms       1-5 ms     185ms     355ms     590ms
+       12- 24 ms       1-5 ms      25ms      80ms     110ms
+```
+
+La seconde graine a donné les mêmes médianes et des 99e centiles de 1 985, 360, 385 et 80 ms. Avec des délais tous égaux et des messages qui mettent exactement 2 ms, aucune élection n’aboutit en 10 secondes, la limite de la simulation. Avec 5 ms de hasard, l’élection prend 315 ms en médiane, du même ordre que les 287 ms de l’article, mais son 99e centile atteint 2 s, parce que les votes partagés restent fréquents ; avec 50 ms de hasard ou plus, le 99e centile tombe à 350 ms. La médiane suit le délai d’élection, et un délai de 12 à 24 ms donne 25 ms.
+
+Raccourcir le délai n’est pas gratuit. L’article pose une condition de bon fonctionnement, $\text{temps de diffusion} \ll \text{délai d'élection} \ll \text{MTBF}$, où le temps de diffusion est la durée d’un aller-retour vers tous les serveurs, écriture sur disque comprise, de 0,5 à 20 ms selon les auteurs, et le MTBF l’intervalle moyen entre deux pannes d’un serveur, de plusieurs mois. Un délai plus court que les variations du temps de diffusion fait élire des leaders sans raison. etcd règle par défaut un battement toutes les 100 ms et un délai d’élection de 1 000 ms, et sa documentation demande un délai d’au moins dix fois l’aller-retour entre membres[^etcd-tuning]. La bibliothèque Raft d’etcd tire le délai effectif entre une et deux fois la valeur réglée[^etcd-raft-code].
+
+## La réplication du journal
+
+Le leader reçoit les commandes des clients, les ajoute à son journal avec le terme courant, et les envoie aux suiveurs par `AppendEntries`. Une entrée est validée (committed) dès qu’elle est stockée sur une majorité de serveurs. Le leader l’applique alors à sa machine à états, répond au client, et indique dans ses messages suivants l’index de validation, que les suiveurs appliquent à leur tour.
+
+<Figure svg={journal} num="35.2" alt="Journaux de quatre serveurs, positions 1 à 8 ; chaque entrée porte un terme et une commande. Le leader du terme 3 et le suiveur A ont les entrées 1 à 8 (termes 1, 1, 1, 2, 3, 3, 3, 3). Le suiveur B a les entrées 1 à 5. Le suiveur C a les entrées 1 à 4, puis deux entrées 5 et 6 du terme 2, venues d’un ancien leader. Les positions 1 à 5, stockées sur une majorité, sont validées. AppendEntries (position précédente 4, terme 2, entrées 5 à 8) : le suiveur vérifie qu’il a bien (4, terme 2). C a des entrées 5 et 6 d’un ancien leader du terme 2, jamais validées : elles sont effacées et remplacées.">
+La réplication du journal, et une entrée en conflit chez un suiveur.
+</Figure>
+
+Chaque `AppendEntries` contient la position et le terme de l’entrée qui précède les nouvelles. Le suiveur refuse le message s’il n’a pas d’entrée à cette position avec ce terme, et le leader recule alors d’une position pour ce suiveur et recommence, jusqu’à trouver le point où les deux journaux s’accordent. À partir de ce point, le suiveur efface ses entrées en conflit et prend celles du leader. Ce contrôle garantit ce que l’article appelle la propriété de concordance des journaux : si deux journaux ont une entrée de même position et de même terme, ils sont identiques jusqu’à cette position. Sur la figure 35.2, le suiveur C a reçu d’un ancien leader du terme 2 deux entrées qui n’ont jamais été validées ; le leader du terme 3 les remplace. Le leader, lui, n’efface ni ne modifie jamais son propre journal.
+
+## Deux règles de sûreté
+
+La réplication ne suffit pas. Il faut encore qu’un leader élu possède toutes les entrées déjà validées, sans quoi il en effacerait chez les suiveurs. Raft l’obtient par une restriction de l’élection. Un serveur refuse sa voix à un candidat dont le journal est moins à jour que le sien, en comparant d’abord le terme de leur dernière entrée, puis, à terme égal, la longueur du journal. Une entrée validée est sur une majorité, le candidat doit obtenir les voix d’une majorité, et ces deux majorités ont un serveur en commun, qui ne votera pas pour un candidat auquel l’entrée manque.
+
+La seconde règle est plus subtile, et l’article lui consacre une figure, que reprend la figure 35.3.
+
+<Figure svg={figure8} num="35.3" alt="Quatre étapes sur cinq serveurs S1 à S5. (a) S1, leader du terme 2, copie l’entrée (position 2, terme 2) sur S2. (b) S1 tombe ; S5 est élu au terme 3 par S3, S4 et S5, et écrit (position 2, terme 3). (c) S5 tombe ; S1 est élu au terme 4, copie (2, terme 2) sur S3 : l’entrée est sur une majorité, mais d’un terme ancien ; S1 a aussi une entrée (3, terme 4). (d) S1 tombe ; S5 est élu, son dernier terme, 3, dépassant 2, et écrase la position 2 partout. Si S1 avait déclaré la position 2 validée en (c), une entrée validée aurait été effacée en (d) ; Raft ne valide par comptage que les entrées du terme courant.">
+Pourquoi un leader ne valide pas une entrée d’un terme précédent par simple comptage (d’après la figure 8 de l’article).
+</Figure>
+
+En (c), l’entrée (2, terme 2) est sur trois serveurs sur cinq. Si S1 la déclarait validée, puis tombait, S5 pourrait encore être élu en (d), avec les voix de S2, S3 et S4, puisque la dernière entrée de son journal, du terme 3, est plus récente que la leur, du terme 2 ; et S5 effacerait partout la position 2. Une entrée sur une majorité n’est donc pas forcément à l’abri. Raft ne valide par comptage que les entrées du terme courant du leader ; les entrées des termes précédents sont validées indirectement, quand une entrée du terme courant placée après elles l’est. Dans la figure, S1 attend que son entrée (3, terme 4) soit sur une majorité ; à partir de là, aucun serveur sans cette entrée ne peut plus être élu, et les positions 2 et 3 sont validées ensemble. Pour ne pas attendre une commande d’un client, un nouveau leader ajoute en pratique une entrée vide de son terme dès son élection.
+
+La simulation vérifie ces deux règles en les retirant. Sur 2 000 exécutions de 4 secondes avec des pannes et des partitions toutes les 50 à 300 ms, un observateur compte les positions validées avec deux entrées différentes.
+
+```text
+2. sûreté : 2000 exécutions de 4 s par variante, pannes et partitions
+   toutes les 50 à 300 ms ; une commande pour 3 battements sur 10
+   variante                              exécutions fautives  positions
+   Raft                                            0 ( 0.0 %)          0
+   vote sans restriction d'élection             1603 (80.2 %)       5880
+   validation naïve (figure 8)                     3 ( 0.1 %)          6
+   les deux                                     1603 (80.2 %)       6079
+```
+
+La seconde graine a donné 0, 1 569, 1 et 1 604 exécutions fautives. Raft n’a jamais validé deux entrées différentes à la même position. Sans la restriction d’élection, quatre exécutions sur cinq le font, puisqu’un candidat au journal incomplet peut être élu et effacer des entrées validées. La validation naïve ne se trompe que dans 1 à 3 exécutions sur 2 000, parce qu’il faut la suite précise de la figure 35.3, une panne au bon moment après une copie partielle. C’est le genre d’erreur qu’aucun test ordinaire ne trouve, et que l’article a jugé nécessaire d’expliquer en détail.
+
+## Une écriture dans etcd, mesurée
+
+Une écriture coûte au leader l’écriture de l’entrée sur son disque, un aller-retour vers les suiveurs, qui l’écrivent aussi sur disque avant de répondre, et l’attente de la réponse d’une majorité. `etcd_raft.py` mesure 300 écritures successives de 100 octets, puis le débit atteint par 32 clients en parallèle, pour des grappes de 1, 3 et 5 membres, sans retard réseau puis avec un retard de 5 ms ajouté à tout ce qu’émet chaque membre.
+
+```text
+etcd 3.7.0 ; un membre par conteneur
+
+1. durée d'une écriture (300 écritures de 100 o à la suite)
+   grappe                              médiane   99e c.  32 clients
+   1 membre, sans retard                3.42ms  12.08ms     2424/s
+   3 membres, sans retard               4.18ms  17.38ms     1342/s
+     la même, écrite par un suiveur     4.57ms  19.82ms
+     lecture linéarisable / sérialisable   1.32ms   0.95ms
+   5 membres, sans retard               5.64ms  22.01ms     1180/s
+   3 membres, retard de 5 ms           19.04ms  29.05ms      790/s
+   5 membres, retard de 5 ms           20.41ms  29.49ms      719/s
+```
+
+Le second passage a donné les mêmes valeurs à 5 % près. Sur une seule machine, sans réseau, une écriture prend 3,4 ms, presque tout pour l’écriture synchronisée du journal ; trois membres ajoutent 0,8 ms, cinq membres 2,2 ms, parce que les cinq conteneurs se partagent le même disque. Une écriture envoyée à un suiveur lui coûte un aller-retour de plus, puisqu’il la transmet au leader. Avec 5 ms de retard à l’émission, l’écriture passe à 19 ou 20 ms, car le retard pèse sur la réponse au client, l’envoi aux suiveurs et leurs accusés de réception, trois passages de 5 ms plus le disque. Le débit avec 32 clients dépasse de loin l’inverse de la latence (1 342 écritures par seconde pour 4,2 ms, au lieu de 240), parce que le leader regroupe plusieurs entrées dans chaque écriture sur disque et chaque `AppendEntries`. Passer de 3 à 5 membres réduit ce débit de 12 % et n’accélère rien ; on le fait pour supporter deux pannes au lieu d’une.
+
+## Ce que fait la grappe quand le leader tombe ou s’isole
+
+La deuxième partie arrête le leader par `SIGKILL` pendant qu’un client écrit toutes les 5 ms par un autre membre, et mesure le plus long intervalle sans écriture réussie, trois fois avec les délais par défaut d’etcd, puis trois fois avec des délais quatre fois plus courts.
+
+```text
+2. panne (SIGKILL) du leader, 3 membres, une écriture toutes les 5 ms
+   battement 100 ms, élection 1000 ms :
+      écritures impossibles pendant 1555, 1555, 1554 ms
+   battement 25 ms, élection 250 ms :
+      écritures impossibles pendant 268, 521, 531 ms
+```
+
+Le second passage a donné 1 545 à 1 556 ms, puis 308 à 531 ms. L’indisponibilité est comprise entre une et deux fois le délai d’élection réglé, comme le prévoit le tirage aléatoire d’etcd ; avec 1 000 ms, la plupart des essais se situent vers 1,55 s, et avec 250 ms, entre 0,27 et 0,53 s. Le délai d’élection est donc le prix à payer en disponibilité pour ne pas élire de leader sans raison.
+
+La troisième partie coupe le leader d’une grappe de cinq membres de ses pairs, sans le couper des clients, ce qui reproduit une partition réseau dont l’ancien leader est du côté minoritaire.
+
+```text
+3. leader d'une grappe de 5 coupé de ses pairs (port 2380)
+   écriture sur l'ancien leader, au bout de 7.0 s :
+      « etcdserver: request timed out »
+   l'ancien leader est passé en StatePreCandidate (terme 2)
+   la majorité écrit v2 : acceptée ; nouveau leader e5, terme 2 → 3
+   lecture sur l'ancien leader : sérialisable « v1 »,
+      linéarisable « TimeoutError »
+   réintégré : sérialisable « v2 » au bout de 4.5 s, linéarisable « v2 »
+```
+
+Le second passage a donné la même suite, avec un rattrapage en 3,7 s. L’ancien leader n’accepte plus aucune écriture, puisqu’il ne peut plus réunir de majorité ; le client reçoit une erreur au bout de 7 s, et sa valeur n’est jamais écrite. L’ancien leader cesse même de se croire leader. etcd active toujours la vérification du quorum (CheckQuorum), qui fait abdiquer un leader qui n’a plus de nouvelles d’une majorité pendant un délai d’élection, et il passe en pré-candidat. Pendant ce temps, les quatre autres membres élisent un leader dans le terme 3 et acceptent l’écriture de v2. Une lecture sérialisable sur l’ancien leader, servie par sa copie locale, renvoie « v1 », une valeur périmée ; une lecture linéarisable, qui doit passer par le consensus, échoue. La documentation d’etcd dit que les lectures sont linéarisables par défaut, et qu’une lecture sérialisable peut renvoyer des données périmées par rapport au quorum, en échange d’une latence plus faible[^etcd-api] (0,8 à 0,95 ms contre 1,3 ms dans la mesure précédente). Une fois réintégré, l’ancien leader rattrape le journal en 4 à 5 secondes, le temps que ses connexions avec les pairs se rétablissent.
+
+## Le pré-vote et la vérification du quorum
+
+Un serveur isolé du reste de la grappe ne reçoit plus de battements, devient candidat, n’obtient pas de voix, recommence, et incrémente son terme à chaque tentative. Quand il revient, son terme dépasse celui du leader, qui l’apprend par la première réponse du serveur et abdique. La grappe perd son leader alors que rien n’allait mal. Ongaro a proposé dans sa thèse une phase de pré-vote. Avant d’incrémenter son terme, un candidat demande aux autres s’ils voteraient pour lui, et ils répondent non s’ils ont reçu des nouvelles d’un leader pendant le dernier délai d’élection[^these]. Un serveur isolé reste ainsi au même terme.
+
+<Figure svg={prevote} num="35.4" alt="Deux scénarios où un suiveur est isolé 10 s. Sans pré-vote, il devient candidat aux termes 3, 4 jusqu’à 9 ; à son retour, son terme 8 ou 9 dépasse 2 et le leader abdique, une élection a lieu, les écritures sont bloquées 1,2 à 2,6 s. Avec pré-vote, il demande d’abord si on voterait pour lui et reste au terme 2 ; son retour se fait sans élection, et les écritures sont bloquées moins de 30 ms.">
+Un suiveur isolé puis réintégré, sans et avec pré-vote (mesuré sur etcd).
+</Figure>
+
+La quatrième partie de `etcd_raft.py` isole un suiveur pendant 10 secondes, le réintègre, et mesure ce qui arrive aux écritures d’un client.
+
+```text
+4. suiveur isolé 10 s puis réintégré (grappe de 3)
+   pré-vote activé : terme du suiveur isolé 2 → 2
+      après son retour : leader e1 → e1, terme 2 → 2,
+      écritures bloquées au plus 21 ms
+   pré-vote désactivé : terme du suiveur isolé 2 → 8
+      après son retour : leader e1 → e3, terme 2 → 13,
+      écritures bloquées au plus 2630 ms
+```
+
+Le second passage a donné le même contraste, avec 29 ms sans effet avec le pré-vote ; sans lui, un terme monté à 9, un terme final de 12 et 1 238 ms d’écritures bloquées, avec le même leader réélu dans un nouveau terme. La figure 35.4 résume ces deux issues.
+
+La sixième partie mesure un cas plus traître, celui d’une connectivité partielle. Un suiveur ne joint plus le leader, mais joint encore le troisième membre, si bien qu’il pourrait lui demander sa voix.
+
+```text
+6. connectivité partielle (3 membres, 20 s) : un suiveur ne joint
+   plus le leader, mais joint encore le troisième membre
+   pré-vote activé : 0 changement(s) de leader, terme 2 → 2
+      membre coupé : StatePreCandidate, terme 2
+      écritures bloquées 0.0 s sur 20
+   pré-vote désactivé : 0 changement(s) de leader, terme 2 → 2
+      membre coupé : StateCandidate, terme 16
+      écritures bloquées 0.0 s sur 20
+```
+
+Le second passage a donné les mêmes résultats, avec un terme 17 pour le membre coupé. Même sans pré-vote, alors que le membre coupé enchaîne seize termes, la grappe ne perd jamais son leader. La raison est dans le code de la bibliothèque Raft d’etcd. Avec la vérification du quorum active, un serveur qui a reçu des nouvelles du leader pendant le dernier délai d’élection ignore toute demande de vote d’un terme plus grand, sans adopter ce terme ni voter[^etcd-raft-code], une règle que la thèse d’Ongaro décrit aussi[^these]. Le troisième membre, qui entend son leader, ignore donc le candidat. Dans la partie 4, c’est le leader lui-même qui recevait le terme plus grand, dans une réponse du suiveur réintégré, et aucune règle ne l’empêchait d’abdiquer ; le pré-vote est ce qui l’évite.
+
+La cinquième partie, enfin, ajoute des retards constants ou variables à tous les membres d’une grappe réglée par défaut.
+
+```text
+5. retard ajouté à l'émission de chaque membre pendant 30 s
+   (3 membres, battement 100 ms, élection 1 000 ms, gigue ± g)
+     retard   gigue  changements de leader  écriture méd.
+        0 ms     0 ms                      0          14 ms
+      100 ms     0 ms                      0         306 ms
+      400 ms     0 ms                      0        1215 ms
+      100 ms   100 ms                      0         249 ms
+      500 ms   500 ms                      0        1332 ms
+```
+
+Le second passage a donné les mêmes zéros et des écritures de 266 et 1 407 ms dans les cas à gigue. Aucun retard n’a fait changer de leader, pas même 400 ms d’émission, soit 800 ms d’aller-retour, bien au-delà du dixième du délai d’élection que demande la documentation. Les battements arrivent en retard, mais toujours à 100 ms les uns des autres ; ce qui déclenche une élection n’est pas le retard lui-même, c’est un intervalle entre deux battements reçus plus long que le délai d’élection, comme en provoquent une perte de connexion, une pause du processus ou un disque saturé. Les écritures, elles, deviennent très lentes, plus de 1,2 s. La règle des dix allers-retours est une marge pour les variations, et la mesure ne la contredit pas ; elle montre que dans etcd, le premier effet d’un réseau lent est la latence des écritures, pas l’instabilité du leader.
+
+## Lectures, instantanés et changements de membres
+
+Une lecture servie par la copie locale d’un leader peut être périmée, puisque ce leader a pu être remplacé sans le savoir, comme dans la partie 3. Raft propose deux façons de lire de manière linéarisable sans écrire dans le journal. Avec la première (ReadIndex), le leader note son index de validation, vérifie par un tour de battements qu’il est encore leader, puis attend d’avoir appliqué jusqu’à cet index avant de répondre. Avec la seconde, il s’appuie sur un bail, et suppose qu’aucun autre leader n’a pu être élu avant l’expiration de son délai, ce qui dépend des horloges ([ch. 33](temps.mdx)). La bibliothèque Raft d’etcd propose les deux, ainsi que la lecture par les suiveurs[^etcd-raft].
+
+Un journal qui grossit sans fin occuperait tout le disque et rendrait les redémarrages interminables. Chaque serveur prend donc régulièrement un instantané (snapshot) de sa machine à états, et supprime les entrées qu’il contient. Un suiveur trop en retard, dont les entrées manquantes ont été supprimées par le leader, reçoit l’instantané entier par un appel `InstallSnapshot`, puis la suite du journal[^raft]. etcd prend un instantané toutes les 10 000 modifications par défaut, réglage `--snapshot-count`[^etcd-tuning].
+
+Changer la liste des membres est délicat, parce que pendant la transition, l’ancienne et la nouvelle configuration pourraient élire chacune un leader avec des majorités disjointes. L’article de Raft propose un consensus conjoint (joint consensus), une configuration intermédiaire où toute décision demande une majorité dans l’ancienne et dans la nouvelle[^raft]. La thèse d’Ongaro décrit une méthode plus simple, qui n’ajoute ou ne retire qu’un serveur à la fois, puisque deux majorités de configurations qui ne diffèrent que d’un membre se recoupent toujours, et recommande de faire rattraper un nouveau serveur sans droit de vote avant de le compter dans les majorités[^these]. etcd appelle ces membres sans droit de vote des apprenants (learners). On ajoute ainsi un membre à une grappe de 3 en l’ajoutant d’abord comme apprenant, puis en le promouvant une fois son journal à jour.
+
+## Compromis
+
+| Réglage | Effet sur la disponibilité | Effet sur la latence | Mesuré | Quand |
+|---|---|---|---|---|
+| 3 membres | supporte 1 panne | une écriture : disque + 1 aller-retour | 4,1 ms, 1 340 à 1 370 écritures/s | cas général |
+| 5 membres | supporte 2 pannes | majorité de 3 sur 5, débit plus faible | 5,6 à 5,9 ms, 1 140 à 1 180/s | quand deux pannes simultanées sont plausibles |
+| Délai d’élection court (250 ms) | reprise en 0,3 à 0,5 s après une panne | aucun | 268 à 531 ms sans écriture | réseau local stable |
+| Délai par défaut (1 000 ms) | reprise en 1 à 1,6 s | aucun | 1 545 à 1 556 ms | défaut d’etcd, tolère des pauses |
+| Pré-vote | un membre isolé ne perturbe pas le leader à son retour | aucun | 21 à 29 ms de blocage, contre 1,2 à 2,6 s sans | toujours (défaut d’etcd) |
+| Vérification du quorum | un leader minoritaire abdique ; un suiveur qui entend son leader ignore les candidats | aucun | aucune élection en connectivité partielle, même sans pré-vote | toujours (imposée par etcd) |
+| Lecture linéarisable | jamais périmée | passe par le consensus | 1,3 ms | par défaut |
+| Lecture sérialisable | peut être périmée (« v1 » lu après « v2 », mesuré) | copie locale | 0,8 à 0,95 ms | lectures tolérantes |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : régler les délais d’une grappe répartie sur trois régions]
+Hypothèses : trois membres dans trois régions, avec un aller-retour de 70 ms entre chaque paire ; une écriture synchronisée sur disque de 5 ms ; la règle d’etcd (battement autour de l’aller-retour, élection au moins dix fois l’aller-retour).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Battement | ≈ 1 aller-retour | 70 à 100 ms |
+| Délai d’élection | ≥ 10 × 70 ms | 700 ms ; 1 000 ms en pratique |
+| Indisponibilité après la panne du leader | délai tiré entre 1 et 2 fois, plus une élection | 1 à 2,1 s |
+| Durée d’une écriture | disque du leader + aller-retour + disque d’un suiveur | 5 + 70 + 5 = 80 ms |
+| Écritures successives sur une même clé | 1 000 / 80 | 12,5 par seconde |
+
+Conclusion : une grappe sur trois régions supporte la perte d’une région entière, mais chaque écriture paie un aller-retour entre régions, 80 ms, et une panne coûte une à deux secondes d’écritures. On y garde la configuration et les verrous, pas les données de l’application.
+:::
+
+:::calcul[Calcul : la disponibilité d’une grappe etcd sur un an]
+Hypothèses : chaque membre tombe 4 fois par an (redémarrages, mises à jour, pannes), indépendamment ; la panne d’un suiveur ne coûte rien, celle du leader coûte 1,55 s (mesuré) ; un membre sur trois est leader en moyenne ; on suppose que deux pannes ne se chevauchent jamais.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Pannes de membre par an | 3 × 4 | 12 |
+| Dont pannes du leader | 12 / 3 | 4 |
+| Indisponibilité des écritures | 4 × 1,55 s | 6,2 s par an |
+| Avec des délais de 250 ms (0,27 à 0,53 s mesurés) | 4 × 0,53 s | 2,1 s par an |
+| Avec des transferts de leadership avant chaque redémarrage prévu | redémarrages sans élection | presque rien pour les arrêts prévus |
+
+Conclusion : les élections coûtent quelques secondes par an, loin de ce que coûtent les pannes de disque ou de réseau ; c’est pourquoi on garde des délais prudents. Avant un redémarrage prévu, on demande au leader de transférer son rôle (leadership transfer, que la thèse d’Ongaro décrit en section 3.10), ce qui évite même ces secondes.
+:::
+
+:::calcul[Calcul : la taille du journal et des instantanés]
+Hypothèses : 1 000 écritures par seconde de 1 Ko ; un instantané toutes les 10 000 modifications (défaut d’etcd) ; une machine à états de 2 Go.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Croissance du journal | 1 000 × 1 Ko | 1 Mo/s, 86 Go par jour |
+| Intervalle entre instantanés | 10 000 / 1 000 | 10 s |
+| Journal conservé entre deux instantanés | 10 000 × 1 Ko | 10 Mo |
+| Suiveur absent une heure | 3,6 millions d’entrées, bien plus que le journal conservé | reçoit l’instantané de 2 Go, puis la suite |
+| Durée de l’envoi à 1 Gb/s | 2 × 8 / 1 | 16 s |
+
+Conclusion : sans instantanés, le journal d’une grappe modeste croîtrait de 86 Go par jour. Avec eux, il reste petit, mais un membre qui revient d’une longue absence reçoit la machine à états entière ; etcd limite d’ailleurs la taille de sa base, et l’on n’y range pas plus de quelques gigaoctets.
+:::
+
+## Exemple réel
+
+**L’incident de l’API de Cloudflare, en novembre 2020.** Le 2 novembre 2020, l’API et le tableau de bord de Cloudflare ont été dégradés pendant six heures et trente-trois minutes ; au pire, le taux de succès des requêtes à l’API est descendu à 75 %, et le tableau de bord était jusqu’à 80 fois plus lent que d’habitude[^cloudflare]. Tom Lianza en a décrit la cause. Un commutateur réseau s’est mis à fonctionner à moitié, certains protocoles de contrôle continuant de marcher et d’autres non. Le trafic entre le nœud 1 d’une grappe etcd de trois membres, situé dans la baie touchée, et le nœud 3, le leader, passait par ce commutateur ; le nœud 2 joignait encore les deux. Le nœud 1 a lancé élection sur élection, en votant pour lui-même, pendant que le nœud 2 continuait de voter pour le nœud 3, qu’il joignait, et ces égalités n’ont désigné aucun leader. Le système de gestion des bases de données, qui s’appuyait sur etcd pour découvrir les membres de la grappe, a alors promu automatiquement une réplique, et un défaut de ce système imposait de reconstruire toutes les répliques après chaque promotion, ce qui a prolongé l’incident. L’article ne dit pas quelles options de Raft étaient actives. La mesure de ce chapitre montre qu’avec etcd 3.7, la vérification du quorum suffit à protéger le leader dans ce cas précis, et que la situation de Cloudflare relève de la connectivité partielle, une panne grise ([ch. 32](pannes-partielles.mdx)) que tout le système, et pas seulement le consensus, doit supporter.
+
+## Erreurs fréquentes
+
+Croire qu’une entrée stockée sur une majorité est validée. Une entrée d’un terme précédent peut encore être effacée (figure 35.3) ; Raft ne valide par comptage que les entrées du terme courant, et un nouveau leader écrit une entrée vide de son terme pour valider les précédentes.
+
+Voter pour le premier candidat venu. Sans la restriction d’élection, quatre exécutions simulées sur cinq valident deux entrées différentes à la même position.
+
+Régler un délai d’élection plus court que les pauses réelles des membres. Une pause du ramasse-miettes ou une écriture sur disque bloquée fait élire un nouveau leader, et chaque élection coûte des écritures ; le délai se règle sur les pauses, pas seulement sur l’aller-retour.
+
+Désactiver le pré-vote. Un membre isolé fait monter son terme et force une élection à son retour (1,2 à 2,6 s d’écritures bloquées, mesuré).
+
+Servir des lectures sérialisables là où l’on attend la dernière valeur. Un membre isolé répond « v1 » après l’écriture de « v2 » (mesuré).
+
+Déployer 4 ou 6 membres, ou 5 là où 3 suffisent. Un nombre pair n’ajoute aucune panne supportée, et chaque membre de plus réduit le débit (12 % de 3 à 5, mesuré).
+
+Faire passer toutes les écritures par un suiveur. Chacune paie un aller-retour de plus vers le leader.
+
+Changer plusieurs membres d’un coup sans consensus conjoint. Deux configurations qui diffèrent de deux membres ou plus peuvent élire deux leaders ; on ajoute et retire un membre à la fois, et l’on fait rattraper un nouveau membre comme apprenant.
+
+Ranger les données de l’application dans etcd. Il est fait pour quelques gigaoctets de métadonnées ; chaque écriture passe par le consensus et un disque synchronisé.
+
+:::piege[Erreur fréquente : « un réseau lent fait changer de leader sans arrêt »]
+Dans la mesure, même 800 ms d’aller-retour constant n’ont provoqué aucune élection, car les battements arrivent en retard, mais réguliers, et c’est leur interruption qui déclenche une élection. Les causes réelles d’élections inutiles sont des interruptions plus longues que le délai d’élection, comme une pause du processus, un disque qui met des secondes à synchroniser, une connexion coupée et rétablie, ou un membre isolé qui revient sans pré-vote. Quand une grappe change souvent de leader, on regarde donc d’abord les durées de `fsync` et les pauses du processus, avant le réseau. Un réseau lent, lui, rend chaque écriture lente, ce qui est un autre problème.
+:::
+
+:::entretien
+Si l’on vous demande comment Raft garantit qu’une écriture confirmée n’est jamais perdue, enchaînez trois arguments : « une écriture est confirmée quand elle est sur une majorité ; un candidat ne peut être élu que par une majorité, dont au moins un membre refuse de voter pour un journal moins à jour que le sien ; et un leader ne valide par comptage que les entrées de son propre terme ». Pour un système concret, dites ce que vous réglez : 3 ou 5 membres dans des zones différentes, délai d’élection d’au moins dix allers-retours et supérieur aux pauses observées, pré-vote actif, lectures linéarisables pour les décisions et sérialisables pour l’affichage.
+:::
+
+## Exercices
+
+**Question 1.** Cinq serveurs, au terme 5. Leurs journaux, notés par le terme de chaque entrée, sont 1 1 2 4 4 pour S1, 1 1 2 4 pour S2, 1 1 2 3 3 3 pour S3, 1 1 2 pour S4 et 1 1 2 4 4 pour S5. Le leader du terme 4, S1, vient de tomber. Quels serveurs peuvent être élus au terme 5, et avec les voix de qui ? Quelles entrées étaient peut-être validées ?
+
+**Question 2.** Une grappe etcd de trois membres, réglée par défaut, sert un service qui doit pouvoir écrire en moins de 500 ms après la panne d’un membre, quel qu’il soit. La mesure de ce chapitre montre-t-elle que c’est possible ? Que proposez-vous, et que risquez-vous ?
+
+**Question 3.** Dans la figure 35.3, expliquez pourquoi S5 peut être élu en (d) alors que l’entrée (2, terme 2) est sur trois serveurs, et pourquoi il ne le pourrait plus si S1 avait d’abord fait copier son entrée (3, terme 4) sur S2 et S3.
+
+**Exercice de conception.** Une entreprise exploite un ordonnanceur de tâches multirégion qui garde son état (tâches, verrous, affectations aux machines) dans un service de consensus. Elle a trois régions, à 70 ms les unes des autres, et prévoit 50 écritures par seconde, de 2 Ko en moyenne. Elle veut supporter la perte d’une région, reprendre en moins de 5 secondes, et ne jamais attribuer une tâche à deux machines. Proposez le nombre de membres et leur placement, les délais, le traitement des lectures, la façon d’ajouter une quatrième région, et ce qui protège contre une double attribution pendant une élection. Chiffrez la latence des écritures et la taille du journal.
+
+## Corrigés
+
+**Question 1.** Un candidat doit obtenir 3 voix, la sienne comprise, et un serveur ne vote que pour un journal au moins aussi à jour que le sien (terme de la dernière entrée, puis longueur). Le dernier terme de S3 est 3, celui de S1, S2 et S5 est 4, celui de S4 est 2. S1 est en panne. S5 (dernier terme 4, longueur 5) est au moins aussi à jour que S2, S3 et S4, si bien qu’il peut être élu avec n’importe lesquels de ces votes. S2 (4, longueur 4) obtient les voix de S3 et S4 mais pas de S5, plus long que lui ; il peut être élu avec S3 et S4. S3 (dernier terme 3) n’obtient que la voix de S4, moins à jour, soit 2 voix, et ne peut pas être élu. S4 ne peut pas l’être. Les entrées du terme 4 aux positions 4 sont sur S1, S2, S5, soit une majorité, et ont pu être validées par S1 ; l’entrée 5 du terme 4 n’est que sur S1 et S5, pas sur une majorité. Les entrées 4 et 5 du terme 3 de S3 seront effacées.
+
+**Question 2.** Non. Avec les délais par défaut, la panne du leader a coûté 1,55 s d’écritures ; celle d’un suiveur ne coûte rien. Avec des délais de 25 et 250 ms, la reprise a pris de 0,27 à 0,53 s, à la limite. On peut régler un battement de 25 ms et une élection de 200 ms dans un même centre de données, si l’aller-retour reste sous la milliseconde. Le risque est l’élection inutile à chaque pause de plus de 200 à 400 ms, du ramasse-miettes, du disque ou de la machine virtuelle ; il faut mesurer ces pauses avant de régler, et surveiller le nombre de changements de leader. Pour les arrêts prévus, le transfert de leadership évite toute coupure.
+
+**Question 3.** En (d), les voix de S2, S3 et S4 suffisent à S5. La dernière entrée de leurs journaux est du terme 2, celle de S5 du terme 3, et la restriction d’élection compare d’abord les termes, si bien que le journal de S5 est plus à jour au sens de Raft, même s’il ne contient pas (2, terme 2). Si S1 avait fait copier (3, terme 4) sur S2 et S3, ces deux serveurs auraient une dernière entrée du terme 4, plus récente que celle de S5 ; ils lui refuseraient leur voix, et S5 ne pourrait plus réunir que S4 et lui-même. C’est pourquoi la validation d’une entrée du terme courant protège aussi celles qui la précèdent.
+
+**Exercice de conception.**
+
+*Membres.* Cinq membres, deux dans chacune de deux régions et un dans la troisième, ou un par région avec deux régions doublées. Avec trois membres, un par région, la perte d’une région laisse deux membres sur trois, une majorité ; c’est suffisant si l’on n’exige pas de supporter en plus la panne d’une machine. Cinq membres répartis 2-2-1 supportent la perte d’une région et d’une machine.
+
+*Délais.* Battement de 100 ms, élection de 1 000 ms (plus de dix fois 70 ms) ; la reprise après la perte du leader prend 1 à 2 s, sous les 5 s demandées. Pré-vote et vérification du quorum actifs.
+
+*Lectures.* Linéarisables pour toute décision d’attribution ; sérialisables pour l’affichage de l’état.
+
+*Quatrième région.* On ajoute le nouveau membre comme apprenant, on attend qu’il ait rattrapé, puis on le promeut ; un seul changement de membre à la fois.
+
+*Double attribution.* L’attribution d’une tâche est une écriture conditionnelle (transaction etcd qui vérifie la révision de la clé de la tâche) ; deux ordonnanceurs concurrents ne peuvent pas la réussir tous les deux. Chaque machine refuse un ordre portant une révision plus ancienne que la dernière vue, un jeton d’isolement qui protège contre un ancien leader de l’ordonnanceur revenu d’une pause ([ch. 34](consensus-paxos.mdx)).
+
+*Chiffres.* Une écriture coûte le disque du leader, un aller-retour vers la région la plus proche qui complète la majorité et son disque, soit environ 80 ms ; 50 écritures par seconde en parallèle passent sans peine grâce au regroupement. Le journal croît de 50 × 2 Ko = 100 Ko/s ; avec un instantané toutes les 10 000 modifications, soit toutes les 200 s, il garde 20 Mo d’entrées.
+
+:::fiche
+- Raft : leader fort ; termes croissants, un leader au plus par terme ; terme, vote et journal écrits sur disque avant de répondre.
+- Élection : délai aléatoire (150-300 ms dans l’article, 1 000 ms par défaut dans etcd, tiré entre 1 et 2 fois) ; sans hasard, plus de 10 s de votes partagés (simulé) ; temps de diffusion ≪ délai d’élection ≪ MTBF.
+- Réplication : `AppendEntries` avec la position et le terme précédents ; conflits effacés chez le suiveur ; entrée validée quand elle est sur une majorité.
+- Sûreté : on ne vote que pour un journal au moins aussi à jour (dernier terme, puis longueur) ; on ne valide par comptage que les entrées du terme courant (figure 8). Simulé : 0 erreur pour Raft, 80 % sans restriction d’élection, 0,05 à 0,15 % avec la validation naïve.
+- etcd mesuré : écriture 3,4 ms (1 membre), 4,1 ms (3), 5,7 ms (5) ; 19 à 20 ms avec 5 ms de retard ; 1 340 écritures/s avec 32 clients ; panne du leader, 1,55 s par défaut, 0,27 à 0,53 s avec 250 ms.
+- Leader isolé : abdique (vérification du quorum), erreur au client au bout de 7 s ; lecture sérialisable périmée, linéarisable en échec.
+- Pré-vote : un membre isolé ne monte pas son terme ; sans lui, terme 2 → 8 ou 9 et 1,2 à 2,6 s d’écritures bloquées au retour (mesuré). Un retard réseau constant, même 800 ms d’aller-retour, ne fait pas changer de leader.
+- Lectures linéarisables (ReadIndex, baux) ; instantanés (`InstallSnapshot`, 10 000 modifications dans etcd) ; un membre à la fois, apprenants ; transfert de leadership avant un arrêt prévu.
+:::
+
+[^raft]: Diego Ongaro et John Ousterhout, « In Search of an Understandable Consensus Algorithm », *2014 USENIX Annual Technical Conference (USENIX ATC ’14)*, p. 305-319, sections 5 (élection, réplication, sûreté, figure 8), 6 (changements de configuration), 7 (compaction du journal) et 9.3 (mesures de l’élection), [usenix.org/conference/atc14/technical-sessions/presentation/ongaro](https://www.usenix.org/conference/atc14/technical-sessions/presentation/ongaro).
+[^these]: Diego Ongaro, *Consensus: Bridging Theory and Practice*, thèse de doctorat, Stanford University, 2014, sections 3.10 (transfert de leadership), 4.1 et 4.2.1 (changements d’un serveur à la fois, rattrapage des nouveaux serveurs), 4.2.3 et 9.6 (serveurs perturbateurs, pré-vote), [web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf](https://web.stanford.edu/~ouster/cgi-bin/papers/OngaroPhD.pdf).
+[^etcd-tuning]: etcd, « Tuning », documentation d’etcd v3.6 (battement, délai d’élection, `--snapshot-count`), [etcd.io/docs/v3.6/tuning](https://etcd.io/docs/v3.6/tuning/).
+[^etcd-raft-code]: etcd-io/raft, `raft.go`, fonction `resetRandomizedElectionTimeout` et traitement des messages d’un terme supérieur sous bail (`inLease`) ; etcd-io/etcd, `server/etcdserver/bootstrap.go` (`CheckQuorum: true`), [github.com/etcd-io/raft](https://github.com/etcd-io/raft/blob/main/raft.go).
+[^etcd-api]: etcd, « KV API guarantees », documentation d’etcd v3.6, [etcd.io/docs/v3.6/learning/api_guarantees](https://etcd.io/docs/v3.6/learning/api_guarantees/).
+[^etcd-raft]: etcd-io/raft, README (fonctionnalités : élection, réplication, compaction, changements de membres, transfert de leadership, lectures linéarisables par le leader et les suiveurs), [github.com/etcd-io/raft](https://github.com/etcd-io/raft).
+[^cloudflare]: Tom Lianza et Chris Snook, « A Byzantine failure in the real world », *The Cloudflare Blog*, 27 novembre 2020, [blog.cloudflare.com/a-byzantine-failure-in-the-real-world](https://blog.cloudflare.com/a-byzantine-failure-in-the-real-world/).

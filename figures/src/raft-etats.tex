@@ -1,0 +1,25 @@
+% Les trois états d'un serveur Raft, et les termes.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    etat/.style={soft=#1, rounded corners=4pt, minimum width=26mm, minimum height=10mm, font=\sffamily\small\bfseries}]
+  \node[etat=Dslate] (s) at (0,30) {suiveur};
+  \node[etat=Damber] (c) at (62,30) {candidat};
+  \node[etat=Dgreen] (l) at (124,30) {leader};
+  \draw[arr=Dink] (s) to[bend left=20] node[lbl, above, align=center] {délai d’élection écoulé\\sans nouvelles du leader} (c);
+  \draw[arr=Dink] (c) to[bend left=20] node[lbl, above, align=center] {votes d’une majorité} (l);
+  \draw[arr=Dink] (c) to[bend left=20] node[lbl, below, align=center] {découvre un leader\\ou un terme plus grand} (s);
+  \draw[arr=Dink] (l) to[bend left=35] node[lbl, below] {découvre un terme plus grand} (s);
+  \draw[arr=Dink] ([xshift=-5mm]c.north) .. controls +(-4,14) and +(4,14) .. node[lbl, above] {votes partagés : nouveau terme} ([xshift=5mm]c.north);
+  % termes
+  \begin{scope}[yshift=-22mm]
+    \foreach \x/\w/\t/\c in {0/46/{terme 1 : leader S1}/Dgreen, 46/16/{2}/Dred, 62/42/{terme 3 : leader S3}/Dgreen, 104/36/{terme 4 : leader S2}/Dgreen} {
+      \fill[\c Bg, draw=\c, line width=0.6pt] (\x,0) rectangle ({\x+\w},7);
+      \node[note, font=\sffamily\scriptsize] at ({\x+\w/2},3.5) {\t};
+    }
+    \node[note, text=Dred, anchor=north] at (54,-1) {élection sans vainqueur};
+    \node[note, anchor=north, align=center] at (70,-7) {chaque terme commence par une élection ; au plus un leader par terme};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

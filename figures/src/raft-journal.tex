@@ -1,0 +1,42 @@
+% Réplication du journal : positions, termes, entrées validées, contrôle de cohérence.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    e/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum width=11mm, minimum height=9mm, font=\sffamily\scriptsize, align=center, inner sep=0pt}]
+  \foreach \k in {1,...,8} \node[note, text=Dslate] at ({\k*12},44) {\k};
+  \node[axe, anchor=east] at (4,44) {position};
+  \foreach \r/\y/\n in {{leader, terme 3}/36/8, {suiveur A}/25/8, {suiveur B}/14/5, {suiveur C}/3/6} {
+    \node[axe, anchor=east] at (4,\y) {\r};
+  }
+  \foreach \k/\t/\v in {1/1/{x←3}, 2/1/{y←1}, 3/1/{y←9}, 4/2/{x←2}, 5/3/{x←0}, 6/3/{y←7}, 7/3/{x←5}, 8/3/{x←4}} {
+    \pgfmathsetmacro{\c}{\t==1 ? 0 : (\t==2 ? 1 : 2)}
+    \ifcase\c\relax \node[e=Dblue] at ({\k*12},36) {\t\\\v};
+    \or \node[e=Dorange] at ({\k*12},36) {\t\\\v};
+    \or \node[e=Dgreen] at ({\k*12},36) {\t\\\v}; \fi
+  }
+  \foreach \k/\t/\v in {1/1/{x←3}, 2/1/{y←1}, 3/1/{y←9}, 4/2/{x←2}, 5/3/{x←0}, 6/3/{y←7}, 7/3/{x←5}, 8/3/{x←4}} {
+    \pgfmathsetmacro{\c}{\t==1 ? 0 : (\t==2 ? 1 : 2)}
+    \ifcase\c\relax \node[e=Dblue] at ({\k*12},25) {\t\\\v};
+    \or \node[e=Dorange] at ({\k*12},25) {\t\\\v};
+    \or \node[e=Dgreen] at ({\k*12},25) {\t\\\v}; \fi
+  }
+  \foreach \k/\t/\v in {1/1/{x←3}, 2/1/{y←1}, 3/1/{y←9}, 4/2/{x←2}, 5/3/{x←0}} {
+    \pgfmathsetmacro{\c}{\t==1 ? 0 : (\t==2 ? 1 : 2)}
+    \ifcase\c\relax \node[e=Dblue] at ({\k*12},14) {\t\\\v};
+    \or \node[e=Dorange] at ({\k*12},14) {\t\\\v};
+    \or \node[e=Dgreen] at ({\k*12},14) {\t\\\v}; \fi
+  }
+  \foreach \k/\t/\v in {1/1/{x←3}, 2/1/{y←1}, 3/1/{y←9}, 4/2/{x←2}, 5/2/{y←6}, 6/2/{x←8}} {
+    \pgfmathsetmacro{\c}{\t==1 ? 0 : (\t==2 ? 1 : 2)}
+    \ifcase\c\relax \node[e=Dblue] at ({\k*12},3) {\t\\\v};
+    \or \node[e=Dorange] at ({\k*12},3) {\t\\\v};
+    \or \node[e=Dred] at ({\k*12},3) {\t\\\v}; \fi
+  }
+  \draw[Dred, line width=1pt] (54,-3) rectangle (78,9);
+  \draw[Dgreen, line width=1.2pt, dash pattern=on 3pt off 2pt] (6,-4) rectangle (66,41);
+  \node[note, text=Dgreen, anchor=south] at (36,47.5) {validées : stockées sur une majorité (positions 1 à 5)};
+  \node[note, anchor=west, align=left] at (104,25) {AppendEntries(position précédente 4,\\terme 2, entrées 5 à 8) : le suiveur\\vérifie qu’il a bien (4, terme 2)};
+  \node[note, text=Dred, anchor=west, align=left] at (104,3) {C a des entrées 5 et 6 d’un ancien\\leader du terme 2, jamais validées :\\elles sont effacées et remplacées};
+\end{tikzpicture}
+\end{document}
