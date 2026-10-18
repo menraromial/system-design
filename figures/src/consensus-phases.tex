@@ -1,0 +1,26 @@
+% Les deux phases de Paxos entre un proposeur et trois accepteurs.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}]
+  \foreach \x/\t/\c in {0/{proposeur}/Dblue, 40/{accepteur 1}/Dgreen, 70/{accepteur 2}/Dgreen, 100/{accepteur 3}/Dgreen} {
+    \node[pillo=\c] at (\x,78) {\t};
+    \draw[seqlife=Dslate] (\x,74) -- (\x,0);
+  }
+  % phase 1
+  \node[note, anchor=east, font=\sffamily\small\bfseries, text=Dblue] at (-3,62) {phase 1};
+  \foreach \x in {40,70,100} \draw[arr=Dblue] (0,68) -- (\x,62);
+  \node[lblc=Dblue] at (20,70) {prepare(n = 7)};
+  \foreach \x in {40,70,100} \draw[arr=Dgreen] (\x,58) -- (0,52);
+  \node[lblc=Dgreen, anchor=west] at (2,47) {promesse(7) : « rien d'accepté » ou (5, x)};
+  \node[note, anchor=west, align=left] at (102,60) {promet d'ignorer toute\\proposition de numéro < 7};
+  % phase 2
+  \node[note, anchor=east, font=\sffamily\small\bfseries, text=Dblue] at (-3,32) {phase 2};
+  \foreach \x in {40,70,100} \draw[arr=Dblue] (0,38) -- (\x,32);
+  \node[lblc=Dblue] at (20,40) {accept(7, v)};
+  \foreach \x in {40,70,100} \draw[arr=Dgreen] (\x,28) -- (0,22);
+  \node[lblc=Dgreen, anchor=west] at (2,17) {acceptée(7)};
+  \node[note, anchor=west, align=left] at (102,30) {accepte si aucune promesse\\de numéro > 7 n'a été faite};
+  \node[note, anchor=north, align=center, fill=white] at (50,10) {v = valeur de la proposition acceptée de plus grand numéro parmi les promesses,\\ou la valeur du proposeur si aucune ; v est choisie dès qu'une majorité l'a acceptée};
+\end{tikzpicture}
+\end{document}

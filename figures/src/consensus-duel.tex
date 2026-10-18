@@ -1,0 +1,26 @@
+% L'expérience : A fait accepter sa valeur par 0 et 1, est suspendu ; B passe.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small}, case/.style={draw=#1, fill=#1Bg, line width=0.6pt, rounded corners=1pt, minimum width=17mm, minimum height=5.5mm, inner sep=0pt, font=\sffamily\scriptsize}]
+  \foreach \i in {0,...,4} {
+    \node[axe, anchor=east] at (-3,{40-\i*9}) {accepteur \i};
+    \draw[Dslate, line width=0.6pt] (0,{40-\i*9}) -- (130,{40-\i*9});
+  }
+  % A
+  \fill[DorangeBg, draw=Dorange] (5,-2) rectangle (42,46);
+  \node[note, text=Dorange, anchor=south] at (22,46) {A, numéro 101};
+  \foreach \i in {0,1} \node[case=Dorange] at (30,{40-\i*9}) {(101, A)};
+  \node[note, text=Dorange, align=center, anchor=north] at (22,-3) {accepté par 0 et 1,\\puis SIGSTOP};
+  % B
+  \fill[DblueBg, draw=Dblue] (50,-2) rectangle (95,46);
+  \node[note, text=Dblue, anchor=south] at (72,46) {B, numéro 202, consulte 0, 1, 2};
+  \foreach \i in {0,1,2} \node[case=Dblue] at (62,{40-\i*9}) {promis 202};
+  \foreach \i in {0,1,2} \node[case=Dgreen] at (85,{40-\i*9}) {(202, A)};
+  \node[note, text=Dblue, align=center, anchor=north] at (72,-3) {voit (101, A) chez 0 et 1 :\\propose A, choisie};
+  % reprise de A
+  \node[note, text=Dred, font=\sffamily\scriptsize, fill=white] at (115,22) {accept(101) refusé};
+  \foreach \i in {3,4} \node[case=Dorange] at (115,{40-\i*9}) {(101, A)};
+  \node[note, text=Dred, align=center, anchor=north] at (115,-3) {A reprend : refusé par 2,\\accepté par 3 et 4 ; A reste\\la seule valeur choisie};
+\end{tikzpicture}
+\end{document}

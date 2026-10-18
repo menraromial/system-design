@@ -1,0 +1,15 @@
+% Multi-Paxos : un journal répliqué, une instance de consensus par entrée.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    ent/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum width=13mm, minimum height=8mm, font=\sffamily\scriptsize, align=center}]
+  \foreach \r/\y in {{réplique 1 (leader)}/30, {réplique 2}/16, {réplique 3}/2} {
+    \node[axe, anchor=east] at (-3,\y) {\r};
+    \foreach \k/\c/\t in {0/Dgreen/{1\\x = 3}, 1/Dgreen/{2\\y = 7}, 2/Dgreen/{3\\x = 4}, 3/Damber/{4\\?}} \node[ent=\c] at ({\k*15+7},\y) {\t};
+  }
+  \node[note, anchor=west, align=left] at (62,30) {une instance de Paxos par entrée ; le leader\\fait la phase 1 une fois pour toutes les entrées\\à venir, puis une seule phase 2 par entrée};
+  \node[note, anchor=west, align=left] at (62,10) {chaque réplique applique les entrées choisies dans\\l'ordre à la même machine à états : mêmes\\commandes, même ordre, même état};
+  \node[note, text=Damber, anchor=north] at (52,-4) {entrée 4 en cours};
+\end{tikzpicture}
+\end{document}

@@ -64,7 +64,7 @@ export const PARTIES: Partie[] = [
     chapitres: [
       {num: 32, titre: 'Pannes partielles et détection de panne', doc: 'partie-3/pannes-partielles'},
       {num: 33, titre: 'Le temps dans un système distribué', doc: 'partie-3/temps'},
-      {num: 34, titre: 'Consensus (1) : le problème et Paxos'},
+      {num: 34, titre: 'Consensus (1) : le problème et Paxos', doc: 'partie-3/consensus-paxos'},
       {num: 35, titre: 'Consensus (2) : Raft en détail'},
       {num: 36, titre: 'Coordination : ZooKeeper, etcd, service discovery'},
       {num: 37, titre: 'Transactions distribuées : 2PC, sagas, outbox'},

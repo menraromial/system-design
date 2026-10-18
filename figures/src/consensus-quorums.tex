@@ -1,0 +1,24 @@
+% Deux quorums majoritaires se recoupent toujours ; deux quorums de 2 sur 5 non.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    acc/.style={circle, draw=Dink, fill=white, line width=0.6pt, minimum size=8mm, font=\sffamily\small}]
+  \node[pillo=Dgreen] at (30,48) {majorités : 3 sur 5};
+  \foreach \i in {0,...,4} \node[acc] (a\i) at ({\i*14},20) {\i};
+  \draw[Dblue, line width=1.1pt, rounded corners=5mm] (-7,12) rectangle (35,30);
+  \draw[Dorange, line width=1.1pt, rounded corners=5mm, dash pattern=on 3pt off 2pt] (21,9) rectangle (63,33);
+  \node[note, text=Dblue, anchor=south east] at (19,31) {quorum de A};
+  \node[note, text=Dorange, anchor=north] at (42,8) {quorum de B};
+  \node[note, anchor=north, align=center] at (28,1) {l'accepteur 2 est dans les deux :\\B apprend ce que A a fait accepter};
+  \begin{scope}[xshift=90mm]
+    \node[pillo=Dred] at (30,48) {quorums de 2 sur 5};
+    \foreach \i in {0,...,4} \node[acc] (b\i) at ({\i*14},20) {\i};
+    \draw[Dblue, line width=1.1pt, rounded corners=5mm] (-7,12) rectangle (21,30);
+    \draw[Dorange, line width=1.1pt, rounded corners=5mm, dash pattern=on 3pt off 2pt] (35,12) rectangle (63,30);
+    \node[note, text=Dblue, anchor=south] at (7,31) {quorum de A};
+    \node[note, text=Dorange, anchor=south] at (49,31) {quorum de B};
+    \node[note, anchor=north, align=center, text=Dred] at (28,1) {aucun accepteur commun :\\A et B font choisir deux valeurs};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

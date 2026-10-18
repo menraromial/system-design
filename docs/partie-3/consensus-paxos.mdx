@@ -1,0 +1,295 @@
+---
+title: "Consensus (1) : le problème et Paxos"
+sidebar_label: "34. Consensus (1) : Paxos"
+description: "Le problème du consensus et ses usages (élection, configuration, journal répliqué), le résultat d'impossibilité FLP, les quorums majoritaires ; Paxos pas à pas, avec un déroulé chiffré ; Multi-Paxos et le journal répliqué ; mesures sur cinq vrais processus (fsync, pannes, proposeur suspendu) et sur 10 000 exécutions simulées de Paxos et de trois variantes fautives."
+partie: 3
+chapitre: 34
+---
+
+import phases from '@site/src/figures/consensus-phases.svg';
+import quorums from '@site/src/figures/consensus-quorums.svg';
+import duel from '@site/src/figures/consensus-duel.svg';
+import journal from '@site/src/figures/consensus-journal.svg';
+
+Cinq processus doivent se mettre d’accord sur une valeur. Un proposeur, A, fait accepter la sienne par deux d’entre eux, puis il est suspendu par le système d’exploitation. Un second proposeur, B, interroge trois processus, dont deux de ceux qui ont accepté la valeur de A ; il abandonne alors sa propre valeur, fait choisir celle de A, et quand A reprend, ses derniers messages sont refusés sans que rien ne soit perdu ni contredit. Si l’on arrête deux processus sur cinq, le groupe décide encore ; si l’on en arrête trois, il ne décide plus rien, et reprend dès qu’on les relance, avec ce qu’ils avaient écrit sur disque. Ces comportements, mesurés dans ce chapitre sur cinq vrais processus, sont ceux de Paxos.
+
+Les chapitres précédents ont buté plusieurs fois sur le même besoin. Une bascule de base de données doit élire un seul nouveau primaire, même quand le réseau se coupe ([ch. 24](../partie-2/replication-leader.mdx)) ; un détecteur de panne peut se tromper ([ch. 32](pannes-partielles.mdx)) ; les horloges ne suffisent pas à ordonner des écritures ([ch. 33](temps.mdx)). Tous reviennent à faire accepter une même décision par plusieurs machines dont certaines peuvent tomber ou se taire. C’est le problème du consensus. Ce chapitre le définit, dit ce que le résultat d’impossibilité de Fischer, Lynch et Paterson interdit, explique pourquoi les quorums majoritaires suffisent, puis décrit Paxos, le premier algorithme de consensus pratique, par un déroulé chiffré. Le ch. 35 décrit Raft, son successeur le plus répandu.
+
+Deux expériences ont été faites pour ce chapitre. [`outils/experiences/ch34/paxos_reel.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch34/paxos_reel.py) fait tourner Paxos sur cinq processus accepteurs qui communiquent en UDP et gardent leur état dans un fichier. [`paxos_sim.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch34/paxos_sim.py) simule Paxos et trois variantes fautives sur des milliers d’exécutions, avec des pertes de messages et des pannes.
+
+## Le problème du consensus
+
+Plusieurs processus proposent chacun une valeur, et doivent en choisir une seule. Leslie Lamport formule les exigences de sûreté ainsi : seule une valeur proposée peut être choisie, une seule valeur est choisie, et un processus n’apprend qu’une valeur a été choisie que si elle l’a vraiment été[^simple]. On y ajoute une exigence de vivacité, la terminaison : si assez de processus fonctionnent et communiquent, une valeur finit par être choisie. Les deux catégories ne sont pas de même nature. Une violation de sûreté est irréparable (deux valeurs ont été choisies, deux primaires ont accepté des écritures) ; une violation de vivacité est une attente, qui cesse quand les conditions redeviennent bonnes.
+
+Le consensus sert dans quatre situations qui reviennent dans tout système réparti. L’élection d’un leader en est une, puisqu’il faut qu’un seul processus se croie leader pour un mandat donné. La configuration en est une autre : quelles machines font partie du groupe, quelle partition appartient à quel serveur, quelle version d’un réglage est en vigueur. Les verrous et les baux répartis en sont une troisième, puisqu’au plus un client doit tenir le verrou. Le journal répliqué, enfin, contient toutes les autres. Si plusieurs répliques appliquent les mêmes commandes dans le même ordre à la même machine à états, elles arrivent au même état, et il suffit de décider par consensus, une à une, quelle commande occupe chaque position du journal. Lamport présente Paxos dans cet usage[^simple], et c’est celui des systèmes de coordination du ch. 36 (ZooKeeper, etcd) et de bases comme Spanner ou CockroachDB.
+
+Un primaire unique, sans consensus, ne suffit pas. Il fonctionne tant qu’il est en vie ; quand il tombe, ou qu’on le croit tombé, il faut décider qui le remplace, et le [ch. 24](../partie-2/replication-leader.mdx) a montré qu’une bascule qui ne s’accorde pas avec les autres machines peut produire deux primaires.
+
+## Ce qui est impossible : le résultat FLP
+
+Michael Fischer, Nancy Lynch et Michael Paterson ont montré en 1985 qu’aucun algorithme déterministe ne peut garantir la terminaison du consensus dans un système asynchrone si un seul processus peut s’arrêter[^flp]. L’idée de la preuve, sans la détailler, est qu’on ne peut pas distinguer un processus arrêté d’un processus lent ([ch. 32](pannes-partielles.mdx)) ; un adversaire qui retarde au bon moment les bons messages peut maintenir l’algorithme indéfiniment entre deux décisions possibles.
+
+Le résultat ne dit pas que le consensus est impossible en pratique. Il dit qu’un algorithme doit choisir ce qu’il sacrifie quand le réseau se comporte mal, et les algorithmes utilisés sacrifient la vivacité, jamais la sûreté. Paxos ne choisit jamais deux valeurs, quels que soient les délais et les pertes ; il peut ne rien choisir tant que le réseau est trop instable, et choisit dès qu’il redevient partiellement synchrone, au sens de Dwork, Lynch et Stockmeyer présenté au [ch. 32](pannes-partielles.mdx). Lamport le résume en une phrase de *Paxos Made Simple* : le résultat FLP implique qu’un algorithme fiable d’élection du proposeur doit utiliser soit le hasard, soit le temps réel, par exemple des délais d’attente, mais la sûreté est garantie que l’élection réussisse ou non[^simple].
+
+## Les quorums majoritaires
+
+Paxos repose sur des quorums majoritaires. Avec $n$ accepteurs, un quorum est un ensemble d’au moins $\lfloor n/2 \rfloor + 1$ d’entre eux, et deux quorums ont toujours au moins un membre en commun, puisque leur somme dépasse $n$. Ce membre commun est ce qui transmet l’information d’une décision à la suivante. Pour supporter $f$ pannes, il faut qu’un quorum reste joignable quand $f$ accepteurs sont arrêtés, d’où $n = 2f + 1$.
+
+<Figure svg={quorums} num="34.1" alt="À gauche, cinq accepteurs numérotés de 0 à 4, avec des quorums de 3 sur 5 : le quorum de A contient 0, 1, 2 ; celui de B contient 2, 3, 4 ; l’accepteur 2 est dans les deux, et B apprend ce que A a fait accepter. À droite, des quorums de 2 sur 5 : le quorum de A contient 0 et 1, celui de B contient 3 et 4 ; aucun accepteur commun, et A et B font choisir deux valeurs.">
+Deux majorités se recoupent toujours ; deux quorums trop petits, non.
+</Figure>
+
+La figure 34.1 montre ce qui se passe quand les quorums ne se recoupent pas. Avec des quorums de 2 sur 5, deux proposeurs peuvent chacun faire accepter leur valeur par un quorum différent, sans qu’aucun accepteur ne puisse prévenir l’un de ce que l’autre a fait. La simulation plus bas le mesure. Un nombre pair d’accepteurs n’apporte rien. Avec 4 accepteurs, il faut un quorum de 3, et le groupe ne supporte qu’une panne, comme avec 3 ; c’est pourquoi les groupes de consensus ont 3 ou 5 membres, rarement 7. Heidi Howard, Dahlia Malkhi et Alexander Spiegelman ont montré en 2016 que les majorités ne sont pas nécessaires et que seuls les quorums des deux phases de Paxos doivent se recouper, ce qui permet par exemple des quorums de 2 pour la phase la plus fréquente si la phase rare en utilise de plus grands[^flexible].
+
+## Paxos
+
+Paxos distingue trois rôles, que les implémentations confient souvent aux mêmes processus. Les proposeurs (proposers) proposent des valeurs, les accepteurs (acceptors) les acceptent ou les refusent, et les apprenants (learners) apprennent la valeur choisie. Chaque proposition porte un numéro, unique et plus grand que ceux que le proposeur a déjà utilisés ; on l’obtient par exemple en combinant un compteur et l’identifiant du proposeur, ce que fait l’expérience avec $n = 100 \times \text{tour} + \text{proposeur}$. Une valeur est choisie dès qu’un quorum d’accepteurs a accepté une même proposition. L’algorithme a deux phases, que Lamport décrit ainsi[^simple].
+
+<Figure svg={phases} num="34.2" alt="Chronogramme entre un proposeur et trois accepteurs. Phase 1 : le proposeur envoie prepare(n = 7) ; chaque accepteur promet d’ignorer toute proposition de numéro inférieur à 7 et répond par promesse(7) avec rien d’accepté, ou la proposition (5, x) qu’il a acceptée. Phase 2 : le proposeur envoie accept(7, v) ; chaque accepteur accepte si aucune promesse de numéro supérieur à 7 n’a été faite, et répond acceptée(7). v est la valeur de la proposition acceptée de plus grand numéro parmi les promesses, ou la valeur du proposeur si aucune ; v est choisie dès qu’une majorité l’a acceptée.">
+Les deux phases de Paxos.
+</Figure>
+
+Dans la phase 1, le proposeur choisit un numéro $n$ et envoie une demande `prepare(n)` à une majorité d’accepteurs. Un accepteur qui reçoit un `prepare(n)` de numéro plus grand que tous ceux auxquels il a déjà répondu promet de ne plus accepter de proposition de numéro inférieur à $n$, et renvoie la proposition de plus grand numéro qu’il a déjà acceptée, s’il en a une. Dans la phase 2, si le proposeur a reçu les promesses d’une majorité, il envoie `accept(n, v)`, où $v$ est la valeur de la proposition de plus grand numéro parmi les réponses, ou n’importe quelle valeur, la sienne, si aucune réponse n’en contient. Un accepteur accepte cette proposition sauf s’il a déjà promis à un `prepare` de numéro supérieur.
+
+La règle qui fait tout tient dans le choix de $v$. Un proposeur ne propose sa propre valeur que si aucun accepteur de son quorum n’a encore rien accepté ; sinon il reprend la valeur acceptée de plus grand numéro. Si une valeur a déjà été choisie, elle a été acceptée par une majorité ; le quorum du proposeur suivant en contient au moins un membre, qui la lui transmet, et le proposeur la propose à son tour. Une valeur choisie ne peut donc jamais être remplacée par une autre. La promesse de la phase 1 empêche, de son côté, qu’une proposition ancienne, encore en route sur le réseau, soit acceptée après qu’un proposeur plus récent a consulté le quorum.
+
+### Un déroulé chiffré
+
+Prenons cinq accepteurs numérotés de 0 à 4, et les deux proposeurs de l’expérience, qui veulent faire choisir « A » et « B ».
+
+1. A choisit le numéro 101 et envoie `prepare(101)` aux cinq accepteurs. Aucun n’a rien promis ni accepté ; tous promettent 101 et répondent qu’ils n’ont rien accepté.
+2. A, libre de proposer sa valeur, envoie `accept(101, A)`. Le message arrive aux accepteurs 0 et 1, qui acceptent (101, A) ; il n’est pas encore parti vers 2, 3 et 4 quand A est suspendu. Deux accepteurs sur cinq ont accepté, pas une majorité, et rien n’est choisi.
+3. B choisit le numéro 202 et envoie `prepare(202)` aux accepteurs 0, 1 et 2. Les trois promettent 202. Les accepteurs 0 et 1 joignent à leur réponse la proposition (101, A) ; l’accepteur 2 n’a rien accepté.
+4. B a une majorité de promesses, dont deux contiennent une proposition. Il doit proposer la valeur de la plus grande, « A », et non sa propre valeur. Il envoie `accept(202, A)` ; les accepteurs 0, 1 et 2 acceptent. Trois sur cinq ont accepté (202, A), et « A » est donc choisie.
+5. A reprend et envoie `accept(101, A)` aux accepteurs 2, 3 et 4. L’accepteur 2 a promis 202 et refuse ; les accepteurs 3 et 4, qui n’ont rien promis de plus, acceptent (101, A). A ne reçoit pas de majorité et se croit refusé, alors que sa valeur est bien celle qui a été choisie, par B. Il l’apprendra en relançant une proposition, comme le prévoit l’article.
+
+Si B avait interrogé les accepteurs 2, 3 et 4 à l’étape 3, aucun ne lui aurait transmis de proposition, et il aurait fait choisir « B ». C’est correct aussi, puisque « A » n’avait été accepté que par une minorité et n’était pas choisi ; les messages tardifs de A seraient alors refusés par 2, 3 et 4, qui ont promis 202. Paxos ne garantit pas que la première valeur proposée gagne, il garantit qu’une seule gagne.
+
+Un accepteur doit garder ses promesses et ses acceptations sur un support durable avant de répondre. S’il les oubliait en redémarrant, il pourrait promettre à un proposeur plus ancien ou accepter une valeur différente, et casser l’intersection des quorums ; la simulation le mesure aussi. Chaque phase coûte donc une écriture synchronisée sur disque chez chaque accepteur.
+
+## Paxos mesuré sur de vrais processus
+
+`paxos_reel.py` lance cinq accepteurs, un par processus, qui reçoivent des messages JSON en UDP sur la boucle locale et écrivent leur état dans un fichier, avec ou sans `fsync` avant chaque réponse. Il mesure la durée d’une décision, arrête des accepteurs par `SIGKILL`, puis rejoue le déroulé ci-dessus en suspendant réellement le processus de A par `SIGSTOP` après qu’il a fait accepter sa valeur par les accepteurs 0 et 1.
+
+```text
+1. durée d'une décision, 5 accepteurs locaux (50 décisions)
+   sans fsync de l'état : médiane   0.75 ms, pire   9.95 ms
+   avec fsync de l'état : médiane  26.73 ms, pire  28.19 ms
+
+2. accepteurs arrêtés par SIGKILL (une décision à chaque étape)
+   0 arrêté(s) sur 5 : choisie en 25.0 ms
+   1 arrêté(s) sur 5 : choisie en 15.1 ms
+   2 arrêté(s) sur 5 : choisie en 15.2 ms
+   3 arrêté(s) sur 5 : phase 1 sans majorité
+   accepteurs relancés (état relu sur disque) : choisie, valeur x3
+
+3. proposeur A suspendu au milieu de sa phase 2
+   B consulte les accepteurs 2, 3, 4 :
+      A : accept(101, « A ») accepté par [0, 1], puis suspendu ;
+          après la reprise : phase 2 refusée
+      B voit [2, 3, 4], propose « B », choisie
+   B consulte les accepteurs 0, 1, 2 :
+      A : accept(101, « A ») accepté par [0, 1], puis suspendu ;
+          après la reprise : phase 2 refusée
+      B voit [0, 1, 2], propose « A » (valeur de A reprise), choisie
+```
+
+Le second passage a donné 0,99 et 26,35 ms de médiane, et les mêmes résultats pour les pannes et le duel. Sans `fsync`, une décision prend moins d’une milliseconde, deux allers-retours sur la boucle locale ; avec, elle en prend 27, parce que chaque phase attend l’écriture sur disque d’au moins trois accepteurs. Les cinq accepteurs partagent ici le même SSD, qui sérialise leurs `fsync`, si bien que la décision est plus rapide avec deux accepteurs arrêtés (15 ms) qu’avec cinq (25 ms) ; sur cinq machines, chaque accepteur aurait son propre disque, et le coût serait celui d’un seul `fsync` par phase, 7 ms sur le SSD du [ch. 20](../partie-2/moteurs-stockage.mdx).
+
+Le groupe décide avec un ou deux accepteurs arrêtés, et plus avec trois, faute de majorité ; la proposition échoue dès la phase 1, et rien n’est accepté. Une fois les trois accepteurs relancés, ils relisent leur état sur disque, et la proposition bloquée aboutit. Le duel reproduit les deux issues du déroulé.
+
+<Figure svg={duel} num="34.3" alt="Cinq accepteurs sur des lignes horizontales. A, numéro 101, fait accepter (101, A) par les accepteurs 0 et 1, puis est suspendu par SIGSTOP. B, numéro 202, consulte 0, 1, 2, qui promettent 202 ; il voit (101, A) chez 0 et 1, propose A, et 0, 1, 2 acceptent (202, A) : A est choisie. A reprend : son accept(101) est refusé par 2 et accepté par 3 et 4 ; A reste la seule valeur choisie.">
+Le proposeur suspendu de l’expérience, quand B interroge les accepteurs 0, 1 et 2.
+</Figure>
+
+La figure 34.3 détaille la seconde variante. B n’avait aucune raison de proposer « A », sinon la règle de la phase 2. Et la suspension de A, qui fait penser aux pauses du [ch. 32](pannes-partielles.mdx), ne cause aucun dommage. Un processus qui revient avec des messages périmés ne peut rien imposer, parce que les accepteurs ont promis un numéro plus grand, ou parce que la valeur qu’il propose est déjà celle qui a été choisie.
+
+## Paxos simulé
+
+Une expérience sur cinq processus ne montre que quelques exécutions. `paxos_sim.py` simule Paxos à événements discrets, avec des messages qui mettent 0,5 à 1,5 ms et se perdent au hasard, et des accepteurs qui tombent en panne puis redémarrent. Un observateur extérieur vérifie, dans chaque exécution, combien de valeurs ont été choisies. La première partie compare Paxos à trois variantes fautives, sur 10 000 exécutions où trois proposeurs concurrents veulent chacun faire choisir leur valeur.
+
+```text
+simulation de Paxos, graine 1
+
+1. sûreté : 10 000 exécutions, 3 proposeurs concurrents, 5 accepteurs,
+   5 % de messages perdus, 2 pannes d'accepteur de 2 à 20 ms
+   variante                                     2 valeurs choisies
+   Paxos, quorums de 3 sur 5                               0 (0.00 %)
+   quorums de 2 sur 5 (ne se recoupent pas)              451 (4.51 %)
+   oubli de la valeur acceptée                         10000 (100.00 %)
+   accepteurs sans état sur disque                         2 (0.02 %)
+```
+
+La seconde graine a donné 0, 445, 10 000 et 4 exécutions fautives. Paxos n’a jamais choisi deux valeurs. Avec des quorums de 2 sur 5, 4,5 % des exécutions en choisissent deux. Un proposeur qui oublie de reprendre la valeur acceptée en fait choisir deux dans toutes les exécutions, puisque trois proposeurs concurrents imposent chacun la leur. La dernière variante est la plus instructive. Des accepteurs qui redémarrent sans leur état ne cassent la sûreté que 2 à 4 fois sur 10 000 ; un test de quelques centaines d’exécutions ne le verrait pas, et le défaut apparaîtrait en production, après une panne de courant. C’est le genre d’erreur que l’équipe de Chubby a cherché par des tests aléatoires sur des centaines de machines, comme le raconte l’exemple réel.
+
+La deuxième partie mesure la vivacité, avec deux proposeurs qui démarrent en même temps. Lamport décrit le scénario d’échec : p termine sa phase 1 avec un numéro $n_1$, q la sienne avec $n_2 > n_1$, les `accept` de p sont refusés, p recommence avec $n_3 > n_2$, ce qui fait refuser ceux de q, et ainsi de suite[^simple].
+
+```text
+2. vivacité : 2 proposeurs qui démarrent en même temps, 5 accepteurs
+   recul après un échec            décidé  temps méd.   99e c. tours méd.
+   aucun                           100.0%      4.3 ms   14.8 ms        4
+   aléatoire exponentiel           100.0%      3.0 ms    5.2 ms        2
+   un seul proposeur (leader)      100.0%      3.0 ms    3.7 ms        1
+```
+
+Les délais aléatoires du réseau finissent toujours par départager les deux proposeurs, mais sans recul, la moitié des décisions demandent au moins 4 tours, et le 99e centile atteint 14,8 ms, cinq fois une décision simple ; la seconde graine a donné 13,9 ms. Un recul aléatoire exponentiel le ramène à 5,2 ms, et un proposeur unique décide toujours au premier tour, en deux allers-retours. C’est la solution de Lamport. Pour garantir la progression, on choisit un proposeur distingué, le seul à faire des propositions, ce qui est une élection de leader, faite avec des délais d’attente.
+
+La troisième partie arrête des accepteurs dès le départ, et la quatrième compte les messages d’une décision sans concurrence.
+
+```text
+3. accepteurs arrêtés dès le départ, un proposeur, 1 s au plus
+    accepteurs  arrêtés   décidé  temps méd.
+             3        0   100.0%      3.0 ms
+             3        1   100.0%      3.4 ms
+             3        2     0.0%      jamais
+             5        0   100.0%      3.0 ms
+             5        1   100.0%      3.2 ms
+             5        2   100.0%      3.6 ms
+             5        3     0.0%      jamais
+
+4. coût d'une décision sans concurrence ni perte, 5 accepteurs
+   20 messages (prepare, promesse, accept, acceptée, × 5 accepteurs)
+   valeur choisie en 3.4 ms : deux allers-retours, 0,5 à 1,5 ms par sens
+```
+
+Les deux graines ont donné les mêmes taux. Trois accepteurs supportent une panne, cinq en supportent deux, et une panne de plus bloque tout ; chaque accepteur arrêté allonge un peu la décision, parce que le proposeur attend les réponses les plus lentes de ceux qui restent. Une décision coûte $4n$ messages, 20 pour 5 accepteurs, et deux allers-retours.
+
+## Du décret unique au journal répliqué
+
+Paxos tel que décrit choisit une seule valeur, un « décret unique » dans le vocabulaire de l’article d’origine[^parlement]. Un journal répliqué en enchaîne une instance par position du journal. Lamport décrit dans *Paxos Made Simple* l’optimisation qui rend cela efficace, appelée Multi-Paxos[^simple]. Un leader élu exécute la phase 1 une seule fois, pour toutes les positions à venir ; tant qu’il reste leader, chaque nouvelle entrée ne demande qu’une phase 2, soit un aller-retour et $2n$ messages au lieu de deux allers-retours et $4n$.
+
+<Figure svg={journal} num="34.4" alt="Trois répliques, chacune avec un journal de quatre entrées : 1, x = 3 ; 2, y = 7 ; 3, x = 4 ; 4, inconnue, en cours. Une instance de Paxos par entrée ; le leader fait la phase 1 une fois pour toutes les entrées à venir, puis une seule phase 2 par entrée. Chaque réplique applique les entrées choisies dans l’ordre à la même machine à états : mêmes commandes, même ordre, même état.">
+Multi-Paxos : un journal répliqué, une instance de consensus par entrée.
+</Figure>
+
+Sur la figure 34.4, l’entrée 4 est en cours de décision, et aucune réplique ne l’applique tant qu’elle n’est pas choisie, même si l’entrée 5 l’était déjà. Un nouveau leader qui reprend un journal y trouve des trous, des positions dont il ne sait pas si elles ont été choisies. Il les termine par des phases 1 et 2, en proposant une commande vide quand aucun accepteur ne lui transmet de valeur ; l’article en donne un exemple où le nouveau leader, qui connaît les commandes 1 à 134, 138 et 139, fait choisir les positions 135 et 140 par les phases 1 et 2, puis comble les positions 136 et 137 par des commandes sans effet (no-op) pour pouvoir appliquer la suite.
+
+Lire l’état demande en principe une instance de consensus, sinon un leader déchu, isolé par le réseau, répondrait avec des données périmées. Les implémentations évitent ce coût par des baux de leader. Les autres répliques s’engagent à ne pas accepter d’autre leader pendant une durée donnée, et le leader, tant que son bail court, sert les lectures depuis sa copie locale. *Paxos Made Live* décrit ce mécanisme chez Google, où le leader garde un délai plus court que les répliques pour se protéger de la dérive des horloges ([ch. 33](temps.mdx))[^live].
+
+Paxos laisse beaucoup de choses ouvertes, ce qui explique sa réputation : comment élire le leader, comment changer la liste des accepteurs, comment tronquer le journal par des instantanés. Raft, au ch. 35, les fixe toutes dans un seul algorithme.
+
+## Compromis
+
+| Mécanisme | Pannes supportées | Coût d’une écriture | Ce qui se passe quand le réseau se coupe | Usages |
+|---|---|---|---|---|
+| Primaire unique, bascule sans consensus | une, si la bascule ne se trompe pas | un aller-retour vers les répliques, ou aucun en asynchrone | deux primaires possibles ([ch. 24](../partie-2/replication-leader.mdx)) | bases classiques, avec isolement de l’ancien primaire |
+| Quorums R + W > N sans consensus | N − W en écriture | un aller-retour vers W répliques | chaque côté peut écrire ; conflits à résoudre ([ch. 25](../partie-2/replication-multi.mdx)) | Dynamo, Cassandra |
+| Paxos, décret unique | $f$ sur $2f + 1$ | 2 allers-retours, $4n$ messages, 2 écritures durables (27 ms avec `fsync` sur un SSD partagé, mesuré) | seul le côté majoritaire décide ; jamais deux valeurs (10 000 exécutions sur 10 000, simulé) | élection, configuration |
+| Multi-Paxos, leader stable | $f$ sur $2f + 1$ | 1 aller-retour, $2n$ messages, 1 écriture durable | idem ; nouvelle phase 1 au changement de leader | journaux répliqués (Chubby, Spanner) |
+| Quorums qui ne se recoupent pas | aucune garantie | moindre | deux valeurs choisies (4,5 % des exécutions, simulé) | aucun |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la disponibilité d’un groupe de 3 ou 5 accepteurs]
+Hypothèses : chaque accepteur est indisponible une fraction $p = 10^{-3}$ du temps (99,9 %), indépendamment des autres ; le groupe est disponible tant qu’une majorité l’est.
+
+| Groupe | Indisponible si | Calcul | Disponibilité |
+|---|---|---|---|
+| 1 accepteur | lui | $p$ | 99,9 % |
+| 3 accepteurs | 2 ou 3 en panne | $3p^2 (1 - p) + p^3 \approx 3 \times 10^{-6}$ | 99,9997 % |
+| 4 accepteurs | 2, 3 ou 4 en panne | $6p^2 \approx 6 \times 10^{-6}$ | 99,9994 % |
+| 5 accepteurs | 3, 4 ou 5 en panne | $10p^3 \approx 10^{-8}$ | 99,999999 % |
+
+Conclusion : passer de 1 à 3 accepteurs divise l’indisponibilité par 300, de 3 à 5 par 300 encore ; un quatrième accepteur la double au lieu de la réduire, puisqu’il ajoute une machine sans augmenter le nombre de pannes supportées. Ces chiffres supposent des pannes indépendantes, d’où l’usage de répartir les accepteurs sur des zones différentes.
+:::
+
+:::calcul[Calcul : la latence d’une écriture par consensus]
+Hypothèses : une écriture durable (`fsync`) de 7 ms (mesurée au [ch. 20](../partie-2/moteurs-stockage.mdx)) ; un aller-retour de 0,5 ms dans un centre de données, de 2 ms entre zones d’une région, de 70 ms entre l’Europe et la côte est des États-Unis.
+
+| Configuration | Paxos de base : 2 × (aller-retour + `fsync`) | Multi-Paxos : aller-retour + `fsync` |
+|---|---|---|
+| Un centre de données | 2 × (0,5 + 7) = 15 ms | 7,5 ms |
+| Trois zones d’une région | 2 × (2 + 7) = 18 ms | 9 ms |
+| Deux continents | 2 × (70 + 7) = 154 ms | 77 ms |
+| Mesuré, 5 processus sur un portable | 27 ms (`fsync` concurrents sur un seul SSD) | non mesuré |
+
+Conclusion : dans un centre de données, c’est l’écriture sur disque qui domine, et l’on gagne surtout en groupant plusieurs commandes par écriture ; entre continents, c’est l’aller-retour, que rien ne réduit sinon placer la majorité des accepteurs dans la même région.
+:::
+
+:::calcul[Calcul : le débit d’un journal répliqué]
+Hypothèses : Multi-Paxos dans un centre de données, 7,5 ms par entrée (calcul précédent) ; les entrées sont décidées l’une après l’autre ; on peut grouper plusieurs commandes par entrée.
+
+| Commandes par entrée | Calcul | Débit |
+|---|---|---|
+| 1 | 1 000 / 7,5 | 133 commandes par seconde |
+| 10 | 10 × 133 | 1 330 par seconde |
+| 100 | 100 × 133 | 13 300 par seconde |
+| Mesuré chez Google, Chubby sur Paxos | 1 client, puis 20 clients en parallèle | 91, puis 640 opérations par seconde |
+
+Conclusion : un journal répliqué qui décide une commande à la fois plafonne à une centaine de commandes par seconde ; le regroupement multiplie le débit sans changer la latence. Les mesures de *Paxos Made Live* montrent le même effet, de 91 à 640 opérations par seconde quand le nombre de clients passe de 1 à 20.
+:::
+
+## Exemple réel
+
+**Paxos Made Live, chez Google.** Tushar Chandra, Robert Griesemer et Joshua Redstone ont décrit en 2007 la construction d’une base tolérante aux pannes sur Paxos pour Chubby, le service de verrous et de petits fichiers dont dépendent GFS et Bigtable[^live]. Une cellule Chubby a typiquement cinq répliques, sur des machines dédiées, dont l’une est le maître. La première version reposait sur une base commerciale répliquée, appelée 3DB dans l’article, qui avait connu des bogues de réplication et dont l’algorithme n’était pas prouvé ; l’équipe l’a remplacée par un journal répliqué fondé sur Paxos. Le premier constat de l’article est l’écart entre l’algorithme et le système, puisque Paxos tient en une page de pseudo-code, leur implémentation compte plusieurs milliers de lignes de C++. Il a fallu traiter la corruption des disques (une réplique dont le disque a été corrompu ou effacé reconstruit son état en participant sans voter jusqu’à avoir rattrapé les autres), ajouter des baux de maître pour servir les lectures localement, des instantanés pour tronquer le journal, et des changements de membres. Pour vérifier le tout, l’équipe a écrit des tests qui injectent des pannes aléatoires et reproductibles à partir d’une graine, les a fait tourner sur plusieurs centaines de machines, et a trouvé des bogues qui demandaient des semaines d’exécution simulée ; un autre test, qui provoque des pannes de répliques et des déconnexions, a trouvé cinq bogues subtils de bascule de maître en deux semaines. Mesuré sur les mêmes cinq serveurs que l’ancienne version, le système Paxos faisait 91 opérations par seconde avec un client contre 75 pour 3DB, et 640 contre 178 avec vingt clients, grâce au regroupement des valeurs.
+
+## Erreurs fréquentes
+
+Construire une élection ou un verrou réparti sans consensus, à partir de délais d’attente et de messages. Un processus suspendu, comme dans l’expérience, revient en se croyant leader ; sans numéros de proposition et sans quorum, rien ne l’arrête.
+
+Choisir des quorums qui ne se recoupent pas pour gagner en disponibilité. Avec 2 sur 5, 4,5 % des exécutions choisissent deux valeurs (simulé).
+
+Proposer sa propre valeur sans regarder ce que le quorum a déjà accepté. C’est la règle qui empêche de remplacer une valeur choisie ; sans elle, toutes les exécutions concurrentes de la simulation choisissent deux valeurs.
+
+Répondre avant d’avoir écrit l’état sur disque. Le défaut ne se manifeste que 2 à 4 fois sur 10 000 exécutions avec pannes (simulé), donc jamais en test et un jour en production ; le `fsync` coûte 27 ms par décision sur le portable des mesures, et c’est un prix à payer.
+
+Déployer 4 accepteurs, ou 6. Un nombre pair n’ajoute aucune panne supportée et double l’indisponibilité par rapport au nombre impair inférieur.
+
+Laisser plusieurs proposeurs se disputer en permanence. Sans recul ni leader, la moitié des décisions prennent au moins 4 tours (simulé) ; un proposeur distingué décide au premier.
+
+Servir les lectures depuis la copie locale d’un leader sans bail. Un leader isolé répond avec des données périmées pendant qu’un autre a été élu.
+
+Croire qu’implémenter Paxos est facile parce que l’algorithme tient en une page. L’équipe de Chubby a écrit plusieurs milliers de lignes et des tests sur des centaines de machines ; on utilise en général une implémentation éprouvée (etcd, ZooKeeper, une bibliothèque Raft) plutôt que d’écrire la sienne.
+
+:::piege[Erreur fréquente : « Paxos garantit qu’une valeur sera choisie »]
+Paxos garantit qu’au plus une valeur est choisie, quoi qu’il arrive au réseau et aux processus, tant qu’au plus $f$ accepteurs sur $2f + 1$ perdent leur état. Il ne garantit pas qu’une valeur sera choisie, et ne peut pas le garantir dans un système asynchrone, d’après le résultat FLP. Sans majorité joignable, ou avec des proposeurs qui se disputent sans fin, rien n’est décidé ; le système attend au lieu de se tromper. La disponibilité d’un service fondé sur le consensus dépend donc de la présence d’une majorité et d’un leader stable, et un service qui doit répondre même pendant une partition doit renoncer au consensus, comme le dit le théorème CAP ([ch. 12](../partie-1/coherence-cap.mdx)).
+:::
+
+:::entretien
+Quand une conception a besoin d’un leader unique, d’une configuration partagée ou d’un verrou, dites qu’il faut un consensus et ne le réinventez pas : « la configuration et l’élection passent par un groupe etcd ou ZooKeeper de 3 ou 5 membres répartis sur trois zones ; il supporte 1 ou 2 pannes ; chaque écriture coûte un aller-retour vers une majorité et une écriture sur disque, quelques millisecondes ; on n’y met que des métadonnées, pas les données de l’application ». Si l’on vous demande Paxos, décrivez les deux phases, la règle de reprise de la valeur, et l’intersection des quorums.
+:::
+
+## Exercices
+
+**Question 1.** Cinq accepteurs. A envoie `prepare(5)` et obtient les promesses de 0, 1, 2 ; il envoie `accept(5, a)`, accepté par 0 seulement. B envoie `prepare(8)` à 2, 3, 4, qui promettent. C envoie `prepare(9)` à 0, 3, 4. Quelle valeur C doit-il proposer, et quelle valeur B peut-il faire choisir s’il envoie son `accept(8, ·)` après le `prepare(9)` de C ?
+
+**Question 2.** Une équipe veut un groupe de consensus qui supporte la panne d’une zone entière, sur une région à deux zones seulement. Elle propose 2 accepteurs par zone. Pourquoi est-ce une mauvaise idée, et que proposez-vous ?
+
+**Question 3.** Dans la simulation, des accepteurs qui redémarrent sans leur état ne cassent la sûreté que 2 à 4 fois sur 10 000. Décrivez une suite d’événements qui conduit à deux valeurs choisies, avec 3 accepteurs.
+
+**Exercice de conception.** Un service de planification de tâches tourne sur 3 instances dans trois zones d’une région. Une seule instance doit lancer les tâches à un instant donné ; si elle tombe, une autre doit reprendre en moins de 10 secondes, et aucune tâche ne doit être lancée deux fois par deux instances qui se croiraient chacune responsables. Proposez le mécanisme d’élection, ce que l’instance élue doit vérifier avant de lancer une tâche, et ce qui se passe si elle est suspendue 20 secondes par une pause du ramasse-miettes. Chiffrez le coût par tâche lancée.
+
+## Corrigés
+
+**Question 1.** Les promesses que C reçoit de 0, 3 et 4 contiennent la proposition (5, a) chez l’accepteur 0, et rien chez 3 et 4. C doit donc proposer « a ». Le `accept(8, ·)` de B arrive à 2, 3, 4 après le `prepare(9)` ; 3 et 4 ont promis 9 et le refusent, 2 peut l’accepter. B n’obtient pas de majorité et ne fait rien choisir. C, lui, envoie `accept(9, a)`, et « a » sera choisie si une majorité l’accepte.
+
+**Question 2.** Avec 4 accepteurs, un quorum en compte 3 ; si une zone tombe, il n’en reste que 2, et le groupe ne décide plus. La configuration ne supporte pas la panne de zone qu’elle visait, et supporte moins bien les pannes isolées qu’un groupe de 3. Il faut un troisième site, même petit, pour départager, par exemple 2 accepteurs dans chaque zone et un cinquième dans une autre région ou un autre centre, de sorte que la perte d’une zone laisse 3 accepteurs sur 5. Le cinquième, plus lointain, n’ajoute de la latence que lorsqu’il fait partie de la majorité nécessaire.
+
+**Question 3.** Accepteurs 0, 1, 2. A fait accepter (1, a) par 0 et 1, et « a » est choisie. L’accepteur 1 redémarre et oublie son état. B envoie `prepare(2)` à 1 et 2, qui n’ont rien accepté à leur connaissance ; il est libre de proposer « b », envoie `accept(2, b)`, accepté par 1 et 2, et « b » est choisie aussi. Il a suffi qu’un accepteur du quorum de A oublie son acceptation pour que le quorum de B, qui recoupe celui de A en ce seul accepteur, ne transmette rien.
+
+**Exercice de conception.**
+
+*Élection.* Les trois instances prennent un bail dans un service de consensus (etcd ou ZooKeeper, à 3 membres répartis sur les trois zones, ch. 36), par exemple une clé « leader » avec un bail de 5 secondes renouvelé toutes les 1,5 seconde. Si le leader tombe, le bail expire et une autre instance le prend, en 5 à 7 secondes.
+
+*Avant de lancer une tâche.* L’instance élue reçoit avec son bail un numéro de mandat croissant (la révision de la clé dans etcd). Elle inscrit chaque lancement dans une table, par une écriture conditionnelle qui vérifie que le mandat courant est toujours le sien, et que la tâche n’a pas déjà été lancée pour cette échéance ; le système qui exécute la tâche refuse aussi tout ordre portant un mandat plus ancien que le dernier vu (un jeton d’isolement, fencing token).
+
+*Pause de 20 secondes.* Pendant la pause, le bail expire et une autre instance est élue avec un mandat plus grand. Quand l’ancienne reprend, elle croit encore être leader, mais ses écritures conditionnelles échouent et ses ordres sont refusés à cause de son mandat périmé ; c’est le même mécanisme que le refus des messages de A dans l’expérience.
+
+*Coût.* Une écriture conditionnelle dans etcd par tâche, un aller-retour vers une majorité et une écriture durable, de l’ordre de 5 à 10 ms dans une région ; plus le renouvellement du bail, une écriture toutes les 1,5 seconde, indépendante du nombre de tâches.
+
+:::fiche
+- Consensus : choisir une seule valeur parmi celles proposées. Sûreté (une seule valeur, proposée, apprise seulement si choisie) toujours ; terminaison seulement si le réseau le permet.
+- Usages : élection, configuration, verrous et baux, journal répliqué (machine à états répliquée).
+- FLP (1985) : aucun algorithme déterministe ne garantit la terminaison en asynchrone avec une seule panne ; on sacrifie la vivacité, jamais la sûreté, et l’on élit un leader avec des délais d’attente.
+- Quorums majoritaires : deux majorités se recoupent ; $n = 2f + 1$ pour $f$ pannes ; 3 ou 5, jamais un nombre pair. Flexible Paxos : seuls les quorums des deux phases doivent se recouper.
+- Paxos : phase 1 `prepare(n)` → promesse et proposition déjà acceptée ; phase 2 `accept(n, v)`, v = valeur acceptée de plus grand numéro, sinon la sienne ; choisie quand une majorité accepte. État durable avant de répondre.
+- Mesuré : décision en 0,75 ms sans `fsync`, 27 ms avec (5 processus, un SSD) ; décide avec 2 accepteurs arrêtés sur 5, pas 3 ; un proposeur suspendu ne peut rien imposer à son retour.
+- Simulé, 10 000 exécutions : 0 double choix pour Paxos, 4,5 % avec quorums de 2 sur 5, 100 % sans la règle de la valeur, 0,02 à 0,04 % sans état durable ; deux proposeurs sans recul, 4 tours en médiane, 99e centile 15 ms ; un leader : 1 tour.
+- Multi-Paxos : phase 1 une fois, puis 1 aller-retour et $2n$ messages par entrée ; baux de leader pour les lectures locales ; regroupement pour le débit (91 puis 640 opérations par seconde chez Chubby).
+:::
+
+[^simple]: Leslie Lamport, « Paxos Made Simple », *ACM SIGACT News*, vol. 32, n° 4, décembre 2001, p. 51-58, sections 2.1, 2.2 (phases 1 et 2), 2.4 (progression) et 3 (machine à états), [lamport.azurewebsites.net/pubs/paxos-simple.pdf](https://lamport.azurewebsites.net/pubs/paxos-simple.pdf).
+[^flp]: Michael J. Fischer, Nancy A. Lynch et Michael S. Paterson, « Impossibility of Distributed Consensus with One Faulty Process », *Journal of the ACM*, vol. 32, n° 2, avril 1985, p. 374-382, [doi:10.1145/3149.214121](https://doi.org/10.1145/3149.214121).
+[^flexible]: Heidi Howard, Dahlia Malkhi et Alexander Spiegelman, « Flexible Paxos: Quorum intersection revisited », arXiv:1608.06696, 2016, [arxiv.org/abs/1608.06696](https://arxiv.org/abs/1608.06696).
+[^parlement]: Leslie Lamport, « The Part-Time Parliament », *ACM Transactions on Computer Systems*, vol. 16, n° 2, mai 1998, p. 133-169, [doi:10.1145/279227.279229](https://doi.org/10.1145/279227.279229).
+[^live]: Tushar D. Chandra, Robert Griesemer et Joshua Redstone, « Paxos Made Live: An Engineering Perspective », *26th ACM Symposium on Principles of Distributed Computing (PODC ’07)*, 2007, p. 398-407, sections 1, 2, 5.1, 5.2, 5.5, 6.3 et 8 (tableau 1), [doi:10.1145/1281100.1281103](https://doi.org/10.1145/1281100.1281103).
