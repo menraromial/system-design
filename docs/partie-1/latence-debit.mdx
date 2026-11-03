@@ -113,7 +113,7 @@ Le calcul suppose que les lenteurs des serveurs sont indépendantes, et le doubl
 | Technique | Avantages | Inconvénients | Quand la choisir |
 |---|---|---|---|
 | Requêtes doublées après le p95 | coupe la queue pour quelques pour cent de requêtes en plus | inutile si les lenteurs sont corrélées ; seulement pour des lectures ou des opérations idempotentes | lectures réparties sur des répliques indépendantes |
-| Délais d’expiration et nouvelle tentative (ch. 38) | borne l’attente d’un client | une nouvelle tentative ajoute de la charge ; dangereux près de la saturation | appels dont la réponse tardive ne sert plus |
+| Délais d’expiration et nouvelle tentative ([ch. 38](../partie-3/resilience-tentatives.mdx)) | borne l’attente d’un client | une nouvelle tentative ajoute de la charge ; dangereux près de la saturation | appels dont la réponse tardive ne sert plus |
 | Réduire l’éventail (moins de fragments, réponses partielles) | moins de serveurs à attendre, donc moins de queue | moins de parallélisme ou résultats incomplets | recherche, agrégation où un résultat approché suffit |
 | Baisser le taux d’utilisation | divise l’attente dans les files | coûte des machines | services critiques en latence |
 | Supprimer les causes de pauses (collecte de mémoire, compactions planifiées) | agit sur la cause | demande de l’analyse et parfois un changement de technologie | quand la queue vient de pauses identifiables |

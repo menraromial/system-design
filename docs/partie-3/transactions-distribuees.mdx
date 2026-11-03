@@ -331,7 +331,7 @@ Si l’on vous demande comment garder cohérents deux services qui ont chacun le
 
 *Journal.* Une ligne par séjour, avec l’état de chaque étape (à poser, posée, confirmée, annulée), la clé d’idempotence envoyée à chaque prestataire et l’échéance des options. L’orchestrateur écrit l’état avant et après chaque appel.
 
-*Réponse absente.* Une demande expirée a peut-être été exécutée. L’orchestrateur la renvoie avec la même clé d’idempotence, ou interroge le prestataire sur l’état de cette clé, jusqu’à obtenir une réponse ; il ne suppose jamais l’échec (ch. 38).
+*Réponse absente.* Une demande expirée a peut-être été exécutée. L’orchestrateur la renvoie avec la même clé d’idempotence, ou interroge le prestataire sur l’état de cette clé, jusqu’à obtenir une réponse ; il ne suppose jamais l’échec ([ch. 38](resilience-tentatives.mdx)).
 
 *Annulation qui échoue.* Une compensation ne peut pas être abandonnée. On la renvoie avec une attente croissante, et, au-delà d’un seuil, on la passe à une file traitée par une personne. L’option de 15 minutes limite le dommage, puisqu’une option jamais confirmée expire seule.
 

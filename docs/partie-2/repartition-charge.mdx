@@ -287,7 +287,7 @@ Dessinez le répartiteur comme deux boîtes (ou une boîte gérée par le cloud,
 
 *API.* Règle « moins de requêtes en attente », car les durées varient d’un facteur 80 et le tourniquet laisserait des requêtes de 5 ms coincées derrière des requêtes de 400 ms. Contrôle de santé actif toutes les 5 s, deux échecs pour écarter, plus un contrôle passif qui écarte un serveur dès qu’il renvoie des erreurs, pour éviter le trou noir de la question 2.
 
-*WebSocket.* Chaque connexion dure 20 minutes ; c’est l’ouverture des connexions qui se répartit, avec « moins de connexions » pour que les serveurs récemment démarrés se remplissent en premier. Le drainage ne peut pas attendre 20 minutes. À l’arrêt, le serveur ferme ses connexions par lots, en envoyant un message de fermeture, et le client se reconnecte, de préférence après un délai aléatoire de quelques secondes pour éviter que des milliers de clients reviennent au même instant ([ch. 8](../partie-1/pousser-donnees.mdx) et 38).
+*WebSocket.* Chaque connexion dure 20 minutes ; c’est l’ouverture des connexions qui se répartit, avec « moins de connexions » pour que les serveurs récemment démarrés se remplissent en premier. Le drainage ne peut pas attendre 20 minutes. À l’arrêt, le serveur ferme ses connexions par lots, en envoyant un message de fermeture, et le client se reconnecte, de préférence après un délai aléatoire de quelques secondes pour éviter que des milliers de clients reviennent au même instant ([ch. 8](../partie-1/pousser-donnees.mdx) et [38](../partie-3/resilience-tentatives.mdx)).
 
 *gRPC interne.* Répartition par requête, par un proxy L7 ou par le client gRPC lui-même, pour la raison de la question 3.
 

@@ -36,7 +36,7 @@ Cet échange reprend une requête réellement envoyée à la page d’accueil de
 
 ### Les méthodes
 
-La méthode dit ce que le client veut faire de la ressource. Deux propriétés définies par la RFC 9110 ont des conséquences directes sur la conception. Une méthode sûre (safe) ne modifie rien côté serveur, si bien qu’un cache ou un robot peut l’envoyer sans risque. Une méthode idempotente (idempotent) produit le même effet qu’on l’envoie une ou plusieurs fois, si bien qu’un client ou un proxy peut la rejouer après une erreur réseau sans craindre de dupliquer l’opération (le ch. 38 généralise cette idée).
+La méthode dit ce que le client veut faire de la ressource. Deux propriétés définies par la RFC 9110 ont des conséquences directes sur la conception. Une méthode sûre (safe) ne modifie rien côté serveur, si bien qu’un cache ou un robot peut l’envoyer sans risque. Une méthode idempotente (idempotent) produit le même effet qu’on l’envoie une ou plusieurs fois, si bien qu’un client ou un proxy peut la rejouer après une erreur réseau sans craindre de dupliquer l’opération (le [ch. 38](../partie-3/resilience-tentatives.mdx) généralise cette idée).
 
 | Méthode | Usage | Sûre | Idempotente |
 |---|---|---|---|
@@ -64,7 +64,7 @@ Le code tient en trois chiffres, et le premier donne la classe : 1xx informatio
 | 409 Conflict | conflit avec l’état de la ressource | relire l’état, puis décider |
 | 429 Too Many Requests | trop de requêtes ([ch. 30](../partie-2/limitation-debit.mdx)) | attendre la durée indiquée par `Retry-After` |
 | 500 Internal Server Error | erreur du serveur | réessayer seulement si la requête est idempotente |
-| 502 Bad Gateway, 504 Gateway Timeout | un intermédiaire n’a pas obtenu de réponse valide du serveur | réessayer avec prudence (ch. 38) |
+| 502 Bad Gateway, 504 Gateway Timeout | un intermédiaire n’a pas obtenu de réponse valide du serveur | réessayer avec prudence ([ch. 38](../partie-3/resilience-tentatives.mdx)) |
 | 503 Service Unavailable | serveur surchargé ou en maintenance | attendre, `Retry-After` si présent |
 
 La distinction entre 4xx et 5xx guide les nouvelles tentatives, car une erreur du client se reproduira à l’identique, alors qu’une erreur du serveur peut disparaître. Renvoyer 200 avec un message d’erreur dans le corps casse cette logique pour tous les intermédiaires (caches, répartiteurs, métriques) qui ne lisent que le code.
@@ -240,7 +240,7 @@ La confusion la plus répandue concerne `no-cache`, qui n’interdit pas le cach
 
 Mettre en cache dans un cache partagé une réponse qui dépend de l’utilisateur est plus grave. Une page « Mon compte » servie avec `Cache-Control: public, max-age=60` par un CDN peut être resservie au visiteur suivant, avec les données du premier. Tout ce qui dépend d’un cookie ou d’un en-tête `Authorization` doit être `private`, ou varier explicitement (`Vary`) et être conçu en connaissance de cause.
 
-Les nouvelles tentatives aveugles sont une autre source d’incidents. Réessayer un `POST` après une erreur réseau peut créer deux commandes, et accepter des données 0-RTT pour une requête qui modifie l’état ouvre la porte au rejeu. Seules les requêtes idempotentes, ou rendues idempotentes par une clé (ch. 38), se rejouent sans risque.
+Les nouvelles tentatives aveugles sont une autre source d’incidents. Réessayer un `POST` après une erreur réseau peut créer deux commandes, et accepter des données 0-RTT pour une requête qui modifie l’état ouvre la porte au rejeu. Seules les requêtes idempotentes, ou rendues idempotentes par une clé ([ch. 38](../partie-3/resilience-tentatives.mdx)), se rejouent sans risque.
 
 Certaines optimisations de l’ère HTTP/1.1 deviennent nuisibles en HTTP/2. Le domain sharding multiplie les connexions alors qu’une seule suffit, et les grandes images composites (sprites) ou la concaténation de tous les scripts en un fichier empêchent de mettre en cache séparément ce qui change et ce qui ne change pas.
 

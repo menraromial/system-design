@@ -234,7 +234,7 @@ Quand vous dessinez la passerelle, dites ce qu’elle fait et ce qu’elle ne fa
 
 *Authentification.* Les utilisateurs et les restaurants reçoivent des jetons signés (ch. 54), que chaque passerelle vérifie elle-même avec la clé publique du service d’identité, sans appel réseau ; seul le renouvellement des jetons passe par le service d’identité. Les passerelles retirent les en-têtes d’identité reçus des clients avant d’ajouter les leurs ; les services n’acceptent de connexions que des passerelles et des autres services, en TLS mutuel.
 
-*Entre services.* Les appels internes (commandes vers paiement, commandes vers livreurs) passent par un maillage de services ou par une bibliothèque commune, qui fixe les délais d’attente et les nouvelles tentatives (ch. 38) ; les passerelles n’en voient rien.
+*Entre services.* Les appels internes (commandes vers paiement, commandes vers livreurs) passent par un maillage de services ou par une bibliothèque commune, qui fixe les délais d’attente et les nouvelles tentatives ([ch. 38](../partie-3/resilience-tentatives.mdx)) ; les passerelles n’en voient rien.
 
 *Risque de configuration.* Chaque passerelle a sa configuration, versionnée dans le dépôt de l’équipe qui la possède ; les règles communes (limites de taille, en-têtes de sécurité) viennent d’un module partagé. Tout changement est relu, testé, puis déployé d’abord sur une fraction des instances, avec un retour arrière automatique si le taux d’erreurs monte (ch. 52). Aucune passerelle ne contient de logique métier. Une erreur sur le BFF mobile ne touche donc que l’application mobile, et seulement sur la fraction des instances où elle a été déployée.
 

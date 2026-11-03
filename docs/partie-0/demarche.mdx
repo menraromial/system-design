@@ -112,7 +112,7 @@ DELETE /sondages/{id}
 
 Deux détails méritent qu’on s’y arrête, parce qu’ils viennent des exigences et non d’une habitude. Il n’y a pas de comptes, donc le droit de modifier un vote ou de supprimer un sondage ne peut pas venir d’une connexion. Il vient d’un jeton secret (une longue chaîne aléatoire) remis au moment de la création, que le navigateur garde et renvoie. Et le décompte est renvoyé avec la page du sondage plutôt que par un appel séparé, parce que les deux sont toujours affichés ensemble, ce qui économise un aller-retour à chaque affichage.
 
-Une question doit aussi se poser dès ce stade : que se passe-t-il si le navigateur envoie deux fois le même `POST /participations`, parce que la réponse s’est perdue et que l’utilisateur a cliqué à nouveau ? Avec cette API, deux participations identiques apparaissent. Le ch. 38 traite ce problème en général ; pour l’instant, il suffit de l’avoir remarqué et noté.
+Une question doit aussi se poser dès ce stade : que se passe-t-il si le navigateur envoie deux fois le même `POST /participations`, parce que la réponse s’est perdue et que l’utilisateur a cliqué à nouveau ? Avec cette API, deux participations identiques apparaissent. Le [ch. 38](../partie-3/resilience-tentatives.mdx) traite ce problème en général ; pour l’instant, il suffit de l’avoir remarqué et noté.
 
 ### Étape 4 : le modèle de données
 

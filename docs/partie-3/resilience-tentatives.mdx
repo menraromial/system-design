@@ -1,0 +1,459 @@
+---
+title: "Résilience (1) : idempotence, nouvelles tentatives, délais d'attente"
+sidebar_label: "38. Idempotence, tentatives, délais"
+description: "Recommencer une requête sans payer deux fois ni achever le service : idempotence et clés d'idempotence, nouvelles tentatives et leur budget, recul exponentiel avec gigue, choix du délai d'attente, échéances propagées, requêtes doublées ; mesures sur un service ralenti, PostgreSQL 18, une chaîne de trois services et dix répliques."
+partie: 3
+chapitre: 38
+---
+
+import tempete from '@site/src/figures/resil-tempete.svg';
+import idempotence from '@site/src/figures/resil-idempotence.svg';
+import recul from '@site/src/figures/resil-backoff.svg';
+import echeance from '@site/src/figures/resil-echeance.svg';
+import doublee from '@site/src/figures/resil-doublee.svg';
+
+Un service sert 500 requêtes par seconde et en reçoit 300. Pendant dix secondes, il devient trois fois plus lent, puis il retrouve sa vitesse. Si ses clients abandonnent une requête au bout d’une seconde et s’en tiennent là, le service répond de nouveau à toutes les requêtes six à sept secondes après la fin du ralentissement. S’ils font jusqu’à trois nouvelles tentatives, le service reçoit 1 181 requêtes par seconde une fois sa vitesse retrouvée, et il ne répond plus à aucune pendant les vingt secondes qui restent de la mesure. Le ralentissement est passé, mais le service ne s’en remet pas, parce que les nouvelles tentatives maintiennent seules la surcharge. Attendre un délai croissant et aléatoire entre les tentatives ne change rien à ce résultat. Limiter les nouvelles tentatives à 10 % des requêtes, ou faire écarter par le service les requêtes qui finiraient après le départ de leur client, le rétablit.
+
+Ce chapitre traite de ce qu’un client fait quand une requête échoue ou ne revient pas. Il doit d’abord savoir si la requête peut être recommencée sans effet en double, ce qui est la question de l’idempotence. Il doit ensuite décider quand recommencer, combien de fois et à quel niveau d’une chaîne d’appels, combien de temps attendre entre deux tentatives, et combien de temps attendre une réponse. Les deux dernières sections portent sur l’échéance qu’une requête transmet aux services qu’elle traverse, et sur la requête doublée, qui recommence avant l’échec pour couper la queue de la distribution des latences. Les protections du côté du service (disjoncteur, cloisons, délestage) sont au ch. 39.
+
+Cinq expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch38/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch38). [`tempete.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch38/tempete.py) ralentit le service décrit plus haut ([`serveur.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch38/serveur.py)) sous six politiques de nouvelles tentatives. [`idempotence.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch38/idempotence.py) fait 2 000 paiements dans PostgreSQL 18 à travers un relais qui perd une réponse sur vingt, avec et sans clé d’idempotence. [`backoff.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch38/backoff.py) compare par simulation les façons d’attendre entre deux tentatives. [`echeances.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch38/echeances.py) fait passer des requêtes par une chaîne de trois services. [`doublees.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch38/doublees.py) envoie des lectures à dix répliques qui s’arrêtent de temps en temps. Chaque script a été lancé deux fois.
+
+## Un délai dépassé ne dit pas ce qui s’est passé
+
+Le [ch. 32](pannes-partielles.mdx) a montré qu’un client dont le délai d’attente (timeout) est dépassé ne sait pas si sa requête a été perdue avant d’arriver, exécutée puis sa réponse perdue, ou si elle est encore en cours sur un serveur lent. La première partie de `idempotence.py` le chiffre sur un service de paiement. Le client fait 2 000 paiements, 20 à la fois, attend chaque réponse au plus une seconde et ne recommence jamais. Un relais placé devant le service perd la réponse d’une requête sur vingt, et le service met plus d’une seconde à traiter une requête sur dix.
+
+```text
+PostgreSQL 18 ; 2000 paiements, 20 à la fois, délai 1 s, réponse perdue 5%
+
+1. paiements faits deux fois
+   mode                       tent. perdues    ok échec  dont doublons rejouées
+                                                        faits
+   sans retry                  2000      92  1620   380   380        0        0
+   retry sans clé              2560     110  1995     5     5      560        0
+   clé vérifiée puis écrite    2456     121  2000     0     0      273        0
+   clé dans la transaction     2403     118  2000     0     0        0      362
+```
+
+Ce bloc est celui du second passage ; le premier a donné 405 échecs, puis 472, 291 et 0 doublons. Sans nouvelle tentative, le client voit 380 à 405 échecs, et la colonne « dont faits » montre que tous ces paiements ont pourtant été exécutés. Le client croit avoir échoué, le compte a été débité. Avec des nouvelles tentatives et sans autre précaution, presque tous les paiements finissent par réussir, mais 472 et 560 d’entre eux ont été faits deux fois ou plus. Les deux lignes suivantes, avec une clé d’idempotence, sont expliquées plus bas.
+
+Une opération est idempotente si l’exécuter plusieurs fois a le même effet que l’exécuter une fois. La RFC 9110, qui définit la sémantique de HTTP, l’applique aux méthodes. L’effet voulu de plusieurs requêtes identiques doit être celui d’une seule, et c’est le cas de `PUT`, de `DELETE` et des méthodes sûres comme `GET`[^rfc9110]. La même section en tire la règle des nouvelles tentatives. Une requête idempotente peut être renvoyée automatiquement après une coupure, même si l’originale a réussi. Un client ne devrait pas renvoyer automatiquement une requête non idempotente, sauf s’il sait par ailleurs que son effet est idempotent ou qu’elle n’a pas été appliquée, et un relais (proxy) ne doit jamais le faire. La règle porte sur l’effet demandé, pas sur la méthode. Un `POST` peut être idempotent par construction, et un `PUT` mal conçu ne l’est pas.
+
+## Rendre une opération idempotente
+
+Certaines opérations le sont naturellement. Fixer une valeur (`solde = 120`) l’est, l’augmenter (`solde = solde - 1`) ne l’est pas. Une mise à jour conditionnelle (« fixer le statut à `expédiée` si la version est 7 ») l’est aussi, puisque la seconde exécution ne trouve plus la version 7. Supprimer une ligne par sa clé l’est, même si la seconde suppression répond « introuvable ». Quand l’opération ne l’est pas, et c’est le cas de tout ce qui crée quelque chose ou déplace de l’argent, on la rend idempotente par une clé d’idempotence (idempotency key).
+
+Le client tire une clé unique pour chaque opération, par exemple un UUID version 4 ([ch. 31](../partie-2/identifiants.mdx)), et l’envoie avec la requête, puis avec chaque nouvelle tentative de la même opération. Le service enregistre la clé avec la réponse qu’il a donnée. S’il revoit la clé, il ne refait pas l’opération ; il renvoie la réponse enregistrée (figure 38.1). Stripe documente ce fonctionnement pour son API de paiement[^stripe]. La clé passe dans l’en-tête `Idempotency-Key`, fait au plus 255 caractères, et Stripe suggère un UUID version 4 ou une autre chaîne aléatoire assez longue pour éviter les collisions. Le service enregistre le code et le corps de la première réponse dès que l’exécution a commencé, y compris une erreur 500, et compare les paramètres d’une requête répétée à ceux de l’originale pour refuser une clé réemployée par erreur. Un brouillon de l’IETF normalise l’en-tête (sa version 08 date du 22 octobre 2026) et les erreurs qui l’accompagnent : 400 quand la clé manque à une opération qui l’exige, 422 quand une clé revient avec un autre corps, 409 quand une requête de même clé est encore en cours[^ietf-cle].
+
+<Figure svg={idempotence} num="38.1" alt="Diagramme de séquence entre un client, un service et PostgreSQL. 1 : le client envoie POST /payer avec la clé k7. Le service ouvre une transaction, insère k7 dans la table cles, fait le débit, enregistre la réponse et valide. La réponse 201 est perdue. Le délai du client est dépassé ; il attend un délai avec gigue. 2 : il renvoie POST /payer avec la même clé k7. L’insertion de k7 est en conflit ; le service lit la réponse enregistrée (201, paiement 4182) et la renvoie, marquée rejouée. Un seul débit, car la clé et le paiement sont validés dans la même transaction ; un retry de k7 avec un autre montant reçoit 422.">
+Une réponse perdue, puis une nouvelle tentative avec la même clé d’idempotence.
+</Figure>
+
+La figure se lit de haut en bas. La première tentative fait le paiement, mais sa réponse se perd ; la seconde, qui porte la même clé, trouve la clé déjà enregistrée et reçoit la réponse de la première. Le client obtient le numéro du paiement fait, et le compte n’est débité qu’une fois.
+
+### Où enregistrer la clé
+
+Le tableau du début compare deux façons d’enregistrer la clé. La première, « clé vérifiée puis écrite », cherche la clé ; si elle est absente, elle fait le paiement dans une transaction, puis enregistre la clé et la réponse dans une seconde transaction. Elle a laissé 291 et 273 paiements en double. Le défaut tient à la fenêtre entre la vérification et l’enregistrement. Une requête sur dix met 1,2 à 2 s à s’exécuter ; le client abandonne au bout d’une seconde et renvoie la requête, qui arrive pendant que la première est encore dans sa transaction. La seconde ne trouve pas la clé, puisque la première ne l’a pas encore écrite, et paie à son tour. Le même défaut apparaît sans délai dépassé, quand un client envoie deux fois la même requête presque en même temps (un double clic, une requête doublée).
+
+La seconde façon, « clé dans la transaction », insère la clé au début de la transaction du paiement, dans une table où elle est clé primaire, et y enregistre la réponse avant de valider. Elle n’a laissé aucun doublon dans les deux passages, et 343 et 362 requêtes ont reçu une réponse rejouée. Quand une seconde requête arrive pendant la première, son insertion trouve dans l’index une clé insérée par une transaction pas encore validée, et PostgreSQL la fait attendre la fin de cette transaction. Si la première valide, l’insertion échoue sur le conflit (`on conflict do nothing` ne renvoie aucune ligne), et le service lit la réponse enregistrée ; si la première annule, la seconde insère la clé et fait le paiement. La clé et l’effet sont validés ensemble ou pas du tout, et c’est cette atomicité qui rend la clé fiable, comme pour la boîte d’envoi du [ch. 37](transactions-distribuees.mdx).
+
+```text
+2. coût de la clé, paiements l'un après l'autre (ms)
+   sans clé                     médiane  4.74   99e centile  6.40
+   clé dans la transaction      médiane  5.78   99e centile  7.76
+
+3. même clé, trois requêtes
+   montant 100 : 201 {"paiement": 1}
+                 Idempotent-Replayed : -
+   montant 100 : 201 {"paiement": 1}
+                 Idempotent-Replayed : true
+   montant 250 : 422 {"erreur": "clé déjà employée"}
+                 Idempotent-Replayed : -
+   paiements en base : 1
+```
+
+La clé coûte une insertion et une mise à jour de plus dans la transaction, soit 0,7 à 1 ms par paiement sur cette machine (5,37 contre 6,06 ms en médiane au premier passage). La troisième partie envoie trois fois la clé `commande-4521`. La deuxième requête, identique à la première, reçoit la même réponse sans nouveau paiement. La troisième, avec un autre montant, reçoit 422, car le service garde une empreinte du corps (un SHA-256) et la compare.
+
+Cette solution suppose que l’effet tient dans la même base que la clé. Quand le service appelle un tiers, une banque ou un fournisseur de SMS, aucune transaction ne couvre les deux, et l’on retombe sur le problème de la double écriture du [ch. 37](transactions-distribuees.mdx). On enregistre alors la clé avec un état (« en cours », « appel fait », « terminé »), on répond 409 à une requête de même clé qui arrive pendant le traitement, et l’on transmet au tiers une clé dérivée de la sienne s’il en accepte une, pour que la reprise après une panne ne paie pas deux fois. Il reste à décider combien de temps garder les clés. Stripe peut retirer une clé au bout de 24 heures, et une requête qui réemploie une clé retirée est traitée comme nouvelle[^stripe] ; la durée doit couvrir toutes les tentatives d’un client, y compris celles qui reprennent après une longue panne.
+
+## Quand recommencer, et combien de fois
+
+Une nouvelle tentative (retry) n’a de sens que si l’échec est passager. Une connexion refusée, une connexion coupée, un 503 (Service Unavailable) ou un 429 (Too Many Requests, avec son `Retry-After`, [ch. 30](../partie-2/limitation-debit.mdx)) peuvent ne pas se reproduire. Un 400, un 401, un 403, un 404 ou un 422 se reproduiront à l’identique, et recommencer ne fait qu’ajouter de la charge. Un délai dépassé est passager ou non selon sa cause, et il est ambigu sur l’effet ; on ne le recommence que si l’opération est idempotente. Marc Brooker, qui a écrit pour Amazon le texte de référence sur ces questions, rappelle que les nouvelles tentatives sont égoïstes[^brooker-delais]. Un client qui recommence consomme davantage du temps du serveur pour augmenter ses propres chances de succès ; quand l’échec vient d’une surcharge, il aggrave la cause de l’échec.
+
+On borne donc le nombre de tentatives par requête. Le livre de Google sur l’ingénierie de la fiabilité (Site Reliability Engineering) fait remonter l’erreur à l’appelant après trois échecs[^sre-surcharge]. La politique de nouvelles tentatives de gRPC fixe le nombre maximal de tentatives (`maxAttempts`), et toute valeur au-delà de 5 est ramenée à 5[^grpc-a6].
+
+### À un seul niveau
+
+Une borne par requête ne suffit pas quand plusieurs niveaux recommencent chacun de leur côté. Si un client appelle A, qui appelle B, qui appelle C, et que chacun fait jusqu’à $a$ tentatives, une panne de C produit jusqu’à $a^n$ tentatives sur C pour $n$ niveaux qui recommencent. La première partie de `echeances.py` met C en panne (il répond 503 aussitôt) et compte ce qu’il reçoit pour 100 requêtes du client.
+
+```text
+1. C en panne : tentatives reçues par C pour 100 requêtes du client
+   3 tentatives à chaque niveau    2700, soit 27 par requête
+   3 tentatives au seul client      300, soit 3 par requête
+```
+
+Avec trois tentatives au client, à A et à B, C reçoit $3^3 = 27$ requêtes pour chaque requête du client, au moment exact où il est en panne. Le livre de Google donne le même calcul pour trois niveaux qui font chacun trois nouvelles tentatives (quatre tentatives), soit $4^3 = 64$ tentatives sur la base pour une action de l’utilisateur[^sre-cascade] ; Brooker cite une pile de cinq niveaux qui multiplie ainsi par 243 la charge de la base[^brooker-delais]. La règle qu’ils en tirent est la même. On recommence en un seul point de la chaîne, en général le niveau juste au-dessus de celui qui a échoué, et les autres niveaux transmettent l’échec. Le niveau qui a épuisé ses tentatives répond par une erreur qui dit de ne pas recommencer (« surchargé, ne pas recommencer »), pour que les niveaux supérieurs ne relancent pas tout[^sre-surcharge].
+
+### Un budget de nouvelles tentatives
+
+La borne par requête limite l’amplification à $a$, mais $a$ fois la charge d’un service en difficulté reste beaucoup. Le livre de Google ajoute un budget par client. Chaque client suit la proportion de ses requêtes qui sont des nouvelles tentatives et ne recommence que tant qu’elle reste sous 10 %. Selon les auteurs, des erreurs généralisées font monter le trafic jusqu’à presque trois fois son niveau sans ce budget, et de 10 % seulement avec lui[^sre-surcharge]. D’autres outils proposent le même mécanisme sous d’autres formes. gRPC tient pour chaque serveur un compteur de jetons, qui part de `maxTokens`, perd 1 à chaque appel en échec et gagne `tokenRatio` à chaque succès ; quand il tombe à la moitié de `maxTokens` ou moins, les nouvelles tentatives et les requêtes doublées sont suspendues[^grpc-a6]. Le relais Envoy limite les nouvelles tentatives en cours à une part des requêtes actives (`budget_percent`, 20 % par défaut), avec un plancher (`min_retry_concurrency`, 3 par défaut)[^envoy].
+
+## La tempête de nouvelles tentatives
+
+`tempete.py` met ces règles à l’épreuve. Le service a 10 places de traitement et occupe une place 20 ms par requête, soit une capacité de 500 requêtes par seconde ; une requête qui ne trouve pas de place attend dans une file sans limite, dans l’ordre d’arrivée. Comme la plupart des serveurs, il ne sait pas qu’un client est parti et traite jusqu’au bout une requête abandonnée. Les clients arrivent au rythme de 300 requêtes par seconde, quoi qu’il arrive au service (une boucle ouverte, comme des utilisateurs qui continuent d’arriver), et chaque tentative attend au plus une seconde. De $t = 10$ s à $t = 20$ s, chaque requête prend 60 ms au lieu de 20, et la capacité tombe à 167 par seconde. On compare six politiques ; les quatre dernières font jusqu’à trois nouvelles tentatives.
+
+```text
+service : 10 places x 20 ms (500/s), ralenti x3 de 10 à 20 s ;
+clients : 300 requêtes/s, délai de 1 s, au plus 4 tentatives
+
+   aucun  (retard maximal de la boucle cliente : 2 ms)
+     phase     reçues/s pour rien/s écartées/s  réussite  CPU srv
+     avant          291           0          0    100.0%      12%
+     ralenti        306         128          0     11.4%      15%
+     après 1        296         302          0     46.2%      15%
+     après 2        301           0          0    100.0%      12%
+
+   immediat  (retard maximal de la boucle cliente : 41 ms)
+     phase     reçues/s pour rien/s écartées/s  réussite  CPU srv
+     avant          291           0          0    100.0%      12%
+     ralenti        938         126          0     11.4%      28%
+     après 1       1181         449          0      0.0%      45%
+     après 2       1212         424          0      0.0%      44%
+
+   backoff  (retard maximal de la boucle cliente : 130 ms)
+     phase     reçues/s pour rien/s écartées/s  réussite  CPU srv
+     avant          291           0          0    100.0%      11%
+     ralenti        895         125          0     11.5%      32%
+     après 1       1216         450          0      0.0%      43%
+     après 2       1201         421          0      0.0%      49%
+
+   budget  (retard maximal de la boucle cliente : 7 ms)
+     phase     reçues/s pour rien/s écartées/s  réussite  CPU srv
+     avant          291           0          0    100.0%      11%
+     ralenti        337         128          0     11.4%      16%
+     après 1        325         459          0     13.6%      20%
+     après 2        301           0          0    100.0%      11%
+
+   echeance  (retard maximal de la boucle cliente : 99 ms)
+     phase     reçues/s pour rien/s écartées/s  réussite  CPU srv
+     avant          291           0          0    100.0%      10%
+     ralenti        938         121        654     11.4%      29%
+     après 1       1173         447        733      0.0%      38%
+     après 2       1220         448        772     10.7%      40%
+
+   prevue  (retard maximal de la boucle cliente : 6 ms)
+     phase     reçues/s pour rien/s écartées/s  réussite  CPU srv
+     avant          291           0          0    100.0%      10%
+     ralenti        697           3        461     69.5%      14%
+     après 1        343           1         50    100.0%      12%
+     après 2        301           0          0    100.0%      13%
+```
+
+Chaque phase dure dix secondes. « Pour rien » compte les requêtes que le service a traitées jusqu’au bout alors que leur client était déjà parti, et « réussite » la part des requêtes arrivées pendant la phase qui ont fini par réussir. Le second passage a donné les mêmes chiffres à quelques pour cent près (par exemple 46,5 % au lieu de 46,2 % pour « aucun » juste après le ralentissement, 15,0 % au lieu de 13,6 % pour le budget, 70,0 % au lieu de 69,5 % pour « prevue »), et le processeur du serveur n’a jamais dépassé 49 %. La figure 38.2 trace les quatre politiques qui se distinguent.
+
+<Figure svg={tempete} num="38.2" alt="Deux graphiques sur 40 secondes, avec une bande grise de 10 à 20 s où le service est trois fois plus lent. En haut, les tentatives reçues par le service : environ 300 par seconde avant le ralentissement pour toutes les politiques ; avec trois nouvelles tentatives immédiates, elles montent à 1 200 par seconde et y restent jusqu’à la fin ; avec le service qui écarte ce qui finirait après l’échéance, elles montent à 900 puis redescendent à 300 vers 22 s ; sans nouvelle tentative et avec le budget de 10 %, elles restent proches de 300. La capacité est de 500 par seconde, 167 pendant le ralentissement. En bas, les requêtes réussies : 300 par seconde avant ; toutes tombent vers 0 pendant le ralentissement sauf la politique qui écarte selon l’échéance (100 à 150 par seconde) ; sans nouvelle tentative, le service revient à 26 s, avec le budget à 29 s, en écartant selon l’échéance dès 20 s, et avec trois nouvelles tentatives immédiates jamais.">
+Tentatives reçues et requêtes réussies, par seconde, sous quatre politiques.
+</Figure>
+
+Le graphique du haut montre la charge que reçoit le service, celui du bas ce que les clients en obtiennent. La bande grise est le ralentissement. Le trait rouge du haut reste au-dessus de la capacité bien après la fin du ralentissement, et celui du bas reste à zéro.
+
+Sans nouvelle tentative, le ralentissement laisse une file. Pendant dix secondes, il arrive 300 requêtes par seconde pour 167 servies, soit environ 1 300 requêtes en trop, et quand le service retrouve sa vitesse, il vide cette file à 500 − 300 = 200 requêtes par seconde, en six à sept secondes. Pendant ce temps, chaque requête attend plus d’une seconde, son client est parti, et le service travaille pour rien (302 requêtes par seconde). Puis la file est vide, et tout revient à la normale vers $t = 26$ s.
+
+Avec trois nouvelles tentatives immédiates, chaque requête abandonnée en ajoute une autre. Dès que l’attente dépasse une seconde, toutes les tentatives échouent, chaque requête du client en devient quatre, et le service en reçoit 1 181 à 1 216 par seconde, plus du double de sa capacité. La file ne peut plus se vider, l’attente reste au-delà d’une seconde, et le service, occupé à plein (424 à 454 requêtes par seconde servies pour rien), ne répond plus à personne alors que la cause du ralentissement a disparu. C’est une panne métastable : un déclencheur passager fait entrer le système dans un état de surcharge qui s’entretient tout seul, et il y reste après la disparition du déclencheur. Le ch. 39 y revient.
+
+Le recul avec gigue (ligne `backoff`) ne change rien ici, et ce résultat mérite d’être compris. Il retarde chaque nouvelle tentative de quelques centaines de millisecondes, mais chaque requête fait toujours ses quatre tentatives, et de nouveaux clients arrivent sans cesse ; la charge moyenne reste quatre fois celle des requêtes. Le budget de 10 % agit sur le bon levier, le nombre de tentatives. Il ne fait pas mieux que l’absence de nouvelle tentative pendant le ralentissement ni juste après (la file se vide de la même façon, avec 25 requêtes par seconde de plus), mais il n’entretient pas la surcharge, et tout revient à la normale vers $t = 29$ s. Les deux dernières lignes portent sur l’échéance et sont expliquées plus bas.
+
+## Recul exponentiel et gigue
+
+Attendre entre deux tentatives a deux buts. Laisser au service le temps de se remettre, ce que fait un délai croissant, et éviter que des clients qui ont échoué ensemble recommencent ensemble, ce que fait une part de hasard. Le recul exponentiel (exponential backoff) attend une durée qui double à chaque échec, jusqu’à un plafond ; la gigue (jitter) tire une partie de cette durée au hasard. Marc Brooker compare en 2015 trois façons d’ajouter la gigue[^brooker-gigue]. Avec une base $b$, un plafond $c$ et $n$ échecs, l’attente vaut
+
+$$
+\begin{aligned}
+\text{sans gigue :}\quad & d_n = \min(c,\ b \cdot 2^n) \\
+\text{gigue complète :}\quad & \text{tirage uniforme entre } 0 \text{ et } d_n \\
+\text{gigue égale :}\quad & d_n / 2 + \text{tirage uniforme entre } 0 \text{ et } d_n / 2 \\
+\text{gigue décorrélée :}\quad & \min(c,\ \text{tirage uniforme entre } b \text{ et } 3 \cdot a_{n-1})
+\end{aligned}
+$$
+
+où $a_{n-1}$ est l’attente précédente. Brooker les compare sur un scénario de contrôle de concurrence optimiste ([ch. 18](../partie-2/transactions-isolation.mdx)), où des clients veulent modifier la même ligne et où une écriture échoue si une autre l’a précédée depuis sa lecture. Avec 100 clients, la gigue réduit le nombre d’appels de plus de moitié par rapport au recul sans gigue ; la gigue complète demande le moins de travail, et la gigue égale est la plus lente des trois[^brooker-gigue]. gRPC emploie une gigue plus étroite, qui multiplie le délai exponentiel par un tirage entre 0,8 et 1,2[^grpc-a6].
+
+`backoff.py` refait ce calcul avec une base de 10 ms, un plafond d’une seconde et un délai réseau de 10 ms en moyenne, et ajoute la nouvelle tentative immédiate. Le calcul ne dépend que du tirage, et deux lancements donnent les mêmes chiffres.
+
+```text
+1. contention optimiste : tentatives et durée jusqu'au dernier succès
+   (base 10 ms, plafond 1000 ms, moyenne sur 200 tirages)
+
+   10 clients
+   politique          tentatives par client      durée
+   immédiat                   45        4.5      168ms
+   sans gigue                 44        4.4     2323ms
+   gigue égale                34        3.4      412ms
+   gigue complète             31        3.1      283ms
+   gigue décorrélée           30        3.0      286ms
+
+   100 clients
+   politique          tentatives par client      durée
+   immédiat                 2196       22.0      935ms
+   sans gigue               1482       14.8    25864ms
+   gigue égale               640        6.4     3289ms
+   gigue complète            626        6.3     2464ms
+   gigue décorrélée          686        6.9     2440ms
+```
+
+Le script affiche aussi 50 clients, omis ici, entre les deux. Avec 100 clients, la nouvelle tentative immédiate finit le plus vite, en moins d’une seconde, mais coûte 22 tentatives par client, car chaque tour n’a qu’un gagnant. Le recul sans gigue en coûte encore 14,8 et prend 26 s. Les clients qui échouent ensemble attendent la même durée et recommencent ensemble, et le recul allonge seulement l’intervalle entre deux collisions. Les trois gigues coûtent 6,3 à 6,9 tentatives par client et finissent en 2,4 à 3,3 s ; la gigue complète et la gigue décorrélée font jeu égal, et la gigue égale est un peu plus lente, comme chez Brooker.
+
+La seconde partie de `backoff.py` reproduit le cas des clients synchronisés par une panne, celui des clients d’un service de messagerie qui se reconnectent tous après un redémarrage ([ch. 8](../partie-1/pousser-donnees.mdx)). Mille clients échouent ensemble à $t = 0$, le service est absent pendant deux secondes, puis il accepte au plus 100 requêtes par tranche de 50 ms et refuse les autres.
+
+```text
+2. 1 000 clients synchronisés, service absent pendant 2 s,
+   puis 100 requêtes acceptées par tranche de 50 ms
+   politique          tentatives pic/50 ms dernier servi
+   sans gigue              12500      1000       11.26 s
+   gigue égale              8977        88        3.00 s
+   gigue complète          10441       101        2.96 s
+   gigue décorrélée        14664       116        3.10 s
+```
+
+<Figure svg={recul} num="38.3" alt="Deux histogrammes des tentatives par tranche de 50 ms sur 8 secondes, pour 1 000 clients synchronisés et un service absent pendant 2 s (zone grise), puis limité à 100 requêtes par tranche (ligne rouge). Sans gigue : des barres isolées de 1 000 tentatives à 0,05, 0,1, 0,3, 0,6, 1,25 et 2,25 s, puis des vagues toutes les secondes de 900, 800, 700, 600 et 500 tentatives, le dernier client servi à 11,3 s. Avec gigue complète : 3 235 tentatives dans la première tranche, puis une décroissance vers une centaine par tranche, qui s’écoule au niveau de la capacité de 2 à 3 s, le dernier client servi à 3,0 s.">
+Tentatives par tranche de 50 ms, 1 000 clients synchronisés, sans gigue et avec gigue complète.
+</Figure>
+
+Sans gigue, les 1 000 clients recommencent dans la même tranche de 50 ms, à chaque fois. Le service, revenu à $t = 2$ s, en accepte 100 par vague et refuse les 900 autres, qui reviennent ensemble une seconde plus tard (le plafond), et il faut dix vagues pour servir tout le monde, jusqu’à 11,3 s. Avec gigue, les tentatives s’étalent, et le service travaille à sa capacité dès son retour ; le dernier client est servi à 3,0 s. Le nombre total de tentatives varie peu, ce que la gigue gagne ici, c’est la forme de la charge, et non son volume.
+
+Le recul avec gigue est donc utile face à un groupe de clients qui échouent ensemble, et un client bien écrit l’emploie toujours. Mais il ne remplace ni la borne sur le nombre de tentatives ni le budget. Dans la tempête de la figure 38.2, de nouvelles requêtes arrivent sans cesse et chacune fait toutes ses tentatives ; le recul retarde la charge sans la réduire.
+
+## Choisir un délai d’attente
+
+Sans délai d’attente, un client peut attendre indéfiniment une réponse qui ne viendra pas. C’est le comportement par défaut de gRPC, dont la documentation recommande de toujours fixer une échéance[^grpc-echeances], et de beaucoup de bibliothèques HTTP. Chaque requête en attente tient une connexion, un fil ou une coroutine, de la mémoire, souvent une connexion à une base. Le livre de Google en donne un exemple chiffré[^sre-cascade]. Un service frontal a 1 000 fils, reçoit 1 000 requêtes par seconde qui durent 100 ms, et n’en occupe donc que 100. Si 5 % des requêtes ne se terminent jamais et que l’échéance est de 100 s, ces requêtes occupent chacune un fil pendant 100 s ; il en faudrait 50 × 100 = 5 000, et le service ne peut plus traiter que 19,6 % des requêtes, soit 80,4 % d’erreurs pour 5 % de requêtes en défaut.
+
+Un délai trop court a l’inconvénient inverse. Il abandonne des requêtes qui auraient abouti, et si le client recommence, il ajoute de la charge. Brooker décrit la méthode d’Amazon[^brooker-delais]. On choisit un taux acceptable de faux délais dépassés, par exemple 0,1 %, et l’on prend le centile correspondant de la latence du service appelé, ici le 99,9e. `doublees.py` mesure cette distribution sur dix répliques qui répondent en 1 à 3 ms, sauf pendant des pauses de 50 à 150 ms qui surviennent en moyenne toutes les 5 s, comme des pauses du ramasse-miettes.
+
+```text
+10 répliques, pauses de 50 à 150 ms toutes les 5 s en moyenne ; 30 s par essai
+
+   (ms)                         méd.    95e    99e   99,9e    max    envois
+1. lecture simple, 400/s
+   simple                        4.0    5.1   61.1   125.7    145     0.0 %
+
+   délai d'attente et part de faux délais dépassés
+        5 ms :   6.81 %
+       10 ms :   2.07 %
+       20 ms :   1.87 %
+       50 ms :   1.21 %
+      100 ms :   0.35 %
+      150 ms :   0.00 %
+```
+
+La médiane est de 4 ms, mais un délai de 10 ms abandonnerait 2 % des lectures, et il faut aller jusqu’à 100 ms pour descendre à 0,3 % (0,27 % au second passage, dont le 99,9e centile était de 116 ms). Le délai ne se choisit pas sur la latence typique, mais sur la queue de la distribution, et celle-ci dépend d’événements rares (les pauses ici) que seule une mesure en production révèle. On distingue aussi le délai d’établissement de la connexion, court, puisqu’il ne couvre qu’un aller-retour ([ch. 4](../partie-1/transport.mdx)), du délai de la requête, qui couvre le traitement. Et le délai d’une tentative n’est pas celui de toute l’opération. Trois tentatives d’une seconde séparées par des attentes font une opération qui peut durer quatre secondes, et c’est cette durée totale que l’appelant doit pouvoir supporter.
+
+## Les échéances et leur propagation
+
+Dans une chaîne d’appels, chaque service a son propre délai vers le suivant, et ces délais sont réglés indépendamment, souvent avec des valeurs par défaut. La figure 38.4 montre ce qui se passe quand le client attend 1 s et que A et B attendent chacun 2 s. Si C met 1,5 s, le client est parti à 1 s, mais A, B et C continuent de travailler pour lui pendant une demi-seconde. Une échéance (deadline) corrige cela. Le client fixe l’instant au-delà duquel la réponse ne l’intéresse plus et le transmet ; chaque service en déduit le temps qui lui reste, l’emploie comme délai vers le service suivant et le transmet à son tour.
+
+<Figure svg={echeance} num="38.4" alt="Deux chronogrammes de 0 à 2 000 ms pour un client, A, B et C. Délais fixes (client 1 s, A et B 2 s) : le client abandonne à 1 000 ms, mais A, B et C continuent jusqu’à environ 1 515 ms ; la partie après 1 000 ms est marquée en rouge comme travail pour un client parti. Échéance propagée par X-Echeance-Ms : A reçoit 995 ms, B 985, C 980, et tous s’arrêtent à 1 000 ms ; B répond 504 sans appeler C quand il ne reste plus rien, et C abandonne son travail à l’échéance.">
+Délais fixes et échéance propagée dans une chaîne de trois services.
+</Figure>
+
+La figure se lit à l’horizontale. En haut, les barres rouges sont le travail fait après le départ du client. En bas, toutes les barres s’arrêtent à l’échéance du client, parce que chaque service connaît le temps qui lui reste.
+
+gRPC le fait d’origine. Le client fixe une échéance ; quand un serveur appelle lui-même un autre serveur, gRPC convertit l’échéance en délai en retranchant le temps écoulé, ce qui évite d’avoir à synchroniser les horloges. Java et Go propagent l’échéance par défaut, C++ sur demande. Quand l’échéance passe, le client reçoit `DEADLINE_EXCEEDED` et le serveur voit l’appel annulé, mais la documentation précise que c’est à l’application d’arrêter le travail qu’elle a lancé[^grpc-echeances]. Dans l’exemple du livre de Google, un serveur A qui a reçu une échéance de 30 s et a déjà travaillé 7 s accorde 23 s à son appel vers B. Il recommande aussi de vérifier le temps restant avant chaque étape du traitement, et de propager l’annulation[^sre-cascade]. En HTTP, il n’existe pas d’en-tête standard ; on en définit un, comme `X-Echeance-Ms` dans les expériences, qui porte un temps restant (relatif, comme `grpc-timeout`) plutôt qu’un instant (absolu), qui supposerait des horloges synchronisées ([ch. 33](temps.mdx)).
+
+La seconde partie de `echeances.py` fait passer 20 requêtes par seconde pendant 30 s dans la chaîne. C répond en 50 ms, sauf une fois sur dix où il lui faut 1,5 s ; le client attend 1 s par tentative et fait jusqu’à trois tentatives. On mesure le temps que C passe à travailler pour des requêtes dont le client est déjà parti.
+
+```text
+2. C lent une fois sur dix (1,5 s) ; client : 1 s par tentative, 3 tentatives,
+   20 requêtes/s pendant 30 s
+   réglage        réussite  reçues  C utile  C perdu abandonné  durée 99e
+   fixes (2 s)      100.0%     693      31s     110s        0s      1.06s
+   0,9 / 0,8 s      100.0%     691      31s      99s        0s      0.86s
+   échéance         100.0%     707      32s       0s       71s      2.06s
+```
+
+Le script tire les lenteurs avec une graine fixe, et le second passage a donné les mêmes chiffres, à la colonne « durée 99e » près. Avec des délais fixes de 2 s, C a passé 110 s à travailler pour des clients partis, plus de trois fois son travail utile (31 s). Des délais décroissants (A attend 0,9 s, B 0,8 s), souvent conseillés, ne changent presque rien (99 s), car B abandonne C à temps, mais C ne le sait pas et finit son travail. Avec l’échéance propagée, C ne travaille plus du tout pour un client parti. Il a commencé 71 s de travail qu’il a abandonné à l’échéance, puisqu’il ne pouvait pas savoir d’avance qu’une requête serait lente ; la perte n’est plus que la part du travail faite avant l’échéance. La colonne « durée 99e » tombe sur la limite entre une et deux tentatives lentes de suite ($0{,}1^2 = 1\ \%$ des requêtes), et elle passe de 1 à 2 s d’un passage à l’autre ; elle ne distingue pas les réglages.
+
+### Ce que l’échéance change à la tempête
+
+Les deux dernières lignes de la tempête appliquent l’échéance du côté du service. Avec `echeance`, le service lit l’en-tête, et quand vient le tour d’une requête, il la rejette (504) sans la traiter si son client est déjà parti. Il en a écarté 654 à 772 par seconde, et pourtant le résultat ne vaut guère mieux que sans échéance, avec 0 à 0,6 % de réussite juste après le ralentissement, 10 à 10,7 % ensuite, et toujours 421 à 449 requêtes par seconde traitées pour rien. La file explique ce chiffre. En surcharge, une file servie dans l’ordre d’arrivée se remplit jusqu’à ce que l’attente atteigne le délai des clients, puisque tout ce qui attend davantage est écarté. Chaque requête qui passe le contrôle a donc attendu presque une seconde ; elle est servie en 20 ms et finit juste après le départ de son client.
+
+La ligne `prevue` corrige ce défaut en écartant aussi les requêtes qui finiraient après l’échéance, d’après la durée de service du moment. Le service ne gaspille plus rien (3 ou 4 requêtes par seconde pour rien), il réussit 69,5 à 70 % des requêtes pendant le ralentissement, plus que toutes les autres politiques, et 100 % dès qu’il retrouve sa vitesse, alors que les clients font toujours leurs trois nouvelles tentatives. Le contrôle de l’échéance n’est donc utile que s’il porte sur la fin prévue du travail et pas sur son début. Il reste un défaut, car les requêtes servies pendant la surcharge ont attendu presque une seconde ; une file bornée, ou servie dans l’ordre inverse, réduit cette attente, et c’est l’objet du ch. 39.
+
+## Les requêtes doublées
+
+Le [ch. 9](../partie-1/latence-debit.mdx) a introduit la requête doublée (hedged request) sur une simulation. Si la réponse n’est pas venue au bout d’un délai, on envoie la même requête à une autre réplique et l’on garde la première réponse, puis l’on annule l’autre. Jeff Dean et Luiz André Barroso conseillent d’attendre le 95e centile de la latence attendue, ce qui limite la charge supplémentaire à environ 5 %[^tail]. C’est une nouvelle tentative envoyée avant l’échec, et elle n’est permise que pour une requête idempotente, en pratique une lecture (figure 38.5).
+
+<Figure svg={doublee} num="38.5" alt="Diagramme de séquence entre un client et deux répliques. 1 : le client envoie GET /lire à la réplique 1, qui est en pause de 50 à 150 ms (bande rouge sur sa ligne de vie, ramasse-miettes ou compactage). Faute de réponse au 95e centile (5,1 ms), 2 : il envoie la même lecture à la réplique 2, qui répond 200 environ 2 ms plus tard. Le client annule la première requête en fermant la connexion. Mesuré sur 10 répliques à 400 lectures par seconde : 99e centile de 61 à 9,7 ms, 99,9e de 126 à 11 ms, pour 2,3 % de requêtes en plus.">
+Une requête doublée au 95e centile.
+</Figure>
+
+La lenteur vient ici de la réplique et non de la requête, ce qui est la condition pour que doubler serve à quelque chose. `doublees.py` le mesure sur les dix répliques de la section précédente, à 400 lectures par seconde, puis sur des requêtes en éventail (fan-out) qui lisent les dix répliques et attendent les dix réponses.
+
+```text
+2. lecture doublée, 400/s (95e centile de la lecture simple : 5.1 ms)
+   doublée après 5.1 ms          3.9    5.1    9.7    11.1     36     2.3 %
+   doublée d'emblée              3.8    5.3    6.6    14.7     85   100.0 %
+
+3. éventail sur les 10 répliques, 40 requêtes/s
+   éventail simple               5.4   83.4  124.5   149.4    151     0.0 %
+   éventail doublé (5.1 ms)      5.9   11.0   15.3    39.6     41    10.3 %
+```
+
+Les colonnes sont celles du bloc précédent (médiane, 95e, 99e et 99,9e centiles, maximum en millisecondes, requêtes envoyées en plus). Doubler au 95e centile fait passer le 99e centile de 61,1 à 9,7 ms et le 99,9e de 125,7 à 11,1 ms, pour 2,3 % de requêtes en plus ; le second passage a donné 57,7 à 9,2 ms et 116,4 à 10,4 ms pour 1,8 %. Doubler d’emblée, en envoyant toujours deux requêtes, double la charge pour un 99,9e centile moins bon (14,7 et 15,3 ms), car chaque réplique reçoit deux fois plus de requêtes et les deux copies tombent plus souvent sur des pauses. Dans l’éventail, chaque requête touche les dix répliques et rencontre donc toute réplique en pause. Le 95e centile de l’éventail simple (83 ms) est déjà dans la zone des pauses, alors que celui d’une lecture seule est de 5 ms, et le doublement le ramène à 11 ms pour 10,3 et 10,8 % de requêtes en plus. Dean et Barroso rapportent, sur une table BigTable répartie sur 100 serveurs, un 99,9e centile ramené de 1 800 à 74 ms en doublant au bout de 10 ms, pour 2 % de requêtes en plus[^tail].
+
+Le doublement a ses conditions. La requête doit être idempotente. Les lenteurs des répliques doivent être indépendantes, car si toutes sont lentes pour la même raison (une base commune surchargée), doubler ajoute de la charge là où il en faudrait moins. Le perdant doit être annulé, sinon la réplique lente finit un travail inutile ; Dean et Barroso décrivent aussi des requêtes liées (tied requests), envoyées à deux serveurs qui s’informent mutuellement quand l’un commence le traitement[^tail]. Enfin, le doublement doit s’arrêter quand le service est en difficulté. gRPC le permet par une politique de doublement (`hedgingPolicy`, avec `hedgingDelay` et au plus 5 tentatives), soumise à la même échéance que l’appel et au même compteur de jetons que les nouvelles tentatives[^grpc-a6].
+
+## Compromis
+
+| Mécanisme | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Aucune nouvelle tentative | aucune amplification | chaque échec passager atteint l’utilisateur ; un délai dépassé reste ambigu | 380 à 405 paiements faits mais vus en échec | opérations non idempotentes sans clé |
+| Nouvelles tentatives sans clé | absorbe les échecs passagers | doublons sur toute opération non idempotente | 472 et 560 paiements doublés | lectures et opérations idempotentes seulement |
+| Clé vérifiée hors de la transaction | évite une partie des doublons | course entre deux tentatives proches | 291 et 273 doublons | jamais |
+| Clé dans la transaction de l’effet | aucun doublon, réponse rejouée | une écriture par opération, des clés à garder et à purger | 0 doublon, + 0,7 à 1 ms | toute écriture recommencée |
+| Tentatives à chaque niveau | chaque niveau se protège | amplification $a^n$ | 27 tentatives sur C par requête | jamais |
+| Recul exponentiel avec gigue | désynchronise les clients | allonge la durée d’une opération | dernier servi à 3,0 s au lieu de 11,3 s | toujours, avec une borne |
+| Budget de nouvelles tentatives | borne la charge ajoutée (10 %) | moins de tentatives quand beaucoup échouent | revenu à 100 % ; immédiat : 0 % | tout client d’un service partagé |
+| Échéance propagée | plus de travail pour un client parti | un en-tête à transmettre, un contrôle à chaque étape | 110 s de travail inutile à 0 s | toute chaîne de services |
+| Écarter ce qui finirait après l’échéance | le service ne gaspille plus sa capacité | estimer la durée du travail | 69,5 à 70 % pendant le ralentissement | services sous charge variable |
+| Requête doublée au 95e centile | coupe la queue de latence | quelques % de requêtes, annulation à gérer | 99e centile de 61 à 9,7 ms pour 2,3 % | lectures idempotentes, répliques indépendantes |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : l’amplification des nouvelles tentatives dans une chaîne]
+Hypothèses : une chaîne de quatre niveaux (client, passerelle, service, base), la base en panne ; chacun des trois niveaux au-dessus d’elle fait 3 tentatives, ou bien seul le service recommence ; budget de 10 % par niveau dans le dernier cas.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Tentatives sur la base, trois niveaux qui recommencent | $3^3$ | 27 (mesuré : 27 dans `echeances.py`) |
+| Un niveau de plus, par exemple un second service | $3^4$ | 81 |
+| Seul le service recommence | 3 | 3 |
+| Budget de 10 % aux trois niveaux, panne partielle | $1{,}1^3$ | 1,33 fois la charge normale |
+| Pour 2 000 requêtes par seconde du client | 2 000 × 27 contre 2 000 × 1,33 | 54 000 contre 2 660 par seconde |
+
+Conclusion : l’amplification croît comme une puissance du nombre de niveaux. Recommencer en un seul point de la chaîne, avec un budget, ramène la charge ajoutée à quelques dizaines de pour cent, ce qu’un service dimensionné avec une marge ([ch. 9](../partie-1/latence-debit.mdx)) supporte.
+:::
+
+:::calcul[Calcul : un délai d’attente choisi sur la médiane]
+Hypothèses : la distribution mesurée des dix répliques (médiane 4 ms, 2,07 % au-delà de 10 ms, 0,35 % au-delà de 100 ms) ; 400 lectures par seconde ; une nouvelle tentative après chaque délai dépassé.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Délai de 10 ms, faux délais dépassés | 400 × 2,07 % | 8,3 lectures par seconde recommencées |
+| Délai de 100 ms | 400 × 0,35 % | 1,4 par seconde |
+| Délai de 10 ms, part de la charge ajoutée | 2,07 % | 2 % de requêtes en plus, sans gain de latence |
+| Doublement à 5,1 ms (mesuré) | 2,3 % de requêtes en plus | 99e centile de 61 à 9,7 ms |
+
+Conclusion : un délai court suivi d’une nouvelle tentative envoie à peu près autant de requêtes en plus qu’un doublement au 95e centile, mais en abandonnant la première, qui aurait souvent répondu la première. Le délai d’attente sert à borner l’attente, sur un centile élevé (le 99,9e) ; c’est le doublement qui sert à couper la queue.
+:::
+
+:::calcul[Calcul : la place des clés d’idempotence]
+Hypothèses : 1 000 paiements par seconde ; clés gardées 24 heures ; par clé, un UUID en texte (36 octets), une empreinte SHA-256 en hexadécimal (64), une réponse JSON de 100 octets, une date (8), plus environ 50 octets d’en-tête de ligne et d’index dans PostgreSQL.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Clés gardées à tout instant | 1 000 × 86 400 | 86,4 millions |
+| Taille d’une clé | 36 + 64 + 100 + 8 + 50 | environ 260 octets |
+| Volume | 86,4 M × 260 o | environ 22 Go |
+| Purge par jour | 86,4 millions de lignes | une suppression par lots, ou une table par heure qu’on supprime entière |
+
+Conclusion : à ce débit, la table des clés pèse quelques dizaines de gigaoctets et sa purge est un travail à part entière. On la partitionne par date de création pour supprimer une partition entière plutôt que des millions de lignes ([ch. 19](../partie-2/index-modelisation.mdx)), ou l’on garde les clés dans un stockage à expiration, en acceptant alors qu’elles ne soient plus dans la même transaction que l’effet.
+:::
+
+## Exemple réel
+
+**Les clés d’idempotence de Stripe.** La documentation de l’API de Stripe décrit précisément son mécanisme[^stripe]. Toutes les requêtes `POST` de la version 1 de l’API acceptent l’en-tête `Idempotency-Key` ; les requêtes `GET` et `DELETE` n’en ont pas besoin, car elles sont idempotentes par définition. La clé, choisie par le client, fait au plus 255 caractères, et Stripe suggère un UUID version 4 en déconseillant d’y mettre des données personnelles. Stripe enregistre le code et le corps de la première réponse une fois l’exécution commencée, et renvoie cette réponse à toute requête répétée, y compris quand c’était une erreur 500. Une requête dont les paramètres échouent à la validation, ou qui entre en conflit avec une requête de même clé en cours d’exécution, n’est pas enregistrée et peut être recommencée. La couche d’idempotence compare les paramètres d’une requête répétée à ceux de l’originale et renvoie une erreur s’ils diffèrent. Les clés peuvent être retirées au bout de 24 heures, et une clé réemployée après son retrait crée une nouvelle requête. Dans la version 2 de l’API, une requête répétée ne refait pas une opération réussie, mais termine si possible le travail qui avait échoué en partie, et renvoie une réponse à jour.
+
+## Erreurs fréquentes
+
+Recommencer une écriture sans clé d’idempotence parce que « les pannes sont rares ». Sur 2 000 paiements, 472 et 560 ont été faits deux fois (mesuré).
+
+Traiter un délai dépassé comme un échec. Les 380 à 405 paiements vus en échec par le client avaient tous été exécutés (mesuré).
+
+Vérifier la clé puis l’enregistrer après l’effet, dans une autre transaction. Une tentative qui arrive pendant la première passe la vérification (291 et 273 doublons, mesuré).
+
+Recommencer à chaque niveau d’une chaîne. Trois niveaux à trois tentatives envoient 27 requêtes au service en panne pour une seule requête du client (mesuré).
+
+Compter sur le recul avec gigue pour protéger un service surchargé. Il étale la charge, il ne la réduit pas, et la tempête l’a laissé à 0 % de réussite comme la nouvelle tentative immédiate (mesuré).
+
+Recommencer les erreurs qui ne passeront pas (400, 403, 404, 422) ou ignorer le `Retry-After` d’un 429.
+
+Ne fixer aucun délai d’attente, ou laisser celui de la bibliothèque. Une requête qui ne revient jamais tient ses ressources indéfiniment.
+
+Choisir le délai d’après la latence moyenne ou médiane. Un délai de 10 ms pour une médiane de 4 ms abandonne 2 % des requêtes (mesuré).
+
+Donner à un service interne un délai plus long que celui de son appelant. Il travaille encore quand son client est parti (110 s de travail inutile en 30 s, mesuré).
+
+Contrôler l’échéance au début du travail seulement. En file d’attente, chaque requête servie avait presque épuisé son échéance et finissait après le départ du client (moins de 11 % de réussite, mesuré).
+
+Doubler toutes les requêtes d’emblée. La charge double et le 99,9e centile est moins bon qu’en doublant au 95e centile (14,7 contre 11,1 ms, mesuré).
+
+:::piege[Erreur fréquente : « une nouvelle tentative ne peut pas faire de mal, au pire elle échoue aussi »]
+Une nouvelle tentative ajoute une requête au service, au moment où il en a le plus de mal à répondre. Dans la tempête de ce chapitre, un ralentissement de dix secondes suivi de trois nouvelles tentatives immédiates a laissé le service à 0 % de réussite pendant les vingt secondes suivantes, alors qu’il avait retrouvé sa vitesse : il recevait 1 181 à 1 216 tentatives par seconde pour une capacité de 500, et en traitait plus de 400 par seconde pour des clients déjà partis. Sans nouvelle tentative, le même service était revenu à 100 % six à sept secondes après le ralentissement. Les nouvelles tentatives ne sont sûres qu’avec une borne par requête, un budget par client, en un seul point de la chaîne, et sur des opérations idempotentes.
+:::
+
+:::entretien
+Quand une conception comporte un appel à un autre service, dites ce qui se passe s’il ne répond pas, sans attendre la question. « Délai d’attente fixé sur le 99,9e centile mesuré, échéance transmise à chaque appel et vérifiée avant chaque étape, au plus trois tentatives en un seul point de la chaîne, recul exponentiel avec gigue, budget de 10 %, nouvelles tentatives seulement sur les erreurs passagères et les opérations idempotentes. » Pour une écriture qui déplace de l’argent ou crée une ressource, ajoutez la clé d’idempotence générée par le client, enregistrée dans la même transaction que l’effet, avec la réponse rejouée et une durée de rétention. Si la latence de queue compte, proposez une requête doublée au 95e centile pour les lectures. Citez un chiffre, par exemple les 27 requêtes que reçoit un service en panne quand trois niveaux recommencent chacun trois fois.
+:::
+
+## Exercices
+
+**Question 1.** Un client appelle `POST /commandes` sur un service sans clé d’idempotence, avec un délai de 2 s. Pour chacune des issues suivantes, dites s’il peut recommencer, et ce qu’il risque : connexion refusée ; 400 ; 409 ; 429 avec `Retry-After: 5` ; 500 ; 503 ; délai dépassé après l’envoi complet de la requête. Que change une clé d’idempotence ?
+
+**Question 2.** Une requête traverse une passerelle, un service de commandes, un service de stock et une base. La passerelle fait 2 tentatives, le service de commandes 3, le service de stock 3. La base tombe. Combien de requêtes reçoit-elle pour une requête de l’utilisateur ? Combien si seul le service de stock recommence, avec un budget de 10 % ? Quelle erreur le service de stock doit-il renvoyer quand ses tentatives sont épuisées ?
+
+**Question 3.** Un utilisateur attend au plus 800 ms. La passerelle met 20 ms à traiter la requête, puis appelle le service A, qui met 150 ms avant d’appeler B. B a une latence médiane de 40 ms et un 99,9e centile de 900 ms. Quelle échéance A transmet-il à B ? B peut-il vérifier utilement l’échéance avant de commencer ? Quel délai d’attente A doit-il appliquer à B si l’échéance n’est pas propagée, et quel est le problème ?
+
+**Exercice de conception.** Une application mobile de paiement entre particuliers envoie des virements de compte à compte. Les téléphones ont un réseau instable (coupures, changement de Wi-Fi à 4G) et une application peut être tuée en plein envoi. Le service de virements écrit dans sa base, puis appelle un service anti-fraude (médiane 30 ms, 99,9e centile 400 ms) et, pour les virements vers une autre banque, l’API d’un réseau interbancaire qui accepte sa propre clé d’idempotence et répond en 200 ms à 3 s. On prévoit 3 000 virements par seconde en pointe. Proposez l’API, la gestion des clés (génération, stockage, durée de rétention, cas d’un retour de l’application après plusieurs heures), les délais d’attente et échéances, la politique de nouvelles tentatives de chaque niveau, et ce qui se passe si l’API interbancaire ne répond pas. Chiffrez la taille de la table des clés et la charge maximale envoyée à l’anti-fraude en cas de panne.
+
+## Corrigés
+
+**Question 1.** Les issues se classent ainsi.
+
+- Connexion refusée : la requête n’a pas atteint le serveur ([ch. 32](pannes-partielles.mdx)), le client peut recommencer sans risque.
+- 400 : la requête est mal formée et échouera de nouveau ; on ne recommence pas.
+- 409 : un conflit avec l’état de la ressource, qui ne disparaîtra pas seul ; le client relit l’état avant de décider.
+- 429 : la requête a été refusée avant traitement ; le client attend au moins 5 s, puis recommence.
+- 500 : l’erreur peut être passagère, mais le serveur a peut-être fait une partie du travail ; sans clé, recommencer risque une commande en double.
+- 503 : en général refusée avant traitement, elle peut être recommencée après une attente, avec la même réserve qu’en 500 si le service ne garantit pas qu’il n’a rien fait.
+- Délai dépassé : issue inconnue ; recommencer risque un doublon, ne pas recommencer risque une commande perdue que le client croit échouée.
+
+Avec une clé d’idempotence, toutes les issues passagères (connexion refusée, 429, 500, 503, délai dépassé) peuvent être recommencées sans doublon, puisqu’une tentative répétée reçoit la réponse de la première ; 400 et 409 restent des échecs à traiter.
+
+**Question 2.** Sans précaution, $2 \times 3 \times 3 = 18$ requêtes sur la base pour une requête de l’utilisateur. Si seul le service de stock recommence, la base reçoit 3 requêtes par requête en panne, et le budget de 10 % ramène la charge totale à au plus 1,1 fois le trafic normal quand beaucoup de requêtes échouent, puisque les nouvelles tentatives sont refusées dès qu’elles dépassent 10 % des requêtes. Le service de stock renvoie une erreur qui dit de ne pas recommencer (un 503 avec un indicateur explicite, ou un code propre), pour que le service de commandes et la passerelle transmettent l’échec au lieu de relancer[^sre-surcharge].
+
+**Question 3.** La passerelle transmet $800 - 20 = 780$ ms à A, qui transmet $780 - 150 = 630$ ms à B, moins le temps de transit. B ne connaît pas d’avance la durée d’une requête donnée ; il peut vérifier qu’il reste plus que sa durée minimale, et surtout vérifier l’échéance avant chaque étape et abandonner quand elle passe, comme C dans `echeances.py`. Sans échéance, A fixe un délai fixe vers B. S’il le règle sur le 99,9e centile de B (900 ms), il dépasse le temps qui reste à l’utilisateur, et B travaille pour un utilisateur parti ; s’il le règle sur 630 ms, le délai ne tient pas compte du temps réel passé par la passerelle et par A, qui varie d’une requête à l’autre. Seule une échéance propagée donne à B le temps qui reste vraiment.
+
+**Exercice de conception.**
+
+*API.* `POST /virements` avec un corps (compte source, compte destination, montant, devise) et l’en-tête `Idempotency-Key`. Réponse 201 avec l’identifiant et l’état du virement (accepté, en cours, exécuté, refusé), et `GET /virements/{id}` pour suivre un virement en cours. Une requête sans clé reçoit 400, une clé réemployée avec un autre corps 422, une requête de même clé encore en cours 409.
+
+*Clés.* L’application tire un UUID version 4 quand l’utilisateur valide le virement, et l’enregistre sur le téléphone avec le virement avant le premier envoi, pour pouvoir le renvoyer avec la même clé si l’application est tuée et relancée. Le service insère la clé, avec une empreinte du corps, dans la même transaction que la création du virement en état « accepté ». Rétention : sept jours plutôt que 24 heures, puisqu’un téléphone peut rester hors réseau plusieurs jours ; au retour, l’application renvoie la requête, reçoit la réponse rejouée et l’état actuel. À 3 000 virements par seconde et environ 260 octets par clé, sept jours font $3\,000 \times 604\,800 \approx 1{,}8$ milliard de clés et environ 470 Go, dans une table partitionnée par jour dont on supprime la partition la plus ancienne. Si ce volume est trop lourd, on garde 24 heures dans la base et, au-delà, on retrouve le virement par la clé enregistrée dans la ligne du virement lui-même, indexée.
+
+*Délais et échéances.* L’application fixe une échéance de 10 s pour l’envoi et la transmet. Le service de virements appelle l’anti-fraude avec un délai de 450 ms, au-dessus de son 99,9e centile, et jamais au-delà de l’échéance restante. L’appel interbancaire ne se fait pas dans la requête de l’utilisateur. Le virement est accepté, enregistré avec une ligne de boîte d’envoi ([ch. 37](transactions-distribuees.mdx)), et un processus séparé appelle le réseau interbancaire ; l’application suit l’état par `GET`.
+
+*Nouvelles tentatives.* L’application recommence les erreurs passagères et les délais dépassés avec la même clé, recul exponentiel avec gigue complète (base 1 s, plafond 60 s), sans limite de durée tant que l’utilisateur n’annule pas, puisque la clé rend la répétition sûre. Le service de virements fait au plus 2 tentatives vers l’anti-fraude, avec budget de 10 % ; au-delà, il met le virement en attente de contrôle plutôt que de l’accepter sans contrôle. Le processus interbancaire recommence avec la clé que le réseau accepte, dérivée de celle du virement, sans limite de nombre mais avec un recul plafonné, et il passe à une personne au-delà d’un seuil (une heure, par exemple) ; une réponse absente n’est jamais traitée comme un refus, le processus interroge l’état de la clé auprès du réseau.
+
+*Charge en cas de panne.* Si l’anti-fraude tombe, le service de virements lui envoie au plus 3 000 × 2 = 6 000 requêtes par seconde sans budget, et environ 3 000 × 1,1 = 3 300 avec le budget de 10 %. L’application peut multiplier les envois si les utilisateurs relancent eux-mêmes ; la clé empêche les doublons, et le budget du service borne ce qui atteint l’anti-fraude.
+
+:::fiche
+- Délai dépassé : issue inconnue. Sans nouvelle tentative, 380 à 405 paiements sur 2 000 vus en échec mais exécutés ; avec, sans clé, 472 et 560 doublons.
+- Idempotence : même effet en une ou plusieurs exécutions (`GET`, `PUT`, `DELETE` dans la RFC 9110). Clé d’idempotence générée par le client et enregistrée avec la réponse dans la même transaction que l’effet, 0 doublon pour 0,7 à 1 ms de plus ; vérifiée puis écrite à part, 273 et 291 doublons. 422 si le corps change, 409 si une tentative est en cours ; chez Stripe, 255 caractères et 24 h.
+- Recommencer les erreurs passagères (connexion refusée, 429 avec `Retry-After`, 503, délai dépassé si idempotent), jamais 400, 403, 404, 422. Au plus 3 à 5 tentatives, en un seul point de la chaîne : $a^n$ sinon (27 mesurés pour trois niveaux).
+- Budget : nouvelles tentatives sous 10 % des requêtes (SRE), compteur de jetons (gRPC), 20 % des requêtes actives (Envoy).
+- Recul exponentiel avec gigue complète : désynchronise (dernier client servi à 3,0 s au lieu de 11,3 s ; 6,3 tentatives par client au lieu de 14,8). Il étale la charge, il ne la réduit pas.
+- Tempête : après un ralentissement de 10 s, trois nouvelles tentatives immédiates font 1 200 tentatives par seconde pour 500 de capacité et 0 % de réussite durable ; le budget ramène à 100 % ; écarter ce qui finirait après l’échéance donne 70 % pendant le ralentissement et 100 % après.
+- Délai d’attente sur un centile élevé (99,9e : 0,1 % de faux délais), jamais sur la médiane ; distinguer connexion, tentative et opération.
+- Échéance : temps restant transmis à chaque appel, vérifié avant chaque étape ; travail inutile de 110 s à 0 s dans une chaîne de trois services.
+- Requête doublée au 95e centile : 99e centile de 61 à 9,7 ms pour 2,3 % de requêtes en plus ; lectures idempotentes, lenteurs indépendantes, perdant annulé, suspendue en surcharge.
+:::
+
+[^rfc9110]: Roy T. Fielding, Mark Nottingham et Julian Reschke, « HTTP Semantics », RFC 9110, juin 2022, section 9.2.2 (méthodes idempotentes et nouvelles tentatives automatiques), [rfc-editor.org/rfc/rfc9110#section-9.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2).
+[^stripe]: Stripe, « Idempotent requests », référence de l’API, [docs.stripe.com/api/idempotent_requests](https://docs.stripe.com/api/idempotent_requests).
+[^ietf-cle]: Jayadeba Jena, Sanjay Dalal et Dmitrii Tishkin, « The Idempotency-Key HTTP Header Field », Internet-Draft draft-ietf-httpapi-idempotency-key-header-08, IETF, 22 octobre 2026 (travail en cours), [datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
+[^brooker-delais]: Marc Brooker, « Timeouts, retries, and backoff with jitter », *Amazon Builders’ Library* (choix du délai sur le 99,9e centile, nouvelles tentatives égoïstes, pile de cinq niveaux et facteur 243, nouvelles tentatives en un seul point, seau à jetons, idempotence), [aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/).
+[^brooker-gigue]: Marc Brooker, « Exponential Backoff And Jitter », *AWS Architecture Blog*, 4 mars 2015, [aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/).
+[^sre-surcharge]: Alejandro Forero Cuervo, « Handling Overload », chapitre 21 de Betsy Beyer, Chris Jones, Jennifer Petoff et Niall Richard Murphy (dir.), *Site Reliability Engineering*, O’Reilly, 2016, section « Deciding to Retry » (trois tentatives par requête, budget de 10 % par client, de trois fois à 1,1 fois, nouvelles tentatives au seul niveau supérieur, erreur « overloaded; don’t retry »), [sre.google/sre-book/handling-overload](https://sre.google/sre-book/handling-overload/).
+[^sre-cascade]: Mike Ulrich, « Addressing Cascading Failures », chapitre 22 de *Site Reliability Engineering*, O’Reilly, 2016, sections « Retries » (4 tentatives sur trois niveaux, 64 tentatives), « Latency and Deadlines » (propagation des échéances, exemple de 30 s et 23 s, latence bimodale, 19,6 % et 80,4 %) et « Cancellation propagation », [sre.google/sre-book/addressing-cascading-failures](https://sre.google/sre-book/addressing-cascading-failures/).
+[^grpc-echeances]: gRPC, « Deadlines », guides de la documentation de gRPC, [grpc.io/docs/guides/deadlines](https://grpc.io/docs/guides/deadlines/).
+[^grpc-a6]: Noah Eisen et Eric Gribkoff, « gRPC Retry Design », proposition A6 du projet gRPC (politique de nouvelles tentatives, formule du recul, politique de doublement, limitation par jetons, en-tête `grpc-retry-pushback-ms`), [github.com/grpc/proposal/blob/master/A6-client-retries.md](https://github.com/grpc/proposal/blob/master/A6-client-retries.md).
+[^envoy]: Envoy, « config.cluster.v3.CircuitBreakers », référence de l’API v3 (`RetryBudget` : `budget_percent`, `min_retry_concurrency`), [envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto).
+[^tail]: Jeffrey Dean et Luiz André Barroso, « The Tail at Scale », *Communications of the ACM*, vol. 56, n° 2, 2013, p. 74-80 (requêtes doublées au 95e centile, environ 5 % de charge en plus, lecture de 1 000 clés BigTable de 1 800 à 74 ms pour 2 % de requêtes en plus, requêtes liées), [cacm.acm.org/research/the-tail-at-scale](https://cacm.acm.org/research/the-tail-at-scale/).

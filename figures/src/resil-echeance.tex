@@ -1,0 +1,47 @@
+% Délais fixes contre échéance propagée, dans une chaîne client -> A -> B -> C,
+% quand C met 1,5 s à répondre et que le client n'attend que 1 s.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=0.07mm, y=1mm, note/.append style={font=\sffamily\small},
+    barre/.style={draw=#1, fill=#1Bg, line width=0.7pt},
+    perdu/.style={draw=Dred, fill=DredBg, line width=0.7pt, pattern color=Dred},
+    nom/.style={font=\sffamily\small\bfseries, text=Dink, anchor=east}]
+  \newcommand{\bloc}[3]{% #1 : décalage vertical, #2 : titre, #3 : contenu
+    \begin{scope}[yshift=#1 mm]
+      \node[pillo=Dslate, anchor=west] at (-260,9) {#2};
+      \foreach \n/\y in {client/0, A/-9, B/-18, C/-27} \node[nom] at (-30,\y) {\n};
+      #3
+    \end{scope}}
+  % axe commun
+  \foreach \t in {0,500,1000,1500,2000} {
+    \draw[Dcloud, line width=0.4pt, dash pattern=on 1.5pt off 2pt] (\t,10) -- (\t,-92);
+    \node[note, below] at (\t,-92) {\t};
+  }
+  \node[axe, anchor=north] at (1000,-97) {temps depuis l'envoi du client (ms)};
+  % délais fixes
+  \bloc{0}{délais fixes : client 1 s, A et B 2 s}{
+    \draw[barre=Dblue] (0,-2.5) rectangle (1000,2.5);
+    \node[note, text=Dblue, anchor=west] at (1010,0) {abandonne à 1 000 ms};
+    \draw[barre=Dpurple] (5,-11.5) rectangle (1000,-6.5);
+    \draw[perdu] (1000,-11.5) rectangle (1520,-6.5);
+    \node[note, anchor=west] at (1530,-9) {attend B jusqu'à 2 005 ms au plus};
+    \draw[barre=Dpurple] (10,-20.5) rectangle (1000,-15.5);
+    \draw[perdu] (1000,-20.5) rectangle (1515,-15.5);
+    \draw[barre=Dteal] (15,-29.5) rectangle (1000,-24.5);
+    \draw[perdu] (1000,-29.5) rectangle (1515,-24.5);
+    \node[note, text=Dred, anchor=west] at (1530,-27) {travail pour un client parti};
+  }
+  % échéance propagée
+  \bloc{-50}{échéance propagée : X-Echeance-Ms}{
+    \draw[barre=Dblue] (0,-2.5) rectangle (1000,2.5);
+    \node[note, text=Dblue, anchor=west] at (1010,0) {1 000 ms};
+    \draw[barre=Dpurple] (5,-11.5) rectangle (1000,-6.5);
+    \node[note, anchor=west] at (1010,-9) {reçoit 995, délai vers B : 995 $-$ temps écoulé};
+    \draw[barre=Dpurple] (10,-20.5) rectangle (1000,-15.5);
+    \node[note, anchor=west] at (1010,-18) {reçoit 985 ; à 0, répond 504 sans appeler C};
+    \draw[barre=Dteal] (15,-29.5) rectangle (1000,-24.5);
+    \node[note, anchor=west] at (1010,-27) {reçoit 980 ; abandonne son travail à l'échéance};
+  }
+\end{tikzpicture}
+\end{document}

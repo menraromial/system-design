@@ -150,7 +150,7 @@ message Commande {
 }
 ```
 
-Le client appelle `Obtenir` comme une fonction locale. Quatre formes d’appel existent : unaire (une requête, une réponse), flux serveur (une requête, une suite de réponses, comme le suivi d’une livraison), flux client (une suite de requêtes, une réponse, comme l’envoi d’un fichier en morceaux), et bidirectionnelle. Chaque appel porte une échéance (deadline) que le serveur reçoit et qu’il transmet aux appels qu’il fait lui-même, ce qui permet d’abandonner tout le travail d’une requête dont le client n’attend plus la réponse (ch. 38). Les erreurs ont leurs propres codes, plus précis que ceux de HTTP pour les appels entre services, comme `DEADLINE_EXCEEDED`, `UNAVAILABLE` ou `RESOURCE_EXHAUSTED`.
+Le client appelle `Obtenir` comme une fonction locale. Quatre formes d’appel existent : unaire (une requête, une réponse), flux serveur (une requête, une suite de réponses, comme le suivi d’une livraison), flux client (une suite de requêtes, une réponse, comme l’envoi d’un fichier en morceaux), et bidirectionnelle. Chaque appel porte une échéance (deadline) que le serveur reçoit et qu’il transmet aux appels qu’il fait lui-même, ce qui permet d’abandonner tout le travail d’une requête dont le client n’attend plus la réponse ([ch. 38](../partie-3/resilience-tentatives.mdx)). Les erreurs ont leurs propres codes, plus précis que ceux de HTTP pour les appels entre services, comme `DEADLINE_EXCEEDED`, `UNAVAILABLE` ou `RESOURCE_EXHAUSTED`.
 
 Le prix de gRPC tient à son public. Les navigateurs ne peuvent pas l’appeler directement, faute d’accès aux trames HTTP/2 ; il faut une variante, gRPC-Web, et un proxy qui la traduit. Les messages binaires ne se lisent pas au terminal avec `curl`, il faut des outils dédiés. Et les connexions HTTP/2 durent longtemps et portent tous les appels d’un client. Un répartiteur de charge de niveau 4, qui répartit les connexions et non les requêtes, envoie alors tout le trafic d’un client vers le même serveur, et il faut un répartiteur de niveau 7 ou une répartition côté client ([ch. 13](../partie-2/repartition-charge.mdx)).
 
@@ -259,7 +259,7 @@ En GraphQL, ouvrir un schéma public sans limite de profondeur ni de coût expos
 En gRPC, l’erreur classique est de placer les services derrière un répartiteur de niveau 4, car les connexions HTTP/2 persistantes concentrent le trafic sur quelques serveurs, et l’ajout de serveurs n’y change rien.
 
 :::piege[Erreur fréquente : des opérations non idempotentes sans clé]
-Un `POST /paiements` qu’un client rejoue après un délai d’attente dépassé peut débiter deux fois. Une API qui accepte des écritures doit permettre au client d’envoyer une clé d’idempotence (un identifiant unique de l’opération, choisi par le client) que le serveur mémorise pour reconnaître et ignorer les doublons. Stripe en fait un en-tête de son API ; le ch. 38 détaille le mécanisme.
+Un `POST /paiements` qu’un client rejoue après un délai d’attente dépassé peut débiter deux fois. Une API qui accepte des écritures doit permettre au client d’envoyer une clé d’idempotence (un identifiant unique de l’opération, choisi par le client) que le serveur mémorise pour reconnaître et ignorer les doublons. Stripe en fait un en-tête de son API ; le [ch. 38](../partie-3/resilience-tentatives.mdx) détaille le mécanisme.
 :::
 
 :::entretien

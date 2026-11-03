@@ -1,0 +1,32 @@
+% 1 000 clients synchronisés par une coupure de 2 s : tentatives par tranche de
+% 50 ms, sans gigue et avec gigue complète (outils/experiences/ch38/backoff.py).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch38-backoff.tex}
+\begin{tikzpicture}[x=0.95mm, y=0.03mm, note/.append style={font=\sffamily\small}]
+  \newcommand{\histo}[4]{% #1 : décalage, #2 : données, #3 : couleur, #4 : titre
+    \begin{scope}[yshift=#1 mm]
+      \fill[DslateZ] (0,0) rectangle (40,1050);
+      \node[note, align=center] at (18.5,500) {service\\absent};
+      \foreach \k/\v in #2 {
+        \pgfmathsetmacro{\h}{min(\v,1000)}
+        \ifnum\v>0 \draw[draw=#3, line width=0.3pt, fill=#3Bg] (\k,0) rectangle (\k+1,\h);\fi
+        \ifnum\v>1000 \node[note, text=#3, anchor=south west, inner sep=1pt] at (\k+1.5,1000) {\v\,$\uparrow$};\fi
+      }
+      \draw[Dred, line width=0.8pt, dash pattern=on 3pt off 2pt] (40,100) -- (160,100);
+      \draw[ligne] (0,0) -- (161,0);
+      \draw[ligne] (0,0) -- (0,1050);
+      \foreach \y in {0,500,1000} {\draw[ligne] (0,\y) -- (-1,\y); \node[note, anchor=east] at (-1,\y) {\y};}
+      \node[pillo=#3, anchor=west] at (44,1150) {#4};
+    \end{scope}}
+  \histo{0}{\tranchesSansGigue}{Dorange}{sans gigue : dernier client servi à 11,3 s}
+  \node[note, text=Dred, anchor=west, align=left] at (161,100) {capacité :\\100 par tranche};
+  \node[note, anchor=north west, align=left] at (88,1040) {chaque vague : 100 acceptées, 900 refusées,\\qui reviennent ensemble 1 s plus tard};
+  \histo{-48}{\tranchesComplete}{Dteal}{gigue complète : dernier client servi à 3,0 s}
+  \begin{scope}[yshift=-48mm]
+    \foreach \t in {0,1,...,8} {\draw[ligne] (20*\t,0) -- (20*\t,-40); \node[note, below] at (20*\t,-40) {\t};}
+    \node[axe, anchor=north] at (80,-160) {temps (s) ; barres : tentatives par tranche de 50 ms};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

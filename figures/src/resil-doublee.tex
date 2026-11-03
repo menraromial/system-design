@@ -1,0 +1,30 @@
+% Une requête doublée : la première réplique est en pause ; au 95e centile, le
+% client envoie la même lecture à une autre réplique et garde la première réponse.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm,
+    lab/.style={font=\sffamily\small, text=#1, fill=white, inner sep=1.5pt},
+    lab/.default=Dink]
+  \node[seqhead=Dblue] (c) at (0,0) {\stack{laptop}{Client}};
+  \node[seqhead=Dpurple] (r1) at (62,0) {\stack{server}{Réplique 1}};
+  \node[seqhead=Dteal] (r2) at (124,0) {\stack{server}{Réplique 2}};
+  \seqlife{-70}{c,r1,r2}
+  % pause de la réplique 1
+  \fill[DredBg] (60.6,-14) rectangle (63.4,-62);
+  \draw[Dred, line width=0.7pt] (60.6,-14) rectangle (63.4,-62);
+  \node[note, text=Dred, anchor=west, align=left, font=\sffamily\small] at (65,-55) {pause de 50 à 150 ms\\(ramasse-miettes, compactage)};
+  % première requête
+  \draw[arr=Dblue] (0,-12) -- node[lab, above=1pt] {GET /lire} (62,-12);
+  \node[num=Dblue] at (0,-12) {1};
+  % attente jusqu'au 95e centile
+  \draw[accolm, Damber] (-3,-12) -- node[left=6pt, note, align=right, text=Damber, font=\sffamily\small] {pas de réponse\\au 95e centile\\(5,1 ms)} (-3,-28);
+  % requête doublée
+  \draw[arr=Dblue] (0,-28) -- node[lab, above=1pt, pos=0.75] {même GET /lire} (124,-28);
+  \node[num=Dblue] at (0,-28) {2};
+  \draw[darr=Dteal, line width=0.9pt] (124,-34) -- node[lab=Dslate, above=1pt, pos=0.25] {200, 2 ms plus tard} (0,-34);
+  % annulation
+  \draw[arr=Dslate, dash pattern=on 2pt off 1.5pt] (0,-42) -- node[lab=Dslate, above=1pt] {annulation (connexion fermée)} (62,-42);
+  \node[note, anchor=north west, align=left, font=\sffamily\small, fill=white] at (-12,-74) {mesuré sur 10 répliques à 400 lectures par seconde : 99e centile de 61 à 9,7 ms,\\99,9e de 126 à 11 ms, pour 2,3 \% de requêtes en plus};
+\end{tikzpicture}
+\end{document}

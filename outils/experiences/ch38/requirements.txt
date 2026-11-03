@@ -1,0 +1,3 @@
+aiohttp
+psycopg[binary]
+psycopg-pool

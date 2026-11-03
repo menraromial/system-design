@@ -224,7 +224,7 @@ Vient ensuite la tentation de « corriger » TIME_WAIT par des réglages du no
 
 Une autre erreur consiste à traiter TCP comme un protocole de messages. Un `recv` ne rend pas forcément un message entier, et deux messages peuvent arriver collés. Le code qui marche sur la boucle locale, où les écritures arrivent souvent d’un bloc, casse sur un vrai réseau.
 
-Il faut aussi se méfier de ce que garantit TCP. Un acquittement TCP dit que le noyau distant a reçu les octets, pas que l’application les a traités. Si le serveur tombe entre la réception et l’écriture en base, le client ne le saura que par l’absence de réponse. Seul un accusé de l’application, et des requêtes qu’on peut rejouer sans dommage (ch. 38), règlent ce cas.
+Il faut aussi se méfier de ce que garantit TCP. Un acquittement TCP dit que le noyau distant a reçu les octets, pas que l’application les a traités. Si le serveur tombe entre la réception et l’écriture en base, le client ne le saura que par l’absence de réponse. Seul un accusé de l’application, et des requêtes qu’on peut rejouer sans dommage ([ch. 38](../partie-3/resilience-tentatives.mdx)), règlent ce cas.
 
 Les délais d’inactivité mal accordés causent des erreurs intermittentes difficiles à diagnostiquer. Si un serveur ferme une connexion inactive avant le répartiteur de charge qui la lui réutilise, le répartiteur envoie une requête sur une connexion que le serveur vient de fermer, et le client reçoit une erreur 502 de temps en temps. La règle est que le côté qui réutilise les connexions doit les abandonner avant que l’autre ne les ferme.
 
