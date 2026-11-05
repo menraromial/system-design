@@ -1,0 +1,35 @@
+% Un filtre de Bloom de 16 bits et 3 fonctions de hachage : deux insertions,
+% une absence sûre et un faux positif.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    bit/.style={draw=Dink, line width=0.6pt, minimum width=8mm, minimum height=8mm, inner sep=0pt,
+      font=\sffamily\small\bfseries},
+    cle/.style={soft=#1, minimum width=18mm, minimum height=8mm, font=\sffamily\small\bfseries},
+    lab/.style={font=\sffamily\small, text=#1, align=center}]
+  % tableau de bits : positions 1, 4, 6 (ada) et 6, 9, 13 (bob) à 1
+  \foreach \i in {0,...,15} {
+    \pgfmathtruncatemacro{\un}{(\i==1)||(\i==4)||(\i==6)||(\i==9)||(\i==13)}
+    \ifnum\un=1 \node[bit, fill=DblueBg, text=Dblue] (b\i) at (\i*8,0) {1};
+    \else \node[bit, fill=white, text=Dcloud] (b\i) at (\i*8,0) {0};\fi
+    \node[note, below=0.5mm] at (b\i.south) {\i};
+  }
+  \node[note, anchor=east] at (-6,0) {m = 16 bits};
+  % insertions
+  \node[cle=Dblue] (ada) at (20,26) {ada};
+  \node[cle=Dteal] (bob) at (84,26) {bob};
+  \foreach \p in {1,4,6} \draw[arr=Dblue] (ada.south) -- (b\p.north);
+  \foreach \p in {6,9,13} \draw[arr=Dteal] (bob.south) -- (b\p.north);
+  \node[lab=Dslate, anchor=south] at (52,30) {insertion : k = 3 fonctions de hachage, les 3 bits passent à 1};
+  % requêtes
+  \node[cle=Dgreen] (eve) at (36,-28) {eve ?};
+  \node[cle=Dred] (zoe) at (100,-28) {zoé ?};
+  \draw[arr=Dgreen] (eve.north) -- ($(b1.south)+(0,-5)$);
+  \draw[arr=Dgreen] (eve.north) -- ($(b4.south)+(0,-5)$);
+  \draw[arr=Dgreen, line width=1.1pt] (eve.north) -- ($(b7.south)+(0,-5)$);
+  \foreach \p in {4,9,13} \draw[arr=Dred] (zoe.north) -- ($(b\p.south)+(0,-5)$);
+  \node[lab=Dgreen, anchor=north] at (36,-34) {bit 7 à 0 : absente,\\c'est certain};
+  \node[lab=Dred, anchor=north] at (100,-34) {bits 4, 9, 13 à 1, posés par ada et bob :\\« peut-être présente », un faux positif};
+\end{tikzpicture}
+\end{document}

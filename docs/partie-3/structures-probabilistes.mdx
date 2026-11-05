@@ -1,0 +1,400 @@
+---
+title: "Structures probabilistes"
+sidebar_label: "40. Structures probabilistes"
+description: "Répondre à « déjà vu ? », « combien de distincts ? » et « combien de fois ? » en une fraction de la mémoire d'une structure exacte : filtre de Bloom et son dimensionnement, filtre coucou, HyperLogLog, Count-Min Sketch et éléments les plus fréquents ; mesures en Python contre la théorie et dans Redis 8.8."
+partie: 3
+chapitre: 40
+---
+
+import bloom from '@site/src/figures/proba-bloom.svg';
+import hll from '@site/src/figures/proba-hll.svg';
+import cms from '@site/src/figures/proba-cms.svg';
+
+Un million d’identifiants d’utilisateurs occupent 49 à 52 Mo dans un ensemble Redis, et environ 90 Mo dans un ensemble Python. Pour savoir si un identifiant fait partie de ce million, un filtre de Bloom de 1,2 Mo suffit, s’il peut se tromper une fois sur cent en répondant « peut-être » ; il ne se trompe jamais en répondant « non ». Pour savoir combien d’identifiants distincts on a vus, un HyperLogLog de 12 Ko répond à moins de 1 % près, que l’on en ait vu un million ou dix millions. Pour savoir combien de fois chacun est revenu, un Count-Min Sketch de 54 Ko donne une estimation qui ne descend jamais sous la vraie valeur et la dépasse au plus d’une fraction connue du total. Ces trois structures échangent l’exactitude contre la mémoire, avec une erreur que l’on choisit à l’avance et qui ne va que dans un sens.
+
+Le besoin apparaît dès que les données ne tiennent plus en mémoire, ou qu’il faut une structure par page, par utilisateur ou par fenêtre de temps. Le [ch. 20](../partie-2/moteurs-stockage.mdx) a montré un filtre de Bloom par fichier dans RocksDB, qui fait passer la lecture d’une clé absente de 10,1 à 2,1 µs, et a renvoyé ici pour son fonctionnement. Ce chapitre décrit les trois structures, la façon de les dimensionner, ce qu’elles ne savent pas faire, et leur mise en œuvre dans Redis.
+
+Trois expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch40/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch40). Chacune programme la structure en Python pour comparer ses erreurs à la théorie, puis emploie celle de Redis 8.8 (module RedisBloom, livré avec l’image officielle) lancé dans un conteneur par [`commun.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch40/commun.py). [`bloom.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch40/bloom.py) traite des filtres de Bloom et coucou, [`hll.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch40/hll.py) de HyperLogLog, [`countmin.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch40/countmin.py) du Count-Min Sketch et des clés les plus fréquentes. Chaque script a été lancé deux fois ; ses tirages et ses hachages étant fixés, les parties en Python redonnent exactement les mêmes chiffres, et les parties dans Redis aussi, sauf le TOP-K, qui tire au hasard.
+
+## Le filtre de Bloom
+
+Un filtre de Bloom est un tableau de $m$ bits, tous à 0 au départ, et $k$ fonctions de hachage qui associent chacune à une clé une position du tableau[^bloom]. Pour insérer une clé, on calcule ses $k$ positions et l’on met les bits correspondants à 1. Pour interroger le filtre, on calcule les $k$ positions de la clé demandée. Si l’un des bits est à 0, la clé n’a jamais été insérée, puisque son insertion l’aurait mis à 1 ; si tous sont à 1, elle a peut-être été insérée, mais ces bits ont pu être mis à 1 par d’autres clés (figure 40.1). Le filtre ne donne donc jamais de faux négatif, et donne des faux positifs avec une probabilité que l’on calcule.
+
+<Figure svg={bloom} num="40.1" alt="Un tableau de 16 bits numérotés de 0 à 15. La clé ada, insérée, met à 1 les bits 1, 4 et 6 ; la clé bob met à 1 les bits 6, 9 et 13. La requête eve tombe sur les bits 1, 4 et 7 : le bit 7 est à 0, eve est absente, c’est certain. La requête zoé tombe sur les bits 4, 9 et 13, tous à 1, posés par ada et bob : le filtre répond peut-être présente, c’est un faux positif.">
+Un filtre de Bloom de 16 bits et 3 fonctions de hachage.
+</Figure>
+
+Les flèches du haut sont les insertions, celles du bas les requêtes. Le bit 6 est partagé par ada et bob ; c’est ce partage, à grande échelle, qui produit les faux positifs comme celui de zoé.
+
+Après l’insertion de $n$ clés, un bit donné est encore à 0 avec la probabilité $(1 - 1/m)^{kn} \approx e^{-kn/m}$. Une clé absente est un faux positif si ses $k$ bits sont à 1, d’où le taux de faux positifs
+
+$$
+p \approx \left(1 - e^{-kn/m}\right)^k .
+$$
+
+Pour un nombre de bits par clé $m/n$ donné, $p$ est minimal pour $k = (m/n)\ln 2$, et il faut alors
+
+$$
+\frac{m}{n} = \frac{-\ln p}{(\ln 2)^2} \approx 1{,}44 \log_2 \frac{1}{p}
+$$
+
+bits par clé, soit 9,6 bits pour 1 %, 14,4 pour 0,1 % et 19,2 pour 0,01 % : chaque division du taux d’erreur par dix coûte 4,8 bits par clé, quelle que soit la taille des clés. La documentation de Redis donne les mêmes valeurs (7 fonctions et 9,585 bits par clé pour 1 %, 10 et 14,378 pour 0,1 %)[^redis-bf]. Il n’est pas nécessaire de disposer de $k$ fonctions de hachage indépendantes. Adam Kirsch et Michael Mitzenmacher ont montré que deux suffisent, en prenant pour position $i$ la valeur $h_1(x) + i\,h_2(x) \bmod m$, sans perte sur le taux de faux positifs[^kirsch].
+
+### Mesuré contre la théorie
+
+La première partie de `bloom.py` programme ce filtre en Python, avec un BLAKE2b de 128 bits coupé en deux valeurs $h_1$ et $h_2$. Elle insère 1 000 000 de clés `utilisateur:i`, puis interroge 1 000 000 de clés absentes.
+
+```text
+1. Bloom en Python : 1 000 000 de clés insérées, 1 000 000 absentes
+
+   a. bits par clé et nombre optimal de fonctions (k = b ln 2)
+    bits/clé   k   mémoire  faux pos.   théorie  µs/requête
+           4   3    0.50Mo    14.693%   14.689%        0.41
+           6   4    0.75Mo     5.598%    5.606%        0.42
+           8   6    1.00Mo     2.139%    2.158%        0.46
+         9.6   7    1.20Mo     0.997%    0.997%        0.46
+          10   7    1.25Mo     0.824%    0.819%        0.45
+          12   8    1.50Mo     0.313%    0.314%        0.47
+          16  11    2.00Mo     0.046%    0.046%        0.50
+          20  14    2.50Mo     0.006%    0.007%        0.48
+
+   b. 10 bits par clé, nombre de fonctions imposé
+      k  faux pos.   théorie
+      1     9.525%    9.516%
+      2     3.302%    3.286%
+      3     1.744%    1.741%
+      4     1.175%    1.181%
+      5     0.952%    0.943%
+      6     0.841%    0.844%
+      7     0.824%    0.819%
+      8     0.855%    0.846%
+      9     0.919%    0.913%
+     10     1.026%    1.019%
+
+   c. prévu pour 1 000 000 de clés à 1 % (9,6 bits/clé, k = 7)
+          clés  faux pos.   théorie
+       500 000     0.025%    0.025%
+     1 000 000     0.997%    0.997%
+     1 500 000     5.737%    5.754%
+     2 000 000    15.716%   15.670%
+     3 000 000    43.435%   43.473%
+
+   d. set Python des mêmes clés : 92.4 Mo ; clés seules : 17.9 Mo
+      filtre à 1 % : 1.2 Mo
+```
+
+La mesure suit la formule à quelques millièmes de point près, ce qui confirme au passage que le double hachage ne coûte rien. Avec 9,6 bits par clé et 7 fonctions, le filtre se trompe sur 0,997 % des clés absentes, pour 1,2 Mo ; l’ensemble Python des mêmes clés pèse 92,4 Mo, soixante-dix-sept fois plus, et les clés seules, sans aucune structure, 17,9 Mo. Le tableau b montre l’optimum en $k$. Avec 10 bits par clé, une seule fonction donne 9,5 % de faux positifs, trop peu de bits étant vérifiés ; dix fonctions donnent 1,03 %, le tableau étant trop rempli ; l’optimum est à 7, comme le prévoit $10 \ln 2 \approx 6{,}9$, mais il est plat entre 5 et 9. Une requête prend 0,4 à 0,5 µs dans ce code Python, l’essentiel en interprétation ; une implémentation compilée fait le même travail en quelques dizaines de nanosecondes, quelques accès à la mémoire.
+
+Le tableau c est le plus important pour l’exploitation. Le filtre se dimensionne pour un nombre de clés, et il ne prévient pas quand on le dépasse. Prévu pour un million de clés à 1 %, il est à 5,7 % avec 1,5 million, à 15,7 % avec deux millions et à 43 % avec trois. Un filtre dont la population croît doit donc être surveillé (on compte les insertions) et reconstruit plus grand, ou remplacé par un filtre extensible.
+
+### Ce qu’un filtre de Bloom ne sait pas faire
+
+Il ne sait pas supprimer. Remettre à 0 les bits d’une clé effacerait aussi ceux qu’elle partage avec d’autres, et créerait des faux négatifs. Les filtres de Bloom à compteurs remplacent chaque bit par un petit compteur, au prix d’une mémoire multipliée par la taille du compteur. Le filtre coucou (cuckoo filter) de Bin Fan, David Andersen, Michael Kaminsky et Michael Mitzenmacher garde plutôt une courte empreinte de chaque clé dans une table de hachage à deux emplacements possibles ; il permet la suppression et, d’après ses auteurs, occupe moins de place qu’un filtre de Bloom quand le taux de faux positifs visé est inférieur à 3 %[^coucou].
+
+Il ne sait pas énumérer ses clés ni dire combien il en contient, sinon par une estimation tirée du nombre de bits à 1. Il ne répond pas à une question sur un intervalle (« une clé entre `a` et `b` ? »), ce que le [ch. 20](../partie-2/moteurs-stockage.mdx) notait pour RocksDB. Deux filtres de mêmes taille et fonctions se réunissent par un OU bit à bit, ce qui permet de construire des filtres sur plusieurs machines et de les fusionner ; leur intersection par un ET bit à bit ne donne en revanche qu’une approximation, plus pessimiste que le filtre de l’intersection.
+
+### Dans Redis
+
+La seconde partie de `bloom.py` refait la mesure avec les filtres de Redis 8.8. `BF.RESERVE` prend le taux d’erreur visé et la capacité, et dimensionne le filtre ; `BF.MADD` et `BF.MEXISTS` ajoutent et interrogent par lots.
+
+```text
+2. Redis 8.8 (RedisBloom)
+   structure                              mémoire octets/clé  faux pos.
+   BF.RESERVE 0.01 1000000                 1.38Mo       1.38     0.492%
+   BF.RESERVE 0.001 1000000                1.98Mo       1.98     0.051%
+   SADD (ensemble exact)                  52.28Mo      52.28     0.000%
+   (un million d'ajouts dans le filtre à 1 % : 1.5 s, lots de 10 000)
+
+   filtres prévus pour 100 000 clés à 1 %, remplis d'un million
+   EXPANSION 2 : 4 sous-filtres, 2.68 Mo, faux positifs 0.871 %
+   NONSCALING  : 100000 clés acceptées, 900000 refusées
+                 (« non scaling filter is full ») ; 0.12 Mo,
+                 faux positifs 1.006 %
+
+   filtre coucou (CF.RESERVE 1000000, empreintes de 8 bits)
+   2.10 Mo (2.10 octets/clé), 0 refus, faux positifs 1.484 %
+   CF.DEL utilisateur:42 : présent True avant, False après
+```
+
+Redis dimensionne avec une marge. Le filtre demandé à 1 % occupe 11 bits par clé au lieu de 9,6, et ne se trompe que sur 0,49 % des clés absentes ; à 0,1 %, 15,8 bits et 0,051 %. L’ensemble exact des mêmes clés occupe 52,3 Mo, trente-huit fois le filtre à 1 %.
+
+Un filtre extensible (le comportement par défaut, `EXPANSION 2`) ajoute un sous-filtre deux fois plus grand quand le précédent est plein, et resserre le taux d’erreur de chaque nouveau sous-filtre pour que le taux global reste proche de celui demandé[^redis-bf]. Prévu pour 100 000 clés et rempli d’un million, il a créé quatre sous-filtres (100 000, 200 000, 400 000 et 800 000 places) et garde 0,87 % de faux positifs, pour 2,68 Mo, deux fois la place d’un filtre bien dimensionné dès le départ ; chaque requête interroge les sous-filtres l’un après l’autre, ce qui allonge les lectures. Un filtre non extensible (`NONSCALING`) refuse au contraire les clés au-delà de sa capacité, avec l’erreur « non scaling filter is full ». Il en a accepté 100 000 et refusé 900 000, et son taux de faux positifs est resté à 1 % ; il faut donc traiter ce refus, sans quoi les clés refusées seront ensuite déclarées absentes, de vrais faux négatifs du point de vue de l’application. `BF.MADD` s’arrête au premier refus d’un lot et ne traite pas la suite, un détail à connaître pour compter ce qui a été inséré.
+
+Le filtre coucou de Redis, avec des empreintes de 8 bits, occupe 2,10 Mo et se trompe sur 1,48 % des clés absentes, plus qu’un filtre de Bloom de même taille, parce que des empreintes de 8 bits sont trop courtes pour un taux de 1 % ; en contrepartie, `CF.DEL` supprime une clé, ce qu’aucun filtre de Bloom ne permet.
+
+## Compter les éléments distincts : HyperLogLog
+
+Compter exactement les éléments distincts d’un flux, les visiteurs d’une page ou les adresses IP vues par un pare-feu, demande de retenir tous les éléments déjà vus, donc une mémoire proportionnelle à leur nombre. HyperLogLog, publié en 2007 par Philippe Flajolet, Éric Fusy, Olivier Gandouet et Frédéric Meunier, donne une estimation en mémoire fixe ; ses auteurs annoncent des cardinalités bien au-delà de $10^9$ estimées à 2 % près avec 1,5 Ko[^hll].
+
+Le principe repose sur une propriété des valeurs de hachage. Si l’on hache chaque élément en une suite de bits uniforme, la probabilité qu’une valeur commence par au moins $\rho - 1$ zéros est $2^{-(\rho-1)}$. Parmi $n$ éléments distincts, la plus longue suite de zéros initiale vue est donc de l’ordre de $\log_2 n$ ; un élément répété donne toujours la même valeur et ne change rien. Une seule mesure de ce maximum varie beaucoup d’un flux à l’autre, et HyperLogLog en fait $m = 2^p$ (figure 40.2). Les $p$ premiers bits de la valeur choisissent un registre, et le registre garde le plus grand $\rho$ (position du premier 1 dans les bits restants) qu’il ait vu. L’estimation combine les registres par une moyenne harmonique,
+
+$$
+E = \alpha_m\, m^2 \Big/ \sum_{j=1}^{m} 2^{-M[j]},
+$$
+
+où $\alpha_m$ est une constante de correction ($\alpha_m \approx 0{,}7213/(1 + 1{,}079/m)$ pour $m \geq 128$). Pour les petites cardinalités, où beaucoup de registres sont encore vides, on emploie le comptage linéaire $m \ln(m/V)$, $V$ étant le nombre de registres à 0. L’erreur type relative vaut $1{,}04/\sqrt{m}$[^hll].
+
+<Figure svg={hll} num="40.2" alt="L’identifiant visiteur:42 est haché sur 64 bits. Les 4 premiers bits, 0110, valent 6 et choisissent le registre 6 parmi 16. Les bits suivants commencent par 3 zéros puis un 1, donc rho vaut 4. Le registre 6 contenait 2 et prend la valeur max(2, 4) = 4. L’estimation est alpha m carré divisé par la somme des 2 puissance moins M[j], avec une erreur type de 1,04 divisé par racine de m ; avec 2 puissance 14 registres de 6 bits, 12 Ko et 0,81 %.">
+HyperLogLog avec 16 registres : un registre par valeur des 4 premiers bits.
+</Figure>
+
+Le hachage se lit de gauche à droite. La partie violette désigne le registre, la partie orange donne $\rho$ ; seul le maximum est gardé, ce qui rend l’ajout d’un élément déjà vu sans effet.
+
+Avec $p = 14$, soit 16 384 registres de 6 bits (un $\rho$ ne dépasse pas 64 − 14 + 1 = 51), la structure occupe 12 Ko et l’erreur type vaut $1{,}04/\sqrt{16\,384} = 0{,}81\ \%$, les chiffres de Redis[^redis-hll]. Stefan Heule, Marc Nunkesser et Alexander Hall ont décrit en 2013 les améliorations employées chez Google sous le nom de HyperLogLog++ : un hachage de 64 bits au lieu de 32, une correction empirique du biais aux cardinalités moyennes, et une représentation creuse tant que peu de registres sont occupés[^hllpp].
+
+### Mesuré contre la théorie
+
+`hll.py` programme l’algorithme en Python, avec des registres d’un octet, et compte jusqu’à dix millions d’éléments distincts.
+
+```text
+1. HyperLogLog en Python (hachage de 64 bits)
+
+   a. p = 14 : 16 384 registres, 16 Ko ici (12 Ko à 6 bits par registre)
+      distincts   estimation   erreur
+            100           99   -0.70%
+          1 000          997   -0.33%
+         10 000        9 982   -0.18%
+        100 000       99 492   -0.51%
+      1 000 000      994 946   -0.51%
+     10 000 000    9 923 798   -0.76%
+
+   b. erreur relative selon p, 20 flux de 100 000 éléments distincts
+      p  registres  écart type   1,04/√m    pire
+      8        256       6.43%     6.50%  16.24%
+     10      1 024       2.99%     3.25%   5.32%
+     12      4 096       1.73%     1.62%   4.09%
+     14     16 384       0.55%     0.81%   1.28%
+     16     65 536       0.26%     0.41%   0.46%
+
+   c. set Python d'un million d'identifiants : 89.4 Mo
+```
+
+Avec 16 384 registres, l’estimation reste à moins de 0,8 % de la vraie valeur de 100 à 10 millions d’éléments, et la mémoire ne change pas ; l’ensemble Python d’un million d’identifiants pèse 89,4 Mo, cinq mille fois plus que les 16 Ko de registres. Le tableau b fait varier le nombre de registres sur 20 flux de 100 000 éléments, hachés avec 20 sels différents. L’écart type mesuré suit $1{,}04/\sqrt{m}$ (6,4 % pour 6,5 % prévus avec 256 registres, 3,0 et 1,7 % pour 3,3 et 1,6 %, puis 0,55 et 0,26 % pour 0,81 et 0,41 %), l’écart type estimé sur vingt flux étant lui-même incertain d’environ 16 %. Quatre fois plus de registres divisent l’erreur par deux. La colonne « pire » rappelle que l’erreur type n’est pas une borne. Avec 256 registres, un flux sur vingt s’est trompé de 16 %, et avec 16 384, la pire erreur des vingt flux est de 1,3 %, soit 1,6 erreur type.
+
+### Dans Redis
+
+Redis offre HyperLogLog depuis sa version 2.8.9 par `PFADD`, `PFCOUNT` et `PFMERGE`. La structure est stockée comme une chaîne, en représentation creuse tant qu’elle est petite, puis dense, 12 Ko au plus, pour une erreur type de 0,81 % et jusqu’à $2^{64}$ éléments[^redis-hll].
+
+```text
+2. Redis 8.8
+          PFADD      PFCOUNT   erreur    mémoire
+            100          100    0.00%      472 o
+          1 000          995   -0.50%    2 584 o
+         10 000       10 054    0.54%   14 360 o
+        100 000      100 040    0.04%   14 360 o
+      1 000 000      996 649   -0.34%   14 360 o
+     10 000 000   10 014 789    0.15%   14 360 o
+   (11 s pour 10 millions de PFADD par lots de 10 000)
+
+   7 jours d'un million d'utilisateurs, population de 3 millions
+   union exacte 2 824 125, PFMERGE puis PFCOUNT 2 821 583, erreur -0.09 %
+   un jour : PFCOUNT 997 029 pour 1 000 000
+   ensemble exact d'un million d'identifiants (SADD) : 49.3 Mo
+   HyperLogLog de 10 millions d'éléments : 14 360 o
+```
+
+La clé pèse 472 octets après 100 éléments et 2 584 après 1 000, en représentation creuse, puis 14 360 octets (les 12 Ko de registres et l’en-tête de Redis) à partir de 10 000, et plus rien ne change jusqu’à dix millions. Les erreurs vont de 0 à 0,54 %, dans l’erreur type. L’ensemble exact d’un million d’identifiants occupe 49,3 Mo, environ 3 400 fois plus. Dix millions de `PFADD` ont pris 11 s, par lots de 10 000 sur une seule connexion.
+
+L’union est l’opération qui rend HyperLogLog si commode. Deux structures de même taille se fusionnent en prenant registre par registre le maximum, et le résultat est exactement la structure qu’aurait donnée le flux réuni. Sept structures quotidiennes d’un million d’utilisateurs, tirés d’une population de trois millions, donnent par `PFMERGE` une estimation des utilisateurs de la semaine à 0,09 % de l’union exacte (2 821 583 pour 2 824 125). On garde ainsi une structure par heure ou par jour, et l’on répond aux questions sur n’importe quelle période en fusionnant, ce qu’on ne pourrait pas faire avec de simples compteurs de distincts, puisque les mêmes utilisateurs reviennent d’un jour à l’autre. L’intersection n’est pas directe. On l’obtient par $|A \cap B| = |A| + |B| - |A \cup B|$, mais l’erreur, proportionnelle à l’union, peut alors dépasser l’intersection elle-même si celle-ci est petite.
+
+## Compter les fréquences : Count-Min Sketch
+
+Le Count-Min Sketch de Graham Cormode et S. Muthukrishnan (2005) estime combien de fois chaque élément est apparu dans un flux[^cm]. C’est un tableau de $d$ lignes de $w$ compteurs, avec une fonction de hachage par ligne. Pour compter une occurrence d’un élément, on augmente d’un le compteur que chaque ligne lui attribue ; pour estimer sa fréquence, on prend le minimum de ses $d$ compteurs (figure 40.3). Chaque compteur contient la vraie fréquence de l’élément plus celles des éléments qui partagent sa case. L’estimation ne peut donc pas être inférieure à la vraie valeur, et le minimum garde la ligne où les collisions ont le moins pesé.
+
+<Figure svg={cms} num="40.3" alt="Un tableau de 3 lignes h1, h2, h3 et 8 colonnes. La clé page:7 reçoit +1 dans la colonne 2 de la ligne 1 (812), la colonne 4 de la ligne 2 (1295) et la colonne 5 de la ligne 3 (815). Estimation de page:7 : min(812, 1295, 815) = 812, pour un vrai compte de 810, soit une erreur de 2. Dans la ligne 2, page:7 partage sa case avec page:42 (483 vues) et le compteur surestime ; le minimum écarte cette collision.">
+Un Count-Min Sketch de 3 lignes et 8 colonnes.
+</Figure>
+
+Les trois cases bleues et rouge sont celles de page:7. La rouge contient aussi les 483 vues de page:42 ; le minimum la laisse de côté, et ne garde que les deux vues parasites de la ligne 1.
+
+Les auteurs prennent $w = \lceil e/\varepsilon \rceil$ et $d = \lceil \ln(1/\delta) \rceil$, et démontrent que l’estimation $\hat a_i$ de la fréquence $a_i$ vérifie $a_i \leq \hat a_i$ et, avec une probabilité d’au moins $1 - \delta$,
+
+$$
+\hat a_i \leq a_i + \varepsilon N,
+$$
+
+où $N$ est le nombre total d’occurrences du flux[^cm]. La mémoire, $w \times d$ compteurs, ne dépend ni du nombre d’éléments distincts ni de $N$. L’erreur, en revanche, est relative au total et non à la fréquence de l’élément : $\varepsilon N$ est négligeable pour un élément très fréquent, et énorme pour un élément rare. Le Count-Min Sketch sert donc à estimer les fréquences des éléments importants, et ses estimations sous le seuil $\varepsilon N$ ne valent rien ; la documentation de Redis conseille de les ignorer[^redis-cms].
+
+### Mesuré
+
+`countmin.py` produit un flux de 2 000 000 d’événements sur 100 000 clés tirées selon une loi de Zipf d’exposant 1 (la clé de rang $r$ revient en proportion de $1/r$), comme des pages vues. Au total, 94 182 clés apparaissent au moins une fois, et la plus fréquente 164 776 fois.
+
+```text
+1. 2 000 000 événements, 94 182 clés vues ; la plus fréquente : 164 776
+   décompte exact (dict Python) : 11.3 Mo
+
+   a. et b. erreur = estimation − vrai compte (jamais négative)
+   sketch (δ = 0,01)          mémoire    moy.    max    ≤ εN     tête   queue
+   ε = 0,01, w×d = 272×5         5 Ko  3402.4  85871  100.0%  302.35%  3406.1
+   ε = 0,001, w×d = 2719×5      54 Ko   198.1   2871  100.0%   21.77%   200.6
+   ε = 0,0001, w×d = 27183×5   544 Ko     5.9     78  100.0%    0.95%     8.7
+   ε = 0,001 conservateur       54 Ko   108.3   2599  100.0%    0.04%   117.2
+   (tête : pire erreur relative des 100 clés les plus fréquentes ;
+    queue : estimation moyenne des clés vues au plus 5 fois)
+
+   c. 10 clés les plus fréquentes (sketch ε = 0,001, liste de 10)
+   exactes : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+   sketch  : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+   10 sur 10 retrouvées ; 5.4 s
+```
+
+Avec $\varepsilon = 0{,}001$ et $\delta = 0{,}01$, le tableau compte $2\,719 \times 5$ compteurs, 54 Ko de compteurs de 4 octets, contre 11,3 Mo pour le dictionnaire Python exact. L’erreur moyenne est de 198, la pire de 2 871, et au moins 99,95 % des clés restent sous la borne $\varepsilon N = 2\,000$, au-delà des 99 % garantis. Chaque ligne reçoit en moyenne $N/w \approx 736$ occurrences parasites par case, et le minimum de cinq lignes en écarte la plus grande partie. Pour les 100 clés les plus fréquentes, vues 1 650 fois ou plus, la pire erreur relative est de 22 % ; pour les clés vues au plus cinq fois, l’estimation moyenne est de 201, quarante fois trop. Diviser $\varepsilon$ par dix multiplie la mémoire par dix et divise l’erreur moyenne par trente-quatre (5,9 avec 544 Ko). La mise à jour conservatrice, qui n’augmente que les compteurs égaux au minimum courant, ne fait que réduire les surestimations et garde donc la même garantie, mais elle ne permet plus de retrancher des occurrences ; elle divise ici l’erreur moyenne par près de deux (108 au lieu de 198), et la pire erreur des cent premières clés tombe à 0,04 %.
+
+Les éléments les plus fréquents (heavy hitters) se suivent avec le sketch et une liste de quelques candidats. À chaque événement, on estime la fréquence de l’élément ; s’il fait mieux que le plus faible des dix candidats, il le remplace. La partie c retrouve ainsi les dix pages les plus vues, dans l’ordre, sans avoir jamais gardé les 94 182 compteurs exacts.
+
+### Dans Redis
+
+Redis fournit le Count-Min Sketch (`CMS.INITBYPROB`, `CMS.INCRBY`, `CMS.QUERY`) et une structure dédiée aux éléments les plus fréquents, `TOPK`, fondée sur l’algorithme HeavyKeeper de Junzhi Gong et ses coauteurs : une table de compteurs proche d’un Count-Min Sketch, dont les compteurs disputés décroissent avec une probabilité exponentielle, et un tas des $k$ meilleurs éléments[^redis-topk].
+
+```text
+2. Redis 8.8
+   CMS.INITBYPROB 0.001 0.01 : largeur 2000, profondeur 7
+                              mémoire    moy.    max    ≤ εN     tête   queue
+   CMS Redis                    56 Ko   271.4    804  100.0%   18.33%   274.0
+   TOPK défaut 7×8: 1, 2, 3, 7, 11, 15, 5, 4, 8, 6 (8 sur 10)
+   TOPK 100×5     : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 (10 sur 10)
+   mémoire cms     :       56 056 o
+   mémoire topk    :        2 800 o
+   mémoire topk100 :        6 360 o
+   mémoire exact   :    4 919 282 o
+```
+
+Redis ne dimensionne pas comme l’article. Pour $\varepsilon = 0{,}001$ et $\delta = 0{,}01$, il choisit une largeur de 2 000 ($2/\varepsilon$) et une profondeur de 7 ($\lceil \log_2(1/\delta) \rceil$), soit 56 Ko ; l’erreur moyenne est de 271 et la pire de 804, mieux que la borne. Le décompte exact dans un hachage Redis (`HINCRBY`) occupe 4,9 Mo, quatre-vingt-huit fois plus. `TOPK.RESERVE topk 10`, sans autres paramètres, prend une largeur de 7 et une profondeur de 8 ; il occupe 2 800 octets et retrouve 8 des 10 pages les plus vues, mais pas les mêmes huit d’un lancement à l’autre, parce que HeavyKeeper fait décroître au hasard les compteurs des éléments qui se disputent une case, et sept cases par ligne pour dix éléments suivis, c’est trop peu. La documentation conseille une largeur de $k \log k$ et une profondeur d’au moins 5[^redis-topk]. Avec une largeur de 100 et une profondeur de 5, la structure occupe 6 360 octets et retrouve les dix pages, dans l’ordre, dans les deux lancements.
+
+## Compromis
+
+| Structure | Question | Mémoire pour 1 million de clés (mesurée) | Erreur | Ne sait pas |
+|---|---|---|---|---|
+| Ensemble exact (Redis `SADD`) | présence, nombre | 49 à 52 Mo | aucune | tenir en mémoire à grande échelle |
+| Filtre de Bloom à 1 % | présence | 1,2 Mo (Python), 1,38 Mo (Redis) | faux positifs 0,5 à 1 %, aucun faux négatif | supprimer, énumérer, dépasser sa capacité |
+| Filtre coucou | présence, suppression | 2,1 Mo (Redis, empreintes de 8 bits) | faux positifs 1,5 % | se remplir sans refus |
+| HyperLogLog ($p = 14$) | nombre de distincts | 12 Ko, 14 360 o dans Redis | 0,81 % d’erreur type, moins de 0,8 % mesuré | dire qui est présent, intersection précise |
+| Count-Min Sketch ($\varepsilon = 0{,}001$) | fréquence de chaque clé | 54 à 56 Ko | surestimation ≤ $\varepsilon N$ avec probabilité $1 - \delta$ | estimer les clés rares |
+| TOP-K (HeavyKeeper) | clés les plus fréquentes | 2,8 Ko (réglages par défaut), 6,4 Ko (largeur 100) | 8 sur 10, puis 10 sur 10 | donner des fréquences exactes |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : un filtre de Bloom pour un milliard de noms d’utilisateur]
+Hypothèses : un milliard de noms déjà pris, de 12 octets en moyenne ; on veut éviter une lecture en base pour la plupart des noms libres ; ensemble exact à environ 52 octets par clé (mesuré dans Redis).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Bits par clé à 1 % | $-\ln 0{,}01 / (\ln 2)^2$ | 9,6 bits, 7 fonctions |
+| Filtre à 1 % | $10^9 \times 9{,}6 / 8$ | 1,2 Go |
+| Filtre à 0,1 % | $10^9 \times 14{,}4 / 8$ | 1,8 Go |
+| Ensemble exact | $10^9 \times 52$ o | 52 Go |
+| Lectures évitées pour 10 000 noms libres demandés par seconde | 10 000 × 0,99 | 9 900 ; 100 vont en base |
+
+Conclusion : le filtre tient dans la mémoire d’une seule machine, l’ensemble exact non. Le filtre ne remplace pas la base ; il écarte les 99 % de demandes dont la réponse est « libre » et laisse à la base la confirmation des autres. On prévoit sa reconstruction quand le nombre de noms dépasse la capacité prévue.
+:::
+
+:::calcul[Calcul : les visiteurs distincts de dix millions de pages, chaque jour]
+Hypothèses : dix millions de pages ; une structure par page et par jour ; 95 % des pages ont moins de 100 visiteurs distincts par jour, 5 % en ont davantage ; identifiants de 8 octets.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| HyperLogLog denses (5 % des pages) | 500 000 × 12 Ko | 6 Go |
+| HyperLogLog creux (95 %, moins de 100 visiteurs) | 9 500 000 × 472 o (mesuré) | 4,5 Go |
+| Total par jour | 6 + 4,5 | environ 10,5 Go |
+| Ensemble exact d’une page à un million de visiteurs | $10^6 \times 8$ o | 8 Mo, chiffre donné par Reddit |
+| Union sur 30 jours d’une page | 30 `PFMERGE` de 12 Ko | 360 Ko lus, une réponse en mémoire |
+
+Conclusion : la représentation creuse compte autant que la dense, puisque la plupart des pages ont peu de visiteurs ; sans elle, 10 millions de structures de 12 Ko feraient 120 Go par jour. Les structures quotidiennes se fusionnent pour toute période, ce qu’aucun compteur de distincts ne permet.
+:::
+
+:::calcul[Calcul : les requêtes de recherche les plus fréquentes d’une journée]
+Hypothèses : un milliard de requêtes par jour ; on veut repérer toute requête qui dépasse 0,01 % du trafic, soit 100 000 occurrences ; $\delta = 0{,}01$ ; compteurs de 4 octets.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Erreur tolérée | dix fois moins que le seuil : $\varepsilon N = 10\,000$ | $\varepsilon = 10^{-5}$ |
+| Largeur | $\lceil e / 10^{-5} \rceil$ | 271 829 |
+| Profondeur | $\lceil \ln 100 \rceil$ | 5 |
+| Mémoire | 271 829 × 5 × 4 o | 5,4 Mo |
+| Décompte exact, 300 millions de requêtes distinctes de 30 octets | $3 \times 10^8 \times (30 + 50)$ o | 24 Go |
+
+Conclusion : 5,4 Mo suffisent pour repérer les requêtes au-dessus du seuil, et une liste de quelques centaines de candidats en donne les noms. Les fréquences des requêtes rares ne sont pas connues ; si on les veut, il faut un décompte exact, différé et réparti ([ch. 26](../partie-2/partitionnement.mdx)).
+:::
+
+## Exemple réel
+
+**Le décompte des vues chez Reddit.** Krishnan Chandra, de l’équipe d’ingénierie des données de Reddit, a décrit en 2017 le système qui affiche le nombre de vues de chaque publication[^reddit]. Les exigences étaient de compter en temps quasi réel, de ne compter chaque utilisateur qu’une fois sur une courte fenêtre, et de rester à quelques pour cent de la vraie valeur. Un ensemble des visiteurs par publication aurait été trop coûteux pour les publications populaires, dont certaines dépassent un million de visiteurs distincts ; avec des identifiants de 8 octets, cela fait 8 Mo pour une seule publication, contre 12 Ko pour un HyperLogLog, 0,15 % de la place. L’équipe a comparé trois implémentations (Algebird, stream-lib et Redis) et a choisi celle de Redis, pour sa documentation, son API et parce qu’elle déplaçait le calcul sur des serveurs dédiés. Les vues passent par Kafka ([ch. 27](../partie-2/files-messages.mdx)) ; un premier consommateur, Nazar, décide si chaque vue doit être comptée (il écarte par exemple les vues répétées d’un même utilisateur sur une courte période), et un second, Abacus, fait un `PFADD` dans le HyperLogLog de la publication. Les structures et les comptes sont recopiés dans Cassandra, par lots de 10 secondes par publication, pour retrouver les compteurs des publications anciennes que Redis a évincés de sa mémoire.
+
+## Erreurs fréquentes
+
+Dimensionner un filtre de Bloom pour la population d’aujourd’hui. Rempli deux fois au-delà de sa capacité, il passe de 1 % à 15,7 % de faux positifs, sans prévenir (mesuré).
+
+Ignorer le refus d’un filtre non extensible. Les clés refusées seront ensuite déclarées absentes (900 000 sur un million, mesuré).
+
+Supprimer une clé d’un filtre de Bloom en remettant ses bits à 0. Cela crée des faux négatifs pour les autres clés ; il faut un filtre à compteurs ou un filtre coucou.
+
+Croire qu’un filtre de Bloom dit qu’une clé est présente. Il dit qu’elle est absente ou qu’elle l’est peut-être ; la confirmation vient de la source exacte.
+
+Choisir le nombre de fonctions au hasard. Avec 10 bits par clé, une fonction donne 9,5 % de faux positifs au lieu de 0,82 % (mesuré).
+
+Prendre l’erreur type d’un HyperLogLog pour une borne. Avec 256 registres, un flux sur vingt s’est trompé de 16 % pour une erreur type de 6,5 % (mesuré).
+
+Calculer une intersection de petits ensembles par différence de HyperLogLog. L’erreur, proportionnelle à l’union, peut dépasser le résultat.
+
+Lire les fréquences des clés rares dans un Count-Min Sketch. Les clés vues au plus cinq fois y sont estimées à 201 en moyenne (mesuré).
+
+Garder les réglages par défaut sans les comparer au besoin. Le TOP-K de Redis, réglé par défaut sur une largeur de 7 pour suivre 10 éléments, en a manqué 2 sur 10 (mesuré).
+
+Fusionner des structures de tailles ou de fonctions de hachage différentes. L’union d’un HyperLogLog, d’un filtre de Bloom ou d’un Count-Min Sketch suppose les mêmes paramètres des deux côtés.
+
+:::piege[Erreur fréquente : « une structure probabiliste donne une réponse approximative, donc on ne peut pas s’y fier »]
+L’erreur de ces structures est choisie à l’avance, calculable et à sens unique. Un filtre de Bloom à 9,6 bits par clé se trompe sur 0,997 % des clés absentes, exactement ce que prévoit la formule, et jamais sur une clé présente ; un HyperLogLog de 12 Ko s’est trompé de 0,04 à 0,54 % sur dix millions d’éléments dans Redis ; un Count-Min Sketch ne sous-estime jamais. On s’y fie pour ce qu’elles garantissent (« absent » est certain, une fréquence au-dessus de $\varepsilon N$ est réelle) et l’on confirme le reste à la source quand la décision l’exige.
+:::
+
+:::entretien
+Quand une estimation montre qu’un ensemble, un compteur de distincts ou une table de fréquences ne tient pas en mémoire, nommez la structure probabiliste qui répond à la question posée, et chiffrez-la. « Filtre de Bloom à 1 %, 9,6 bits par clé, 1,2 Go pour un milliard de clés, devant la base pour écarter les absents. » « Un HyperLogLog de 12 Ko par page et par jour, 0,81 % d’erreur type, fusionné pour les périodes plus longues. » « Un Count-Min Sketch de 5 Mo et une liste de candidats pour les requêtes les plus fréquentes. » Dites aussi ce que la structure ne sait pas faire (supprimer, énumérer, estimer les éléments rares) et ce qui se passe au-delà de la capacité prévue.
+:::
+
+## Exercices
+
+**Question 1.** Un filtre de Bloom doit contenir 50 millions d’adresses de courriel avec un taux de faux positifs de 0,1 %. Combien de bits et combien de fonctions faut-il ? Quelle mémoire ? Si la population atteint 80 millions sans reconstruction, que devient le taux ?
+
+**Question 2.** Un HyperLogLog Redis compte les visiteurs distincts d’un site : 2 400 000 un lundi, 2 600 000 un mardi, et 3 900 000 sur les deux jours par `PFMERGE`. Combien de visiteurs sont venus les deux jours, et avec quelle incertitude, sachant que l’erreur type est de 0,81 % ? Que conclure ?
+
+**Question 3.** Un Count-Min Sketch avec $\varepsilon = 0{,}0005$ et $\delta = 0{,}001$ reçoit 400 millions d’événements. Quelles sont ses dimensions et sa mémoire avec des compteurs de 4 octets ? Une clé est estimée à 150 000 : que peut-on en dire ? Une autre à 180 000 ?
+
+**Exercice de conception.** Un service de raccourcissement d’adresses crée 100 millions de liens courts par mois et en garde cinq ans. Il doit vérifier, à chaque création, que le code aléatoire de 7 caractères proposé n’est pas déjà pris ; afficher pour chaque lien le nombre de visiteurs distincts par jour et sur toute sa durée de vie ; et publier chaque heure les 100 liens les plus visités. On prévoit 50 000 créations et 2 millions de visites par seconde en pointe. Proposez les structures, leurs paramètres et leur mémoire, ce qui est confirmé en base, et ce qui se passe quand la population dépasse les prévisions.
+
+## Corrigés
+
+**Question 1.** Il faut $-\ln 0{,}001/(\ln 2)^2 \approx 14{,}4$ bits par clé et $14{,}4 \ln 2 \approx 10$ fonctions, soit $5 \times 10^7 \times 14{,}4 / 8 = 90$ Mo. Avec 80 millions de clés, le filtre n’a plus que $14{,}4 \times 50/80 = 9$ bits par clé pour 10 fonctions, et $p \approx (1 - e^{-10/9})^{10} \approx 0{,}018$, soit 1,8 %, dix-huit fois le taux voulu ; à ce point, on reconstruit le filtre pour la nouvelle population, ou l’on emploie un filtre extensible.
+
+**Question 2.** $|L \cap M| = |L| + |M| - |L \cup M| = 2{,}4 + 2{,}6 - 3{,}9 = 1{,}1$ million. Les trois estimations ont chacune une erreur type de 0,81 %, soit environ 19 000, 21 000 et 32 000 ; si on les suppose indépendantes, l’erreur type de la différence est d’environ $\sqrt{19^2 + 21^2 + 32^2} \approx 43\,000$, et un intervalle à deux erreurs types va de 1,01 à 1,19 million. L’ordre de grandeur est sûr (environ 1,1 million de visiteurs fidèles, 4 % d’incertitude), mais une intersection de quelques milliers de visiteurs serait noyée dans cette incertitude ; il faudrait la compter autrement.
+
+**Question 3.** $w = \lceil e / 0{,}0005 \rceil = 5\,437$ et $d = \lceil \ln 1\,000 \rceil = 7$, soit 38 059 compteurs et 152 Ko. La borne vaut $\varepsilon N = 0{,}0005 \times 4 \times 10^8 = 200\,000$. Une estimation de 150 000 est sous la borne : la vraie valeur est entre 0 et 150 000, et l’on ne peut rien en dire d’utile. Une estimation de 180 000 aussi, puisqu’elle reste inférieure à 200 000 ; seules les estimations nettement au-dessus de la borne, par exemple 1 million, indiquent une clé vraiment fréquente (au moins 800 000 occurrences avec une probabilité de 99,9 %).
+
+**Exercice de conception.**
+
+*Codes pris.* Sur cinq ans, $100 \times 10^6 \times 60 = 6$ milliards de liens. Un filtre de Bloom à 1 % demande $6 \times 10^9 \times 9{,}6 / 8 = 7{,}2$ Go ; on le partitionne en 64 filtres de 112 Mo selon les premiers bits du code, un par partition de la base ([ch. 26](../partie-2/partitionnement.mdx)), dimensionnés avec une marge de 50 %. À la création, si le filtre répond « absent », le code est libre et l’on peut l’écrire ; s’il répond « peut-être », on interroge la base (1 % des cas, 500 lectures par seconde en pointe), et l’on tire un autre code s’il est vraiment pris. La contrainte d’unicité de la base reste la seule garantie, le filtre n’évitant que des lectures. On compte les insertions par partition et l’on reconstruit un filtre plus grand, à partir de la base, quand il dépasse sa capacité.
+
+*Visiteurs distincts.* Un HyperLogLog par lien et par jour, en représentation creuse pour l’immense majorité des liens peu visités, et un HyperLogLog cumulé par lien, mis à jour par `PFMERGE` chaque nuit ou par un `PFADD` direct. Les structures quotidiennes de plus de 30 jours sont fusionnées en structures mensuelles, puis supprimées, pour borner la mémoire ; les structures froides sont archivées dans une base sur disque, comme le fait Reddit avec Cassandra.
+
+*Liens les plus visités.* Un Count-Min Sketch par heure. Avec 2 millions de visites par seconde, une heure fait $7{,}2 \times 10^9$ visites ; pour que le 100e lien d’une distribution concentrée, supposé à 0,01 % du trafic (720 000 visites), soit bien au-dessus de l’erreur, on prend $\varepsilon N = 72\,000$, soit $\varepsilon = 10^{-5}$, $w = 271\,829$, $d = 5$, 5,4 Mo par heure, avec une liste de 1 000 candidats. Les sketchs se fusionnent par addition si plusieurs serveurs comptent en parallèle, à condition de partager dimensions et fonctions.
+
+*Au-delà des prévisions.* Le filtre se dégrade sans bruit ; on le surveille et on le reconstruit. Les HyperLogLog et les sketchs gardent leur mémoire, mais l’erreur du sketch, proportionnelle au total, grandit avec le trafic ; on recalcule $\varepsilon$ si le volume horaire double.
+
+:::fiche
+- Ensemble exact d’un million de clés : 49 à 52 Mo (Redis), 89 à 92 Mo (Python).
+- Filtre de Bloom : $m$ bits, $k$ fonctions ; pas de faux négatif ; $p \approx (1 - e^{-kn/m})^k$, $k = (m/n)\ln 2$, $m/n = 1{,}44 \log_2(1/p)$, soit 9,6 bits à 1 % et 14,4 à 0,1 %. Deux hachages suffisent ($h_1 + i h_2$). Mesuré : 0,997 % pour 0,997 % prévu, 1,2 Mo ; deux fois trop rempli, 15,7 %.
+- Redis : BF à 1 % = 1,38 Mo, 0,49 % ; extensible (sous-filtres, plus de mémoire, lectures plus longues) ou non extensible (refus) ; filtre coucou avec suppression, 2,1 Mo, 1,5 %.
+- HyperLogLog : $2^p$ registres, plus longue suite de zéros, moyenne harmonique ; erreur type $1{,}04/\sqrt{m}$ ; 12 Ko et 0,81 % pour $p = 14$. Mesuré : < 0,8 % jusqu’à 10 millions ; Redis 14 360 o, creux en dessous. Union exacte par maximum (semaine à 0,09 %) ; intersection fragile.
+- Count-Min Sketch : $d \times w$ compteurs, minimum ; $w = \lceil e/\varepsilon\rceil$, $d = \lceil \ln(1/\delta)\rceil$ ; jamais de sous-estimation, $\leq a + \varepsilon N$ avec probabilité $1 - \delta$. Mesuré ($\varepsilon = 0{,}001$) : 54 Ko contre 11,3 Mo, erreur moyenne 198 ; clés rares inutilisables ; erreur divisée par près de deux en mise à jour conservatrice. Redis : $w = 2/\varepsilon$, $d = \log_2(1/\delta)$.
+- Éléments les plus fréquents : sketch + liste de candidats (10 sur 10) ; TOPK de Redis, 8 sur 10 avec les réglages par défaut (largeur 7), 10 sur 10 avec une largeur de 100 (6,4 Ko).
+:::
+
+[^bloom]: Burton H. Bloom, « Space/Time Trade-offs in Hash Coding with Allowable Errors », *Communications of the ACM*, vol. 13, n° 7, 1970, p. 422-426, [doi:10.1145/362686.362692](https://doi.org/10.1145/362686.362692).
+[^redis-bf]: Redis, « Bloom filter », documentation (BF.RESERVE, EXPANSION, NONSCALING, nombre de fonctions et bits par clé, filtres coucou), [redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter](https://redis.io/docs/latest/develop/data-types/probabilistic/bloom-filter/).
+[^kirsch]: Adam Kirsch et Michael Mitzenmacher, « Less Hashing, Same Performance: Building a Better Bloom Filter », *Random Structures & Algorithms*, vol. 33, n° 2, 2008, p. 187-218 (version de conférence à ESA 2006), [doi:10.1002/rsa.20208](https://doi.org/10.1002/rsa.20208).
+[^coucou]: Bin Fan, David G. Andersen, Michael Kaminsky et Michael D. Mitzenmacher, « Cuckoo Filter: Practically Better Than Bloom », *CoNEXT ’14*, 2014, résumé et section 1 (moins de place qu’un filtre de Bloom sous 3 % de faux positifs), [doi:10.1145/2674005.2674994](https://doi.org/10.1145/2674005.2674994).
+[^hll]: Philippe Flajolet, Éric Fusy, Olivier Gandouet et Frédéric Meunier, « HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm », *Conference on Analysis of Algorithms (AofA ’07)*, DMTCS proc. AH, 2007, p. 127-146 (erreur type $1{,}04/\sqrt{m}$, cardinalités au-delà de $10^9$ à 2 % près avec 1,5 Ko), [algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf](https://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf).
+[^redis-hll]: Redis, « HyperLogLog », documentation (12 Ko, erreur type 0,81 %, $2^{64}$ éléments, PFADD, PFCOUNT, PFMERGE), [redis.io/docs/latest/develop/data-types/probabilistic/hyperloglogs](https://redis.io/docs/latest/develop/data-types/probabilistic/hyperloglogs/).
+[^hllpp]: Stefan Heule, Marc Nunkesser et Alexander Hall, « HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm », *EDBT ’13*, 2013, [doi:10.1145/2452376.2452456](https://doi.org/10.1145/2452376.2452456).
+[^cm]: Graham Cormode et S. Muthukrishnan, « An Improved Data Stream Summary: The Count-Min Sketch and its Applications », *Journal of Algorithms*, vol. 55, n° 1, 2005, p. 58-75, section 3 (dimensions) et théorème 1, [doi:10.1016/j.jalgor.2003.12.001](https://doi.org/10.1016/j.jalgor.2003.12.001).
+[^redis-topk]: Redis, « Top-K », documentation (algorithme HeavyKeeper, réglages par défaut de TOPK.RESERVE : largeur 7, profondeur 8, décroissance 0,9 ; largeur conseillée $k \log k$), [redis.io/docs/latest/develop/data-types/probabilistic/top-k](https://redis.io/docs/latest/develop/data-types/probabilistic/top-k/).
+[^redis-cms]: Redis, « Count-min sketch », documentation (CMS.INITBYPROB, seuil error × total_count, estimations sous le seuil à ignorer), [redis.io/docs/latest/develop/data-types/probabilistic/count-min-sketch](https://redis.io/docs/latest/develop/data-types/probabilistic/count-min-sketch/).
+[^reddit]: Krishnan Chandra, « View Counting at Reddit », *Upvoted*, blog de Reddit, 24 mai 2017, copie archivée : [web.archive.org/web/2019/https://redditblog.com/2017/05/24/view-counting-at-reddit/](http://web.archive.org/web/2019/https://redditblog.com/2017/05/24/view-counting-at-reddit/).

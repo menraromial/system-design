@@ -1,0 +1,30 @@
+% Count-Min Sketch de 3 lignes et 8 colonnes : chaque clé incrémente un
+% compteur par ligne ; l'estimation est le minimum de ses compteurs.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    cel/.style={draw=Dink, line width=0.6pt, minimum width=10mm, minimum height=8mm, inner sep=0pt,
+      font=\sffamily\small, fill=white},
+    cle/.style={soft=#1, minimum width=22mm, minimum height=8mm, font=\sffamily\small\bfseries},
+    lab/.style={font=\sffamily\small, text=#1, align=center}]
+  % valeurs : ligne, colonne, valeur, couleur
+  \foreach \l/\vals in {0/{3,0,812,2,1,0,5,1}, 1/{0,4,1,0,1295,2,0,1}, 2/{1,0,2,6,0,815,1,0}} {
+    \foreach \v [count=\c from 0] in \vals {
+      \node[cel] (c\l\c) at (\c*10,-\l*8) {\v};
+    }
+    \node[note, anchor=east] at (-6,-\l*8) {$h_{\the\numexpr\l+1\relax}$};
+  }
+  % cases de page:7
+  \node[cel, fill=DblueBg, text=Dblue, font=\sffamily\small\bfseries] at (c02) {812};
+  \node[cel, fill=DredBg, text=Dred, font=\sffamily\small\bfseries] at (c14) {1295};
+  \node[cel, fill=DblueBg, text=Dblue, font=\sffamily\small\bfseries] at (c25) {815};
+  \node[cle=Dblue, anchor=south west] (k) at (-8,9) {page:7, +1};
+  \node[lab=Dblue, anchor=west] at ($(k.east)+(3,0)$) {$h_1$ → colonne 2, $h_2$ → colonne 4, $h_3$ → colonne 5 : un compteur augmenté par ligne};
+  \node[note, anchor=north west] at (-8,-21) {w = 8 colonnes, d = 3 lignes};
+  % lecture
+  \node[lab=Dink, anchor=west] at (86,-8) {estimation de page:7 :\\min(812, 1295, 815) = 812};
+  \node[lab=Dred, anchor=north west, align=left] at (-8,-27) {ligne 2 : page:7 partage sa case avec page:42 (483 vues),\\le compteur surestime ; le minimum écarte cette collision};
+  \node[lab=Dslate, anchor=west] at (86,-20) {vrai compte : 810, erreur + 2};
+\end{tikzpicture}
+\end{document}

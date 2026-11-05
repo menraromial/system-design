@@ -1,0 +1,37 @@
+% HyperLogLog avec p = 4 (16 registres) : les 4 premiers bits du hachage
+% choisissent le registre, qui garde la plus longue suite de zéros vue, plus un.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    bitp/.style={draw=Dpurple, fill=DpurpleBg, line width=0.6pt, minimum width=5.5mm, minimum height=7mm,
+      inner sep=0pt, font=\ttfamily\small\bfseries, text=Dpurple},
+    bitr/.style={draw=Dink, fill=white, line width=0.6pt, minimum width=5.5mm, minimum height=7mm,
+      inner sep=0pt, font=\ttfamily\small},
+    bitz/.style={draw=Damber, fill=DamberBg, line width=0.6pt, minimum width=5.5mm, minimum height=7mm,
+      inner sep=0pt, font=\ttfamily\small\bfseries, text=Damber},
+    reg/.style={draw=Dink, line width=0.6pt, minimum width=8mm, minimum height=8mm, inner sep=0pt,
+      font=\sffamily\small\bfseries},
+    lab/.style={font=\sffamily\small, text=#1, align=center}]
+  \node[soft=Dblue, minimum width=22mm, minimum height=8mm, font=\sffamily\small\bfseries] (x) at (-24,40) {visiteur:42};
+  \node[lab=Dslate, anchor=west] at (-11,40) {hachage de 64 bits};
+  % bits du hachage
+  \foreach \b [count=\i from 0] in {0,1,1,0} \node[bitp] (h\i) at (\i*5.5,24) {\b};
+  \foreach \b [count=\i from 4] in {0,0,0} \node[bitz] (h\i) at (\i*5.5,24) {\b};
+  \foreach \b [count=\i from 7] in {1,0,1,1,0,1} \node[bitr] (h\i) at (\i*5.5,24) {\b};
+  \node[note, anchor=west] at (13*5.5+3,24) {… (64 bits)};
+  \draw[arr=Dslate] (x.south) |- (h0.west);
+  \draw[accol, Dpurple] (h0.north west) -- node[above=4pt, lab=Dpurple] {p = 4 bits : 0110 = 6} (h3.north east);
+  \draw[accol, Damber] (h7.south east) -- node[below=4pt, lab=Damber] {3 zéros puis un 1 : ρ = 4} (h4.south west);
+  % registres
+  \foreach \v [count=\j from 0] in {2,5,1,3,2,0,4,3,1,6,2,2,3,1,4,2} {
+    \ifnum\j=6 \node[reg, fill=DamberBg, text=Damber] (r\j) at (\j*9,0) {\v};
+    \else \node[reg, fill=DslateZ, text=Dink] (r\j) at (\j*9,0) {\v};\fi
+    \node[note, below=0.5mm] at (r\j.south) {\j};
+  }
+  \draw[arr=Dpurple] (h2.south) to[out=-90, in=90] node[lab=Dpurple, left=2pt, pos=0.25] {registre 6} (r6.north);
+  \node[lab=Dink, anchor=north west, align=left] at (-14,-12) {M[6] = max(2, 4) = 4 : chaque registre garde le plus grand ρ vu ;\\
+    estimation $E = \alpha_m\, m^2 \big/ \sum_j 2^{-M[j]}$, erreur type $1{,}04/\sqrt{m}$ ;\\
+    avec $m = 2^{14}$ registres de 6 bits : 12 Ko, 0,81 \%};
+\end{tikzpicture}
+\end{document}
