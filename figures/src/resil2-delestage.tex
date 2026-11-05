@@ -1,0 +1,32 @@
+% Requêtes réussies par seconde quand la charge passe de 300 à 1 000 requêtes par
+% seconde de 10 à 30 s, pour une file sans limite et une file bornée
+% (outils/experiences/ch39/delestage.py, partie 1).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch39-delestage.tex}
+\begin{tikzpicture}[x=2.8mm, y=0.08mm, note/.append style={font=\sffamily\small},
+    courbe/.style={draw=#1, line width=1.2pt, line cap=round}]
+  \newcommand{\trace}[2]{%
+    \foreach \x/\y [remember=\x as \xa (initially -1), remember=\y as \ya (initially 0)] in #1 {
+      \ifnum\xa>-1 \draw[courbe=#2] (\xa+0.5,\ya) -- (\x+0.5,\y); \fi
+    }}
+  \fill[DslateZ] (10,0) rectangle (30,650);
+  \node[note, align=center] at (20,610) {1 000 requêtes par seconde\\pour une capacité de 500};
+  \draw[Dred, line width=0.7pt, dash pattern=on 3pt off 2pt] (0,500) -- (50,500);
+  \node[note, text=Dred, anchor=south east] at (50,505) {capacité : 500/s};
+  \draw[ligne] (0,0) -- (50.3,0);
+  \draw[ligne] (0,0) -- (0,650);
+  \foreach \v in {0,100,...,600} {\draw[ligne] (0,\v) -- (-0.3,\v); \node[note, anchor=east] at (-0.3,\v) {\v};}
+  \foreach \t in {0,10,...,50} {\draw[ligne] (\t,0) -- (\t,-12); \node[note, below] at (\t,-12) {\t};}
+  \node[axe, anchor=north] at (25,-70) {temps (s)};
+  \node[axe, anchor=south west] at (0,665) {requêtes réussies par seconde (délai du client : 1 s)};
+  \trace{\okFifo}{Dred}
+  \trace{\okLifo}{Dteal}
+  % légende
+  \draw[courbe=Dred] (52,470) -- (54,470);
+  \node[note, anchor=north west, align=left] at (54.3,500) {file sans limite,\\ordre d'arrivée};
+  \draw[courbe=Dteal] (52,330) -- (54,330);
+  \node[note, anchor=north west, align=left] at (54.3,360) {CoDel et LIFO adaptatif\\(file bornée, CoDel seul\\et priorités : presque\\la même courbe)};
+\end{tikzpicture}
+\end{document}

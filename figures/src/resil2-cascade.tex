@@ -1,0 +1,50 @@
+% Une dépendance pendue occupe tous les fils d'un service (en haut) ; des
+% cloisons limitent le dommage à la fonction qui en dépend (en bas).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    fil/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum size=4.6mm, inner sep=0pt},
+    svc/.style={soft=#1, minimum width=26mm, minimum height=13mm, align=center},
+    lab/.style={font=\sffamily\small, text=#1, fill=white, inner sep=1.5pt, align=center},
+    lab/.default=Dink]
+  \newcommand{\fils}[5][Dred]{% #1 : couleur des fils occupés, #2 : x, #3 : y, #4 : occupés, #5 : total
+    \foreach \i in {1,...,#5} {
+      \pgfmathtruncatemacro{\col}{mod(\i-1,10)}
+      \pgfmathtruncatemacro{\lig}{(\i-1)/10}
+      \ifnum\i>#4 \node[fil=Dgreen] at ({#2+\col*5.6},{#3-\lig*5.6}) {};
+      \else \node[fil=#1] at ({#2+\col*5.6},{#3-\lig*5.6}) {};\fi
+    }}
+  % ---- fils communs
+  \node[pillo=Dslate, anchor=west] at (-30,30) {20 fils communs};
+  \node[group=Dblue, minimum width=64mm, minimum height=24mm] (a1) at (25,12) {};
+  \node[note, anchor=north west] at (a1.north west) {service A};
+  \fils{2}{16}{20}{20}
+  \node[svc=Dred] (b1) at (110,22) {\stack{server}{B (pendu)}};
+  \node[svc=Dteal] (c1) at (110,2) {\stack{server}{C (sain)}};
+  \draw[arr=Dred, line width=1pt] (a1.east |- b1) -- node[lab=Dred, above=1pt] {/profil : 2 s} (b1);
+  \draw[arr=Dslate, line width=1pt, dash pattern=on 3pt off 2pt] (a1.east |- c1) -- node[lab=Dslate, below=1pt] {aucun fil libre} (c1);
+  \node[note, anchor=east, align=right] at (-9,12) {/recherche\\attend un fil :\\délais dépassés};
+  \draw[arr=Dslate] (-8,12) -- (a1.west);
+  % ---- cloisons
+  \begin{scope}[yshift=-46mm]
+    \node[pillo=Dslate, anchor=west] at (-30,30) {cloisons : 10 + 10 fils};
+    \node[group=Dred, minimum width=64mm, minimum height=11mm] (p) at (25,18) {};
+    \node[group=Dteal, minimum width=64mm, minimum height=11mm] (r) at (25,4) {};
+    \node[note, anchor=south west] at (p.north west) {service A, cloison /profil};
+    \node[note, anchor=north west] at (r.south west) {cloison /recherche};
+    \fils{2}{18}{10}{10}
+    \fils[Dteal]{2}{4}{1}{10}
+    \node[svc=Dred] (b2) at (110,18) {\stack{server}{B (pendu)}};
+    \node[svc=Dteal] (c2) at (110,4) {\stack{server}{C (sain)}};
+    \draw[arr=Dred, line width=1pt] (p.east) -- node[lab=Dred, above=1pt] {/profil : 2 s} (b2);
+    \draw[arr=Dteal, line width=1pt] (r.east) -- node[lab=Dteal, below=1pt] {/recherche : 10 ms} (c2);
+    \node[note, anchor=east, align=right, text=Dred] at (-9,18) {/profil : 503\\immédiat};
+    \node[note, anchor=east, align=right, text=Dteal] at (-9,4) {/recherche\\servie};
+  \end{scope}
+  % légende
+  \node[fil=Dred, label={[note]right:fil qui attend B}] at (-28,-58) {};
+  \node[fil=Dteal, label={[note]right:fil occupé 10 ms}] at (18,-58) {};
+  \node[fil=Dgreen, label={[note]right:fil libre}] at (60,-58) {};
+\end{tikzpicture}
+\end{document}

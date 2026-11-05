@@ -1,0 +1,19 @@
+% Les états d'une panne métastable selon Bronson et al. (HotOS 2021) : stable,
+% vulnérable, métastable, avec le déclencheur et l'effet d'entretien.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    etat/.style={soft=#1, minimum width=38mm, minimum height=22mm, align=center,
+      font=\sffamily\small, rounded corners=8pt},
+    lab/.style={font=\sffamily\small, text=Dink, align=center, fill=white, inner sep=2pt}]
+  \node[etat=Dgreen] (s) at (0,0) {{\bfseries\large stable}\\[2pt]une panne passagère\\se résorbe seule};
+  \node[etat=Damber] (v) at (75,0) {{\bfseries\large vulnérable}\\[2pt]sain, efficace,\\mais sans marge};
+  \node[etat=Dred] (m) at (162,0) {{\bfseries\large métastable}\\[2pt]débit utile proche de 0,\\même sans déclencheur};
+  \draw[arr=Damber, line width=1.1pt] (s.15) -- node[lab, above=2pt] {la charge dépasse\\un seuil invisible} (v.165);
+  \draw[arr=Dgreen, line width=1.1pt] (v.195) -- node[lab, below=2pt] {la charge baisse} (s.345);
+  \draw[arr=Dred, line width=1.1pt] (v.15) -- node[lab, above=2pt] {déclencheur passager :\\ralentissement, cache vidé} (m.165);
+  \draw[arr=Dred, line width=1.1pt] (m.north east) .. controls +(16,22) and +(-16,22) .. node[lab, above=1pt, text=Dred] {effet d'entretien : délais dépassés, nouvelles tentatives,\\travail pour des clients partis, cache qui ne se remplit plus} (m.north west);
+  \draw[arr=Dgreen, line width=1.1pt, dash pattern=on 4pt off 2pt] (m.south) .. controls +(0,-26) and +(0,-26) .. node[lab, below=1pt] {action forte : délester, couper une partie de la charge, redémarrer} (s.south);
+\end{tikzpicture}
+\end{document}

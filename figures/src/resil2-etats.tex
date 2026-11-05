@@ -1,0 +1,19 @@
+% Les trois états d'un disjoncteur et ses transitions, avec les réglages par
+% défaut de Hystrix repris dans outils/experiences/ch39/cascade.py.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    etat/.style={soft=#1, minimum width=40mm, minimum height=20mm, align=center,
+      font=\sffamily\small, rounded corners=8pt},
+    lab/.style={font=\sffamily\small, text=Dink, align=center, fill=white, inner sep=2pt}]
+  \node[etat=Dgreen] (f) at (0,0) {{\bfseries\large fermé}\\[2pt]les appels passent ;\\on compte les échecs};
+  \node[etat=Dred] (o) at (110,0) {{\bfseries\large ouvert}\\[2pt]refus immédiat,\\sans appeler B};
+  \node[etat=Damber] (s) at (55,-50) {{\bfseries\large semi-ouvert}\\[2pt]un seul appel d'essai,\\les autres refusés};
+  \draw[arr=Dred, line width=1.1pt] (f.20) -- node[lab, above=2pt] {sur les 10 dernières secondes, au moins\\20 appels et au moins 50 \% d'échecs} (o.160);
+  \draw[arr=Damber, line width=1.1pt] (o.south) |- node[lab, pos=0.25, right=2pt] {5 s\\écoulées} (s.east);
+  \draw[arr=Dgreen, line width=1.1pt] (s.west) -| node[lab, pos=0.75, left=2pt] {l'essai\\réussit} (f.south);
+  \draw[arr=Dred, line width=1.1pt, dash pattern=on 4pt off 2pt] (s.north east) to[bend right=20] node[lab, pos=0.45, left=4pt] {l'essai échoue} (o.south west);
+  \draw[arr=Dgreen, line width=1.1pt] (f.north west) .. controls +(-14,16) and +(14,16) .. node[lab, above=1pt] {appel réussi, ou échecs\\sous le seuil} (f.north east);
+\end{tikzpicture}
+\end{document}

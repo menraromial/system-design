@@ -1,0 +1,418 @@
+---
+title: "Résilience (2) : disjoncteur, cloisons, contre-pression"
+sidebar_label: "39. Disjoncteur, cloisons, délestage"
+description: "Empêcher une panne de se propager et un service de s'effondrer sous la charge : pannes en cascade, cloisons, disjoncteur et ses trois états, dégradation progressive, délestage, files bornées, CoDel et LIFO adaptatif, priorisation du trafic, contre-pression, pannes métastables ; mesures sur une chaîne de trois services, un service surchargé et une connexion TCP."
+partie: 3
+chapitre: 39
+---
+
+import cascade from '@site/src/figures/resil2-cascade.svg';
+import etats from '@site/src/figures/resil2-etats.svg';
+import delestage from '@site/src/figures/resil2-delestage.svg';
+import metastable from '@site/src/figures/resil2-metastable.svg';
+
+Un service A affiche des profils, qu’il demande à un service B, et des résultats de recherche, qu’il demande à un service C. B cesse de répondre pendant vingt secondes, sans erreur, sans refuser les connexions. C fonctionne parfaitement. Pendant ces vingt secondes, 96 à 97 % des recherches échouent quand même, parce que les requêtes de profil, qui attendent B jusqu’à leur délai, ont pris tous les fils de A. La panne de B est devenue celle de A. Le même service A, avec ses fils répartis en deux groupes, sert 100 % des recherches pendant la panne ; avec un disjoncteur qui cesse d’appeler B, aussi, à condition que le disjoncteur s’ouvre vite ; avec un repli, il sert en plus 99 % des profils sous une forme dégradée.
+
+Le [ch. 38](resilience-tentatives.mdx) a traité ce que fait un client quand une requête échoue. Ce chapitre traite de ce que fait un service pour qu’une dépendance défaillante ou une charge excessive ne l’emportent pas : les cloisons (bulkheads), qui isolent les ressources, le disjoncteur (circuit breaker), qui cesse d’appeler une dépendance en panne, la dégradation progressive (graceful degradation), le délestage (load shedding) et la discipline de la file d’attente, la priorisation du trafic, et la contre-pression (back-pressure), qui ralentit la source au lieu d’accumuler. La dernière section revient sur les pannes métastables, dont la tempête de nouvelles tentatives du [ch. 38](resilience-tentatives.mdx) était un exemple.
+
+Trois expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch39/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch39). [`cascade.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch39/cascade.py) fait tomber la dépendance B d’un service A sous cinq réglages. [`delestage.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch39/delestage.py) surcharge un service ([`service.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch39/service.py)) dont seule la gestion de la file change. [`contre_pression.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch39/contre_pression.py) relie un producteur trop rapide à un consommateur, dans un processus puis sur une connexion TCP. Chaque script a été lancé deux fois.
+
+## Une panne qui remonte
+
+Une panne en cascade (cascading failure) est une panne qui se propage d’un composant à ceux qui en dépendent, puis à ceux qui dépendent de ceux-là. Le mécanisme le plus courant passe par une ressource partagée et limitée : les fils d’un serveur, les connexions d’un pool, la mémoire, les descripteurs de fichiers. Une dépendance qui renvoie une erreur aussitôt ne la consomme presque pas. Une dépendance qui ne répond plus est bien pire, car chaque appel garde sa ressource jusqu’au délai d’attente. La loi de Little ([ch. 9](../partie-1/latence-debit.mdx)) donne le nombre de ressources occupées, qui est le débit multiplié par la durée de rétention. A reçoit 100 requêtes de profil par seconde ; tant que B répond en 10 ms, elles occupent en moyenne un seul fil ; quand B ne répond plus et que A attend 2 s, il en faudrait $100 \times 2 = 200$. A n’en a que 20, qui sont pris en un cinquième de seconde, et toutes les requêtes suivantes, recherches comprises, attendent un fil (figure 39.1).
+
+<Figure svg={cascade} num="39.1" alt="En haut, 20 fils communs dans le service A : tous sont rouges, occupés par des requêtes /profil qui attendent B pendu jusqu’à 2 s ; aucun fil n’est libre pour appeler C, pourtant sain, et les requêtes /recherche attendent un fil jusqu’à dépasser leur délai. En bas, avec des cloisons de 10 + 10 fils : la cloison /profil est pleine et répond 503 immédiatement, la cloison /recherche a un fil occupé 10 ms et neuf libres, et les recherches sont servies par C.">
+Une dépendance pendue occupe tous les fils communs ; des cloisons limitent le dommage.
+</Figure>
+
+En haut, les vingt fils sont rouges, et C, sain, ne reçoit plus rien. En bas, seule la cloison du profil est pleine ; celle de la recherche continue de servir.
+
+`cascade.py` monte ce scénario. A a 20 fils (un sémaphore pris pendant toute la requête, comme un serveur à fils), un délai de 2 s vers B et vers C ; les clients envoient 100 requêtes de profil et 100 recherches par seconde, attendent 3 s et ne recommencent pas ; B ne répond plus de $t = 10$ s à $t = 30$ s.
+
+```text
+A : 20 fils, délai 2 s vers B et C ;
+clients : 100 /profil et 100 /recherche par s, délai 3 s ;
+B ne répond plus de t = 10 à 30 s
+
+   aucun
+     phase     recherche ok 99e (ms) profil ok dont dégradé appels à B/s
+     avant           100.0%       15    100.0%         0.0%          104
+     panne             3.5%     2992      2.0%         0.0%           10
+     après           100.0%     2620    100.0%         0.0%          461
+     après+5         100.0%       13    100.0%         0.0%           98
+
+   cloisons
+     phase     recherche ok 99e (ms) profil ok dont dégradé appels à B/s
+     avant           100.0%       13    100.0%         0.0%          104
+     panne           100.0%       13      0.0%         0.0%            5
+     après           100.0%       13     96.8%         0.0%           92
+     après+5         100.0%       13    100.0%         0.0%           98
+
+   disjoncteur
+     phase     recherche ok 99e (ms) profil ok dont dégradé appels à B/s
+     avant           100.0%       13    100.0%         0.0%          104
+     panne            61.5%     2860      0.0%         0.0%            5
+     après           100.0%       13     58.4%         0.0%           56
+     après+5         100.0%       13    100.0%         0.0%           98
+     disjoncteur : ouvert à 20.03 s, semi-ouvert à 25.04 s, ouvert à
+       27.04 s, semi-ouvert à 32.05 s, fermé à 32.06 s
+
+   court
+     phase     recherche ok 99e (ms) profil ok dont dégradé appels à B/s
+     avant           100.0%       13    100.0%         0.0%          104
+     panne           100.0%     1836      0.0%         0.0%            2
+     après           100.0%       13     74.2%         0.0%           71
+     après+5         100.0%       13    100.0%         0.0%           98
+     disjoncteur : ouvert à 12.17 s, semi-ouvert à 17.17 s, ouvert à
+       19.17 s, semi-ouvert à 24.19 s, ouvert à 26.2 s, semi-ouvert à
+       31.2 s, fermé à 31.21 s
+
+   repli
+     phase     recherche ok 99e (ms) profil ok dont dégradé appels à B/s
+     avant           100.0%       14    100.0%         0.0%          104
+     panne           100.0%     1837     99.1%        99.1%            2
+     après           100.0%       16    100.0%        25.8%           71
+     après+5         100.0%       14    100.0%         0.0%           98
+     disjoncteur : ouvert à 12.17 s, semi-ouvert à 17.17 s, ouvert à
+       19.17 s, semi-ouvert à 24.19 s, ouvert à 26.2 s, semi-ouvert à
+       31.2 s, fermé à 31.21 s
+```
+
+Les deux autres passages ont donné 3,3 et 4,2 % de recherches réussies pendant la panne sans protection, au lieu de 3,5 %, les mêmes chiffres à un point près pour les autres réglages, et les mêmes instants d’ouverture et de fermeture du disjoncteur, à 10 ms près. Sans protection, les recherches tombent à 3,5 % pendant la panne, et leur 99e centile atteint 3 s, le délai du client. La phase « après » montre un second effet. Quand B revient, A reçoit d’un coup 461 appels par seconde, car les requêtes de profil qui attendaient un fil, et dont les clients sont souvent partis, sont toutes exécutées.
+
+## Les cloisons
+
+Une cloison (bulkhead) découpe une ressource en compartiments, un par dépendance ou par type de requête, pour qu’un compartiment saturé ne prive pas les autres. Michael Nygard a popularisé le terme dans *Release It!*, avec les autres motifs de stabilité de ce chapitre[^nygard]. Hystrix, la bibliothèque de Netflix, l’appliquait par défaut. Chaque dépendance avait son pool de 10 fils, sans file d’attente (`maxQueueSize = -1`, une `SynchronousQueue`), si bien qu’un appel qui ne trouvait pas de fil libre échouait aussitôt[^hystrix-config]. Hystrix est en maintenance depuis 2018 et Netflix conseille Resilience4j pour les nouveaux projets[^hystrix], mais ces réglages restent une bonne référence.
+
+Le réglage `cloisons` de l’expérience donne 10 fils au profil et 10 à la recherche, et refuse une requête dont la cloison est pleine. Les recherches restent à 100 %, avec un 99e centile de 15 ms comme avant la panne. Les requêtes de profil échouent toutes, mais en 503 immédiat au lieu d’attendre 3 s, et B ne reçoit plus que 5 appels par seconde (10 fils renouvelés toutes les 2 s). Le même principe s’applique à d’autres ressources que les fils. Un pool de connexions par base, une file par client dans un service partagé, des instances réservées à un gros client, des nœuds Kubernetes réservés à une charge critique. Facebook décrit une version côté client, où chaque client compte ses requêtes en cours vers chaque service et marque aussitôt en erreur une nouvelle requête au-delà d’un seuil, pour qu’un service lent ne monopolise pas toutes ses ressources[^facebook].
+
+Les cloisons ont un coût. Les ressources d’un compartiment inutilisé ne servent pas aux autres, et il faut dimensionner chaque compartiment, à nouveau par la loi de Little. Dix fils suffisent largement pour 100 requêtes par seconde de 10 ms (un fil occupé en moyenne), mais une dépendance qui passe à 200 ms en demande 20, et la cloison refusera la moitié des requêtes alors que la dépendance fonctionne encore. Les cloisons protègent les voisins ; elles ne font rien pour la fonction qui dépend de B, qui échoue simplement plus vite.
+
+## Le disjoncteur
+
+Le disjoncteur (circuit breaker) observe les appels à une dépendance et, au-delà d’un taux d’échec, cesse de l’appeler pendant un temps. Il répond alors aussitôt par une erreur, sans consommer de fil ni de connexion, et sans ajouter de charge à une dépendance qui a peut-être besoin de se remettre. Nygard le décrit dans *Release It!*[^nygard], et Martin Fowler en donne en 2014 la description qui a servi de référence[^fowler]. Il a trois états (figure 39.2). Fermé, il laisse passer les appels et compte les échecs ; ouvert, il refuse tout ; semi-ouvert, après un délai, il laisse passer un appel d’essai, et se referme si l’essai réussit, se rouvre s’il échoue.
+
+<Figure svg={etats} num="39.2" alt="Trois états. Fermé : les appels passent, on compte les échecs ; une boucle sur lui-même pour un appel réussi ou des échecs sous le seuil. Vers ouvert quand, sur les 10 dernières secondes, il y a eu au moins 20 appels et au moins 50 % d’échecs. Ouvert : refus immédiat, sans appeler B ; vers semi-ouvert après 5 s. Semi-ouvert : un seul appel d’essai, les autres refusés ; vers fermé si l’essai réussit, vers ouvert s’il échoue.">
+Les trois états d’un disjoncteur, avec les réglages par défaut de Hystrix.
+</Figure>
+
+Les valeurs de la figure sont celles de Hystrix, dont le disjoncteur s’ouvre quand, sur une fenêtre glissante de 10 s, il y a eu au moins 20 appels et au moins 50 % d’échecs, et reste ouvert 5 s avant l’essai[^hystrix-config]. Resilience4j emploie par défaut une fenêtre des 100 derniers appels, au moins 100 appels, 50 % d’échecs, 60 s d’ouverture et 10 appels d’essai ; il peut aussi compter comme échecs les appels trop lents[^r4j].
+
+L’expérience compare deux disjoncteurs. `disjoncteur` reprend les réglages de Hystrix, et il ne s’ouvre qu’à $t = 20{,}03$ s, dix secondes après le début de la panne. Sa fenêtre de 10 s était pleine des quelque 1 000 succès d’avant la panne, et les échecs n’arrivaient qu’à 10 par seconde, puisque les fils étaient bloqués par les appels à B ; le taux d’échec n’a atteint 50 % que quand les succès sont sortis de la fenêtre. Pendant ces dix secondes, la cascade a eu lieu comme sans disjoncteur, et la moyenne de la phase de panne n’est que de 61,5 % de recherches réussies. `court` est le même disjoncteur avec une fenêtre de 2 s. Il s’ouvre à $t = 12{,}17$ s, et les recherches restent à 100 % ; leur 99e centile (1,8 s) garde la trace des deux secondes où les fils étaient pris. Le compromis est le suivant. Une fenêtre courte réagit vite, mais une rafale d’échecs passagers suffit à l’ouvrir et à priver tous les utilisateurs de la fonction pendant la durée d’ouverture ; une fenêtre longue évite ces fausses ouvertures, mais laisse la panne se propager le temps qu’elle se remplisse d’échecs.
+
+Le journal montre aussi la reprise. Ouvert, le disjoncteur passe en semi-ouvert toutes les 5 s ; tant que B est pendu, l’appel d’essai échoue au bout de 2 s et le disjoncteur se rouvre. B revient à $t = 30$ s ; l’essai suivant réussit à $t = 31{,}2$ ou $32{,}05$ s, selon le moment de l’ouverture, et le disjoncteur se referme. Entre le retour de B et la fermeture, A refuse encore les profils (58,4 % et 74,2 % de réussite dans la phase « après »). Le délai d’ouverture fixe donc aussi le temps perdu après la réparation. Pendant la panne, B ne reçoit plus que 2 à 5 appels par seconde, les essais et les appels lancés avant l’ouverture, au lieu de 10, ce qui l’aide à repartir s’il était surchargé plutôt qu’arrêté.
+
+Deux précisions. Un disjoncteur est local au client qui le tient. Avec cent instances de A, il y a cent disjoncteurs, chacun avec ses propres comptes ; c’est voulu, puisque chaque instance juge ce qu’elle voit, mais cela veut dire que B reçoit encore les essais de cent instances. Et le nom recouvre des mécanismes différents selon les outils. Envoy appelle « circuit breaking » des limites de concurrence par grappe de serveurs (connexions, requêtes en attente, requêtes en cours, nouvelles tentatives en cours, 1 024 connexions par défaut) qui renvoient une erreur au-delà du seuil, sans états fermé, ouvert et semi-ouvert[^envoy-cb] ; c’est plus proche d’une cloison. Le retrait d’une instance après des échecs consécutifs est sa détection des valeurs aberrantes (outlier detection), déjà rencontrée au [ch. 36](coordination.mdx).
+
+## La dégradation progressive
+
+Un disjoncteur ouvert ou une cloison pleine produisent des erreurs plus rapides, mais toujours des erreurs. La dégradation progressive (graceful degradation) remplace la réponse impossible par une réponse moins bonne mais utile. Un profil par défaut, des recommandations génériques au lieu de recommandations personnalisées, un prix lu dans un cache vieux de quelques minutes, une page sans le bloc des commentaires. Le réglage `repli` de l’expérience renvoie un profil par défaut, marqué par l’en-tête `X-Degrade`, quand B échoue ou que le disjoncteur (à fenêtre de 2 s) est ouvert. Pendant la panne, 99,1 % des requêtes de profil réussissent, toutes en mode dégradé ; les 0,9 % restants sont celles qui attendaient B quand il a cessé de répondre, et dont le client est parti avant les 2 s du délai de A.
+
+Le repli a ses propres conditions. Il doit être bon marché et ne pas dépendre de ce qui est tombé, car un repli qui interroge une base de secours partagée avec B ou qui recalcule tout localement peut provoquer la surcharge qu’il devait éviter. Il doit être visible, pour que l’appelant et la supervision sachent que la réponse est dégradée, et testé, car un chemin qui ne sert qu’en cas de panne est souvent celui qui ne marche pas le jour où l’on en a besoin. Et il n’existe pas pour tout. Un débit de carte, une écriture ou une vérification de droits n’ont pas de version dégradée acceptable ; l’erreur est alors la bonne réponse.
+
+## La surcharge et la file d’attente
+
+Un service reçoit parfois plus de requêtes qu’il ne peut en servir, par une pointe de trafic, la perte d’une partie de ses instances ou un client qui boucle. David Yanacek, d’Amazon, distingue à ce sujet le débit (throughput), le nombre de requêtes envoyées au serveur par seconde, et le débit utile (goodput), la part de ces requêtes traitée sans erreur et assez vite pour que le client puisse se servir de la réponse[^yanacek]. Un service surchargé peut avoir un débit maximal et un débit utile nul. `delestage.py` le mesure sur un service de 500 requêtes par seconde (10 places, 20 ms par requête), qui reçoit 300 requêtes par seconde, puis 1 000 pendant 20 s, puis de nouveau 300. Les clients attendent 1 s et ne recommencent pas ; 30 % des requêtes sont marquées critiques. Seule la gestion de la file change d’un essai à l’autre.
+
+```text
+1. surcharge : 300/s, 1 000/s de 10 à 30 s, puis 300/s ;
+   capacité 500/s ; délai client 1 s, aucune nouvelle tentative ;
+   méd. et 99e : durée des réussites en ms
+
+   fifo
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        306   306     0       0    21    31         0      100%
+     surcharge   1005    47     0     958   523   994       420        5%
+     après        301     0     0     301     0     0       480        0%
+     après+10     303     0     0     303     0     0       479        0%
+
+   borne
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        303   303     0       0    21    30         0      100%
+     surcharge   1003   482   521       0   123   127         0       47%
+     après        300   300     0       0    21    68         0      100%
+     après+10     303   303     0       0    21    31         0      100%
+
+   codel
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        305   305     0       0    21    30         0      100%
+     surcharge   1006   476   531       0    69   121         0       47%
+     après        303   303     0       0    21    33         0      100%
+     après+10     300   300     0       0    21    30         0      100%
+
+   lifo
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        305   305     0       0    21    31         0      100%
+     surcharge   1011   479   532       0    29   107         0       47%
+     après        308   307     0       0    21    32         0      100%
+     après+10     302   302     0       0    21    28         0      100%
+
+   priorite
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        306   306     0       0    21    31         0      100%
+     surcharge   1009   478   532       0    37   202         0      100%
+     après        306   306     0       0    21    35         0      100%
+     après+10     301   301     0       0    21    31         0      100%
+```
+
+Les deux autres passages ont donné les mêmes chiffres à quelques unités près, avec 46 à 48 réussites par seconde pendant la surcharge pour la file sans limite, 476 à 482 pour les autres, et des médianes de 122 à 123, 69, 28 à 29 et 35 à 37 ms pour les quatre disciplines bornées.
+
+<Figure svg={delestage} num="39.3" alt="Requêtes réussies par seconde sur 50 s, avec une bande grise de 10 à 30 s où la charge est de 1 000 requêtes par seconde pour une capacité de 500. Avec une file sans limite servie dans l’ordre d’arrivée (rouge), les réussites montent à 480 au début de la surcharge, tombent à 0 vers 13 s et y restent jusqu’à la fin, 20 s après le retour à 300 requêtes par seconde. Avec CoDel et le LIFO adaptatif (vert), elles restent vers 480 pendant toute la surcharge et reviennent à 300 dès sa fin ; la file bornée, CoDel seul et les priorités donnent presque la même courbe.">
+Requêtes réussies par seconde, file sans limite contre file délestée.
+</Figure>
+
+La courbe rouge s’effondre deux secondes après le début de la surcharge et ne remonte pas ; la verte reste à la capacité, puis suit la charge.
+
+La file sans limite (`fifo`) s’effondre. Pendant la surcharge, il arrive 500 requêtes par seconde de plus que le service n’en traite, et la file grossit de 500 requêtes chaque seconde. Au bout d’une seconde, une requête attend déjà 1 s, et son client est parti quand vient son tour. Le service travaille à pleine capacité, mais 420 de ses 467 réponses par seconde partent vers des clients qui ne les attendent plus ; il en reste 47 utiles. À la fin de la surcharge, la file contient environ $500 \times 20 = 10\,000$ requêtes, qu’il faut 50 s pour vider à $500 - 300 = 200$ par seconde, et pendant tout ce temps chaque requête nouvelle attend derrière elles. Aucune requête ne réussit pendant les vingt secondes qui suivent, et le service traite pour rien 479 à 480 requêtes par seconde. Une file sans limite transforme une surcharge de vingt secondes en une panne de plus d’une minute.
+
+## Délester
+
+Délester (load shedding), c’est refuser une partie des requêtes pour servir correctement les autres ; le [ch. 30](../partie-2/limitation-debit.mdx) l’a distingué de la limitation par client, puisqu’il regarde l’état du serveur et non l’identité du demandeur. Le plus simple est de borner la file (`borne`, 50 requêtes au plus). Une requête qui trouve la file pleine reçoit un 503 immédiat ; celles qui entrent attendent au plus 50 requêtes, soit 100 ms à 500 par seconde. Le débit utile reste à 482 requêtes par seconde pendant toute la surcharge, le reste est refusé (521 par seconde), et le service revient à la normale dès que la charge baisse. Le prix est une attente proche de la limite pour toutes les requêtes servies (médiane 123 ms, contre 21 ms hors surcharge), car la file reste pleine.
+
+Une borne exprimée en nombre de requêtes doit être réglée pour chaque service, puisque 50 requêtes représentent 100 ms ici et 5 s pour un service dix fois moins rapide avec dix fois moins de places. CoDel (Controlled Delay), conçu par Kathleen Nichols et Van Jacobson pour les files des routeurs, borne plutôt la durée de séjour. Sa RFC fixe une cible de 5 ms et un intervalle de 100 ms ; si le séjour dans la file reste au-dessus de la cible pendant un intervalle, la file commence à jeter des paquets[^codel]. Facebook en décrit une variante pour ses serveurs[^facebook]. Si la file n’a pas été vide depuis $N$ millisecondes, une requête y attend au plus $M$ millisecondes, sinon au plus $N$. Une file qui se vide régulièrement absorbe ainsi les rafales, et une file qui ne se vide plus est ramenée à quelques millisecondes ; les auteurs écrivent que $M = 5$ ms et $N = 100$ ms conviennent à un large éventail de services, sans réglage service par service.
+
+La ligne `codel` applique cette variante. Le débit utile est le même (476 par seconde), et la médiane descend à 69 ms au lieu de 123. Elle ne descend pas jusqu’à 25 ms, parce que la file se vide de temps en temps. Quand une place se libère et que toutes les requêtes en attente ont dépassé leurs 5 ms, la place reste libre un instant ; la file compte alors comme vide, et les requêtes des 100 ms suivantes ont de nouveau droit à 100 ms d’attente.
+
+Facebook combine CoDel avec un LIFO adaptatif (adaptive LIFO)[^facebook]. Tant que la file se vide, elle est servie dans l’ordre d’arrivée ; dès qu’elle ne se vide plus, le service prend d’abord la dernière requête arrivée. En surcharge, la requête la plus ancienne est celle dont le client a le plus de chances d’être parti, et la plus récente celle qui a le plus de chances d’être encore attendue. La ligne `lifo` le confirme, avec le même débit utile (479 par seconde) et une médiane de 29 ms, presque celle d’un service non chargé. La contrepartie est une injustice assumée. Les requêtes arrivées un peu trop tôt attendent jusqu’à leur limite et sont refusées, alors que des requêtes plus récentes passent devant.
+
+Le délestage doit coûter peu. Le livre de Google sur l’ingénierie de la fiabilité note que, pour une requête très simple comme une lecture en mémoire, la refuser coûte presque autant que la servir[^sre-surcharge]. On refuse donc le plus tôt possible, avant d’analyser le corps de la requête ou d’ouvrir une transaction, et de préférence en amont, dans le répartiteur de charge ou la passerelle. On renvoie un 503 avec `Retry-After`, et un client écrit selon le [ch. 38](resilience-tentatives.mdx) ne le recommence qu’avec un budget.
+
+## Prioriser
+
+Délester au hasard traite de la même façon un paiement et un robot d’indexation. Le livre de Google décrit quatre niveaux de criticité attachés à chaque requête[^sre-surcharge]. `CRITICAL_PLUS` est réservé aux requêtes dont l’échec aurait un effet grave et visible ; `CRITICAL`, le niveau par défaut des requêtes de production, a un effet visible mais moindre ; `SHEDDABLE_PLUS`, le niveau par défaut des traitements par lots, tolère une indisponibilité partielle et peut être recommencé des minutes ou des heures plus tard ; `SHEDDABLE` tolère une indisponibilité fréquente. La criticité se propage. Une requête émise pour traiter une requête critique est elle-même critique. Et un serveur surchargé ne refuse une requête d’un niveau que s’il refuse déjà toutes celles des niveaux inférieurs. Yanacek ajoute de protéger en priorité les contrôles de santé, faute de quoi le répartiteur de charge retire une instance surchargée et reporte sa charge sur les autres[^yanacek].
+
+La ligne `priorite` marque 30 % des requêtes comme critiques. La file accepte au plus 50 requêtes, refuse une requête secondaire dès que 20 attendent, sert les critiques en premier, et une critique qui trouve la file pleine en chasse la dernière secondaire. Toutes les requêtes critiques réussissent pendant la surcharge (100 %, contre 47 à 48 % avec les autres disciplines bornées), le débit utile total est inchangé (478 par seconde), et le 99e centile monte à 202 ms, celui des requêtes secondaires qui attendent derrière les critiques. La priorisation ne crée pas de capacité ; elle choisit qui la reçoit.
+
+## La contre-pression
+
+Délester jette le travail en trop. La contre-pression (back-pressure) le refuse à la source, en ralentissant le producteur au rythme du consommateur. C’est ce que fait TCP par son contrôle de flux ([ch. 4](../partie-1/transport.mdx)). Le récepteur annonce la place libre dans son tampon, l’émetteur n’envoie pas au-delà, et une application qui écrit sur une connexion dont le lecteur est lent finit par voir ses écritures bloquer. La spécification Reactive Streams, reprise dans `java.util.concurrent.Flow` depuis Java 9, en fait le principe de tout flux asynchrone, où le côté qui reçoit ne doit jamais être forcé de mettre en tampon une quantité arbitraire de données[^reactive]. Un consommateur Kafka ([ch. 27](../partie-2/files-messages.mdx)) en bénéficie naturellement, puisqu’il tire les messages à son rythme au lieu de les recevoir.
+
+`contre_pression.py` relie un producteur qui veut émettre 2 000 messages de 1 ko par seconde à un consommateur qui en traite 1 000, pendant 20 s.
+
+```text
+1. producteur 2 000 messages/s, consommateur 1 000/s, 20 s, messages de 1 ko
+   mode        produits  jetés consommés file max    Mo âge méd. âge max
+   illimitée      40000      0     20000    20010  23.3    5.00s  10.00s
+   contre-pr.     21000      0     20000     1000   1.7    1.01s   1.02s
+   délestage      20990  19010     20000     1000   1.7    0.99s   1.00s
+```
+
+Le second passage a donné exactement les mêmes chiffres. Avec une file illimitée, le producteur ne ralentit jamais. La file atteint 20 000 messages et 23 Mo, et l’âge des messages croît sans fin, 10 s pour le dernier ; une heure de ce régime donnerait 3,6 millions de messages en attente et un processus tué par manque de mémoire. Avec une file de 1 000 places où le producteur attend une place libre, il est ramené à 1 000 messages par seconde, la file reste à 1 000 messages et 1,7 Mo, et rien n’est perdu. La file bornée en nombre a cependant le défaut déjà vu avec la file du service, puisque 1 000 places à 1 000 messages par seconde font une seconde d’attente pour chaque message. Une borne utile se choisit en temps de séjour (quelques dizaines de millisecondes de travail), pas en nombre d’éléments qui « tiennent en mémoire ». La troisième ligne déleste au lieu de ralentir, et jette 19 010 messages, ce qui convient à des mesures ou à des positions GPS dont seule la dernière compte, jamais à des commandes.
+
+La seconde partie écrit sur une connexion TCP locale dont le lecteur lit 1 Mo par seconde.
+
+```text
+2. TCP local : lecteur à 1 Mo/s, écrivain par blocs de 64 Kio, 10 s
+   await drain()  (SO_SNDBUF de l'écrivain : 2565 Kio)
+      t (s)  écrits (Mo)  lus (Mo)  en attente (Mo)  dont processus
+        0.0          0.1       0.0              0.1             0.0
+        2.6          4.9       2.6              2.3             0.0
+        4.6          6.9       4.6              2.3             0.0
+        7.0          9.2       7.0              2.2             0.0
+        9.6         12.1       9.6              2.5             0.0
+       10.4         13.0      10.4              2.6             0.0
+   sans attendre  (SO_SNDBUF de l'écrivain : 2565 Kio)
+      t (s)  écrits (Mo)  lus (Mo)  en attente (Mo)  dont processus
+        0.0          0.1       0.0              0.1             0.0
+        2.0         24.3       2.0             22.3            14.9
+        4.0         49.0       4.0             45.0            36.5
+        6.0         73.9       6.0             67.9            59.6
+        8.0         97.9       8.0             89.9            81.9
+       10.0        121.5      10.0            111.5           104.1
+```
+
+Quand l’écrivain attend que son tampon se vide (`await drain()` en asyncio), il est ralenti au rythme du lecteur, et 2,1 à 2,6 Mo restent en vol, dans les tampons d’envoi et de réception du noyau. Le contrôle de flux de TCP fait tout le travail. Quand il écrit sans attendre, le noyau bloque toujours au même niveau, mais la bibliothèque accepte les écritures dans son propre tampon, en mémoire du processus, qui grossit de 10 Mo par seconde, 104 Mo au bout de 10 s. La contre-pression existe dans le protocole ; elle ne protège l’application que si celle-ci la respecte, en bloquant, en attendant `drain()`, ou en propageant le ralentissement à sa propre source.
+
+La contre-pression a une limite. Elle ralentit le producteur, qui ralentit son propre appelant, et ainsi de suite jusqu’à la source ; si la source est un utilisateur qui clique, ou un capteur qui émet à son rythme, il faut bien finir par délester quelque part. Dans un système requête-réponse, la contre-pression se traduit en pratique par des files bornées et des refus rapides, que l’appelant interprète comme un signal de ralentir.
+
+## Les pannes métastables
+
+Nathan Bronson et ses coauteurs ont donné en 2021 un nom aux pannes du type de la tempête du [ch. 38](resilience-tentatives.mdx)[^bronson]. Une panne métastable survient dans un système ouvert, dont la charge vient de l’extérieur sans contrôle. Un déclencheur fait entrer le système dans un mauvais état, où le débit utile est trop faible pour servir, et ce mauvais état persiste quand le déclencheur a disparu, parce qu’un effet d’entretien (sustaining effect), souvent une amplification du travail ou une perte d’efficacité, l’empêche d’en sortir. Les auteurs distinguent trois états (figure 39.4). Un système stable se remet seul d’une perturbation. Quand la charge dépasse un seuil, implicite et invisible, il devient vulnérable. Il est sain, mais un déclencheur peut le faire basculer dans l’état métastable, d’où il ne sort que par une action forte, comme un redémarrage ou une forte réduction de la charge. Beaucoup de systèmes fonctionnent en permanence dans l’état vulnérable, parce qu’il est bien plus efficace que l’état stable.
+
+<Figure svg={metastable} num="39.4" alt="Trois états de gauche à droite. Stable : une panne passagère se résorbe seule. Vers vulnérable quand la charge dépasse un seuil invisible ; retour quand la charge baisse. Vulnérable : sain, efficace, mais sans marge. Vers métastable par un déclencheur passager, ralentissement ou cache vidé. Métastable : débit utile proche de 0, même sans déclencheur, avec une boucle d’entretien (délais dépassés, nouvelles tentatives, travail pour des clients partis, cache qui ne se remplit plus). Retour vers stable seulement par une action forte : délester, couper une partie de la charge, redémarrer.">
+Les états d’une panne métastable, d’après Bronson et al.
+</Figure>
+
+La flèche du bas, en pointillé, est la seule sortie de l’état métastable ; la boucle du haut est ce qui y maintient le système une fois le déclencheur passé.
+
+L’effet d’entretien le plus fréquent est la politique de nouvelles tentatives. Lexiang Huang et ses coauteurs ont étudié en 2022 les rapports d’incidents publics de onze organisations et y ont trouvé 22 pannes métastables ; les nouvelles tentatives entretiennent plus de la moitié d’entre elles, et au moins 4 des 15 grandes pannes d’Amazon Web Services de la décennie précédente étaient métastables[^huang]. Bronson et ses coauteurs décrivent un second effet, plus discret, avec un cache-aside ([ch. 16](../partie-2/cache-strategies.mdx)), que l’application remplit elle-même avec les réponses de la base (ils parlent de cache look-aside). Avec 90 % de lectures servies par le cache, une base qui supporte 300 requêtes par seconde suffit pour 3 000 ; mais au-delà de 300 requêtes par seconde le système est vulnérable, car si le cache se vide, toute la charge tombe sur la base. Celle-ci ralentit, les requêtes de l’application dépassent leur délai, et le cache, que l’application remplit avec les réponses, ne se remplit plus. La perte du cache multiplie par dix les requêtes à la base, et l’état persiste[^bronson].
+
+La seconde partie de `delestage.py` reprend la tempête du [ch. 38](resilience-tentatives.mdx), avec 300 requêtes par seconde, un service trois fois plus lent de $t = 10$ à $t = 20$ s, et des clients qui font trois nouvelles tentatives immédiates. Les clients ne changent pas ; seule la file du service change.
+
+```text
+2. métastable : 300/s, service x3 plus lent de 10 à 20 s ;
+   délai client 1 s, 3 nouvelles tentatives immédiates
+
+   fifo
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        306   306     0       0    21    29         0      100%
+     ralenti      306    36     0     270   529   993       125       13%
+     après 1      297     0     0     297     0     0       450        0%
+     après 2      304     0     0     304     0     0       424        0%
+
+   codel
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        304   304     0       0    21    30         0      100%
+     ralenti      302   165   137       0   124   241         0       55%
+     après 1      299   299     0       0    21    35         0      100%
+     après 2      303   303     0       0    21    30         0      100%
+
+   lifo
+     phase     arr./s  ok/s 503/s délai/s  méd.   99e inutile/s critiques
+     avant        306   306     0       0    21    30         0      100%
+     ralenti      306   165   140       0    95   252         0       57%
+     après 1      296   296     0       0    21    32         0      100%
+     après 2      305   305     0       0    21    29         0      100%
+```
+
+Ici, « arrivées » compte les requêtes des utilisateurs, et non les tentatives. Avec la file sans limite, la tempête du [ch. 38](resilience-tentatives.mdx) se reproduit. Aucune requête ne réussit pendant les vingt secondes qui suivent le ralentissement, et le service traite 424 à 453 requêtes par seconde pour des clients partis. Avec CoDel ou le LIFO adaptatif, le service sert 164 à 166 requêtes par seconde pendant le ralentissement, sa capacité réduite, refuse le reste en 503, et revient à 100 % dès qu’il retrouve sa vitesse, alors que les clients recommencent toujours trois fois chaque échec. Le délestage casse la boucle d’entretien, car un refus rapide ne consomme presque pas de capacité, et une tentative refusée en 1 ms ne prend pas la place d’une requête utile pendant 20 ms. Le budget de nouvelles tentatives du [ch. 38](resilience-tentatives.mdx) agit sur la même boucle depuis l’autre côté. Les deux se complètent, puisqu’un service ne contrôle pas ses clients, ni un client les files des services qu’il appelle.
+
+## Compromis
+
+| Mécanisme | Ce qu’il protège | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Aucune protection | rien | une dépendance pendue prend tous les fils | 3,3 à 4,2 % de recherches réussies pendant la panne de B | jamais |
+| Cloisons | les autres fonctions du service | ressources réservées inutilisées, un dimensionnement par compartiment | recherche à 100 %, profil en 503 immédiat | une cloison par dépendance lente ou risquée |
+| Disjoncteur, fenêtre de 10 s | la dépendance et, après ouverture, les fils | ouverture lente, refus après la réparation | ouvert après 10 s, recherche à 61,5 % | dépendances à trafic régulier |
+| Disjoncteur, fenêtre de 2 s | idem, plus vite | ouvertures sur des rafales passagères | ouvert après 2,2 s, recherche à 100 % | avec un minimum d’appels assez haut |
+| Repli | l’utilisateur de la fonction défaillante | une réponse moins bonne, un chemin rare à tester | 99,1 % de profils servis, dégradés | lectures qui ont une version acceptable |
+| File sans limite | rien | attente sans fin, travail pour des clients partis | 47 réussies sur 500 par seconde, puis 0 | jamais en ligne |
+| File bornée | le débit utile | attente proche de la borne, borne à régler | 482 par seconde, médiane 123 ms | par défaut |
+| CoDel | le débit utile, sans réglage par service | refus en rafale quand la file oscille | 476 par seconde, médiane 69 ms | serveurs à files internes |
+| LIFO adaptatif | la latence des requêtes servies | injustice envers les plus anciennes | 479 par seconde, médiane 29 ms | requêtes interactives |
+| Priorités | les requêtes critiques | 99e centile des secondaires | critiques à 100 % au lieu de 47 % | trafic de criticités mêlées |
+| Contre-pression | la mémoire et la latence du consommateur | ralentit toute la chaîne jusqu’à la source | 1,7 Mo au lieu de 23 Mo et croissant | flux entre étapes internes |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : les fils pris par une dépendance pendue]
+Hypothèses : 100 requêtes par seconde vers la dépendance B, qui répond en 10 ms quand elle va bien ; A a 20 fils ; on compare trois délais d’attente vers B quand B ne répond plus.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Fils occupés par B, normalement | 100 × 0,01 s | 1 fil |
+| B pendu, délai de 2 s | 100 × 2 s | 200 fils, 20 disponibles : tout est pris en 0,2 s |
+| Délai de 200 ms | 100 × 0,2 s | 20 fils : tout juste pris |
+| Délai de 50 ms | 100 × 0,05 s | 5 fils ; il en reste 15 pour le reste |
+| Disjoncteur ouvert | essais seulement | 1 fil toutes les 5 s |
+
+Conclusion : un délai d’attente proche de la latence réelle de la dépendance limite déjà la cascade, mais le choisir sur la queue de la distribution ([ch. 38](resilience-tentatives.mdx)) le rend souvent long. La cloison borne le dommage quelle que soit la durée de la panne, et le disjoncteur rend les fils dès qu’il s’ouvre.
+:::
+
+:::calcul[Calcul : la file sans limite après une surcharge]
+Hypothèses : capacité de 500 requêtes par seconde ; 1 000 par seconde pendant 20 s, puis 300 ; délai des clients de 1 s.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Croissance de la file pendant la surcharge | 1 000 − 500 | 500 requêtes par seconde |
+| File à la fin de la surcharge | 500 × 20 | 10 000 requêtes |
+| Attente d’une requête qui arrive alors | 10 000 / 500 | 20 s, vingt fois le délai du client |
+| Vitesse de vidage après la surcharge | 500 − 300 | 200 par seconde |
+| Durée du vidage | 10 000 / 200 | 50 s sans aucune réussite |
+| File bornée à 50 requêtes | 50 / 500 | 100 ms d’attente au plus |
+
+Conclusion : une file sans limite convertit 20 s de surcharge en 70 s de panne (20 s de surcharge plus 50 s de vidage), mesurées à 0 réussite pendant les 20 s observées après. Une file doit être bornée par la durée d’attente qu’accepte un client, soit ici quelques centaines de millisecondes au plus.
+:::
+
+:::calcul[Calcul : le cache-aside qui se vide]
+Hypothèses : l’exemple de Bronson et al., une base qui supporte 300 requêtes par seconde, un taux de succès du cache de 90 %.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Charge maximale avec le cache | 300 / (1 − 0,9) | 3 000 requêtes par seconde |
+| Seuil de l’état vulnérable | capacité de la base sans cache | 300 requêtes par seconde |
+| Charge sur la base si le cache se vide, à 2 000 requêtes par seconde | 2 000 × 1 | 2 000 par seconde, 6,7 fois sa capacité |
+| Amplification | 1 / (1 − 0,9) | × 10 |
+| Taux de succès à 99 % | 300 / 0,01 | 30 000 par seconde, amplification × 100 |
+
+Conclusion : plus le cache est efficace, plus le système tourne loin au-dessus de la capacité de la base, et plus la chute est haute s’il se vide (un redémarrage, un déploiement qui change les clés, [ch. 17](../partie-2/cache-invalidation.mdx)). On remplit le cache même quand le client est parti, on fusionne les requêtes identiques, on réchauffe un cache neuf avant de lui envoyer le trafic, et la base doit délester plutôt que ralentir.
+:::
+
+## Exemple réel
+
+**La panne de DynamoDB du 20 septembre 2015.** Amazon a publié un compte rendu de la panne de DynamoDB dans la région US-East[^dynamodb]. Les serveurs de stockage interrogent un service de métadonnées pour connaître leur appartenance (membership), c’est-à-dire les partitions qu’ils doivent servir. Au cours des mois précédents, les clients avaient adopté les index secondaires globaux, qui ajoutent leurs propres partitions et avaient doublé ou triplé la taille des listes d’appartenance de certaines tables ; le service de métadonnées fonctionnait près de sa capacité. Le dimanche à 2 h 19 (heure du Pacifique), une brève coupure du réseau a touché une partie des serveurs de stockage, qui ont redemandé leur appartenance tous en même temps. Les réponses, plus volumineuses, ont dépassé le délai de traitement, les serveurs restés sans appartenance ont recommencé, et ces nouvelles tentatives ont maintenu la charge sur le service de métadonnées. Le taux d’erreur a atteint environ 55 % à 2 h 37. À 5 h 06, l’équipe a suspendu les requêtes au service de métadonnées, ce qui lui a permis d’ajouter de la capacité ; le service est revenu à 7 h 10, avec une résolution complète à 7 h 29. Toutes les pièces d’une panne métastable y sont. Un état vulnérable (un service de métadonnées près de sa capacité, sans que personne le mesure), un déclencheur passager (la coupure du réseau), un effet d’entretien (les nouvelles tentatives sur des réponses qui dépassaient le délai), et une sortie par une action forte (la suspension des requêtes). Les mesures annoncées vont dans le sens de ce chapitre : plus de capacité, une surveillance de la taille des listes d’appartenance, des requêtes moins fréquentes avec des délais plus longs, et un découpage du service de métadonnées en instances qui servent chacune une partie des serveurs, une forme de cloison.
+
+## Erreurs fréquentes
+
+Appeler une dépendance depuis un pool de fils ou de connexions commun à toutes les fonctions. Une dépendance pendue prend tout (3,3 à 4,2 % de recherches réussies alors que C allait bien, mesuré).
+
+Croire qu’un disjoncteur s’ouvre dès que la dépendance tombe. Avec une fenêtre de 10 s remplie de succès, il s’est ouvert dix secondes après le début de la panne (mesuré).
+
+Choisir un délai d’ouverture long sans y penser. Le disjoncteur refuse encore la fonction après la réparation (1,2 à 2 s ici, 60 s avec les réglages par défaut de Resilience4j).
+
+Écrire un repli qui dépend de la même ressource que le chemin normal, ou qui n’a jamais été exécuté avant la panne.
+
+Laisser une file sans limite devant un service en ligne. Elle transforme 20 s de surcharge en plus d’une minute sans réussite (mesuré).
+
+Borner une file en nombre d’éléments sans calculer l’attente qu’elle représente. Mille places à mille par seconde font une seconde d’attente (mesuré).
+
+Délester tard, après avoir analysé la requête et ouvert une transaction. Un refus doit coûter beaucoup moins qu’un service.
+
+Délester sans priorité. Les requêtes critiques et les contrôles de santé tombent autant que les autres (47 à 48 % de critiques servies au lieu de 100 %, mesuré).
+
+Ignorer la contre-pression d’une bibliothèque, par exemple écrire sur une connexion sans attendre `drain()`. Le tampon du processus grossit sans limite (104 Mo en 10 s, mesuré).
+
+Attribuer une panne métastable à son déclencheur. Supprimer le déclencheur ne la résout pas ; il faut casser l’effet d’entretien.
+
+:::piege[Erreur fréquente : « une file d’attente absorbe les pointes, donc plus elle est grande, mieux c’est »]
+Une file absorbe une pointe plus courte que le délai des clients. Au-delà, elle ne fait que retarder les réponses jusqu’à ce que personne ne les attende. Dans la mesure, une file sans limite devant un service de 500 requêtes par seconde, soumis à 1 000 pendant 20 s, a servi 47 requêtes utiles par seconde pendant la surcharge, puis aucune pendant les vingt secondes suivantes, tout en travaillant à pleine capacité pour des clients partis. La même charge avec une file de 50 places, ou avec CoDel, a donné 476 à 482 réussites par seconde pendant la surcharge et un retour immédiat à la normale. Une file se dimensionne en temps d’attente acceptable, pas en mémoire disponible.
+:::
+
+:::entretien
+Pour chaque dépendance de votre conception, dites ce qui se passe si elle ralentit ou ne répond plus. « Délai d’attente proche de sa latence réelle, cloison qui borne les fils ou connexions qu’elle peut prendre, disjoncteur avec un minimum d’appels et une fenêtre courte, repli si une réponse dégradée a un sens. » Pour le service lui-même, dites comment il se comporte au double de sa capacité. « File bornée en temps, délestage précoce en 503 avec `Retry-After`, priorités pour le trafic critique et les contrôles de santé, LIFO adaptatif pour les requêtes interactives. » Citez la panne métastable, avec son déclencheur et son effet d’entretien, et un chiffre, par exemple qu’une file sans limite à deux fois la capacité ne sert presque plus rien au bout de deux secondes.
+:::
+
+## Exercices
+
+**Question 1.** Un service a 50 fils. Il appelle une base (5 ms, 400 requêtes par seconde), un service de recommandations (80 ms, 200 requêtes par seconde) et un service de paiement (300 ms, 20 requêtes par seconde). Combien de fils chaque dépendance occupe-t-elle en moyenne ? Que se passe-t-il si les recommandations ne répondent plus, avec un délai de 1 s ? Proposez des cloisons et dites ce que vous faites quand celle des recommandations est pleine.
+
+**Question 2.** Un disjoncteur s’ouvre quand, sur les 10 dernières secondes, au moins 20 appels ont eu lieu et 50 % ont échoué. La dépendance reçoit 50 appels par seconde et tombe complètement à $t = 0$ ; chaque échec est constaté aussitôt (connexion refusée). À quel instant le disjoncteur s’ouvre-t-il ? Et si chaque échec n’est constaté qu’au bout d’un délai de 2 s, avec seulement 10 fils pour ces appels ? Que proposez-vous ?
+
+**Question 3.** Un service sert 2 000 requêtes par seconde avec 40 places ; les clients attendent 500 ms. Quelle borne de file en nombre de requêtes correspond à 100 ms d’attente ? Si la capacité tombe à 1 000 requêtes par seconde (la moitié des instances perdues), que devient l’attente maximale avec cette même borne ? Quelle discipline évite d’avoir à recalculer la borne ?
+
+**Exercice de conception.** Une application de livraison de repas affiche, pour chaque restaurant, la carte (service Carte), le temps de livraison estimé (service Estimation, qui interroge les livreurs disponibles), les avis (service Avis) et des recommandations personnalisées (service Recos). La commande passe par un service Commandes, qui appelle Paiement. Le soir, la charge passe de 2 000 à 8 000 requêtes par seconde en vingt minutes, et une fois par mois environ Recos ou Estimation deviennent très lents. Proposez, pour la page restaurant et pour la commande, les délais, cloisons, disjoncteurs et replis de chaque dépendance, la discipline de file et les priorités du service qui assemble la page, et dites ce que voit l’utilisateur quand Recos est en panne, quand Estimation est en panne, et quand le trafic dépasse la capacité de 30 %.
+
+## Corrigés
+
+**Question 1.** Par la loi de Little, la base occupe $400 \times 0{,}005 = 2$ fils, les recommandations $200 \times 0{,}08 = 16$, le paiement $20 \times 0{,}3 = 6$ ; 24 fils sur 50. Si les recommandations ne répondent plus, elles en demandent $200 \times 1 = 200$ ; les 50 fils sont pris en un quart de seconde et le paiement, qui n’a rien à voir, échoue aussi. On peut prévoir 6 fils pour la base (trois fois la moyenne), 24 pour les recommandations (1,5 fois), 12 pour le paiement (deux fois), et le reste pour le service lui-même. Quand la cloison des recommandations est pleine, la requête n’attend pas ; on renvoie la page sans recommandations, ou des recommandations génériques en cache, puisqu’elles ont une version dégradée acceptable. On réduit aussi le délai vers les recommandations, 1 s étant douze fois leur latence moyenne.
+
+**Question 2.** Avec des échecs immédiats, la fenêtre contient les succès des 10 secondes précédentes, soit 500, et les échecs s’accumulent à 50 par seconde ; le taux atteint 50 % quand les échecs égalent les succès restants. À l’instant $t$, la fenêtre contient $50t$ échecs et $50(10 - t)$ succès, égaux pour $t = 5$ s. Avec un délai de 2 s et 10 fils, les échecs n’arrivent qu’à $10 / 2 = 5$ par seconde à partir de $t = 2$ s, et les fils sont pris ; il faut que les succès sortent presque tous de la fenêtre, soit $5(t - 2) \geq 50(10 - t)$, d’où $t \approx 9{,}3$ s, et la cascade dure tout ce temps. On raccourcit la fenêtre (2 s ici, avec un minimum de 20 appels), on compte aussi comme échecs les appels lents (Resilience4j le permet par `slowCallDurationThreshold`), et l’on borne la dépendance par une cloison pour que la détection lente ne coûte pas tout le service.
+
+**Question 3.** À 2 000 requêtes par seconde, 100 ms d’attente correspondent à $2\,000 \times 0{,}1 = 200$ requêtes en file. Si la capacité tombe à 1 000 par seconde, ces 200 requêtes représentent 200 ms ; la borne en nombre a doublé l’attente, sans dépasser encore le délai des clients, mais une baisse à 400 par seconde la porterait à 500 ms, le délai lui-même. Une borne en temps de séjour, comme CoDel, s’adapte seule à la capacité du moment ; on peut aussi borner le nombre de requêtes en cours par une limite de concurrence adaptative, qui baisse quand la latence monte.
+
+**Exercice de conception.**
+
+*Page restaurant.* La carte est indispensable. Délai de 100 ms (trois fois son 99e centile mesuré, supposons 30 ms), cloison, disjoncteur à fenêtre courte, repli sur une copie en cache vieille de quelques minutes, puisque la carte change peu. L’estimation est utile mais remplaçable. Délai de 150 ms, cloison, disjoncteur, repli sur « 30 à 45 min » calculé à partir de la distance, marqué comme approximatif. Les avis viennent d’un cache ; leur absence fait disparaître le bloc. Les recommandations sont facultatives. Délai de 80 ms, cloison étroite, disjoncteur, repli sur les plats les plus commandés du restaurant, précalculés.
+
+*Commande.* Pas de repli pour le paiement, mais un délai, une nouvelle tentative avec clé d’idempotence ([ch. 38](resilience-tentatives.mdx)), une cloison propre et une erreur claire si le paiement ne répond pas. Les requêtes de commande et de paiement sont marquées critiques et passent avant l’affichage des pages.
+
+*Service d’assemblage.* File bornée en temps (CoDel ou une borne équivalente à 100 ms d’attente), LIFO adaptatif pour les pages, délestage en 503 avec `Retry-After` dès le répartiteur de charge, priorités : contrôles de santé, puis commandes et paiements, puis pages, puis préchargements et robots. La montée de 2 000 à 8 000 requêtes par seconde en vingt minutes se traite en ajoutant des instances à mesure que la charge monte ([ch. 10](../partie-1/passer-echelle.mdx)) ; le délestage couvre l’écart pendant qu’elles démarrent.
+
+*Ce que voit l’utilisateur.* Recos en panne : la page s’affiche normalement, avec les plats populaires à la place des recommandations. Estimation en panne : une estimation approximative, signalée comme telle. Trafic au-dessus de la capacité de 30 % : les commandes en cours passent, une partie des pages reçoit un 503 que l’application recommence après le délai indiqué, et les préchargements disparaissent ; personne n’attend une page qui n’arrivera pas.
+
+:::fiche
+- Panne en cascade : une dépendance pendue garde ses ressources jusqu’au délai ; fils pris = débit × durée (loi de Little). Mesuré : 3,3 à 4,2 % de recherches réussies pendant la panne d’une autre dépendance.
+- Cloisons : une ressource par dépendance, refus immédiat quand elle est pleine (10 fils sans file dans Hystrix). Mesuré : recherche à 100 %.
+- Disjoncteur : fermé, ouvert, semi-ouvert ; 20 appels et 50 % d’échecs sur 10 s, puis 5 s d’ouverture dans Hystrix ; 100 appels, 50 % et 60 s dans Resilience4j. Ouvert 10 s après la panne avec une fenêtre de 10 s, 2,2 s après avec une fenêtre de 2 s. Local à chaque client ; le « circuit breaking » d’Envoy est une limite de concurrence.
+- Repli : réponse dégradée bon marché, indépendante de la panne, signalée et testée (99,1 % de profils servis).
+- Débit utile : réponses sans erreur et à temps. File sans limite au double de la capacité : 47 utiles sur 500 par seconde, puis 0 pendant au moins 20 s.
+- Délester : file bornée (482 par seconde, médiane 123 ms), CoDel 5 ms / 100 ms (69 ms), LIFO adaptatif (29 ms). Refuser tôt et à peu de frais, 503 et `Retry-After`.
+- Priorités : quatre criticités de Google, propagées ; critiques à 100 % au lieu de 47 %. Contrôles de santé d’abord.
+- Contre-pression : ralentir la source (TCP, `drain()`, Reactive Streams, consommateurs Kafka). File bornée en temps, pas en nombre (1 000 places = 1 s).
+- Panne métastable : état vulnérable, déclencheur, effet d’entretien (nouvelles tentatives dans plus de la moitié des cas, cache vidé × 10) ; sortie par délestage ou coupure de charge. DynamoDB 2015.
+:::
+
+[^nygard]: Michael T. Nygard, *Release It! Design and Deploy Production-Ready Software*, 2e édition, Pragmatic Bookshelf, 2018, chapitre 5, « Stability Patterns » (Circuit Breaker, Bulkheads, Shed Load, Create Back Pressure).
+[^hystrix-config]: Netflix, « Configuration », wiki de Hystrix (`coreSize` = 10, `maxQueueSize` = −1, `circuitBreaker.requestVolumeThreshold` = 20, `errorThresholdPercentage` = 50, `sleepWindowInMilliseconds` = 5 000, `metrics.rollingStats.timeInMilliseconds` = 10 000), [github.com/Netflix/Hystrix/wiki/Configuration](https://github.com/Netflix/Hystrix/wiki/Configuration).
+[^hystrix]: Netflix, « Hystrix Status », README du dépôt Hystrix (version 1.5.18, maintenance, Resilience4j conseillé), [github.com/Netflix/Hystrix](https://github.com/Netflix/Hystrix).
+[^facebook]: Ben Maurer, « Fail at Scale: Reliability in the face of rapid change », *ACM Queue*, vol. 13, n° 8, 27 octobre 2015, section « Latency and Queuing » (Controlled Delay, $M = 5$ ms et $N = 100$ ms, Adaptive LIFO, Concurrency Control), [queue.acm.org/detail.cfm?id=2839461](https://queue.acm.org/detail.cfm?id=2839461).
+[^fowler]: Martin Fowler, « CircuitBreaker », bliki, 6 mars 2014, [martinfowler.com/bliki/CircuitBreaker.html](https://martinfowler.com/bliki/CircuitBreaker.html).
+[^r4j]: Resilience4j, « CircuitBreaker », documentation (valeurs par défaut de `failureRateThreshold`, `slidingWindowSize`, `minimumNumberOfCalls`, `waitDurationInOpenState`, `permittedNumberOfCallsInHalfOpenState`, `slowCallDurationThreshold`), [resilience4j.readme.io/docs/circuitbreaker](https://resilience4j.readme.io/docs/circuitbreaker).
+[^envoy-cb]: Envoy, « Circuit breaking », vue d’ensemble de l’architecture, [envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/upstream/circuit_breaking).
+[^yanacek]: David Yanacek, « Using load shedding to avoid overload », *Amazon Builders’ Library* (débit et débit utile, délester à peu de frais, priorités et contrôles de santé, files bornées en temps, LIFO), [aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload](https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/).
+[^codel]: Kathleen Nichols, Van Jacobson, Andrew McGregor et Jana Iyengar, « Controlled Delay Active Queue Management », RFC 8289, janvier 2018 (TARGET de 5 ms, INTERVAL de 100 ms), [rfc-editor.org/rfc/rfc8289](https://www.rfc-editor.org/rfc/rfc8289.html).
+[^sre-surcharge]: Alejandro Forero Cuervo, « Handling Overload », chapitre 21 de Betsy Beyer, Chris Jones, Jennifer Petoff et Niall Richard Murphy (dir.), *Site Reliability Engineering*, O’Reilly, 2016, sections « Criticality » et « Handling Overload Errors », [sre.google/sre-book/handling-overload](https://sre.google/sre-book/handling-overload/).
+[^reactive]: Reactive Streams, page d’accueil de la spécification (version 1.0.4 du 26 mai 2022, équivalence avec `java.util.concurrent.Flow`), [reactive-streams.org](https://www.reactive-streams.org/).
+[^bronson]: Nathan Bronson, Abutalib Aghayev, Aleksey Charapko et Timothy Zhu, « Metastable Failures in Distributed Systems », *Workshop on Hot Topics in Operating Systems (HotOS ’21)*, 2021, sections 1 (définition, états stable, vulnérable et métastable) et 2.2 (cache look-aside), [doi.org/10.1145/3458336.3465286](https://doi.org/10.1145/3458336.3465286).
+[^huang]: Lexiang Huang, Matthew Magnusson, Abishek Bangalore Muralikrishna, Salman Estyak, Rebecca Isaacs, Abutalib Aghayev, Timothy Zhu et Aleksey Charapko, « Metastable Failures in the Wild », *16th USENIX Symposium on Operating Systems Design and Implementation (OSDI ’22)*, 2022, résumé et section 2.2 (22 pannes, 11 organisations, nouvelles tentatives dans plus de 50 % des incidents), [usenix.org/conference/osdi22/presentation/huang-lexiang](https://www.usenix.org/conference/osdi22/presentation/huang-lexiang).
+[^dynamodb]: Amazon Web Services, « Summary of the Amazon DynamoDB Service Disruption and Related Impacts in the US-East Region », septembre 2015, [aws.amazon.com/message/5467D2](https://aws.amazon.com/message/5467D2/).

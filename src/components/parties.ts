@@ -69,7 +69,7 @@ export const PARTIES: Partie[] = [
       {num: 36, titre: 'Coordination : ZooKeeper, etcd, service discovery', doc: 'partie-3/coordination'},
       {num: 37, titre: 'Transactions distribuées : 2PC, sagas, outbox', doc: 'partie-3/transactions-distribuees'},
       {num: 38, titre: 'Résilience (1) : idempotence, retries, timeouts', doc: 'partie-3/resilience-tentatives'},
-      {num: 39, titre: 'Résilience (2) : circuit breaker, bulkhead, back-pressure'},
+      {num: 39, titre: 'Résilience (2) : circuit breaker, bulkhead, back-pressure', doc: 'partie-3/resilience-protection'},
       {num: 40, titre: 'Structures probabilistes'},
       {num: 41, titre: 'Faire converger des répliques : Merkle et CRDT'},
     ],
