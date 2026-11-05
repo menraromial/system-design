@@ -1,0 +1,43 @@
+% Deux arbres de Merkle de 8 feuilles qui ne diffèrent que par la feuille 5 :
+% la comparaison suit le seul chemin dont les hachages diffèrent.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    nd/.style={draw=#1, fill=#1Bg, line width=0.7pt, minimum width=13mm, minimum height=7mm,
+      inner sep=0pt, font=\ttfamily\scriptsize, rounded corners=2pt},
+    nd/.default=Dslate,
+    lab/.style={font=\sffamily\small, text=#1, align=center},
+    lab/.default=Dink]
+  \newcommand{\arbre}[3]{% #1 : décalage x, #2 : nom, #3 : hachages différents (1) ou non (0)
+    \begin{scope}[xshift=#1 mm]
+      \node[lab, font=\sffamily\small\bfseries] at (35,12) {#2};
+      % racine
+      \ifnum#3=1 \node[nd=Dred] (r) at (35,0) {c41a…}; \else \node[nd] (r) at (35,0) {9e07…};\fi
+      % niveau 1
+      \node[nd] (n0) at (17.5,-14) {3b2f…};
+      \ifnum#3=1 \node[nd=Dred] (n1) at (52.5,-14) {d802…}; \else \node[nd] (n1) at (52.5,-14) {71ac…};\fi
+      % niveau 2
+      \foreach \i/\x/\h in {0/8.75/a4e1, 1/26.25/5c90, 3/61.25/e3b7} \node[nd] (m\i) at (\x,-28) {\h…};
+      \ifnum#3=1 \node[nd=Dred] (m2) at (43.75,-28) {0f6d…}; \else \node[nd] (m2) at (43.75,-28) {82c4…};\fi
+      % feuilles
+      \foreach \i in {0,...,7} {
+        \pgfmathsetmacro{\x}{4.375+\i*8.75}
+        \ifnum\i=5 \ifnum#3=1 \node[nd=Dred, minimum width=8mm] (f\i) at (\x,-42) {\i}; \else \node[nd, minimum width=8mm] (f\i) at (\x,-42) {\i};\fi
+        \else \node[nd, minimum width=8mm] (f\i) at (\x,-42) {\i};\fi
+      }
+      \draw[Dslate] (r) -- (n0) (r) -- (n1);
+      \draw[Dslate] (n0) -- (m0) (n0) -- (m1) (n1) -- (m2) (n1) -- (m3);
+      \foreach \p/\a/\b in {m0/0/1, m1/2/3, m2/4/5, m3/6/7} \draw[Dslate] (\p) -- (f\a) (\p) -- (f\b);
+    \end{scope}}
+  \arbre{0}{réplique A}{0}
+  \arbre{85}{réplique B (a manqué une écriture)}{1}
+  % étapes
+  \node[lab=Dred, anchor=west, align=left] at (160,0) {1 : racines différentes};
+  \node[lab=Dred, anchor=west, align=left] at (160,-14) {2 : seul le fils droit diffère};
+  \node[lab=Dred, anchor=west, align=left] at (160,-28) {3 : seul le nœud 2 diffère};
+  \node[lab=Dred, anchor=west, align=left] at (160,-42) {4 : feuille 5 à comparer};
+  \node[lab=Dslate, anchor=north west, align=left] at (0,-52) {une feuille = le XOR des hachages (clé, valeur) des clés de son intervalle ;
+    un nœud = le hachage de ses deux enfants ;\\un aller-retour par niveau, et seuls les sous-arbres dont les hachages diffèrent sont parcourus};
+\end{tikzpicture}
+\end{document}

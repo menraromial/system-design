@@ -1,0 +1,350 @@
+---
+title: "Faire converger des répliques : Merkle et CRDT"
+sidebar_label: "41. Merkle et CRDT"
+description: "Retrouver ce qui diffère entre deux répliques sans les transférer, puis fusionner des écritures concurrentes sans coordination : arbres de Merkle et anti-entropie, réparation de Cassandra et recopie excessive, CRDT (compteurs, registres, ensembles, texte), conditions de convergence et limites (invariants, métadonnées) ; mesures par simulation, sur Cassandra 5 et avec pycrdt (Yjs)."
+partie: 3
+chapitre: 41
+---
+
+import merkle from '@site/src/figures/crdt-merkle.svg';
+import gcounter from '@site/src/figures/crdt-gcounter.svg';
+
+Deux répliques d’un million de clés ne diffèrent que de dix valeurs, parce que l’une a manqué dix écritures pendant une panne. Pour trouver ces dix clés, la première peut envoyer à la seconde le hachage de chaque clé, 28 Mo en un aller-retour. Un arbre de Merkle les trouve en 21 allers-retours et 7,5 Ko de hachages. Dans Cassandra, dont la réparation recopie des blocs de données et non des lignes, ces dix lignes de 100 octets font recevoir 140 Ko, et mille lignes près de la moitié d’une table de 24,5 Mo. Si les deux répliques ont au contraire reçu des écritures différentes en même temps, il ne suffit plus de recopier, il faut fusionner. Cinq répliques d’un compteur incrémenté 10 000 fois, dont chacune garde la valeur la plus récente, s’accordent sur 2 009 ; avec un G-Counter, un compteur dont la fusion est définie une fois pour toutes, elles s’accordent sur 10 000, malgré un réseau qui perd, duplique et désordonne les messages. Ce chapitre traite de ces deux problèmes, détecter ce qui diffère et fusionner sans conflit, et de ce qu’ils coûtent.
+
+Le [ch. 25](../partie-2/replication-multi.mdx) a présenté les trois mécanismes qui remettent à jour une réplique en retard (la réparation à la lecture, les indications différées et l’anti-entropie), ainsi que les vecteurs de version et la fusion applicative du panier d’Amazon, et il a renvoyé ici pour les arbres de Merkle et les types de données répliqués sans conflit (CRDT). La première moitié du chapitre décrit les arbres de Merkle et la réparation de Cassandra ; la seconde, les CRDT, les conditions de leur convergence, et deux limites qu’aucune fusion ne lève.
+
+Trois expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch41/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch41). [`merkle.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch41/merkle.py) compare par simulation deux répliques d’un million de clés avec des arbres de profondeurs différentes. [`reparation.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch41/reparation.py) mesure `nodetool repair` sur deux nœuds Cassandra 5. [`crdt.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch41/crdt.py) programme les CRDT classiques et les soumet à un réseau défaillant, puis fait éditer un texte hors ligne par deux répliques de pycrdt, la liaison Python de y-crdt, l’implémentation en Rust de Yjs. Chaque script a été lancé deux fois ; les deux scripts sans Cassandra, dont les tirages sont fixés, redonnent exactement les mêmes chiffres.
+
+## Trouver ce qui diffère : les arbres de Merkle
+
+Un arbre de Merkle, ou arbre de hachages, a été décrit par Ralph Merkle en 1987 pour des signatures numériques[^merkle]. Chaque feuille porte le hachage d’une partie des données ; chaque nœud interne porte le hachage de la concaténation des hachages de ses enfants ; la racine résume donc tout. Deux arbres construits de la même façon sur deux jeux de données ont la même racine si et seulement si les données sont identiques, à une collision de hachage près, et l’égalité de deux nœuds prouve l’égalité de tout le sous-arbre qu’ils couvrent.
+
+Pour l’anti-entropie, on range les clés dans les feuilles selon leur position sur l’anneau de partitionnement ([ch. 26](../partie-2/partitionnement.mdx)), chaque feuille couvrant un intervalle de clés. Deux répliques comparent d’abord leurs racines. Si elles sont égales, il n’y a rien à faire ; sinon, elles échangent les hachages des enfants, descendent seulement dans les sous-arbres qui diffèrent, et arrivent aux feuilles dont les intervalles contiennent des clés différentes (figure 41.1). L’article sur Dynamo décrit exactement ce parcours et en donne les deux avantages, chaque branche pouvant être vérifiée sans télécharger l’arbre ni les données, et la quantité de données transférées et lues sur disque étant réduite[^dynamo].
+
+<Figure svg={merkle} num="41.1" alt="Deux arbres de Merkle de 8 feuilles, l’un pour la réplique A, l’autre pour la réplique B, qui a manqué une écriture. Dans B, la racine, le fils droit, le nœud 2 du niveau suivant et la feuille 5 sont en rouge : leurs hachages diffèrent de ceux de A. Étapes : 1, racines différentes ; 2, seul le fils droit diffère ; 3, seul le nœud 2 diffère ; 4, feuille 5 à comparer. Une feuille est le XOR des hachages (clé, valeur) des clés de son intervalle, un nœud le hachage de ses deux enfants ; un aller-retour par niveau, et seuls les sous-arbres dont les hachages diffèrent sont parcourus.">
+Deux arbres de Merkle qui ne diffèrent que par une feuille.
+</Figure>
+
+La comparaison suit le seul chemin rouge, de la racine à la feuille 5 ; les nœuds gris, égaux des deux côtés, ne sont jamais descendus.
+
+Le coût se calcule. Avec $L = 2^h$ feuilles et $d$ clés différentes, beaucoup moins nombreuses que les feuilles, la comparaison demande $h + 1$ allers-retours, puisqu’on descend d’un niveau à chaque échange, et environ $2dh$ hachages, deux par niveau sur chacun des $d$ chemins. Il reste ensuite à comparer les clés des feuilles différentes, environ $d \times N/L$ clés pour $N$ clés au total. La profondeur fixe donc un compromis. Un arbre profond a des feuilles petites, qui désignent presque exactement les clés différentes, mais il occupe plus de mémoire et demande plus d’allers-retours ; un arbre peu profond est vite construit et vite parcouru, mais chaque feuille différente oblige à comparer, ou à recopier, un grand intervalle.
+
+Dans la simulation, chaque feuille contient le XOR des hachages (clé, valeur) de ses clés. Le XOR ne dépend pas de l’ordre des clés et se met à jour en temps constant quand une valeur change, en retirant l’ancien hachage et en ajoutant le nouveau. Deux différences dans la même feuille ne s’annulent que si leurs hachages sont égaux, ce qui, avec 128 bits, n’arrive pas en pratique.
+
+### Mesuré
+
+`merkle.py` construit deux répliques d’un million de clés, dont $d$ ont une valeur différente dans la seconde, et les compare avec des arbres de profondeur 10, 15 et 20. Il compte les allers-retours (A-R), les octets de l’arbre échangés (hachages de 16 octets et numéros de nœuds de 4 octets), les feuilles différentes et les clés qu’elles contiennent. Il termine de deux façons. « Clé par clé », on échange les hachages des clés des feuilles différentes pour trouver les clés exactes, puis l’on recopie leurs seules valeurs ; « feuille entière », on recopie toutes les lignes des feuilles différentes, ce que fait Cassandra.
+
+```text
+1 000 000 clés ; lignes de 100 o, soit 100 Mo par réplique
+comparaison naïve : hachages de toutes les clés, 28 Mo, 1 aller-retour
+profondeur 10 : 1 024 feuilles, 976.6 clés/feuille, 0.1 s (Python)
+profondeur 15 : 32 768 feuilles, 30.5 clés/feuille, 0.2 s (Python)
+profondeur 20 : 1 048 576 feuilles, 1.0 clés/feuille, 1.3 s (Python)
+
+  diff. prof.  A-R     arbre feuilles      clés  clé par clé  feuille entière
+      0    10    1     0.0ko        0         0       0.00Mo           0.00Mo
+      0    15    1     0.0ko        0         0       0.00Mo           0.00Mo
+      0    20    1     0.0ko        0         0       0.00Mo           0.00Mo
+      1    10   11     0.5ko        1       954       0.03Mo           0.10Mo
+      1    15   16     0.7ko        1        27       0.00Mo           0.00Mo
+      1    20   21     0.9ko        1         1       0.00Mo           0.00Mo
+     10    10   11     3.1ko       10      9924       0.28Mo           1.00Mo
+     10    15   16     5.3ko       10       342       0.02Mo           0.04Mo
+     10    20   21     7.5ko       10        21       0.01Mo           0.01Mo
+    100    10   11    16.2ko       94     91612       2.59Mo           9.18Mo
+    100    15   16    37.7ko      100      3218       0.14Mo           0.36Mo
+    100    20   21    59.7ko      100       209       0.08Mo           0.08Mo
+   1000    10   11    44.0ko      627    611814      17.27Mo          61.23Mo
+   1000    15   16   229.5ko      986     31239       1.20Mo           3.35Mo
+   1000    20   21   448.0ko      999      1941       0.60Mo           0.64Mo
+  10000    10   11    49.1ko     1024   1000000      29.05Mo         100.05Mo
+  10000    15   16   965.5ko     8619    270726       9.55Mo          28.04Mo
+  10000    20   21  3044.7ko     9944     19421       4.59Mo           4.99Mo
+ 100000    10   11    49.1ko     1024   1000000      38.05Mo         100.05Mo
+ 100000    15   16  1564.7ko    31194    956605      38.35Mo          97.23Mo
+ 100000    20   21 16204.9ko    95439    182063      31.30Mo          34.41Mo
+
+(17 s au total)
+```
+
+Avec une profondeur de 20, un peu plus d’une feuille par clé, 10 différences se trouvent en 21 allers-retours et 7,5 Ko de hachages, et 1 000 en 448 Ko ; les deux répliques n’échangent ensuite que les quelques clés en cause. La comparaison naïve, qui envoie le hachage de chaque clé, coûte 28 Mo quoi qu’il arrive. Avec une profondeur de 10, l’arbre est minuscule (49 Ko au plus), mais chaque feuille contient près de 1 000 clés. Une seule différence oblige alors à comparer 954 clés, et 1 000 différences touchent 627 feuilles sur 1 024, soit 611 814 clés ; en recopiant les feuilles entières, ces 1 000 valeurs différentes coûtent 61 Mo, 61 % des 100 Mo de la réplique. C’est la recopie excessive (over-streaming) que l’on retrouvera dans Cassandra.
+
+La dernière ligne montre la limite de la méthode. Avec 100 000 différences, un dixième des clés, presque toutes les feuilles diffèrent à toutes les profondeurs ; l’arbre de profondeur 20 échange à lui seul 16 Mo de hachages, et le total dépasse les 28 Mo de la comparaison naïve. Un arbre de Merkle sert à trouver peu de différences dans beaucoup de données ; quand une réplique a beaucoup de retard, il vaut mieux la recopier.
+
+L’arbre a aussi un coût d’entretien. Dynamo tient un arbre par intervalle de clés et par nœud, et l’article signale que l’arrivée ou le départ d’un nœud change de nombreux intervalles, dont il faut alors recalculer les arbres, une opération qu’il qualifie de non triviale sur un système en production[^dynamo].
+
+## La réparation de Cassandra
+
+Dans Cassandra, l’anti-entropie s’appelle la réparation (`nodetool repair`). La documentation la décrit ainsi : les nœuds comparent leurs données pour les intervalles de jetons qu’ils partagent, au moyen d’arbres de Merkle, et recopient en flux (streaming) les parties désynchronisées[^cass-repair]. La réparation incrémentale, celle que lance `nodetool repair` par défaut, ne traite que les données écrites depuis la réparation précédente ; la réparation complète (`-full`) traite tout, et la documentation conseille d’en faire aussi régulièrement, parce qu’une réparation incrémentale ne revient pas sur des données déjà marquées comme réparées. Elle fixe surtout une contrainte de fréquence. La réparation doit passer assez souvent pour que le délai de grâce des suppressions (`gc_grace_seconds`, dix jours par défaut) n’expire jamais sur des données non réparées, soit au moins tous les sept jours sur chaque nœud ; sinon, une suppression qu’une réplique n’a pas reçue peut ressusciter quand les autres purgent leur pierre tombale[^cass-repair].
+
+La taille des arbres est limitée. Le fichier de configuration de Cassandra 5 fixe la mémoire des arbres de Merkle d’une réparation (`repair_session_space`) à un seizième du tas par défaut, et prévient que des arbres plus petits ont moins de résolution, ce qui peut conduire à recopier trop de données[^cass-yaml]. `reparation.py` le mesure sur deux nœuds, avec un facteur de réplication de 2 et une table de 200 000 lignes de 100 octets aléatoires. Pour chaque essai, le second nœud est suspendu, les indications différées sont désactivées, $d$ lignes sont réécrites par le premier, puis le second revient et lance une réparation complète. On relève sa durée, le nombre d’intervalles que le journal de Cassandra déclare désynchronisés, et les octets que le second nœud annonce recevoir.
+
+```text
+Cassandra 5.0.9, 2 nœuds prêts en 24 s
+200000 lignes de 100 o écrites en ALL en 44 s ; table sur disque, par nœud : 24.5 Mo
+
+  lignes   durée  intervalles  reçu par c2  octets/ligne  c2 à jour
+manquées            désynchr.
+       0    3.6s            0       0.00Mo             -          -
+      10    2.5s           10       0.14Mo         14191      10/10
+    1000    2.4s          984      11.41Mo         11412    200/200
+   20000    3.7s        14047      22.21Mo          1110    200/200
+```
+
+Le premier passage a donné les mêmes chiffres à quelques unités près (14 215 octets par ligne au lieu de 14 191, 985 intervalles au lieu de 984). La réparation dure 2,4 à 3,9 s quel que soit l’écart, l’essentiel du temps allant au calcul des arbres sur les deux nœuds. Cassandra désigne finement les différences : 10 intervalles désynchronisés pour 10 lignes, 984 à 985 pour 1 000, et 14 047 à 14 061 pour 20 000, plusieurs lignes tombant alors dans le même intervalle. Les octets reçus disent autre chose. Dix lignes de 100 octets font recevoir 140 Ko, 14 Ko par ligne, cent quarante fois les données utiles ; mille lignes font recevoir 11,4 Mo, près de la moitié des 24,5 Mo de la table ; vingt mille, 22,2 Mo, presque toute la table. Ces 14 Ko par ligne sont de l’ordre d’un bloc compressé de la table (16 Kio par défaut), l’unité que Cassandra décompresse en entier pour lire une ligne[^cass-compression] ; un intervalle désynchronisé se paie ainsi en blocs, et non en lignes. La copie de c2 est à jour après chaque réparation (10 lignes sur 10, puis 200 sur 200 vérifiées). La réparation est exacte, mais son coût en octets croît très vite avec le nombre de différences, et au-delà de quelques pour cent de lignes manquées elle recopie presque toute la table, comme la simulation à feuilles larges ; on réduit cette recopie excessive par des arbres plus fins, par la réparation de sous-intervalles, ou en réparant assez souvent pour que les écarts restent petits.
+
+## Fusionner sans conflit : les CRDT
+
+Un arbre de Merkle dit où deux répliques diffèrent ; il ne dit pas laquelle a raison. Quand une réplique a seulement manqué des écritures, la plus récente l’emporte. Quand les deux ont reçu des écritures concurrentes, dans une base multi-leader ou sans leader ([ch. 25](../partie-2/replication-multi.mdx)), il faut les fusionner. Le dernier écrivain gagne perd des écritures, et les vecteurs de version gardent les versions concurrentes en laissant l’application les fusionner. Les types de données répliqués sans conflit (conflict-free replicated data types, CRDT) prennent une troisième voie. Ce sont des types dont la fusion est définie une fois pour toutes et dont on a démontré qu’elle fait converger les répliques.
+
+Marc Shapiro, Nuno Preguiça, Carlos Baquero et Marek Zawirski en ont donné en 2011 les conditions, pour deux familles[^shapiro]. Dans la première, celle des CRDT fondés sur l’état (state-based, ou convergents, CvRDT), les répliques s’envoient leur état entier et le fusionnent avec le leur. Si les états forment un demi-treillis, c’est-à-dire si deux états ont toujours une plus petite borne supérieure, que la fusion calcule, alors la fusion est commutative, associative et idempotente. Si de plus chaque mise à jour fait monter l’état dans cet ordre, deux répliques qui finissent par recevoir les états l’une de l’autre, directement ou par des intermédiaires, convergent. Les auteurs soulignent que les canaux peuvent alors être très faibles. Puisque la fusion est idempotente et commutative, un message peut être perdu, livré dans le désordre ou plusieurs fois, pourvu que l’état récent finisse par atteindre toutes les répliques. Dans la seconde famille, celle des CRDT fondés sur les opérations (operation-based, ou commutatifs, CmRDT), les répliques s’envoient les opérations. Les opérations concurrentes doivent commuter, et le réseau doit livrer chaque opération une fois, à toutes les répliques, dans un ordre compatible avec la causalité ([ch. 33](temps.mdx)) ; les messages sont plus petits, mais la couche de diffusion est plus exigeante.
+
+`crdt.py` met cinq répliques à l’épreuve d’un réseau qui perd 20 % des messages, en duplique 20 % et les livre dans le désordre ; une réplique tirée au hasard envoie son état à une autre toutes les dix opérations, puis, à la fin, toutes échangent leurs états sans perte.
+
+### Les compteurs
+
+Un compteur incrémenté par plusieurs répliques est le premier exemple où les solutions naïves échouent. Le G-Counter (grow-only counter) garde un compteur par réplique ; chaque réplique n’augmente que le sien, la fusion prend le maximum case par case, et la valeur est la somme des cases (figure 41.2). Le maximum est commutatif, associatif et idempotent, et une case ne fait que croître. Le PN-Counter, qui accepte aussi les décréments, est fait de deux G-Counters, l’un pour les incréments, l’autre pour les décréments, et sa valeur est leur différence[^shapiro].
+
+<Figure svg={gcounter} num="41.2" alt="Trois répliques R1, R2, R3. R1 fait +3 et a [3, 0, 0], R2 fait +5 et a [0, 5, 0], R3 fait +2 et a [0, 0, 2]. R1 envoie son état à R2, qui fusionne en [3, 5, 0]. R2 envoie son état à R3, qui fusionne en [3, 5, 2] ; le même état arrive une seconde fois, en double, et R3 reste à [3, 5, 2]. R3 envoie son état à R1, qui passe à [3, 5, 2]. La fusion prend le maximum case par case, donc commutative, associative et idempotente ; la valeur, somme des cases, vaut 10 partout ; le doublon ne change rien, alors qu’une fusion par addition compterait 5 en trop.">
+Un G-Counter sur trois répliques.
+</Figure>
+
+Chaque ligne horizontale est une réplique, chaque flèche un envoi d’état. Le message en double, en pointillé, arrive sur un état qui le contient déjà, et la fusion par maximum le laisse sans effet.
+
+```text
+1. 10 000 incréments répartis sur 5 répliques ; anti-entropie toutes les
+   10 opérations, 20 % de pertes, 20 % de doublons, désordre
+   type                      valeurs des 5 répliques
+   entier, dernier écrivain  2009, 2009, 2009, 2009, 2009
+   entier, fusion par somme  4133, 3717, 3711, 3871, 4070
+   G-Counter                 10000, 10000, 10000, 10000, 10000
+```
+
+L’entier dont chaque réplique garde la valeur la plus récente converge, puisque les cinq répliques finissent sur la même valeur, mais sur 2 009 au lieu de 10 000. Chaque fusion remplace la valeur d’une réplique par celle d’une autre, et les incréments faits entre-temps disparaissent ; c’est le compteur du [ch. 25](../partie-2/replication-multi.mdx), qui finissait à 311 à 333 au lieu de 1 600. L’entier fusionné par addition des incréments reçus ne converge même pas (3 711 à 4 133 selon la réplique). Les messages perdus emportent leurs incréments, les doublons les comptent deux fois, et rien ne permet à une réplique de savoir ce qu’elle a déjà reçu. Le G-Counter donne 10 000 sur les cinq répliques, parce qu’un état reçu deux fois ou en retard est absorbé par le maximum, et qu’un état perdu est remplacé par le suivant, qui le contient.
+
+### Les registres
+
+Un registre contient une valeur que l’on remplace. Le registre LWW (last-writer-wins register) garde la valeur de plus grand horodatage ; c’est un CRDT, puisque le maximum des horodatages est une fusion correcte, mais il perd les écritures concurrentes et dépend des horloges ([ch. 33](temps.mdx)). Le registre multivaleur (MV-register) garde toutes les valeurs concurrentes avec leurs vecteurs de version et les rend toutes à la lecture ; c’est le comportement de Dynamo décrit au [ch. 25](../partie-2/replication-multi.mdx), qui laisse le choix à l’application[^shapiro].
+
+### Les ensembles
+
+Les ensembles montrent que plusieurs fusions correctes donnent des résultats différents, et qu’il faut choisir celle qui correspond à l’intention. Le G-Set n’accepte que des ajouts, et sa fusion est l’union. Le 2P-Set (two-phase set) garde un G-Set des ajouts et un G-Set des retraits, les pierres tombales ; un élément retiré l’est pour toujours, et ne peut plus être ajouté de nouveau. L’ensemble LWW (LWW-element-set) garde pour chaque élément l’horodatage de sa dernière opération, ajout ou retrait. L’ensemble observé-supprimé (OR-Set, observed-remove set) attache une étiquette unique à chaque ajout ; un retrait supprime les étiquettes que sa réplique a vues, si bien qu’un ajout concurrent, dont l’étiquette n’a pas été vue, survit au retrait[^shapiro]. C’est l’ensemble que proposait le corrigé de la question 3 du [ch. 25](../partie-2/replication-multi.mdx) pour le panier.
+
+```text
+3. ensembles, deux répliques R0 et R1 (horodatages entre parenthèses)
+   scénario                                 LWW      2P-Set   OR-Set   
+   R0 +x(1) ; sync ; R0 −x(2) ∥ R1 +x(3)    {x}      {}       {x}      
+   R0 +x(1) ; sync ; R0 −x(3) ∥ R1 +x(2)    {}       {}       {x}      
+   R0 +x(1) ; R0 −x(2) ; sync ; R1 +x(3)    {x}      {}       {x}      
+   R0 −x(9), horloge en avance ; R1 +x(5)   {}       {}       {x}      
+
+   20 000 opérations au hasard sur 100 éléments, 5 répliques, même réseau
+   type          convergent ?   éléments
+   naïf          non (2 états)        62
+   LWW           oui                  55
+   2P-Set        oui                   0
+   OR-Set        oui                  93
+```
+
+Les quatre scénarios opposent ces sémantiques. Quand un retrait sur R0 et un ajout sur R1 sont concurrents, l’ensemble LWW donne raison à l’horodatage le plus grand, et le résultat change selon l’heure de chaque réplique (première et deuxième lignes) ; le 2P-Set retire l’élément, et l’OR-Set le garde, l’ajout concurrent l’emportant. Après un retrait, le 2P-Set refuse un nouvel ajout (troisième ligne). Avec une horloge en avance de quelques secondes sur R0, l’ensemble LWW laisse un retrait masquer un ajout fait plus tard sur R1 (quatrième ligne), ce que le [ch. 33](temps.mdx) a montré pour Cassandra. Dans le test au hasard, l’ensemble naïf, qui rejoue les opérations dans l’ordre où elles arrivent, finit avec des répliques différentes ; les trois CRDT convergent, mais pas vers le même ensemble (55, 0 et 93 éléments). La convergence garantit que toutes les répliques s’accordent, pas qu’elles s’accordent sur ce que voulaient les utilisateurs.
+
+### Le texte et les documents
+
+L’édition collaborative d’un texte demande des CRDT de séquence. Chaque caractère reçoit un identifiant unique et une position définie par rapport à ses voisins, de sorte que deux insertions concurrentes au même endroit soient ordonnées de la même façon sur toutes les répliques, et qu’un caractère supprimé reste en place comme pierre tombale tant que d’autres opérations peuvent s’y référer[^shapiro]. Yjs et Automerge en sont les implémentations les plus répandues. La dernière partie de `crdt.py` fait faire à deux répliques de pycrdt 5 000 modifications chacune sur un même texte, hors ligne, puis leur fait échanger leurs mises à jour.
+
+```text
+5. pycrdt (Yjs) : deux répliques font chacune 5 000 modifications hors ligne
+   positions en caractères : textes identiques après échange : False
+   positions en octets UTF-8 : textes identiques après échange : True
+   longueur du texte : 4693 caractères (5157 o en UTF-8)
+   mises à jour échangées : 43899 o et 43363 o
+   document complet encodé : 87429 o
+   insertions concurrentes au même endroit : '[A][B]' et '[A][B]'
+```
+
+La première ligne est une erreur de notre part, conservée parce qu’elle est instructive. pycrdt compte les positions en octets UTF-8, et non en caractères (dans « éa€x », sa longueur est de 7). Le script passait d’abord des positions en caractères, qui tombaient au milieu des caractères accentués, et les deux répliques ont divergé. Une fois les positions converties en octets, elles convergent. Un CRDT ne garantit la convergence que si on l’emploie selon son contrat. Les deux insertions concurrentes au même endroit, « [A] » sur une réplique et « [B] » sur l’autre, apparaissent dans le même ordre des deux côtés. Le document encodé pèse 87 Ko pour un texte de 5 Ko, dix-sept fois plus, parce qu’il garde l’identifiant et l’histoire de chaque caractère inséré, y compris ceux qui ont été supprimés.
+
+## Les limites
+
+### Les invariants
+
+Une fusion fait converger les répliques ; elle ne peut pas garantir une propriété qui porte sur l’ensemble des répliques, comme « le stock ne descend pas sous zéro » ou « ce nom d’utilisateur est unique ». La deuxième partie de `crdt.py` gère un stock de 100 articles avec un PN-Counter. Chaque client achète sur une réplique tirée au hasard si cette réplique voit encore du stock, et les répliques s’échangent leur état plus ou moins souvent.
+
+```text
+2. stock de 100 articles, PN-Counter ; 1 000 clients achètent sur une
+   réplique au hasard si elle voit encore du stock
+   échange tous les      ventes  stock final  survendus
+   1 achats                 100            0          0
+   10 achats                100            0          0
+   50 achats                100            0          0
+   200 achats               200         -100        100
+   1000 achats              500         -400        400
+```
+
+Tant que les répliques s’échangent leur état plus souvent qu’il ne se vend d’articles restants, rien n’est survendu. Quand elles s’échangent tous les 200 achats, chacune vend le stock qu’elle croit disponible, et le compteur, qui converge parfaitement, finit à −100 ; tous les 1 000 achats, à −400. Le compteur a fait exactement ce qu’on lui demandait. C’est la règle « pas de vente sans stock » qui exige que les répliques se coordonnent avant de vendre le dernier article. Les solutions connues réservent une part du stock à chaque réplique, qui vend sans coordination dans la limite de sa part et négocie un transfert au-delà, ou font passer les seules opérations critiques par un leader ou un consensus ([ch. 35](consensus-raft.mdx)).
+
+### Les métadonnées
+
+Les CRDT paient la convergence en métadonnées. La quatrième partie de `crdt.py` mesure deux cas.
+
+```text
+4. taille des métadonnées
+   OR-Set, opérations       éléments étiquettes  retirées   JSON (o)
+   1000                           25        481       438      36350
+   10000                          20       4987      4950     391636
+   100000                         22      49822     49775    3924199
+   le même ensemble sans métadonnées : 150 o
+
+   G-Counter, un identifiant de 36 caractères et un compteur par réplique
+   répliques                  JSON (o)
+   3                               129
+   100                           4 300
+   10000                       430 000
+   1000000                  43 000 000
+```
+
+Après 100 000 opérations sur 50 éléments, l’OR-Set contient 22 éléments, mais garde 49 822 étiquettes, dont 49 775 retirées, soit 3,9 Mo en JSON pour un ensemble qui en occupe 150 octets sans métadonnées. Les pierres tombales ne peuvent être effacées qu’une fois sûr qu’aucune réplique ne détient encore un ajout concurrent qui les concerne, ce qui suppose de connaître toutes les répliques et leur avancement. Shapiro et ses coauteurs notent que les CRDT tendent à devenir inefficaces avec le temps, à mesure que les pierres tombales s’accumulent, et que ce nettoyage demande une forme faible de synchronisation, hors du chemin critique[^shapiro]. Le G-Counter grossit avec le nombre de répliques qui écrivent. Avec trois serveurs, son état fait 129 octets ; si chaque appareil client est une réplique, un million d’appareils font 43 Mo pour un seul compteur. On limite donc les répliques aux serveurs, et les clients passent par eux.
+
+## Exemple réel
+
+**Roshi, chez SoundCloud.** SoundCloud a publié Roshi, un ensemble LWW à grande échelle pour des événements horodatés, écrit en Go au-dessus de Redis et conçu à l’origine pour le flux de SoundCloud[^roshi]. Son interface a trois opérations : insérer et supprimer une valeur avec un horodatage, et lire les valeurs d’une clé, les plus récentes d’abord. Roshi garde pour chaque clé un ensemble des ajouts et un ensemble des retraits ; un élément est présent si sa dernière opération est un ajout, et une opération n’est appliquée que si son horodatage dépasse celui de l’opération déjà enregistrée pour cet élément, ce qui ne garde qu’une entrée par élément. Les données sont partitionnées sur plusieurs instances Redis indépendantes, qui forment une grappe ; plusieurs grappes identiques, au moins trois en général, forment une ferme. Une écriture est envoyée à toutes les grappes et réussit dès qu’un nombre choisi de grappes l’a acceptée ; une lecture qui interroge plusieurs grappes et constate un désaccord renvoie l’union et déclenche une réparation à la lecture en arrière-plan. Le choix d’un CRDT dispense de tout consensus entre grappes. Le document en donne aussi la limite, déjà mesurée ici. Les horodatages viennent des clients et sont supposés refléter l’ordre réel des événements ; un client dont l’horodatage est faux peut voir ses valeurs ne jamais apparaître, ou toujours écraser les autres.
+
+## Compromis
+
+| Mécanisme | Ce qu’il résout | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Comparaison naïve des hachages | trouver les clés différentes | tous les hachages à chaque fois | 28 Mo pour un million de clés | petites tables, gros écarts |
+| Arbre de Merkle profond | idem, peu de différences | mémoire de l’arbre, un aller-retour par niveau | 10 différences : 21 A-R, 7,5 Ko | anti-entropie de fond |
+| Arbre peu profond, feuille entière recopiée | idem, arbre léger | recopie excessive | 1 000 différences : 61 Mo sur 100 | quand la mémoire manque |
+| Réparation de Cassandra | réplique en retard | recopie par blocs compressés | 10 lignes : 140 Ko ; 1 000 lignes : 11,4 Mo sur 24,5 | au moins tous les 7 jours |
+| Dernier écrivain gagne | convergence simple | écritures perdues, horloges | 2 009 sur 10 000 incréments | valeurs qu’on remplace |
+| G-Counter, PN-Counter | compteur sans coordination | une case par réplique | 10 000 exact ; 43 Mo pour un million de répliques | compteurs, quotas approximatifs |
+| 2P-Set | retrait définitif | pas de nouvel ajout | 0 élément au test au hasard | identifiants jamais réutilisés |
+| OR-Set | ajout concurrent préservé | étiquettes et pierres tombales | 3,9 Mo pour 22 éléments | paniers, listes, étiquettes |
+| CRDT de séquence (Yjs) | texte édité hors ligne | identifiant par caractère | 87 Ko pour 5 Ko de texte | édition collaborative |
+| Coordination (leader, consensus) | invariants globaux | latence, disponibilité | stock : 0 survente | stock, unicité, solde |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : l’anti-entropie entre deux régions]
+Hypothèses : 100 millions de clés par réplique, de 1 Ko ; 70 ms d’aller-retour entre les régions ; 100 Mo/s de débit ; 1 000 clés différentes après une coupure ; arbre de profondeur 20.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Recopie complète | $10^8 \times 1$ Ko / 100 Mo/s | 1 000 s, 17 minutes |
+| Hachages de toutes les clés | $10^8 \times 28$ o / 100 Mo/s | 28 s, 2,8 Go |
+| Clés par feuille | $10^8 / 2^{20}$ | 95 |
+| Descente de l’arbre | 21 allers-retours × 70 ms | 1,5 s |
+| Hachages échangés | environ $2 \times 1\,000 \times 20 \times 20$ o | 0,8 Mo |
+| Clés à comparer, puis à recopier | $1\,000 \times 95$ clés ; 1 000 × 1 Ko | 2,7 Mo ; 1 Mo |
+
+Conclusion : quelques secondes et quelques mégaoctets suffisent pour remettre en accord deux répliques de 100 Go qui ne diffèrent que de mille clés. La latence entre régions compte plus que le débit, car chaque niveau de l’arbre coûte un aller-retour, et un arbre de fanout 16 au lieu de 2 diviserait leur nombre par quatre.
+:::
+
+:::calcul[Calcul : la mémoire des arbres de Merkle]
+Hypothèses : un nœud de stockage avec 256 intervalles de clés (vnodes) ; hachages de 16 octets ; un arbre binaire a environ deux fois plus de nœuds que de feuilles.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Un arbre de profondeur 15 | $2 \times 2^{15} \times 16$ o | 1 Mo |
+| Un arbre de profondeur 20 | $2 \times 2^{20} \times 16$ o | 32 Mo |
+| 256 arbres de profondeur 20 | 256 × 32 Mo | 8 Go |
+| 256 arbres de profondeur 15 | 256 × 1 Mo | 256 Mo |
+
+Conclusion : un arbre très précis par intervalle ne tient pas en mémoire sur un nœud qui en porte des centaines. C’est pourquoi Cassandra borne la mémoire des arbres d’une réparation (un seizième du tas) et réduit leur profondeur, au prix de la recopie excessive mesurée plus haut ; on réduit celle-ci en réparant des sous-intervalles.
+:::
+
+:::calcul[Calcul : les pierres tombales d’un OR-Set]
+Hypothèses : une liste de favoris par utilisateur, 10 millions d’utilisateurs ; 20 ajouts et 18 retraits par utilisateur et par mois ; étiquette de 16 octets plus 8 octets d’élément ; pierres tombales jamais nettoyées.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Étiquettes ajoutées par mois | $10^7 \times 20$ | 200 millions |
+| Taille par mois | $2 \times 10^8 \times 24$ o | 4,8 Go |
+| Après trois ans | 36 × 4,8 Go | 173 Go |
+| Contenu utile après trois ans | $10^7 \times 72$ éléments × 8 o | 5,8 Go |
+
+Conclusion : sans nettoyage, les métadonnées pèsent trente fois les données. Le nettoyage demande de savoir que toutes les répliques ont vu un retrait, ce que l’on obtient par un accusé de réception de chaque réplique ou par une coordination périodique, hors du chemin des écritures.
+:::
+
+## Erreurs fréquentes
+
+Comparer deux répliques en envoyant toutes les données, ou tous les hachages, à chaque passage d’anti-entropie. L’arbre de Merkle trouve 10 différences parmi un million de clés avec 7,5 Ko au lieu de 28 Mo (mesuré).
+
+Croire qu’un arbre de Merkle est toujours plus économique. Avec 100 000 différences sur un million de clés, il échange plus que la comparaison naïve (mesuré).
+
+Choisir des feuilles trop grandes. Avec 1 000 clés par feuille, 1 000 différences font recopier 61 % de la réplique (mesuré).
+
+Laisser les écarts s’accumuler avant de réparer. Dans Cassandra, 1 000 lignes manquées sur 200 000 ont fait recevoir près de la moitié de la table (mesuré).
+
+Espacer les réparations de Cassandra au-delà du délai de grâce des suppressions. Une suppression non répliquée ressuscite quand les autres répliques purgent leur pierre tombale.
+
+Fusionner un compteur par addition des incréments reçus. Les pertes et les doublons font diverger les répliques (3 711 à 4 133 pour 10 000, mesuré).
+
+Prendre la convergence pour la justesse. Trois CRDT d’ensemble convergent sur le même flux d’opérations vers 55, 0 et 93 éléments (mesuré) ; il faut choisir la sémantique voulue.
+
+Employer un ensemble LWW avec des horloges non synchronisées. Un retrait daté par une horloge en avance masque un ajout ultérieur (mesuré).
+
+Attendre d’un CRDT qu’il protège un invariant global. Le stock a été survendu de 100 et de 400 articles par un compteur qui convergeait parfaitement (mesuré).
+
+Faire de chaque client une réplique d’un G-Counter ou d’un vecteur de version. Les métadonnées croissent avec le nombre de clients (43 Mo pour un million).
+
+Oublier le nettoyage des pierres tombales. Un OR-Set de 22 éléments pesait 3,9 Mo après 100 000 opérations (mesuré).
+
+:::piege[Erreur fréquente : « avec des CRDT, plus besoin de coordination »]
+Un CRDT dispense de coordination pour ce que sa fusion sait faire : additionner des compteurs, réunir des ensembles, ordonner des caractères. Il ne sait pas refuser une opération au nom d’une règle qui porte sur toutes les répliques. Dans la mesure, un PN-Counter a laissé vendre 200 et 500 articles d’un stock de 100, tout en convergeant exactement vers −100 et −400. Les opérations qui doivent respecter un invariant (dernier article, nom unique, solde positif) passent par un leader, un consensus ou une réserve répartie à l’avance ; les autres peuvent profiter des CRDT.
+:::
+
+:::entretien
+Si l’on vous demande comment des répliques se remettent d’accord, distinguez les deux problèmes. Pour une réplique en retard : « réparation à la lecture, indications différées, et anti-entropie par arbres de Merkle, $h + 1$ allers-retours et quelques kilooctets quand peu de clés diffèrent, recopie complète au-delà ». Pour des écritures concurrentes : « dernier écrivain gagne si l’on accepte de perdre, vecteurs de version si l’application sait fusionner, CRDT si une fusion générique convient », en nommant le type (G-Counter pour un compteur de vues, OR-Set pour un panier, CRDT de séquence pour un éditeur). Ajoutez deux limites : les invariants globaux exigent une coordination, et les métadonnées (pierres tombales, une case par réplique) doivent être nettoyées.
+:::
+
+## Exercices
+
+**Question 1.** Deux répliques de 16 millions de clés sont comparées avec un arbre binaire de profondeur 16. Combien de clés contient une feuille ? Combien d’allers-retours et environ combien de hachages faut-il pour trouver 50 clés différentes ? Combien de clés faut-il comparer ensuite ? Que change un arbre de fanout 16 de même nombre de feuilles ?
+
+**Question 2.** Trois répliques A, B et C d’un PN-Counter ont les états suivants, sous la forme (incréments ; décréments) par réplique : A a (5, 0, 0 ; 1, 0, 0), B a (3, 4, 0 ; 0, 2, 0), C a (5, 4, 7 ; 0, 0, 3). Quelle est la valeur vue par chaque réplique ? Quel est l’état après fusion des trois ? Montrez que le résultat ne dépend pas de l’ordre des fusions.
+
+**Question 3.** Un panier est un OR-Set. Sur le téléphone, hors ligne, l’utilisateur retire « livre » qu’il avait ajouté la veille ; au même moment, sur l’ordinateur, il ajoute de nouveau « livre ». Que contient le panier après synchronisation ? Et si le panier était un 2P-Set, puis un ensemble LWW dont l’horloge du téléphone avance de 10 minutes ?
+
+**Exercice de conception.** Un service affiche, sous chaque vidéo, le nombre de « j’aime » et la liste des utilisateurs qui l’ont aimée ; un utilisateur peut aimer puis retirer son « j’aime ». Le service est actif dans trois régions qui acceptent toutes les écritures, avec 50 000 « j’aime » par seconde au total, 2 milliards de vidéos, et des coupures entre régions de quelques minutes. Proposez la représentation répliquée du compteur et de la liste, la fusion, la façon de remettre en accord une région après une coupure, le nettoyage des métadonnées, et ce qui doit éventuellement passer par une coordination. Chiffrez les métadonnées.
+
+## Corrigés
+
+**Question 1.** Une feuille contient $16 \times 10^6 / 2^{16} \approx 244$ clés. La comparaison demande 17 allers-retours (la racine, puis 16 niveaux) et, comme 50 est très inférieur à $2^{16}$, environ $2 \times 50 \times 16 = 1\,600$ hachages, soit 25 Ko avec des hachages de 16 octets. Il faut ensuite comparer les clés des 50 feuilles différentes, au plus $50 \times 244 = 12\,200$ clés. Avec un fanout de 16, $2^{16} = 16^4$ feuilles se placent sur 4 niveaux au lieu de 16 ; la comparaison prend 5 allers-retours au lieu de 17, mais chaque nœud différent fait échanger 16 hachages au lieu de 2, soit environ $16 \times 50 \times 4 = 3\,200$ hachages. On échange un peu plus d’octets contre beaucoup moins d’allers-retours, ce qui convient entre régions éloignées.
+
+**Question 2.** A voit $5 - 1 = 4$, B voit $(3 + 4) - 2 = 5$, C voit $(5 + 4 + 7) - 3 = 13$. La fusion prend le maximum case par case : incréments (5, 4, 7), décréments (1, 2, 3), valeur $16 - 6 = 10$. Le maximum étant commutatif et associatif, fusionner A et B puis C, ou C et A puis B, donne les mêmes cases, et l’idempotence permet de refaire une fusion déjà faite sans rien changer.
+
+**Question 3.** Avec un OR-Set, le retrait du téléphone ne supprime que l’étiquette de l’ajout de la veille, la seule qu’il ait vue ; l’ajout de l’ordinateur porte une nouvelle étiquette, que le retrait ne connaît pas, et « livre » reste dans le panier. Avec un 2P-Set, « livre » est dans les retraits et ne peut plus revenir ; le nouvel ajout est sans effet, et le panier ne contient pas le livre, contre l’intention de l’utilisateur. Avec un ensemble LWW, le retrait du téléphone porte une heure en avance de 10 minutes et l’emporte sur l’ajout de l’ordinateur, fait pourtant au même moment ; le livre disparaît, et il disparaîtrait encore si l’utilisateur l’ajoutait de nouveau dans les dix minutes.
+
+**Exercice de conception.**
+
+*Représentation.* Pour chaque vidéo, l’ensemble des utilisateurs qui l’aiment, sous la forme d’un ensemble LWW par utilisateur ou d’un OR-Set. Un utilisateur n’a qu’un « j’aime » par vidéo, et ses opérations viennent de lui seul ; un ensemble LWW avec un horodatage hybride ([ch. 33](temps.mdx)) suffit, et il ne garde qu’une entrée par couple (vidéo, utilisateur), sans pierre tombale qui s’accumule. Le compteur affiché est un PN-Counter à trois cases, une par région, incrémenté quand un « j’aime » passe d’absent à présent dans la région, et décrémenté dans l’autre sens ; on peut aussi le recalculer à partir de l’ensemble pour les vidéos peu aimées.
+
+*Fusion.* Ensemble par horodatage le plus grand, compteur par maximum case par case. Les régions s’envoient leurs changements en continu (réplication asynchrone), et chaque fusion est idempotente, ce qui permet de rejouer sans risque un lot déjà reçu après une coupure.
+
+*Remise en accord.* Après une coupure, les régions comparent par arbres de Merkle les intervalles de vidéos, avec des feuilles de quelques milliers de vidéos, et n’échangent que les intervalles différents ; quelques minutes de coupure à 50 000 « j’aime » par seconde touchent quelques millions de vidéos au plus, une petite fraction des 2 milliards.
+
+*Métadonnées.* Une entrée (vidéo, utilisateur, horodatage, présent) d’environ 32 octets par « j’aime » courant ; un retrait reste une entrée « absent », que l’on purge au bout d’un délai supérieur à la plus longue coupure prévue, comme le délai de grâce de Cassandra. Le compteur ajoute 3 cases de 8 octets par vidéo, soit $2 \times 10^9 \times 24 = 48$ Go pour toutes les vidéos.
+
+*Coordination.* Aucune pour les « j’aime » ; le compteur affiché peut être légèrement différent d’une région à l’autre pendant une coupure, ce qui est acceptable. Une opération qui en dépendrait, par exemple une récompense versée au millionième « j’aime », passerait par une région désignée pour cette vidéo.
+
+:::fiche
+- Arbre de Merkle : feuilles = hachages d’intervalles de clés (XOR des hachages, indépendant de l’ordre), nœuds = hachage des enfants ; racines égales, données égales. Comparaison : $h + 1$ allers-retours, environ $2dh$ hachages, puis $d \times N/L$ clés.
+- Mesuré sur un million de clés, 10 différences en 21 A-R et 7,5 Ko (profondeur 20) contre 28 Mo de hachages ; 61 Mo pour 1 000 différences avec des feuilles de 1 000 clés recopiées entières ; au-delà de 10 % de différences, l’arbre perd.
+- Cassandra : réparation par arbres de Merkle, incrémentale par défaut, complète périodiquement, au moins tous les 7 jours (délai de grâce de 10 jours) ; arbres limités à un seizième du tas. Mesuré sur 200 000 lignes : 10 lignes manquées font recevoir 140 Ko (14 Ko par ligne, un bloc compressé), 1 000 lignes 11,4 Mo, 20 000 lignes 22,2 Mo sur 24,5.
+- CRDT fondé sur l’état : demi-treillis, fusion commutative, associative, idempotente, mises à jour croissantes ; supporte pertes, doublons, désordre. Fondé sur les opérations : opérations commutatives, diffusion fiable et causale.
+- Compteurs : dernier écrivain 2 009 sur 10 000, fusion par addition divergente, G-Counter 10 000. PN-Counter = deux G-Counters.
+- Ensembles : 2P-Set (retrait définitif), LWW (horloges), OR-Set (ajout concurrent gagne). Ils convergent vers des résultats différents, d’où le choix de la sémantique.
+- Texte : CRDT de séquence (Yjs, Automerge), identifiant par caractère ; respecter le contrat (positions en octets pour pycrdt) ; 87 Ko pour 5 Ko de texte.
+- Limites : invariants globaux impossibles sans coordination (stock survendu de 100 et 400) ; métadonnées (OR-Set de 22 éléments en 3,9 Mo, G-Counter de 43 Mo pour un million de répliques) ; nettoyage par synchronisation faible.
+:::
+
+[^merkle]: Ralph C. Merkle, « A Digital Signature Based on a Conventional Encryption Function », *Advances in Cryptology (CRYPTO ’87)*, LNCS 293, Springer, 1988, p. 369-378, [doi:10.1007/3-540-48184-2_32](https://doi.org/10.1007/3-540-48184-2_32).
+[^dynamo]: Giuseppe DeCandia, Deniz Hastorun, Madan Jampani, Gunavardhan Kakulapati, Avinash Lakshman, Alex Pilchin, Swaminathan Sivasubramanian, Peter Vosshall et Werner Vogels, « Dynamo: Amazon’s Highly Available Key-value Store », *SOSP ’07*, 2007, sections 4.7 (arbres de Merkle pour l’anti-entropie) et 6.2 (recalcul des arbres quand les intervalles changent), [doi:10.1145/1294261.1294281](https://doi.org/10.1145/1294261.1294281).
+[^cass-repair]: Apache Cassandra, « Repair », documentation (arbres de Merkle, réparations incrémentales et complètes, fréquence et délai de grâce), [cassandra.apache.org/doc/latest/cassandra/managing/operating/repair.html](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/repair.html).
+[^cass-yaml]: Apache Cassandra 5.0.9, fichier `cassandra.yaml` livré avec l’image officielle, commentaires de `repair_session_space` et `concurrent_merkle_tree_requests` (CASSANDRA-14096, CASSANDRA-19336).
+[^cass-compression]: Apache Cassandra, « Compression », documentation (`chunk_length_in_kb` de 16 Kio par défaut, décompression du bloc entier à la lecture), [cassandra.apache.org/doc/latest/cassandra/managing/operating/compression.html](https://cassandra.apache.org/doc/latest/cassandra/managing/operating/compression.html).
+[^shapiro]: Marc Shapiro, Nuno Preguiça, Carlos Baquero et Marek Zawirski, « A comprehensive study of Convergent and Commutative Replicated Data Types », rapport de recherche RR-7506, Inria, janvier 2011, sections 2.3 (demi-treillis, propositions 2.1 et 2.2), 3 (compteurs, registres, ensembles, séquences) et 4 (nettoyage des métadonnées), [inria.hal.science/inria-00555588](https://inria.hal.science/inria-00555588).
+[^roshi]: SoundCloud, « roshi », README du dépôt (ensemble LWW, grappes et fermes Redis, réplication et réparation à la lecture, horodatages des clients), [github.com/soundcloud/roshi](https://github.com/soundcloud/roshi).

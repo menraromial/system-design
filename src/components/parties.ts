@@ -71,7 +71,7 @@ export const PARTIES: Partie[] = [
       {num: 38, titre: 'Résilience (1) : idempotence, retries, timeouts', doc: 'partie-3/resilience-tentatives'},
       {num: 39, titre: 'Résilience (2) : circuit breaker, bulkhead, back-pressure', doc: 'partie-3/resilience-protection'},
       {num: 40, titre: 'Structures probabilistes', doc: 'partie-3/structures-probabilistes'},
-      {num: 41, titre: 'Faire converger des répliques : Merkle et CRDT'},
+      {num: 41, titre: 'Faire converger des répliques : Merkle et CRDT', doc: 'partie-3/merkle-crdt'},
     ],
   },
   {

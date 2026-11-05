@@ -275,7 +275,7 @@ Quand votre conception ordonne des événements venus de plusieurs machines, dit
 
 *Identifier et ordonner.* Chaque appareil a un identifiant, et chaque modification porte un horodatage HLC de l’appareil et la version qu’elle remplace. Les horloges des téléphones ne servent qu’à initialiser la partie physique de la HLC ; à chaque synchronisation, l’appareil reçoit les HLC des autres et avance la sienne au maximum, si bien qu’une modification faite après avoir vu une autre a toujours un horodatage plus grand.
 
-*Détecter et fusionner.* Chaque article porte un vecteur de versions d’une entrée par appareil qui l’a modifié. Deux modifications dont les vecteurs ne se comparent pas sont concurrentes. On les fusionne par type d’opération plutôt que par horodatage : un ajout et une suppression concurrents gardent l’article (l’ajout gagne), deux changements de quantité gardent le plus grand, une coche et une décoche concurrentes gardent la coche ; ce sont des structures de données convergentes, que le ch. 41 décrit.
+*Détecter et fusionner.* Chaque article porte un vecteur de versions d’une entrée par appareil qui l’a modifié. Deux modifications dont les vecteurs ne se comparent pas sont concurrentes. On les fusionne par type d’opération plutôt que par horodatage : un ajout et une suppression concurrents gardent l’article (l’ajout gagne), deux changements de quantité gardent le plus grand, une coche et une décoche concurrentes gardent la coche ; ce sont des structures de données convergentes, que le [ch. 41](merkle-crdt.mdx) décrit.
 
 *« Modifié à ».* L’application affiche l’heure physique de l’appareil qui a fait la modification, à titre indicatif, sans jamais s’en servir pour décider.
 
