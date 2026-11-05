@@ -79,7 +79,7 @@ export const PARTIES: Partie[] = [
     titre: 'Styles d’architecture',
     resume: 'Du monolithe aux microservices, événements, serverless, cellules, multi-région, architectures de données.',
     chapitres: [
-      {num: 42, titre: 'Monolithe, monolithe modulaire, SOA, microservices'},
+      {num: 42, titre: 'Monolithe, monolithe modulaire, SOA, microservices', doc: 'partie-4/monolithe-microservices'},
       {num: 43, titre: 'Architecture orientée événements, CQRS, event sourcing'},
       {num: 44, titre: 'Serverless'},
       {num: 45, titre: 'Architecture cellulaire'},

@@ -1,0 +1,243 @@
+---
+title: "Monolithe, monolithe modulaire, SOA, microservices"
+sidebar_label: "42. Monolithe et microservices"
+description: "Découper une application ou non, et comment : monolithe, monolithe modulaire, architecture orientée services, microservices ; ce que coûtent les appels réseau, les données séparées par service et l'exploitation, la loi de Conway, le monolithe distribué et le découpage par domaine ; mesures d'une même commande en un processus et en cinq services, et d'une jointure devenue composition d'API sur PostgreSQL 18."
+partie: 4
+chapitre: 42
+---
+
+import styles from '@site/src/figures/archi-styles.svg';
+import distribue from '@site/src/figures/archi-distribue.svg';
+
+La même commande de dix articles, qui passe par cinq domaines (clients, catalogue, stock, paiement, commandes), prend 0,5 à 0,9 ms et 164 à 167 µs de processeur dans un seul processus. Répartie en cinq services HTTP qui s’appellent une fois par article, elle prend 18,5 à 19,2 ms et 6,8 à 8,0 ms de processeur, quarante fois plus ; le même poste en traite 286 à 314 par seconde au lieu de 6 000. Si chacune des unités déployées échoue une fois sur mille, 99,93 % des commandes réussissent dans le processus unique, et 97,66 % dans les services bavards. Ces chiffres ne condamnent pas les microservices, qui sont adoptés pour d’autres raisons que la vitesse ; ils montrent ce que l’on paie pour les obtenir, et pourquoi la façon de découper compte autant que la décision de découper.
+
+Ce chapitre ouvre la partie 4, consacrée à l’assemblage des briques des parties précédentes. Il décrit quatre styles (le monolithe, le monolithe modulaire, l’architecture orientée services et les microservices), ce que chacun apporte et coûte en déploiement, en couplage, en données, en communications et en exploitation, le lien entre l’architecture et l’organisation des équipes, et les deux façons de rater un découpage : découper trop tôt, et découper sans séparer les données.
+
+Deux expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch42/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch42). [`appels.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch42/appels.py) assemble la même commande de cinq façons, du processus unique aux services HTTP, et mesure latence, débit, processeur et disponibilité. [`donnees.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch42/donnees.py) compare une jointure SQL à ce qu’elle devient quand les clients et les commandes appartiennent à deux services ayant chacun sa base PostgreSQL 18. Chaque script a été lancé deux fois.
+
+## Quatre styles
+
+Un monolithe est une application construite et déployée comme une seule unité, un exécutable ou un processus, qui contient tous les domaines du métier et parle à une base. Les appels entre domaines sont des appels de fonctions, une transaction couvre tout ce qu’elle veut, et l’on déploie une seule chose. Rien n’y empêche un domaine d’appeler les fonctions internes d’un autre ou de lire ses tables ; avec le temps et le nombre de développeurs, ces dépendances s’accumulent, et une modification locale demande de comprendre tout le reste.
+
+Un monolithe modulaire reste une seule unité déployée, mais découpée en modules aux frontières explicites. Chaque module expose une interface publique et cache le reste, possède ses tables (souvent un schéma par module), et des outils vérifient que personne ne contourne ces frontières. On garde les appels de fonctions, les transactions locales et le déploiement unique, et l’on gagne la modularité.
+
+L’architecture orientée services (service-oriented architecture, SOA), répandue dans les grandes entreprises des années 2000, découpe le système en services qui communiquent par des contrats, souvent des services web SOAP, et les relie par un bus de services (enterprise service bus, ESB) qui route, transforme et orchestre les messages. James Lewis et Martin Fowler notent que beaucoup de ces mises en œuvre sont devenues trop complexes, à cause d’une gouvernance centrale et de bus qui concentraient la logique[^lewis-fowler] ; la base de données restait souvent partagée.
+
+Les microservices, selon la définition de Lewis et Fowler en 2014, sont une façon de développer une application comme un ensemble de petits services, chacun dans son propre processus, qui communiquent par des mécanismes légers, souvent une API HTTP[^lewis-fowler]. Les auteurs leur prêtent neuf caractéristiques, dont trois comptent pour la suite : des services organisés autour des capacités du métier plutôt que des couches techniques, une gestion décentralisée des données (chaque service possède les siennes), et une conception pour la panne, puisque tout appel peut échouer. La logique est dans les services, et les tuyaux restent simples (« smart endpoints and dumb pipes »), à l’inverse du bus de la SOA (figure 42.1).
+
+<Figure svg={styles} num="42.1" alt="Quatre schémas. Monolithe : un processus et un déploiement contenant clients, catalogue, stock et paiement reliés entre eux en tous sens, une seule base que chaque partie lit en entier. Monolithe modulaire : un processus et un déploiement, les quatre modules s’appelant par des interfaces, une base avec un schéma par module. Architecture orientée services : quatre services reliés à un bus de services (ESB) qui route, transforme et orchestre, une base partagée ; logique et données au centre. Microservices : une passerelle d’API devant quatre services, chacun avec sa base, déployés séparément, appels réseau par HTTP ou messages.">
+Quatre façons de découper une application.
+</Figure>
+
+En haut, les deux monolithes ne diffèrent que par les frontières internes ; en bas, la SOA met la logique et les données au centre, les microservices les répartissent entre les services.
+
+## Ce que coûte un appel réseau
+
+Passer d’un appel de fonction à un appel réseau change d’ordre de grandeur. Un appel de fonction coûte quelques dizaines de nanosecondes ; un appel HTTP entre deux processus de la même machine coûte la sérialisation en JSON, deux passages par la pile TCP ([ch. 4](../partie-1/transport.mdx)), l’analyse de la requête et celle de la réponse, et, entre deux machines, au moins un aller-retour réseau ([ch. 9](../partie-1/latence-debit.mdx)). `appels.py` mesure la même commande, dont chaque domaine fait environ 20 µs de calcul, assemblée de cinq façons : un processus avec des appels de fonctions, un processus avec des modules derrière des interfaces qui copient leurs entrées et leurs sorties, cinq services aiohttp appelés une fois par article (23 appels), les mêmes appelés une fois par domaine (5 appels, dont deux en parallèle), et ces 5 appels à travers un relais qui imite des machines distinctes en retardant chaque échange.
+
+```text
+commande de 10 articles, 5 domaines ; latence sur 2 000 commandes successives,
+débit à 50 commandes simultanées pendant 10 s, processeur de tous les processus
+
+mode           appels  méd. (ms)  99e (ms)  débit (/s)  CPU/cmd (µs)
+monolithe           0      0.878     1.040        6099           164
+modulaire           0      0.797     0.997        5859           171
+bavard             23     18.536    21.848         286          8023
+groupe              5      4.280     6.441        1151          1908
+groupe-1ms          5     15.089    18.366         807          2509
+(un appel direct à un service : 0.79 ms ; à travers le relais : 3.43 ms)
+
+chaque unité déployée échoue une fois sur mille par appel reçu ; 20 000 commandes
+   monolithe    99.93 % de commandes réussies
+   bavard       97.66 % de commandes réussies
+   groupe       99.48 % de commandes réussies
+```
+
+Le premier passage a donné les mêmes ordres de grandeur (monolithe à 0,88 ms et 5 979 commandes par seconde, services bavards à 19,2 ms et 310 par seconde, groupés à 4,2 ms, relais à 2,5 ms par appel). Le monolithe modulaire coûte autant que le monolithe, à 3 % près sur le processeur ; des frontières dans le code ne coûtent presque rien à l’exécution. Les services bavards multiplient la latence par plus de vingt et le processeur par quarante à cinquante, et le débit du poste tombe de 6 000 à 300 commandes par seconde. L’essentiel du temps et du processeur va à HTTP et à JSON, et non au travail des domaines, qui reste de 100 µs. Regrouper les appels, un par domaine au lieu d’un par article, divise la latence et le processeur par quatre ; c’est la première règle d’une API entre services, qui doit être conçue pour les traitements par lots et non calquée sur des appels de fonctions. Le relais devait ajouter 1 ms par appel ; la dernière ligne montre qu’il en ajoute 2,5 à 2,6, à cause de la granularité des minuteries du relais écrit en Python, et les quatre étapes successives de la commande portent sa latence à 14,8 à 15,1 ms. Entre deux zones d’un même fournisseur de nuage, où un aller-retour coûte de l’ordre de la milliseconde, c’est le nombre d’étapes successives qui fixe la latence.
+
+La disponibilité se multiplie de la même façon. Si chaque unité déployée échoue une fois sur mille, une commande qui traverse une seule unité réussit 99,9 % du temps, une commande qui en appelle cinq réussit $0{,}999^5 \approx 99{,}5\ \%$ du temps, et une commande qui fait 23 appels $0{,}999^{23} \approx 97{,}7\ \%$ ; la mesure donne 99,93, 99,48 et 97,66 %, dans les deux passages. Le [ch. 11](../partie-1/disponibilite.mdx) a fait ce calcul pour des composants en série ; les microservices le rendent concret, et c’est pourquoi ils demandent les délais d’attente, nouvelles tentatives, disjoncteurs et replis des [ch. 38](../partie-3/resilience-tentatives.mdx) et [39](../partie-3/resilience-protection.mdx), qu’un monolithe n’a pas besoin pour ses appels internes.
+
+## Ce que coûtent des données séparées
+
+La caractéristique la plus coûteuse des microservices est la gestion décentralisée des données. Si chaque service possède sa base, aucun autre ne peut y lire, et une requête qui croisait deux tables dans une jointure doit être recomposée. `donnees.py` remplit PostgreSQL 18 avec 100 000 clients et un million de commandes, une fois dans la base unique d’un monolithe, une fois dans deux bases séparées, chacune derrière un service HTTP. Il mesure deux requêtes : la page des 50 dernières commandes avec le nom de chaque client, et le chiffre d’affaires par pays.
+
+```text
+PostgreSQL 18 : 100 000 clients, 1 000 000 de commandes, prêts en 7 s
+
+1. les 50 dernières commandes avec le nom du client (ms, 500 mesures)
+   méthode                            appels    méd.     99e
+   jointure SQL (monolithe)                0    2.07    3.19
+   composition, un appel par ligne        51   47.47   93.88
+   composition groupée                     2    4.00    6.16
+   copie locale du nom                     1    2.01    3.23
+
+2. chiffre d'affaires par pays, sur 1 000 000 de commandes (5 mesures)
+   jointure et agrégation SQL   médiane   136 ms
+   composition par l'appelant   médiane   721 ms, 6.77 Mo reçus en HTTP
+```
+
+Le premier passage a donné 2,40, 46,34, 3,75 et 0,95 ms en médiane, puis 154 et 744 ms. La jointure prend 2,1 à 2,4 ms. Composée ligne par ligne, la même page fait 51 appels HTTP et prend 46 à 47 ms, avec un 99e centile de 94 à 110 ms ; c’est le problème des N + 1 requêtes du [ch. 7](../partie-1/styles-api.mdx), transposé entre services. Groupée en deux appels, elle prend 3,8 à 4,0 ms, moins de deux fois la jointure. La copie locale, où le service des commandes garde le nom du client recopié par un événement à chaque changement, répond en 1,0 à 2,0 ms, aussi vite ou plus vite que la jointure puisqu’elle ne lit qu’une table ; elle se paie en stockage, en code de recopie et en retard, le nom affiché pouvant avoir quelques secondes de retard sur un changement. Pour l’agrégation, la jointure et le regroupement s’exécutent dans la base en 136 à 154 ms et ne renvoient que dix lignes. Composée, la même question oblige le service des commandes à renvoyer les 100 000 totaux par client, puis le service des clients leurs pays, soit 6,8 Mo par requête, et prend 721 à 744 ms, cinq fois plus. Les rapports qui croisent plusieurs domaines se font donc ailleurs que dans les services, dans un entrepôt de données alimenté par les événements de chacun (ch. 49).
+
+Les services perdent aussi les transactions qui couvraient plusieurs domaines. Une commande qui débite un stock et crée une facture dans la même transaction devient une saga, avec ses compensations et son absence d’isolation, ou une boîte d’envoi qui publie un événement ([ch. 37](../partie-3/transactions-distribuees.mdx)). Et une contrainte entre deux domaines (une commande doit référencer un client qui existe) n’est plus vérifiée par la base, mais par du code, de façon asynchrone.
+
+## Ce que les microservices apportent
+
+Ces coûts ne se paient que pour des bénéfices précis. Le premier est le déploiement indépendant. Une équipe peut livrer son service plusieurs fois par jour sans coordonner une livraison commune avec les autres, à condition que les contrats entre services restent compatibles. Le deuxième est la mise à l’échelle indépendante. Un service très sollicité, ou qui a besoin de machines particulières (beaucoup de mémoire, des processeurs graphiques), se dimensionne seul. Le troisième est l’isolation des pannes. Un service qui fuit sa mémoire ou plante n’emporte que sa fonction, si les autres le traitent comme une dépendance qui peut tomber ([ch. 39](../partie-3/resilience-protection.mdx)) ; dans un monolithe, la même fuite arrête tout. Le quatrième est la liberté technique, chaque service pouvant choisir son langage et sa base, au prix d’une exploitation plus diverse.
+
+Ces bénéfices concernent l’organisation plus que la performance. Ils comptent quand des dizaines d’équipes travaillent sur le même produit et se gênent dans un seul dépôt et une seule livraison ; ils comptent peu pour une équipe de dix personnes, qui paie alors les coûts sans recevoir les bénéfices.
+
+## La loi de Conway
+
+Melvin Conway écrivait en 1968 que les organisations qui conçoivent des systèmes sont contraintes de produire des conceptions qui copient leurs structures de communication[^conway]. Son exemple est un compilateur, qui aura cinq phases s’il est confié à cinq personnes, et trois s’il l’est à trois. La loi joue dans les deux sens pour les microservices. Un découpage en services ne tient que si chaque service est porté par une équipe qui peut le faire évoluer seule ; des services partagés entre plusieurs équipes, ou une équipe qui doit modifier cinq services pour chaque fonction, reproduisent les coordinations qu’on voulait éviter. Inversement, on peut organiser les équipes selon l’architecture voulue (« manœuvre de Conway inverse »), ce que Lewis et Fowler associent aux microservices organisés autour des capacités du métier, chaque équipe étant transversale, du stockage à l’interface[^lewis-fowler].
+
+## Le monolithe distribué
+
+Le pire résultat d’un découpage est un monolithe distribué : des services qui partagent une base, s’appellent en chaînes synchrones, et ne peuvent être déployés qu’ensemble parce qu’un changement de schéma ou de contrat les touche tous (figure 42.2). Il cumule les coûts des microservices (latence, pannes partielles, exploitation de plusieurs services) et ceux du monolithe (couplage, déploiement coordonné), sans les bénéfices d’aucun.
+
+<Figure svg={distribue} num="42.2" alt="À gauche, monolithe distribué : trois services commandes, stock et facturation reliés par des appels synchrones en chaîne et branchés sur une seule base partagée ; changer une table casse les trois, une commande attend les trois, ils se déploient ensemble. À droite, découpage par domaine : les trois services ont chacun leur base et leur équipe, et communiquent par des événements ; chaque service possède ses données et son équipe, se déploie seul et continue si les autres sont lents.">
+Un monolithe distribué et un découpage par domaine.
+</Figure>
+
+À gauche, la base partagée et la chaîne synchrone lient les trois services ; à droite, chaque cadre pointillé est une équipe, avec son service et ses données, et les autres n’apprennent ses changements que par des événements.
+
+On découpe donc par domaine du métier, et non par couche technique ni par entité. La conception pilotée par le domaine (domain-driven design) appelle contexte borné (bounded context) une partie du métier où un modèle et un vocabulaire sont cohérents ; un client n’est pas la même chose pour la facturation (une adresse, un moyen de paiement) et pour la logistique (une adresse de livraison, des créneaux), et chaque contexte garde sa propre représentation. Fowler note que les microservices ne fonctionnent bien qu’avec des frontières bonnes et stables entre services, ce qui revient à tracer les bons contextes bornés, et que ces frontières sont difficiles à trouver au début d’un projet[^monolith-first]. Un bon service est celui qu’on peut modifier, tester et déployer sans toucher aux autres dans la plupart des cas ; si chaque fonction nouvelle traverse trois services, la frontière est mal placée.
+
+## Quand ne pas découper
+
+Fowler résume en 2015 deux observations, en précisant qu’elles restent préliminaires : presque toutes les réussites de microservices qu’il connaît ont commencé par un monolithe devenu trop gros et découpé ensuite, et presque tous les systèmes construits en microservices dès le départ ont fini en sérieuses difficultés[^monolith-first]. Il en tire la recommandation de commencer par un monolithe, bien modularisé, et d’en extraire des services quand les frontières sont connues et qu’un besoin précis le justifie (une équipe qui doit livrer seule, une partie qui doit monter seule en charge).
+
+Deux retours d’expérience publics vont dans ce sens. Shopify, dont l’application Ruby on Rails est développée depuis plus de dix ans par plus de mille développeurs, a choisi en 2019 un monolithe modulaire plutôt que des microservices, pour gagner en modularité sans augmenter le nombre d’unités déployées ; les composants sont organisés selon des concepts du métier (commandes, expédition, stock, facturation), avec une interface publique chacun, et un outil interne mesure les appels qui franchissent les frontières[^shopify]. Segment a fait le chemin inverse en 2018. Plus de 140 services, un par destination de données, demandaient à trois ingénieurs à plein temps de passer l’essentiel de leur temps à maintenir le système en vie ; leur regroupement en un seul service a amélioré la productivité, au prix d’une moins bonne isolation des pannes entre destinations[^segment].
+
+Découper reste la bonne décision quand plusieurs équipes se gênent réellement, quand une partie du système a des besoins de charge, de sécurité ou de disponibilité très différents des autres, ou quand une partie doit pouvoir évoluer à un rythme propre. Le découpage se fait alors par extraction progressive. On isole d’abord le domaine comme module dans le monolithe, on lui donne ses données, puis on le sort derrière une API, en routant le trafic vers lui petit à petit ; c’est le principe de la figure étrangleuse (strangler fig) que décrit Fowler, où le nouveau système pousse autour de l’ancien jusqu’à le remplacer[^strangler].
+
+## Compromis
+
+| Style | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Monolithe | appels de fonctions, transactions, un déploiement | couplage croissant, déploiement commun | 0,5 à 0,9 ms, 164 à 167 µs de processeur | petite équipe, produit jeune |
+| Monolithe modulaire | frontières explicites sans réseau | discipline et outils pour tenir les frontières | même coût que le monolithe | défaut raisonnable, préparation au découpage |
+| SOA avec bus | intégration de systèmes hétérogènes | logique et gouvernance centralisées dans le bus | non mesuré | intégration d’applications existantes |
+| Microservices groupés | déploiement, échelle et pannes indépendants | latence, processeur, disponibilité en série, données séparées | 4,0 à 4,3 ms, 1,8 à 1,9 ms de processeur, 99,48 % | nombreuses équipes, besoins différents |
+| Microservices bavards | aucun en plus | tout ce qui précède, multiplié | 18,5 à 19,2 ms, 97,66 % | jamais |
+| Monolithe distribué | aucun | coûts des deux styles réunis | base partagée, déploiement commun | jamais |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la latence d’une page qui traverse une chaîne de services]
+Hypothèses : une page qui appelle une passerelle, puis trois services l’un après l’autre, chacun appelant une base ; 1 ms d’aller-retour entre machines d’une même zone, 2 ms entre zones ; 1 ms de traitement par service ; un 99e centile de 20 ms par appel.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Médiane, même zone | 4 appels × (1 + 1) ms + 3 bases × 1 ms | 11 ms |
+| Médiane, services répartis entre zones | 4 × (2 + 1) + 3 × 1 | 15 ms |
+| Même travail dans un processus | 1 base + calcul | 2 à 3 ms |
+| Probabilité qu’au moins un des 4 appels dépasse son 99e centile | $1 - 0{,}99^4$ | 3,9 % des pages |
+
+Conclusion : chaque étape synchrone ajoute un aller-retour et un tirage dans la queue de latence ([ch. 9](../partie-1/latence-debit.mdx)). Une page qui doit répondre en 100 ms au 99e centile ne supporte pas dix étapes en série ; on parallélise les appels indépendants, on groupe, et l’on recopie localement ce qui est lu souvent.
+:::
+
+:::calcul[Calcul : la disponibilité d’une requête qui traverse N services]
+Hypothèses : chaque service est disponible à 99,95 % ; une requête en traverse 1, 5 ou 15, en série et sans repli.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| 1 service | 0,9995 | 99,95 %, 22 min d’arrêt par mois |
+| 5 services | $0{,}9995^5$ | 99,75 %, 1,8 h par mois |
+| 15 services | $0{,}9995^{15}$ | 99,25 %, 5,4 h par mois |
+| 15 services, 10 d’entre eux avec un repli | $0{,}9995^5$ | 99,75 % |
+
+Conclusion : la disponibilité d’une requête est au mieux celle de sa chaîne de services obligatoires. Chaque service qu’on rend facultatif, par un repli ou un appel asynchrone, sort de la multiplication ; c’est la raison d’être des replis du [ch. 39](../partie-3/resilience-protection.mdx).
+:::
+
+:::calcul[Calcul : ce que coûte l’exploitation de cent services]
+Hypothèses : 100 services ; pour chacun, un pipeline de déploiement, des tableaux de bord et des alertes, deux instances au moins pour la disponibilité, une base ; une instance minimale de 0,05 € de l’heure.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Instances minimales | 100 × 2 | 200 instances |
+| Coût mensuel plancher | 200 × 0,05 € × 730 h | 7 300 €, avant toute charge |
+| Bases à sauvegarder, surveiller et mettre à jour | 100 | 100 bases |
+| Mises à jour d’une bibliothèque partagée (sécurité) | 100 dépôts à modifier et redéployer | 100 livraisons |
+
+Conclusion : l’exploitation croît avec le nombre de services, presque indépendamment du trafic. Segment y a consacré trois ingénieurs à plein temps pour 140 services ; sans automatisation du déploiement, de la supervision et des mises à jour (ch. 50 à 52), le découpage coûte plus qu’il ne rapporte.
+:::
+
+## Exemple réel
+
+**Le service de surveillance vidéo de Prime Video.** En mars 2023, Marcin Kolny a décrit comment l’équipe d’analyse de la qualité vidéo de Prime Video a réécrit le service qui inspecte les flux en direct pour y détecter des défauts (blocs corrompus, désynchronisation de l’image et du son)[^primevideo]. La première version était un système distribué fait de composants sans serveur. AWS Step Functions orchestrait le traitement, un service découpait la vidéo en images qu’il déposait dans un seau Amazon S3, et des détecteurs, chacun dans son propre service, les relisaient avec AWS Lambda. Ce choix avait permis de construire vite, et devait en théorie laisser chaque composant monter en charge séparément ; mais le service a atteint une limite dure vers 5 % de la charge visée. Step Functions faisait plusieurs transitions d’état par seconde de flux, si bien que l’équipe a vite atteint les limites du compte, et chaque transition était facturée ; les appels à S3 pour faire passer les images d’un composant à l’autre coûtaient cher eux aussi. L’équipe a regroupé tous les composants dans un seul processus, déployé sur Amazon ECS et EC2, où les images passent en mémoire ; les composants sont restés les mêmes, ce qui a permis de réutiliser l’essentiel du code. Les détecteurs ne montent plus en charge qu’avec la taille de la machine, et quand ils ont dépassé une instance, l’équipe a cloné le service en donnant à chaque copie une partie des détecteurs. Le coût d’infrastructure a baissé de plus de 90 %, et le service surveille tous les flux regardés et non plus seulement les plus suivis. L’auteur conclut que les microservices et les composants sans serveur fonctionnent à grande échelle, mais que le choix entre eux et un monolithe se fait au cas par cas.
+
+## Erreurs fréquentes
+
+Découper en microservices dès le premier jour, avant de connaître les frontières du domaine. Les frontières se déplacent, et les déplacer entre services coûte bien plus qu’entre modules.
+
+Découper par couche technique (un service d’accès aux données, un service de logique) ou par entité (un service « client » que tout le monde appelle). Chaque fonction traverse alors tous les services.
+
+Partager une base entre services. On obtient un monolithe distribué, que l’on ne peut déployer qu’en bloc.
+
+Reproduire des appels de fonctions sur le réseau, un appel par article. La commande passe de 4,0 à 18,5 ms et de 1,8 à 6,8 ms de processeur (mesuré).
+
+Enchaîner les appels synchrones. La disponibilité se multiplie (97,66 % pour 23 appels, mesuré) et la latence s’additionne.
+
+Recomposer une jointure par un appel par ligne. La page de 50 commandes passe de 2,1 à 2,4 ms en jointure à 46 à 47 ms (mesuré).
+
+Oublier les transactions perdues. Ce qui tenait dans une transaction devient une saga ou une boîte d’envoi, avec leurs états intermédiaires ([ch. 37](../partie-3/transactions-distribuees.mdx)).
+
+Sous-estimer l’exploitation. Chaque service ajoute un pipeline, une supervision, une base et des mises à jour.
+
+Découper sans changer l’organisation. Des services partagés entre équipes recréent les coordinations qu’on voulait supprimer.
+
+:::piege[Erreur fréquente : « les microservices rendent le système plus rapide et plus fiable »]
+Ils rendent possibles le déploiement et la mise à l’échelle indépendants, ce qui n’est ni la vitesse ni la fiabilité. Dans la mesure, la même commande passe de 0,5 à 0,9 ms dans un processus à 4,0 à 4,3 ms en cinq services bien groupés, avec dix fois plus de processeur, et sa disponibilité tombe de 99,93 % à 99,48 % quand chaque unité déployée échoue une fois sur mille. Un système en microservices peut être rapide et fiable, mais il le devient par un travail explicite (appels groupés et parallèles, copies locales des données, replis, disjoncteurs) que le monolithe n’avait pas à faire.
+:::
+
+:::entretien
+Face à une question de conception, ne posez pas les microservices par défaut. Dites d’abord qui construit le système (une équipe ou vingt), ce qui doit évoluer ou monter en charge séparément, et proposez un monolithe modulaire si rien ne l’impose. Si vous découpez, découpez par domaine, une base par service, une équipe par service, des appels groupés et asynchrones quand c’est possible, et chiffrez la latence et la disponibilité de la chaîne critique : « quatre appels synchrones à 99,95 % font 99,8 % ; j’en rends deux facultatifs par un repli ». Mentionnez ce que coûtent les données séparées : les jointures deviennent des copies locales mises à jour par événements, et les transactions des sagas.
+:::
+
+## Exercices
+
+**Question 1.** Une page de profil appelle, l’un après l’autre, un service d’utilisateurs, un service d’amis, puis, pour chacun des 20 amis, un service de statuts. Chaque appel prend 3 ms. Quelle est la latence de la page ? Proposez deux changements qui la ramènent sous 10 ms, et dites ce que chacun coûte.
+
+**Question 2.** Une requête traverse obligatoirement une passerelle et quatre services, tous disponibles à 99,9 %. Quelle est sa disponibilité ? Deux des quatre services peuvent être remplacés par un repli en cas de panne. Que devient-elle ? Quelle disponibilité faudrait-il à chaque service pour que la requête atteigne 99,9 % sans repli ?
+
+**Question 3.** Une équipe de huit développeurs maintient une application de réservation en monolithe. Les déploiements prennent une heure, les tests deux heures, et deux personnes modifient souvent les mêmes fichiers. Le directeur technique propose de passer à douze microservices. Que proposez-vous à la place, et dans quels cas reviendriez-vous à sa proposition ?
+
+**Exercice de conception.** Une plateforme de livraison de repas a été écrite en monolithe par une équipe de cinq personnes. Elle compte aujourd’hui 60 développeurs en sept équipes (restaurants, commandes, livreurs, paiement, notifications, recherche, support), 3 000 commandes par minute aux heures de pointe, et la recherche de restaurants représente 80 % du trafic. Les livraisons du monolithe ont lieu une fois par semaine et bloquent souvent sur une équipe. Proposez un découpage (quels services, dans quel ordre, avec quelles données), la façon de traiter la création d’une commande qui touche le restaurant, le paiement et le livreur, la façon d’afficher une commande avec le nom du restaurant et du livreur, et chiffrez la latence et la disponibilité du parcours de commande.
+
+## Corrigés
+
+**Question 1.** En série, 1 + 1 + 20 = 22 appels de 3 ms, soit 66 ms. Premier changement : appeler les statuts des 20 amis en parallèle, ou par un seul appel groupé ; la page fait alors trois étapes, 9 ms. Le parallélisme garde 20 appels, donc 20 tirages dans la queue de latence et 20 fois le coût de processeur, alors que l’appel groupé n’en fait qu’un mais demande un point d’accès par lots au service de statuts. Second changement : recopier dans le service d’amis le dernier statut de chaque ami, mis à jour par événement, et répondre en deux étapes (6 ms) ; on paie le stockage de la copie et un léger retard de mise à jour.
+
+**Question 2.** $0{,}999^5 \approx 99{,}5\ \%$. Avec un repli pour deux services, seuls la passerelle et deux services restent obligatoires : $0{,}999^3 \approx 99{,}7\ \%$. Pour 99,9 % sans repli, il faudrait $a^5 = 0{,}999$, soit $a = 0{,}999^{1/5} \approx 99{,}98\ \%$ par service, environ 9 minutes d’arrêt par mois chacun.
+
+**Question 3.** Huit développeurs, c’est une équipe ; douze services lui imposeraient douze pipelines, douze bases et des appels réseau, sans lever la contrainte principale, qui est la lenteur des tests et du déploiement. On modularise d’abord le monolithe par domaine (réservations, paiements, catalogue, utilisateurs), avec des interfaces vérifiées par un outil, ce qui réduit les conflits sur les mêmes fichiers ; on accélère les tests (parallélisme, tests par module) et le déploiement (déploiement continu, bascule progressive). On reviendrait à des services si l’équipe se divisait en plusieurs équipes qui se gênent, si un module avait des besoins de charge très différents (par exemple une recherche très sollicitée), ou si un module devait être isolé pour des raisons de sécurité ou de conformité, comme le paiement.
+
+**Exercice de conception.**
+
+*Découpage et ordre.* On extrait d’abord la recherche, qui porte 80 % du trafic et a des besoins propres (index de recherche, cache, mise à l’échelle) ; elle lit une copie des restaurants et des menus, mise à jour par événements depuis le monolithe ([ch. 37](../partie-3/transactions-distribuees.mdx), boîte d’envoi). On extrait ensuite le paiement, pour l’isoler (conformité, secret des données de carte), puis les notifications, faciles à rendre asynchrones. Les restaurants, les commandes et les livreurs restent un temps dans le monolithe modularisé, chaque module avec ses tables, et en sortent quand leur équipe le demande. Sept équipes donnent au plus sept services principaux, chacun propriétaire de ses données.
+
+*Création d’une commande.* Une saga orchestrée par le service des commandes : réservation auprès du restaurant, autorisation du paiement, recherche d’un livreur, avec des compensations (annuler la réservation, libérer l’autorisation) et des clés d’idempotence sur chaque appel ([ch. 38](../partie-3/resilience-tentatives.mdx)). Le livreur peut être affecté de façon asynchrone après la confirmation au client.
+
+*Affichage d’une commande.* Le service des commandes garde une copie locale du nom du restaurant et du livreur, recopiée par événement, et répond seul ; pas d’appel par ligne à d’autres services.
+
+*Chiffres.* 3 000 commandes par minute font 50 par seconde, charge modeste pour le parcours de commande ; la recherche, à 80 % du trafic, se dimensionne à part. Le parcours synchrone (passerelle, commandes, restaurant, paiement) fait quatre étapes ; à 5 ms chacune, 20 ms, et avec quatre services à 99,95 %, $0{,}9995^4 \approx 99{,}8\ \%$, les notifications et l’affectation du livreur étant hors du chemin synchrone.
+
+:::fiche
+- Monolithe : un déploiement, appels de fonctions, transactions ; couplage croissant. Monolithe modulaire : mêmes avantages, frontières explicites, même coût mesuré.
+- SOA : services reliés par un bus central (ESB), souvent une base partagée. Microservices : petits services, un processus et une base chacun, mécanismes légers, organisés par capacité du métier (Lewis et Fowler, 2014).
+- Mesuré, même commande : 0,5 à 0,9 ms et 164 µs de processeur en un processus ; 4,0 à 4,3 ms et 1,8 à 1,9 ms en 5 appels groupés ; 18,5 à 19,2 ms et 6,8 à 8,0 ms en 23 appels.
+- Disponibilité en série : 99,93 %, 99,48 %, 97,66 % pour 1, 5 et 23 unités à 99,9 % (mesuré).
+- Données séparées : jointures recomposées par API, copies locales par événements, transactions remplacées par des sagas. Mesuré : jointure 2,1 à 2,4 ms ; un appel par ligne 46 à 47 ms ; deux appels groupés 3,8 à 4,0 ms ; copie locale 1,0 à 2,0 ms ; agrégation par pays 136 à 154 ms en SQL contre 721 à 744 ms et 6,8 Mo par composition.
+- Bénéfices : déploiement, mise à l’échelle et pannes indépendants ; ils comptent avec beaucoup d’équipes.
+- Loi de Conway (1968) : le système copie la structure de communication de l’organisation ; une équipe par service.
+- Monolithe distribué : base partagée, chaînes synchrones, déploiement commun ; les coûts des deux styles. Découper par domaine (contextes bornés).
+- Commencer par un monolithe modulaire, extraire progressivement (figure étrangleuse) quand un besoin précis le justifie. Exemples : Shopify, Segment, Prime Video (−90 % de coût en revenant à un processus).
+:::
+
+[^lewis-fowler]: James Lewis et Martin Fowler, « Microservices: a definition of this new architectural term », martinfowler.com, 25 mars 2014, [martinfowler.com/articles/microservices.html](https://martinfowler.com/articles/microservices.html).
+[^conway]: Melvin E. Conway, « How Do Committees Invent? », *Datamation*, avril 1968, [melconway.com/Home/Committees_Paper.html](https://www.melconway.com/Home/Committees_Paper.html).
+[^monolith-first]: Martin Fowler, « MonolithFirst », bliki, 3 juin 2015, [martinfowler.com/bliki/MonolithFirst.html](https://martinfowler.com/bliki/MonolithFirst.html).
+[^shopify]: Kirsten Westeinde, « Deconstructing the Monolith: Designing Software that Maximizes Developer Productivity », Shopify Engineering, 21 février 2019, [shopify.engineering/deconstructing-monolith-designing-software-maximizes-developer-productivity](https://shopify.engineering/deconstructing-monolith-designing-software-maximizes-developer-productivity).
+[^segment]: Alexandra Noonan, « Goodbye Microservices: From 100s of problem children to 1 superstar », blog de Segment (Twilio), 10 juillet 2018, [twilio.com/en-us/blog/developers/best-practices/goodbye-microservices](https://www.twilio.com/en-us/blog/developers/best-practices/goodbye-microservices).
+[^strangler]: Martin Fowler, « StranglerFigApplication », bliki, 2004 (mis à jour depuis), [martinfowler.com/bliki/StranglerFigApplication.html](https://martinfowler.com/bliki/StranglerFigApplication.html).
+[^primevideo]: Marcin Kolny, « Scaling up the Prime Video audio/video monitoring service and reducing costs by 90% », Prime Video Tech, 22 mars 2023, copie archivée : [web.archive.org/web/2023/https://www.primevideotech.com/video-streaming/scaling-up-the-prime-video-audio-video-monitoring-service-and-reducing-costs-by-90](http://web.archive.org/web/2023/https://www.primevideotech.com/video-streaming/scaling-up-the-prime-video-audio-video-monitoring-service-and-reducing-costs-by-90).

@@ -1,0 +1,37 @@
+% Monolithe distribué (base partagée, chaîne d'appels synchrones, déploiement
+% commun) contre découpage par domaine (une base et une équipe par service).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    svc/.style={soft=#1, minimum width=20mm, minimum height=9mm, font=\sffamily\small, align=center},
+    bd/.style={soft=Dslate, minimum width=12mm, minimum height=8mm, font=\sffamily\scriptsize, align=center},
+    eq/.style={draw=#1, dash pattern=on 3pt off 2pt, rounded corners=4pt, line width=0.7pt},
+    lab/.style={font=\sffamily\small, text=#1, align=center},
+    lab/.default=Dink]
+  % ---- monolithe distribué
+  \node[pillo=Dred, anchor=west] at (-4,40) {monolithe distribué};
+  \node[svc=Dred] (a) at (5,24) {commandes};
+  \node[svc=Dred] (b) at (33,24) {stock};
+  \node[svc=Dred] (c) at (61,24) {facturation};
+  \draw[arr=Dred] (a) -- node[lab=Dred, above, font=\sffamily\scriptsize] {sync.} (b);
+  \draw[arr=Dred] (b) -- node[lab=Dred, above, font=\sffamily\scriptsize] {sync.} (c);
+  \node[bd, minimum width=40mm] (db) at (33,2) {\stack[\normalsize]{database}{une base partagée}};
+  \foreach \s in {a,b,c} \draw[Dslate, line width=0.5pt] (\s.south) -- (db.north);
+  \node[lab=Dred, anchor=north west, align=left, font=\sffamily\scriptsize] at (-6,-8) {changer une table casse les trois ; une commande\\attend les trois ; ils se déploient ensemble};
+  % ---- découpage par domaine
+  \begin{scope}[xshift=88mm]
+    \node[pillo=Dgreen, anchor=west] at (-4,40) {découpage par domaine};
+    \foreach \s/\x/\n in {a/5/commandes, b/51/stock, c/97/facturation} {
+      \node[svc=Dgreen] (\s) at (\x,24) {\n};
+      \node[bd] (d\s) at (\x,6) {\stack[\small]{database}{}};
+      \draw[Dslate, line width=0.5pt] (\s.south) -- (d\s.north);
+      \draw[eq=Dgreen] ($(\s.north west)+(-2,4)$) rectangle ($(\s.north east |- d\s.south)+(2,-2)$);
+      \node[lab=Dgreen, font=\sffamily\scriptsize] at (\x,34) {équipe};
+    }
+    \draw[arr=Dgreen, dash pattern=on 2pt off 1.5pt] (a.east) -- node[lab=Dgreen, above, font=\sffamily\scriptsize] {événement} (b.west);
+    \draw[arr=Dgreen, dash pattern=on 2pt off 1.5pt] (b.east) -- node[lab=Dgreen, above, font=\sffamily\scriptsize] {événement} (c.west);
+    \node[lab=Dgreen, anchor=north west, align=left, font=\sffamily\scriptsize] at (-6,-8) {chaque service possède ses données et son équipe ;\\il se déploie seul et continue si les autres sont lents};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

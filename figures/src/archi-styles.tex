@@ -1,0 +1,57 @@
+% Quatre façons de découper une application : monolithe, monolithe modulaire,
+% architecture orientée services (bus central), microservices.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    mod/.style={soft=#1, minimum width=15mm, minimum height=8mm, font=\sffamily\scriptsize, align=center},
+    bd/.style={soft=Dslate, minimum width=14mm, minimum height=9mm, font=\sffamily\scriptsize, align=center},
+    lab/.style={font=\sffamily\small, text=#1, align=center},
+    lab/.default=Dink]
+  % ---- monolithe
+  \begin{scope}
+    \node[pillo=Dslate, anchor=west] at (0,46) {monolithe};
+    \node[group=Dblue, minimum width=70mm, minimum height=24mm] (m) at (37,28) {};
+    \node[note, anchor=north west] at (m.north west) {un processus, un déploiement};
+    \foreach \n/\x/\y in {clients/14/24, catalogue/30/30, stock/46/24, paiement/62/30} \node[mod=Dblue] (a\n) at (\x,\y) {\n};
+    \draw[Dred, line width=0.6pt] (aclients) -- (acatalogue) -- (astock) -- (apaiement) (aclients) -- (astock) (acatalogue) -- (apaiement);
+    \node[bd] (b1) at (37,4) {\stack[\normalsize]{database}{une base}};
+    \foreach \n in {clients, catalogue, stock, paiement} \draw[Dslate, line width=0.4pt] (a\n.south) -- (b1.north);
+    \node[lab=Dred, anchor=west, font=\sffamily\scriptsize] at (55,4) {chaque partie lit\\toutes les tables};
+  \end{scope}
+  % ---- monolithe modulaire
+  \begin{scope}[xshift=90mm]
+    \node[pillo=Dslate, anchor=west] at (0,46) {monolithe modulaire};
+    \node[group=Dteal, minimum width=70mm, minimum height=24mm] (mm) at (37,28) {};
+    \node[note, anchor=north west] at (mm.north west) {un processus, un déploiement};
+    \foreach \n/\x in {clients/10, catalogue/28, stock/46, paiement/64} \node[mod=Dteal] (b\n) at (\x,27) {\n};
+    \foreach \a/\b in {clients/catalogue, catalogue/stock, stock/paiement} \draw[arr=Dteal] (b\a.east) -- (b\b.west);
+    \node[bd] (b2) at (37,4) {\stack[\normalsize]{database}{une base}};
+    \foreach \n in {clients, catalogue, stock, paiement} \draw[Dslate, line width=0.4pt] (b\n.south) -- (b2.north);
+    \node[lab=Dteal, anchor=west, font=\sffamily\scriptsize] at (55,4) {un schéma par module,\\appels par interfaces};
+  \end{scope}
+  % ---- SOA
+  \begin{scope}[yshift=-58mm]
+    \node[pillo=Dslate, anchor=west] at (0,46) {architecture orientée services};
+    \foreach \n/\x in {clients/10, catalogue/28, stock/46, paiement/64} \node[mod=Dpurple] (c\n) at (\x,34) {\n};
+    \node[soft=Damber, minimum width=70mm, minimum height=7mm, font=\sffamily\small] (esb) at (37,20) {bus de services (ESB) : routage, transformation, orchestration};
+    \foreach \n in {clients, catalogue, stock, paiement} \draw[arr=Dpurple] (c\n.south) -- (c\n.south |- esb.north);
+    \node[bd] (b3) at (37,4) {\stack[\normalsize]{database}{base partagée}};
+    \draw[Dslate, line width=0.4pt] (esb.south) -- (b3.north);
+    \node[lab=Damber, anchor=west, font=\sffamily\scriptsize] at (55,4) {logique et données\\au centre};
+  \end{scope}
+  % ---- microservices
+  \begin{scope}[xshift=90mm, yshift=-58mm]
+    \node[pillo=Dslate, anchor=west] at (0,46) {microservices};
+    \node[soft=Dslate, minimum width=70mm, minimum height=6mm, font=\sffamily\small] (gw) at (37,38) {passerelle d’API};
+    \foreach \n/\x in {clients/10, catalogue/28, stock/46, paiement/64} {
+      \node[mod=Dgreen] (d\n) at (\x,24) {\n};
+      \node[bd, minimum width=11mm, minimum height=7mm] (e\n) at (\x,8) {\stack[\small]{database}{}};
+      \draw[Dslate, line width=0.4pt] (d\n.south) -- (e\n.north);
+      \draw[arr=Dgreen] (d\n.north |- gw.south) -- (d\n.north);
+    }
+    \draw[arr=Dgreen, dash pattern=on 2pt off 1.5pt] (dstock.east) -- (dpaiement.west);
+    \node[lab=Dgreen, anchor=north west, font=\sffamily\scriptsize] at (0,1) {un processus et une base par service, déployés séparément ; appels réseau, HTTP ou messages};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -84,7 +84,7 @@ Le proxy est aussi le bon endroit pour fixer des limites que l’origine n’a p
 
 Une passerelle d’API est un reverse proxy placé devant un ensemble de services, et chargé de ce que tous ont en commun. Chris Richardson la décrit comme le point d’entrée unique de tous les clients, qui transmet certaines requêtes au service concerné et en répartit d’autres vers plusieurs services dont elle assemble les réponses[^richardson]. Ses tâches habituelles sont les suivantes.
 
-Le routage : `/commandes/...` va au service des commandes, `/catalogue/...` à celui du catalogue. Les clients ne connaissent qu’une adresse, et l’organisation interne peut changer sans eux (ch. 42).
+Le routage : `/commandes/...` va au service des commandes, `/catalogue/...` à celui du catalogue. Les clients ne connaissent qu’une adresse, et l’organisation interne peut changer sans eux ([ch. 42](../partie-4/monolithe-microservices.mdx)).
 
 L’authentification : la passerelle vérifie le jeton ou la clé d’API de chaque requête avant de la laisser passer, puis transmet l’identité du client aux services, par exemple dans un en-tête. Les services n’ont plus à vérifier eux-mêmes les jetons, à condition de n’accepter de requêtes que de la passerelle, car un en-tête d’identité qui arrive d’ailleurs ne prouve rien. Le ch. 54 détaille les jetons eux-mêmes.
 
