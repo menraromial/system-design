@@ -1,0 +1,286 @@
+---
+title: "Architecture orientée événements, CQRS, event sourcing"
+sidebar_label: "43. Événements, CQRS, event sourcing"
+description: "Communiquer par événements plutôt que par appels, séparer le modèle d'écriture des modèles de lecture, garder le journal des événements comme source de vérité : événements et commandes, notification et transfert d'état, CQRS, event sourcing, instantanés, projections, évolution des événements et coût réel ; mesures sur PostgreSQL 18 et sur un journal partagé par cinq consommateurs."
+partie: 4
+chapitre: 43
+---
+
+import cqrs from '@site/src/figures/evt-cqrs.svg';
+import notification from '@site/src/figures/evt-notification.svg';
+
+Cinq services consomment les mêmes 20 000 événements d’un service de commandes. Si chaque événement ne dit que « la commande 42 a changé », chaque consommateur rappelle le service pour lire la commande ; le service reçoit 100 000 appels, y passe 11,2 à 12,0 s de processeur, et quatre rappels sur cinq trouvent une version plus récente que celle de l’événement. Si l’événement porte la commande entière, il n’y a aucun appel, la lecture prend 1,0 à 1,1 s au lieu de 14,4 à 15,0 s, et les consommateurs continuent de travailler quand le service s’arrête. Ce chapitre examine ce que porte un événement, ce que l’on gagne à séparer le modèle qui écrit des modèles qui lisent (CQRS), et ce que coûte un système dont la source de vérité est le journal de ses événements (event sourcing). Sur un compte que huit écrivains modifient en même temps, ce journal tombe à 41 ou 42 opérations par seconde, contre 451 à 459 pour une table mise à jour en place.
+
+Le [ch. 27](../partie-2/files-messages.mdx) a décrit les files et les journaux de messages, le [ch. 28](../partie-2/garanties-livraison.mdx) leurs garanties de livraison, et le [ch. 37](../partie-3/transactions-distribuees.mdx) la boîte d’envoi et les sagas chorégraphiées, qui publient des événements de façon fiable. Ce chapitre porte sur ce qu’on construit au-dessus, une architecture où les services réagissent aux événements des autres au lieu de les appeler, et des systèmes qui gardent leurs événements au lieu de leur seul état.
+
+Deux expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch43/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch43). [`notification.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch43/notification.py) compare les deux façons de publier un changement à cinq consommateurs. [`evenements.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch43/evenements.py) programme un journal d’événements dans PostgreSQL 18 et le compare à une table d’état, en écriture, en relecture, en projection et en évolution. Chaque script a été lancé trois fois ; les blocs reproduits sont ceux de la dernière passe, et le texte donne l’écart avec les deux autres.
+
+## Événements et commandes
+
+Une commande demande à quelqu’un de faire quelque chose : « réserver l’article 7 », « débiter le compte de 50 € ». Elle a un destinataire, elle peut être refusée, et celui qui l’envoie attend souvent la réponse. Un événement constate un fait déjà arrivé : « l’article 7 a été réservé », « le compte a été débité de 50 € ». Il est nommé au passé, il ne peut pas être refusé puisqu’il a eu lieu, et celui qui le publie ne sait pas qui l’écoute. Martin Fowler note que les gens qui parlent d’« événements » désignent des choses très différentes, et décrit le piège de l’événement employé comme une commande « passive-agressive » : le producteur attend du destinataire une action précise, mais la présente comme un événement au lieu d’envoyer une commande[^fowler-ed].
+
+Dans une architecture orientée événements, un service publie les faits de son domaine, et les autres services y réagissent. Le service de commandes publie « commande payée » ; la préparation, la facturation et les courriels s’y abonnent, sans que le service de commandes les connaisse ni les appelle. Le couplage diminue, puisqu’ajouter un consommateur ne change pas le producteur, et un consommateur lent ou arrêté ne ralentit pas le producteur, le journal gardant les événements ([ch. 27](../partie-2/files-messages.mdx)). Fowler en donne aussi le revers. Le comportement d’ensemble n’est écrit dans aucun programme, on ne le découvre souvent qu’en observant le système en production, et il devient difficile de le déboguer ou de le modifier[^fowler-ed]. La saga chorégraphiée du [ch. 37](../partie-3/transactions-distribuees.mdx) en est un exemple.
+
+## Notification ou transfert d’état
+
+Fowler distingue deux façons de publier un changement[^fowler-ed]. La notification d’événement (event notification) se contente de signaler le changement, avec l’identifiant de l’objet et parfois sa version ; le consommateur qui a besoin des données les demande au producteur. Le transfert d’état par événement (event-carried state transfer) met dans l’événement les données dont les consommateurs ont besoin, pour qu’ils tiennent leur propre copie sans rappeler le producteur (figure 43.1).
+
+<Figure svg={notification} num="43.1" alt="Deux schémas, chacun avec un service de commandes (source), un journal (courtier) et un service de facturation (consommateur). Notification : l’événement contient seulement id 42 et version 7 ; une flèche rouge revient du consommateur vers la source, GET /commandes/42 à chaque événement ; la source porte la charge des lectures et doit répondre, et le consommateur lit l’état actuel, pas celui de la version 7. Transfert d’état : l’événement contient id, version, statut, client et lignes ; le consommateur met à jour une copie locale ; aucun rappel, le consommateur continue si la source est arrêtée, les événements sont plus gros et la copie est à stocker.">
+Notification d’événement et transfert d’état par événement.
+</Figure>
+
+En haut, la flèche rouge est le rappel que fait le consommateur pour chaque événement ; en bas, il n’y en a pas, et le consommateur garde sa copie.
+
+`notification.py` met en place un service de 10 000 commandes de cinq lignes, qui publie un événement à chaque modification dans un journal, et qui continue d’en modifier 1 000 par seconde pendant la mesure. Cinq consommateurs lisent chacun les 20 000 premiers événements, sous les deux formes. Le script compte les rappels reçus par le service, son temps de processeur, les octets lus par consommateur, et les rappels qui trouvent une version plus récente que celle de l’événement. Puis il suspend le service pendant 3 s, en limitant les consommateurs à 2 000 événements par seconde, et compte ce qu’ils ont traité pendant la suspension.
+
+```text
+10000 commandes de 5 lignes ; 5 consommateurs lisent chacun
+20000 événements ;
+le service modifie 1 000 commandes par seconde pendant la lecture
+
+mode             durée   appels  CPU source  Mo lus/conso  périmés
+notification     15.0s   100000       12.0s          7.13    79.9%
+transfert         1.0s        0        0.1s          6.61     0.0%
+
+lecture limitée à 2 000 événements par seconde et par consommateur ;
+service suspendu 3 s, 1 s après le début de la lecture ;
+événements traités par consommateur pendant la suspension :
+   notification       1
+   transfert       6000
+```
+
+Les deux passages précédents ont donné 14,4 et 14,9 s, 11,2 et 11,8 s de processeur, 79,5 et 79,9 % pour la notification, et 1,1 s pour le transfert. Les octets lus sont presque les mêmes (7,1 Mo contre 6,6 Mo par consommateur), mais la notification les reçoit en 100 000 réponses HTTP au lieu de 40 lots, d’où une lecture treize à quinze fois plus longue, et c’est le producteur qui paie, avec 11 à 12 s de processeur pour servir ses consommateurs, contre 0,1 s. Le chiffre des versions périmées montre un second effet. Le consommateur d’une notification lit l’état actuel de la commande, pas celui qu’avait la commande au moment de l’événement ; comme il lit avec du retard sur le producteur, quatre fois sur cinq il trouve une version plus récente et ne verra jamais les états intermédiaires. Pour tenir un cache, cela suffit ; pour calculer une statistique sur les passages par chaque statut, c’est faux. Enfin, quand le service s’arrête 3 s, les consommateurs par notification restent bloqués sur leur premier rappel (0 ou 1 événement traité), alors que ceux qui reçoivent l’état continuent au rythme prévu (6 000).
+
+Le transfert d’état a ses propres coûts. Les événements sont plus gros, chaque consommateur stocke une copie des données dont il a besoin, et le producteur doit décider quoi mettre dans ses événements, ce qui en fait une partie de son contrat public, plus difficile à changer qu’un point d’accès interne. La copie est à jour à un délai près, celui de la propagation des événements.
+
+## L’event sourcing
+
+Un système classique garde l’état courant de chaque objet et le met à jour en place (le solde d’un compte est une colonne qu’on remplace à chaque opération). L’event sourcing garde à la place la suite des événements qui ont modifié l’objet. Fowler le résume ainsi : chaque changement de l’état du système est enregistré comme un événement, et l’état se déduit en rejouant ces événements[^fowler-ed]. Le solde n’est plus stocké, il est la somme des dépôts moins la somme des retraits.
+
+Le journal est organisé en flux (streams), un par objet, chaque événement portant le numéro de version de son flux. Pour traiter une commande, on charge le flux, on rejoue ses événements pour reconstruire l’état, on vérifie les règles (le solde suffit-il pour ce retrait ?), puis on ajoute le nouvel événement en indiquant la version sur laquelle on s’est fondé. Si un autre écrivain a ajouté un événement entre-temps, la version attendue n’est plus la bonne, et l’ajout échoue ; on recharge et on recommence. C’est un contrôle de concurrence optimiste ([ch. 18](../partie-2/transactions-isolation.mdx)), que `evenements.py` obtient par une clé primaire (flux, version) dans PostgreSQL. L’état se lit ensuite par d’autres moyens que le rejeu, des projections (figure 43.2).
+
+<Figure svg={cqrs} num="43.2" alt="À gauche, l’écriture : une commande « retirer 50 € » arrive au compte c7, dont l’état est reconstruit à partir du journal du flux c7 (événements v1 à v7) : 1, lire l’instantané v5 ; 2, puis v6 et v7 ; 3, ajouter v8 si la version vaut encore 7. À droite, la lecture : un projecteur lit le journal dans l’ordre, de façon asynchrone, et alimente deux modèles de lecture, les soldes indexés par montant et un relevé de lignes par mois, que les requêtes interrogent. Le journal est la source de vérité ; les modèles de lecture se reconstruisent en le relisant et ont un retard sur lui, 58 à 66 ms en médiane dans la mesure.">
+CQRS et event sourcing : le journal, les instantanés et les modèles de lecture.
+</Figure>
+
+À gauche, les trois étapes d’une écriture, numérotées ; à droite, le projecteur, qui suit le journal et nourrit les modèles que les requêtes interrogent.
+
+### Écrire
+
+La première partie de `evenements.py` fait 20 000 opérations sur 1 000 comptes avec huit écrivains, d’abord sur une table d’état mise à jour en place, puis sur le journal ; la deuxième fait 2 000 opérations sur un seul compte, que les huit écrivains se disputent.
+
+```text
+1. 20 000 opérations sur 1 000 comptes, 8 écrivains (latences en ms)
+   mode                op/s    méd.     99e  conflits   refus
+   table d'état        1966    4.04    5.47         0       0
+   event sourcing      1668    4.38    9.74       114       0
+
+2. 8 écrivains, 2 000 opérations sur un seul compte
+   mode                op/s    méd.     99e  conflits   refus
+   table d'état         451   11.77   87.57         0       0
+   event sourcing        41   77.85 1382.62     12851       0
+```
+
+Les deux autres passages ont donné 1 979 à 1 981 et 1 682 à 1 717 opérations par seconde sur 1 000 comptes, puis 459 et 41 à 42 sur un seul compte, avec 12 844 à 12 925 conflits. Quand les écritures se répartissent sur beaucoup de flux, l’event sourcing coûte peu, 13 à 15 % de débit en moins, parce qu’il lit les événements du compte avant d’écrire, et une centaine de conflits pour 20 000 opérations, quand deux écrivains tombent sur le même compte au même moment. Sur un compte très sollicité, il s’effondre. Chaque écrivain recharge le flux, calcule, tente d’ajouter la version suivante, et sept sur huit échouent parce qu’un autre l’a fait avant eux ; 2 000 opérations demandent près de 13 000 tentatives perdues, le débit tombe à 41 ou 42 par seconde et le 99e centile à 1,4 ou 1,5 s. La table d’état, elle, prend un verrou de ligne et fait attendre les écrivains les uns derrière les autres, sans rien recommencer, à 451 à 459 opérations par seconde. Un flux d’event sourcing doit donc correspondre à un objet que peu d’écrivains modifient en même temps ; un compteur global ou un stock partagé par tous ne s’y prêtent pas, ou demandent qu’on sérialise les commandes de ce flux en amont, par une file par flux.
+
+### Relire, et les instantanés
+
+Rejouer un flux coûte en proportion de sa longueur. La troisième partie mesure la reconstruction de comptes de 10 à 10 000 événements, sans instantané, puis avec un instantané (snapshot) de l’état enregistré tous les 100 événements, à partir duquel on ne rejoue que les événements suivants.
+
+```text
+3. relire un compte selon la longueur de son flux (ms, médiane de 20)
+    événements  sans instantané  avec instantané   lus
+            10             0.78             1.49    10
+           100             1.09             0.35     0
+          1000             4.16             1.32     0
+         10000            37.19             1.32     0
+```
+
+Les deux autres passages ont donné 35,3 et 37,6 ms sans instantané, 0,95 et 0,42 ms avec, pour 10 000 événements. Sans instantané, le rejeu de 10 000 événements prend 35 à 38 ms, assez pour qu’un compte très actif devienne lent à chaque commande. Avec un instantané, la lecture reste sous 1,5 ms quelle que soit la longueur du flux. Pour 100 événements, le gain n’est pas sûr (0,35 ms avec instantané dans cette passe, mais 1,29 et 1,42 ms contre 1,04 et 1,08 ms sans dans les deux autres), puisque l’instantané coûte une requête de plus et n’évite que 100 lignes ; on n’en prend que pour les flux longs, à un intervalle fixé par la mesure. Fowler mentionne les instantanés comme le moyen d’éviter de retraiter toute l’histoire[^fowler-ed] ; LMAX, dans l’exemple réel de ce chapitre, en prend un par nuit.
+
+## CQRS
+
+La séparation des responsabilités de commande et de requête (command query responsibility segregation, CQRS), que Fowler attribue à Greg Young, consiste à employer un modèle pour mettre à jour l’information et un autre, ou plusieurs, pour la lire[^fowler-cqrs]. Le modèle d’écriture applique les règles du domaine et garantit la cohérence d’un objet ; les modèles de lecture sont des vues faites pour des requêtes précises (une liste triée, un tableau de bord, un index de recherche), dénormalisées et éventuellement dans d’autres bases. CQRS n’exige pas l’event sourcing ; on peut tenir des vues à partir d’une base classique, par capture des changements ([ch. 37](../partie-3/transactions-distribuees.mdx)). Mais les deux se combinent naturellement, le journal étant la source dont un projecteur tire chaque modèle de lecture.
+
+La quatrième partie de `evenements.py` construit une projection des soldes à partir du journal, la compare au calcul direct sur le journal, puis mesure son retard pendant que huit écrivains ajoutent des événements.
+
+```text
+4. CQRS : projection des soldes (modèle de lecture)
+   reconstruction depuis zéro : 944110 événements en 73.5 s
+   10 plus gros soldes, projection (index)  :      0.25 ms
+   10 plus gros soldes, journal (agrégat)   :    132.65 ms
+   pendant 20 s d'écriture (1396 événements/s),
+   projecteur interrogeant le journal toutes les 100 ms :
+   retard de la projection : médiane 58 ms,
+   99e centile 141 ms, maximum 212 ms
+```
+
+Les deux autres passages ont donné 75,3 et 76,6 s pour la reconstruction, 0,23 et 0,27 ms contre 138 et 140 ms pour la requête, et un retard médian de 64 et 66 ms, de 215 et 152 ms au 99e centile. Sur la projection, indexée par solde, les dix plus gros soldes se lisent en un quart de milliseconde ; sur le journal, la même question demande d’agréger un million d’événements, 133 à 140 ms. C’est le gain de CQRS : chaque question a sa structure. La contrepartie se lit sur les deux autres lignes. La projection a du retard sur le journal, 58 à 66 ms en médiane avec un projecteur qui interroge le journal toutes les 100 ms, jusqu’à 200 à 327 ms au pire selon les passages ; un utilisateur qui vient de déposer de l’argent peut ne pas voir son nouveau solde dans la liste, et l’interface doit en tenir compte (en affichant le résultat de la commande plutôt que de relire la vue, par exemple). Et reconstruire une projection, après un défaut corrigé ou pour une nouvelle vue, demande de relire tout le journal, 73 à 77 s pour moins d’un million d’événements avec ce projecteur en Python ; sur des milliards d’événements, cela se compte en heures, et Overeem et ses coauteurs rangent la reconstruction des projections parmi les cinq difficultés que rencontrent les équipes[^overeem]. On reconstruit alors dans une nouvelle table, à côté de l’ancienne, et l’on bascule les lectures quand elle a rattrapé le journal.
+
+Fowler avertit que, pour la plupart des systèmes, CQRS ajoute une complexité risquée, et qu’il ne doit s’appliquer qu’à des parties précises d’un système, des contextes bornés ([ch. 42](monolithe-microservices.mdx)) où les lectures et les écritures ont des besoins très différents[^fowler-cqrs].
+
+## Faire évoluer les événements
+
+Un journal d’événements ne s’efface pas ; il garde des événements écrits il y a des années, dans des formats que le code a abandonnés depuis. Michiel Overeem, Marten Spoor, Slinger Jansen et Sjaak Brinkkemper ont interrogé en 2021 vingt-cinq ingénieurs de dix-neuf systèmes en event sourcing, et rangent l’évolution du système d’événements parmi les cinq difficultés principales, avec la courbe d’apprentissage, le manque d’outils, la reconstruction des projections et la protection des données personnelles. Ils relèvent cinq tactiques employées par ces équipes : des événements versionnés, un schéma faible (des champs optionnels que le code tolère), la conversion à la lecture (upcasting), la transformation en place, et la recopie avec transformation (copy-and-transform)[^overeem].
+
+La cinquième partie de `evenements.py` fait passer les dépôts et les retraits d’un montant en euros à un montant en centimes avec une devise, de deux façons.
+
+```text
+5. faire évoluer un événement (montant en euros → centimes et devise)
+   convertir à la lecture 10 000 événements v1 : 3.16 ms en Python
+   recopier et transformer le journal (972020 événements) : 3.3 s,
+   153 Mo de plus (journal d'origine : 155 Mo)
+```
+
+Les deux autres passages ont donné 2,85 et 2,93 ms, 3,4 et 3,6 s. Convertir à la lecture coûte 0,3 µs par événement, rien en comparaison de la lecture elle-même ; mais chaque convertisseur reste dans le code pour toujours, et ils s’enchaînent au fil des versions. Recopier et transformer le journal entier prend 3,3 à 3,6 s pour un million d’événements et occupe, le temps de la bascule, 153 Mo de plus, autant que le journal d’origine ; sur un journal de plusieurs téraoctets, il faut prévoir l’espace et la durée, et rejouer pendant ce temps les événements écrits entre-temps.
+
+La protection des données personnelles est la difficulté la plus délicate de cette liste. Le droit à l’effacement s’accorde mal avec un journal qu’on ne modifie jamais ; on garde alors les données personnelles hors du journal, dans un stockage effaçable que les événements référencent, ou on les chiffre avec une clé propre à chaque personne, que l’on détruit pour les rendre illisibles.
+
+## Ce que coûte l’event sourcing
+
+La dernière partie mesure la place occupée.
+
+```text
+6. place occupée
+   evenements      972020 lignes    155.0 Mo
+   etat              1000 lignes      0.2 Mo
+   projection       10004 lignes     32.1 Mo
+   instantanes          3 lignes      0.0 Mo
+```
+
+Les 970 000 événements occupent 155 Mo, là où l’état de 1 000 comptes tient en 0,2 Mo ; un journal grossit avec l’activité, l’état avec le nombre d’objets. La projection des 10 000 soldes occupe 32 à 33 Mo pour 10 000 lignes, gonflée par les quelque 950 000 mises à jour qui y ont laissé des versions mortes en attendant le nettoyage ([ch. 18](../partie-2/transactions-isolation.mdx)). Les bénéfices sont réels : un historique complet, qui sert d’audit sans effort ; la possibilité de reconstruire l’état à n’importe quelle date, ou de corriger une projection après un défaut ; de nouvelles vues construites à partir de toute l’histoire. Mais ils se paient en stockage, en code de projection et de conversion, en concurrence limitée sur les flux très actifs, et en une façon de penser que l’équipe doit apprendre, ce que les ingénieurs interrogés par Overeem citent comme la deuxième difficulté[^overeem].
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Appel synchrone (commande) | réponse immédiate, refus possible | couplage, disponibilité en série | [ch. 42](monolithe-microservices.mdx) | quand l’appelant doit savoir le résultat |
+| Notification d’événement | petit événement, producteur découplé | rappels, charge sur le producteur, état intermédiaire perdu | 100 000 rappels, 11 à 12 s de CPU, 0 à 1 événement pendant une panne | invalidation de cache |
+| Transfert d’état par événement | consommateurs autonomes | événements plus gros, copies, contrat public | aucun rappel, 1,0 à 1,1 s, 6 000 pendant la panne | consommateurs nombreux ou critiques |
+| Table d’état (CRUD) | simple, rapide sous contention | pas d’historique | 451 à 459 op/s sur un compte disputé | cas général |
+| Event sourcing | historique, rejeu, nouvelles vues | stockage, rejeu, conflits, évolution | 41 à 42 op/s sur un compte disputé ; 155 Mo pour 970 000 événements | domaines où l’historique compte |
+| Instantanés | relecture rapide des flux longs | code et stockage en plus | 0,4 à 1,4 ms au lieu de 35 à 38 ms | flux de plus de quelques centaines d’événements |
+| CQRS | une structure par question | retard, reconstruction | 0,23 à 0,27 ms contre 133 à 140 ms ; retard 58 à 66 ms | lectures et écritures très différentes |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : rappels d’une notification contre taille d’un transfert d’état]
+Hypothèses : 2 000 commandes modifiées par seconde ; 8 services consommateurs ; une commande de 1 Ko ; un rappel HTTP coûte environ 0,12 ms de processeur au producteur (11,2 à 12,0 s pour 100 000 rappels, mesuré).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Rappels par seconde en notification | 2 000 × 8 | 16 000 par seconde |
+| Processeur du producteur pour les rappels | 16 000 × 0,12 ms | 1,9 cœur à plein temps |
+| Débit du journal en transfert d’état | 2 000 × 1 Ko | 2 Mo/s écrits, 16 Mo/s lus par les 8 |
+| Stockage du journal sur 7 jours | 2 Mo/s × 604 800 s | 1,2 To par réplique |
+
+Conclusion : la notification déplace la charge des lectures vers le producteur, qui doit être dimensionné pour ses consommateurs ; le transfert d’état la déplace vers le journal, en débit et en stockage. On met dans l’événement les champs dont les consommateurs ont réellement besoin, ni plus ni moins.
+:::
+
+:::calcul[Calcul : quand faut-il des instantanés ?]
+Hypothèses : rejouer un événement coûte environ 3,6 µs (35 à 38 ms pour 10 000, mesuré) ; une commande doit se traiter en moins de 5 ms ; un compte actif reçoit 50 événements par jour.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Événements rejouables en 5 ms | 5 ms / 3,6 µs | environ 1 400 |
+| Âge d’un compte à ce seuil | 1 400 / 50 | 28 jours |
+| Après trois ans | 50 × 1 095 | 55 000 événements, 200 ms de rejeu |
+| Instantané tous les 500 événements | au plus 499 à rejouer | moins de 2 ms |
+
+Conclusion : un flux qui grossit sans fin finit par rendre chaque commande lente ; les instantanés bornent le rejeu. Un intervalle de quelques centaines d’événements suffit, et l’instantané se recalcule de façon asynchrone, sans ralentir les écritures.
+:::
+
+:::calcul[Calcul : reconstruire une projection]
+Hypothèses : 5 milliards d’événements dans le journal ; un projecteur qui applique 12 500 événements par seconde (944 000 en 75 s, mesuré) ou, mieux écrit et en lots, 200 000 par seconde ; le journal continue de recevoir 2 000 événements par seconde.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Reconstruction au rythme mesuré | $5 \times 10^9$ / 12 500 | 400 000 s, 4,6 jours |
+| Reconstruction à 200 000 par seconde | $5 \times 10^9$ / 200 000 | 25 000 s, 7 heures |
+| Événements arrivés pendant 7 heures | 2 000 × 25 000 | 50 millions, rattrapés en 4 minutes |
+| Avec 16 projecteurs sur des partitions de flux | 25 000 / 16 | 26 minutes |
+
+Conclusion : la reconstruction d’une projection est une opération d’exploitation à planifier, qui se parallélise par partition de flux. On l’exécute à côté de la projection en service et l’on bascule à la fin, ce qui demande de garder la place de deux projections.
+:::
+
+## Exemple réel
+
+**La plateforme d’échange de LMAX.** Martin Fowler a décrit en 2011 l’architecture de LMAX, une plateforme d’échange financier[^lmax]. Le cœur est un processeur de logique métier qui tourne entièrement en mémoire, sur un seul fil, sans base de données, et qui traite, selon l’article, 6 millions d’ordres par seconde sur un serveur Dell de deux processeurs Nehalem à quatre cœurs et 32 Go de mémoire. C’est de l’event sourcing appliqué au pied de la lettre, puisque l’état courant du processeur se déduit entièrement des événements d’entrée qu’il a traités. Ces événements sont journalisés sur disque avant d’être traités, un instantané de l’état est pris chaque nuit, pendant une période calme, et un redémarrage complet (démarrage de la machine virtuelle Java, chargement de l’instantané récent, rejeu du journal d’une journée) prend moins d’une minute. Trois processeurs reçoivent les mêmes événements, deux dans le centre de données principal et un sur le site de secours ; seule la sortie du leader est utilisée, et la bascule vers une autre réplique, en cas de panne, se fait en quelques microsecondes. Un composant appelé Disruptor, un anneau sans verrou, relie le processeur à ses étapes d’entrée et de sortie (réception, réplication, journalisation). L’exemple montre ce que l’event sourcing permet quand toutes les écritures passent par un seul fil, et que la sérialisation des commandes, qui faisait échouer le compte disputé de la mesure, y est voulue dès le départ.
+
+## Erreurs fréquentes
+
+Publier comme événement une commande déguisée, ce que Fowler appelle une commande passive-agressive (« envoyer le courriel de confirmation »), si bien que le producteur dépend de ce que fera un consommateur précis.
+
+Publier des notifications qui obligent tous les consommateurs à rappeler le producteur. 100 000 rappels et 11 à 12 s de processeur pour 20 000 événements et cinq consommateurs (mesuré).
+
+Croire qu’un consommateur de notifications voit chaque état. Il lit l’état actuel, plus récent dans 80 % des cas mesurés.
+
+Mettre en event sourcing un objet que tout le monde modifie. Huit écrivains sur un compte en tirent 41 à 42 opérations par seconde, avec près de 13 000 conflits (mesuré).
+
+Rejouer des flux longs sans instantané. 35 à 38 ms par lecture pour 10 000 événements (mesuré), et cela ne fait que croître.
+
+Lire un modèle de lecture juste après une écriture et s’étonner de ne pas y voir le changement. Il a du retard, 58 à 66 ms en médiane ici.
+
+Oublier qu’une projection se reconstruit. Il faut un projecteur rapide, rejouable, et la place d’une seconde copie pendant la reconstruction.
+
+Modifier un type d’événement sans stratégie de version. Les anciens événements restent dans le journal et doivent toujours pouvoir être lus.
+
+Appliquer CQRS et l’event sourcing à tout le système, alors qu’ils ne valent leur coût que dans les parties où l’historique et les lectures variées comptent.
+
+:::piege[Erreur fréquente : « avec l’event sourcing, on a un historique gratuit et une base plus rapide »]
+L’historique est réel, mais il n’est pas gratuit : 155 Mo pour 970 000 événements là où l’état tenait en 0,2 Mo, des projections à écrire et à reconstruire (73 à 77 s pour moins d’un million d’événements avec un projecteur simple), des instantanés pour garder des relectures rapides, et une stratégie pour faire évoluer des événements qu’on ne peut plus modifier. Quant à la vitesse, la mesure dit l’inverse sous contention, puisqu’un compte que huit écrivains se disputent passe de 451 à 459 à 41 ou 42 opérations par seconde, parce que chaque conflit de version oblige à tout recharger et recommencer. L’event sourcing se choisit pour ce qu’il permet (audit, rejeu, vues nouvelles), pas pour la performance.
+:::
+
+:::entretien
+Si l’on vous propose une architecture orientée événements, dites ce que portent les événements : un identifiant, et alors les consommateurs rappellent le producteur, ou l’état utile, et alors ils sont autonomes au prix d’événements plus gros. Distinguez événements (faits, au passé, sans réponse) et commandes (demandes, qui peuvent échouer). Ne proposez l’event sourcing que si l’historique a une valeur métier (comptabilité, audit, conformité, annulation), et dites aussitôt comment vous traitez les flux longs (instantanés), la concurrence (un flux par objet peu disputé, contrôle de version), les lectures (projections CQRS, avec leur retard) et l’évolution des événements (versions, conversion à la lecture).
+:::
+
+## Exercices
+
+**Question 1.** Classez en commandes et en événements : « ExpédierCommande », « CommandeExpédiée », « PaiementRefusé », « RembourserClient », « StockÉpuisé », « RéserverChambre ». Pour chaque événement, dites qui peut s’y abonner ; pour chaque commande, qui la traite et ce qui se passe si elle est refusée.
+
+**Question 2.** Un service d’articles publie un événement à chaque modification d’un article, lu par un moteur de recherche, un service de recommandations et un cache. Les articles font 20 Ko, sont modifiés 500 fois par seconde, et chaque consommateur n’a besoin que du titre, du prix et de la catégorie. Comparez la notification et le transfert d’état en appels, en débit et en stockage, et proposez une forme d’événement.
+
+**Question 3.** Un compte en event sourcing a reçu 30 000 événements. Le rejeu coûte 4 µs par événement et une requête vers la base 0,5 ms. Quelle est la durée de chargement sans instantané ? Avec un instantané tous les 1 000 événements ? Et si dix écrivains ajoutent des événements à ce compte en même temps, que se passe-t-il, et que proposez-vous ?
+
+**Exercice de conception.** Une banque en ligne veut garder l’historique complet des opérations de 5 millions de comptes (en moyenne 3 opérations par jour et par compte, avec des comptes professionnels qui en reçoivent 5 000 par jour), afficher le solde et les 50 dernières opérations, produire un relevé mensuel, et alimenter un service de détection de fraude. Elle doit pouvoir effacer les données personnelles d’un client parti. Proposez la structure du journal, la gestion des flux très actifs, les projections, la façon dont la détection de fraude reçoit les opérations, l’évolution des événements et l’effacement. Chiffrez le volume du journal sur dix ans.
+
+## Corrigés
+
+**Question 1.** Commandes : « ExpédierCommande », traitée par la logistique, qui peut la refuser faute de stock ou d’adresse valide, et l’appelant doit alors prévenir le client ; « RembourserClient », traitée par le paiement, qui peut échouer (moyen de paiement expiré) et doit être recommencée ou passée à une personne ; « RéserverChambre », traitée par l’hôtel, refusée s’il n’y a plus de chambre. Événements : « CommandeExpédiée », à laquelle s’abonnent les courriels, le suivi client et la facturation ; « PaiementRefusé », écouté par le service des commandes (pour annuler), les courriels et la détection de fraude ; « StockÉpuisé », écouté par le catalogue (pour masquer l’article), les achats (pour réapprovisionner) et la recherche.
+
+**Question 2.** En notification, chaque modification provoque trois rappels de 20 Ko, soit $500 \times 3 = 1\,500$ appels par seconde et 30 Mo/s servis par le service d’articles, qui doit tenir cette charge. En transfert de l’article entier, aucun rappel, mais un journal de $500 \times 20$ Ko $= 10$ Mo/s écrits et 30 Mo/s lus, et 6 To par semaine. Mieux vaut un transfert d’état limité aux champs utiles : identifiant, version, titre, prix, catégorie, environ 200 octets, soit 100 Ko/s ; le moteur de recherche, s’il indexe aussi le texte, peut rappeler le service pour ce seul champ, ou recevoir un second type d’événement plus complet.
+
+**Question 3.** Sans instantané, le chargement demande $0{,}5$ ms de requête et $30\,000 \times 4$ µs $= 120$ ms de rejeu, soit environ 120 ms. Avec un instantané tous les 1 000 événements, il faut deux requêtes (instantané et événements suivants), 1 ms, et au plus 999 événements, 4 ms, soit 5 ms au plus. Avec dix écrivains simultanés, la plupart des ajouts échouent sur la version attendue et recommencent, comme dans la mesure (près de sept tentatives perdues par opération réussie) ; on fait passer les commandes de ce compte par une file unique, traitée dans l’ordre par un seul écrivain, ce qui supprime les conflits, ou l’on découpe le compte en sous-flux (par exemple un flux par jour) quand le domaine le permet.
+
+**Exercice de conception.**
+
+*Journal.* Un flux par compte, avec des événements « opération créditée », « opération débitée », « frais appliqués », chacun versionné. Le journal est partitionné par compte ([ch. 26](../partie-2/partitionnement.mdx)), dans une base qui garantit l’ajout conditionnel à une version, et publié vers un journal de messages pour les consommateurs ([ch. 27](../partie-2/files-messages.mdx)).
+
+*Flux très actifs.* Les comptes professionnels à 5 000 opérations par jour reçoivent leurs commandes par une file par compte, traitée par un seul écrivain, ce qui supprime les conflits de version ; un instantané tous les 500 événements borne le rejeu.
+
+*Projections.* Le solde et les 50 dernières opérations dans une base clé-valeur, mise à jour par un projecteur ; le relevé mensuel dans une table par compte et par mois ; l’interface affiche le résultat de chaque commande sans attendre la projection, pour masquer son retard.
+
+*Fraude.* Elle reçoit par transfert d’état chaque opération complète (montant, contrepartie, canal, appareil), sans rappeler la banque, et peut ainsi continuer si le cœur bancaire ralentit.
+
+*Évolution.* Événements versionnés et convertis à la lecture ; une recopie avec transformation seulement pour les changements lourds, planifiée avec l’espace nécessaire.
+
+*Effacement.* Les données personnelles (nom, adresse, contreparties nommées) ne sont pas dans les événements, qui ne portent que des identifiants ; elles sont dans un stockage à part, ou chiffrées par une clé par client, que l’on détruit au départ du client.
+
+*Volume.* $5 \times 10^6 \times 3 = 15$ millions d’opérations par jour, plus environ 10 000 comptes professionnels à 5 000 par jour, 50 millions, soit 65 millions par jour ; sur dix ans, $65 \times 10^6 \times 3\,650 \approx 2{,}4 \times 10^{11}$ événements. À 200 octets l’événement, environ 47 To, avant réplication ; les événements de plus de quelques années peuvent passer sur un stockage moins cher, les instantanés permettant de ne plus les relire.
+
+:::fiche
+- Commande : demande à un destinataire, peut être refusée. Événement : fait au passé, publié sans connaître les abonnés (Fowler, 2017).
+- Notification : identifiant seul, rappels vers le producteur, état intermédiaire perdu. Transfert d’état : l’événement porte les données, consommateurs autonomes. Mesuré : 100 000 rappels et 11 à 12 s de CPU contre 0 ; 14,4 à 15,0 s contre 1,0 à 1,1 s ; pendant une panne de 3 s, 0 à 1 événement contre 6 000.
+- Event sourcing : le journal des événements est la source de vérité ; flux par objet, ajout à la version attendue (concurrence optimiste).
+- Mesuré : 1 682 à 1 717 op/s contre 1 979 à 1 981 sur 1 000 comptes ; sur un compte disputé, 41 à 42 op/s et près de 13 000 conflits contre 451 à 459.
+- Instantanés : rejeu de 10 000 événements en 35 à 38 ms, 0,4 à 1,3 ms avec un instantané ; inutiles sur les flux courts.
+- CQRS : un modèle d’écriture, des modèles de lecture ; 0,23 à 0,27 ms contre 133 à 140 ms ; retard de 58 à 66 ms en médiane ; reconstruction de 944 000 événements en 73 à 77 s. Complexité risquée pour la plupart des systèmes (Fowler, 2011).
+- Évolution : versions, schéma faible, conversion à la lecture (0,3 µs par événement), transformation en place, recopie (3,3 à 3,6 s et le double d’espace pour un million) (Overeem et al., 2021).
+- Coût : 155 Mo pour 970 000 événements contre 0,2 Mo d’état ; données personnelles hors du journal ou chiffrées par une clé détruite.
+:::
+
+[^fowler-ed]: Martin Fowler, « What do you mean by “Event-Driven”? », martinfowler.com, 7 février 2017 (notification, transfert d’état, event sourcing, CQRS ; événements et commandes ; instantanés), [martinfowler.com/articles/201701-event-driven.html](https://martinfowler.com/articles/201701-event-driven.html).
+[^fowler-cqrs]: Martin Fowler, « CQRS », bliki, 14 juillet 2011, [martinfowler.com/bliki/CQRS.html](https://martinfowler.com/bliki/CQRS.html).
+[^overeem]: Michiel Overeem, Marten Spoor, Slinger Jansen et Sjaak Brinkkemper, « An Empirical Characterization of Event Sourced Systems and Their Schema Evolution: Lessons from Industry », *Journal of Systems and Software*, vol. 178, 2021, prépublication [arxiv.org/abs/2104.01146](https://arxiv.org/abs/2104.01146).
+[^lmax]: Martin Fowler, « The LMAX Architecture », martinfowler.com, 12 juillet 2011, [martinfowler.com/articles/lmax.html](https://martinfowler.com/articles/lmax.html).

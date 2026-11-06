@@ -1,0 +1,45 @@
+% CQRS avec event sourcing : la commande reconstruit l'état depuis un instantané
+% et les événements suivants, ajoute un événement à la version attendue ; un
+% projecteur alimente les modèles de lecture.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=26mm, minimum height=10mm, font=\sffamily\small, align=center},
+    ev/.style={draw=Dpurple, fill=DpurpleBg, line width=0.6pt, minimum width=9mm, minimum height=7mm,
+      inner sep=0pt, font=\sffamily\scriptsize},
+    lab/.style={font=\sffamily\small, text=#1, align=center},
+    lab/.default=Dink]
+  % côté écriture
+  \node[pillo=Dblue, anchor=west] at (-6,56) {écriture (commandes)};
+  \node[b=Dblue] (cmd) at (8,38) {commande\\{\scriptsize « retirer 50 € »}};
+  \node[b=Dblue, minimum width=30mm] (agg) at (52,38) {compte c7\\{\scriptsize état reconstruit, règles}};
+  \draw[arr=Dblue] (cmd) -- (agg);
+  % journal
+  \foreach \v [count=\i from 0] in {1,2,3,...,7} {
+    \ifnum\v=5 \node[ev, fill=DamberBg, draw=Damber] (e\v) at (22+\i*10,8) {v\v};
+    \else \node[ev] (e\v) at (22+\i*10,8) {v\v};\fi
+  }
+  \node[ev, draw=Dgreen, fill=DgreenBg, dash pattern=on 2pt off 1pt] (e8) at (22+7*10,8) {v8};
+  \node[note, anchor=east] at (e1.west) {journal du flux c7};
+  \node[lab=Damber, anchor=north, font=\sffamily\scriptsize] at (e5.south) {instantané};
+  \draw[arr=Dslate] (e5.north) to[out=95, in=-110] (agg.south west);
+  \node[lab=Dslate, anchor=east, font=\sffamily\scriptsize] at (40,20) {1. lire l’instantané v5};
+  \draw[arr=Dslate] (e7.north) to[out=95, in=-80] (agg.south);
+  \node[lab=Dslate, anchor=north, font=\sffamily\scriptsize] at (77,3.5) {2. puis v6, v7};
+  \draw[arr=Dgreen] (agg.east) to[out=0, in=90] (e8.north);
+  \node[lab=Dgreen, anchor=west, align=left, font=\sffamily\scriptsize] at (96,30) {3. ajouter v8 si la\\version vaut encore 7};
+  % côté lecture
+  \node[pillo=Dteal, anchor=west] at (134,56) {lecture (requêtes)};
+  \node[b=Dslate] (proj) at (156,8) {projecteur\\{\scriptsize lit le journal dans l’ordre}};
+  \draw[arr=Dslate] (e8.east) -- node[lab=Dslate, above, font=\sffamily\scriptsize] {asynchrone} (proj.west);
+  \node[b=Dteal] (m1) at (140,30) {soldes\\{\scriptsize indexés par montant}};
+  \node[b=Dteal] (m2) at (172,30) {relevé\\{\scriptsize lignes par mois}};
+  \draw[arr=Dteal] (proj.north) ++(-6,0) -- (m1.south);
+  \draw[arr=Dteal] (proj.north) ++(6,0) -- (m2.south);
+  \node[b=Dteal, minimum width=58mm, minimum height=7mm] (q) at (156,46) {requêtes};
+  \draw[arr=Dteal] (m1.north) -- (m1.north |- q.south);
+  \draw[arr=Dteal] (m2.north) -- (m2.north |- q.south);
+  \node[lab=Dslate, anchor=north west, align=left, font=\sffamily\scriptsize] at (-6,-4) {le journal est la source de vérité ; les modèles de lecture se reconstruisent en le relisant, et ont un retard sur lui (58 à 66 ms en médiane, mesuré)};
+\end{tikzpicture}
+\end{document}

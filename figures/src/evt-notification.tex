@@ -1,0 +1,34 @@
+% Notification d'événement (identifiant seul, le consommateur rappelle la source)
+% contre transfert d'état par événement (l'événement porte l'état).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=24mm, minimum height=10mm, font=\sffamily\small, align=center},
+    msg/.style={draw=#1, fill=white, rounded corners=3pt, line width=0.6pt, font=\ttfamily\scriptsize,
+      inner sep=2pt, align=left},
+    lab/.style={font=\sffamily\small, text=#1, align=center},
+    lab/.default=Dink]
+  \newcommand{\panneauevt}[3]{% #1 : décalage, #2 : titre, #3 : contenu
+    \begin{scope}[yshift=#1 mm]
+      \node[pillo=Dslate, anchor=west] at (-4,26) {#2};
+      \node[b=Dblue] (src) at (8,8) {commandes\\{\scriptsize source}};
+      \node[b=Dslate] (brk) at (62,8) {journal\\{\scriptsize courtier}};
+      \node[b=Dteal] (con) at (122,8) {facturation\\{\scriptsize consommateur}};
+      \draw[arr=Dslate] (src) -- (brk);
+      \draw[arr=Dslate] (brk) -- (con);
+      #3
+    \end{scope}}
+  \panneauevt{0}{notification}{
+    \node[msg=Dslate, anchor=south] at (35,15) {\{"id": 42, "version": 7\}};
+    \draw[arr=Dred, line width=1pt] (con.north) to[out=135, in=45] node[lab=Dred, above, font=\sffamily\scriptsize] {rappel : GET /commandes/42, à chaque événement} (src.north);
+    \node[lab=Dred, anchor=north, align=center, font=\sffamily\scriptsize] at (62,0) {la source porte la charge des lectures et doit répondre ;\\le consommateur lit l’état actuel, pas celui de la version 7};
+  }
+  \panneauevt{-44}{transfert d’état}{
+    \node[msg=Dteal, anchor=south] at (38,15) {\{"id": 42, "version": 7, "statut": "payée",\\ \ "client": "...", "lignes": [...]\}};
+    \node[soft=Dteal, minimum width=22mm, minimum height=7mm, font=\sffamily\scriptsize] (cp) at (122,24) {copie locale};
+    \draw[arr=Dteal] (con.north) -- (cp.south);
+    \node[lab=Dteal, anchor=north, align=center, font=\sffamily\scriptsize] at (62,0) {aucun rappel ; le consommateur continue si la source est arrêtée ;\\événements plus gros, copie à stocker};
+  }
+\end{tikzpicture}
+\end{document}
