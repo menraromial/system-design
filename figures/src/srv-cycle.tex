@@ -1,0 +1,43 @@
+% Cycle de vie des environnements d'exécution d'une fonction : création, Init,
+% invocations, gel entre deux invocations, arrêt après le délai de maintien.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=0.9mm, y=1mm, note/.append style={font=\sffamily\small},
+    ph/.style={draw=#1, fill=#1Bg, line width=0.6pt, minimum height=7mm, inner sep=0pt,
+      font=\sffamily\small, anchor=west},
+    gel/.style={draw=Dslate, fill=DslateZ, line width=0.4pt, minimum height=3mm, inner sep=0pt,
+      anchor=west},
+    lab/.style={font=\sffamily\small, text=#1, align=center}, lab/.default=Dink]
+  \newcommand{\seg}[5]{% #1 y, #2 début, #3 fin, #4 style, #5 texte
+    \node[#4, minimum width={(#3-#2)*0.9mm}] at (#2,#1) {#5};}
+  % invocations
+  \node[note, anchor=south west] at (14,36) {invocations};
+  \foreach \t/\n in {0/1, 80/2} {\draw[arr=Dink] (\t,37) -- (\t,10); \node[note, above] at (\t,37) {\n};}
+  \draw[arr=Dink] (109,37) -- (109,10); \draw[arr=Dink] (113,37) -- (113,24);
+  \node[note, above] at (111,37) {3 et 4, simultanées};
+  % environnement 2 (créé pour l'invocation 4)
+  \node[note, anchor=east] at (-3,20) {env. 2};
+  \seg{20}{113}{127}{ph=Dslate}{création}
+  \seg{20}{127}{153}{ph=Damber}{Init}
+  \seg{20}{153}{161}{ph=Dblue}{4}
+  \seg{20}{161}{185}{gel}{}
+  \node[lab=Dred, font=\sffamily\bfseries] at (187,20) {×};
+  % environnement 1
+  \node[note, anchor=east] at (-3,6) {env. 1};
+  \seg{6}{0}{14}{ph=Dslate}{création}
+  \seg{6}{14}{40}{ph=Damber}{Init}
+  \seg{6}{40}{52}{ph=Dblue}{1}
+  \seg{6}{52}{80}{gel}{}
+  \seg{6}{80}{88}{ph=Dblue}{2}
+  \seg{6}{88}{109}{gel}{}
+  \seg{6}{109}{117}{ph=Dblue}{3}
+  \seg{6}{117}{149}{gel}{}
+  \node[lab=Dred, font=\sffamily\bfseries] at (151,6) {×};
+  \node[lab=Dred, anchor=west] at (153,6) {arrêt};
+  % accolades et repères
+  \draw[accol] (40,1.5) -- (0,1.5) node[midway, below=2pt, lab=Damber] {démarrage à froid};
+  \node[lab=Dslate, anchor=north] at (66,3.5) {gelé, garde sa mémoire};
+  \draw[Dslate, line width=0.6pt, |<->|] (117,1) -- (149,1) node[midway, below=0pt, lab=Dslate] {maintien sans appel};
+\end{tikzpicture}
+\end{document}

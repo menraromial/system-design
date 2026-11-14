@@ -1,0 +1,36 @@
+% Cent environnements qui se connectent à PostgreSQL (max_connections = 40) :
+% directement, puis à travers PgBouncer en mode transaction (10 connexions).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=26mm, minimum height=12mm, font=\sffamily\small, align=center},
+    lab/.style={font=\sffamily\small, text=#1, align=center}, lab/.default=Dink]
+  % grille de 100 environnements ; #1 : décalage, #2 : nombre connectés
+  \newcommand{\envs}[2]{%
+    \foreach \i in {0,...,99} {
+      \pgfmathtruncatemacro{\c}{mod(\i,10)}\pgfmathtruncatemacro{\r}{\i/10}
+      \ifnum\i<#2 \def\coul{Dteal}\else\def\coul{Dred}\fi
+      \draw[draw=\coul, fill=\coul Bg, line width=0.4pt] (\c*3.4,#1-\r*3.4) rectangle ++(2.6,2.6);}
+    \node[note, anchor=south west] at (0,#1+3.4) {100 environnements};}
+  % connexion directe
+  \node[pillo=Dslate, anchor=west] at (-2,22) {connexion directe};
+  \envs{12}{38}
+  \node[b=Dblue] (pg1) at (110,0) {PostgreSQL\\{\scriptsize max\_connections = 40}};
+  \foreach \k in {0,...,5} \draw[Dteal, line width=0.5pt] (35,{9-\k*1.2}) -- (pg1.west);
+  \node[lab=Dteal, anchor=south] at (66,6) {38 connexions};
+  \node[lab=Dred, anchor=north west, align=left] at (36,-8) {62 environnements échouent à l’Init :\\« sorry, too many clients already »};
+  % PgBouncer
+  \begin{scope}[yshift=-52mm]
+    \node[pillo=Dslate, anchor=west] at (-2,22) {PgBouncer, mode transaction};
+    \envs{12}{100}
+    \node[b=Dslate] (pgb) at (68,0) {PgBouncer\\{\scriptsize 1\,000 clients au plus}};
+    \node[b=Dblue] (pg2) at (130,0) {PostgreSQL\\{\scriptsize max\_connections = 40}};
+    \foreach \k in {0,...,9} \draw[Dteal, line width=0.5pt] (35,{11.5-\k*2.5}) -- (pgb.west);
+    \foreach \k in {0,...,3} \draw[Dblue, line width=0.9pt] ($(pgb.east)+(0,{2.7-\k*1.8})$) -- ($(pg2.west)+(0,{2.7-\k*1.8})$);
+    \node[lab=Dteal, anchor=south west] at (49,7) {100 clients};
+    \node[lab=Dblue, anchor=south] at (99,3) {10 connexions};
+    \node[lab=Dslate, anchor=north west, align=left] at (52,-9) {toutes servies ; une requête attend qu’une des 10 connexions\\se libère : 120 ms en médiane au lieu de 22 à 28 ms};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

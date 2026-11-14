@@ -1,0 +1,347 @@
+---
+title: "Serverless"
+sidebar_label: "44. Serverless"
+description: "Exécuter du code à la demande sans gérer de serveurs : fonctions, environnements d'exécution, démarrage à froid, limites de durée, de mémoire et de connexions, modèle de coût à l'invocation et point de bascule contre des machines permanentes ; mesures sur le runtime officiel d'AWS Lambda, sur une plateforme de fonctions en processus et sur PostgreSQL 18 avec PgBouncer."
+partie: 4
+chapitre: 44
+---
+
+import cycle from '@site/src/figures/srv-cycle.svg';
+import connexions from '@site/src/figures/srv-connexions.svg';
+import bascule from '@site/src/figures/srv-bascule.svg';
+
+Sur le runtime Python officiel d’AWS Lambda, une fonction vide répond à son premier appel en 0,39 à 0,41 s, le temps de créer un environnement et de démarrer le runtime ; les appels suivants prennent 2 ms. Si la fonction importe numpy et pandas, le premier appel monte à 0,87 à 0,91 s à 1 769 Mo, et à 2,1 à 2,3 s à 512 Mo, parce que Lambda donne moins de processeur à une fonction qui a moins de mémoire. Cent appels simultanés qui ouvrent chacun une connexion à une base PostgreSQL limitée à 40 connexions font échouer 62 environnements dès leur initialisation. Et pour une API qui passe 80 ms sur 100 à attendre sa base, la facture à l’invocation reste plus basse que deux machines permanentes jusqu’à environ 63 requêtes par seconde en moyenne, puis devient plus haute.
+
+Le terme « serverless » couvre plusieurs offres : des fonctions à la demande (function as a service, FaaS), comme AWS Lambda, Google Cloud Run functions ou Azure Functions, et des services gérés facturés à l’usage, comme les bases DynamoDB ou Aurora Serverless. Ce chapitre traite des fonctions, sur l’exemple de Lambda, dont la documentation publie les mécanismes et les chiffres. Il s’appuie sur la mise à l’échelle du [ch. 10](../partie-1/passer-echelle.mdx), sur les files du [ch. 27](../partie-2/files-messages.mdx), qui déclenchent souvent les fonctions, et sur le pool de connexions mesuré au [ch. 19](../partie-2/index-modelisation.mdx).
+
+Trois expériences ont été faites pour ce chapitre, dans [`outils/experiences/ch44/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch44). [`froid.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch44/froid.py) fait tourner des fonctions sur l’image de base officielle de Lambda (`public.ecr.aws/lambda/python:3.13`), qui contient le runtime et l’émulateur d’interface d’exécution (Runtime Interface Emulator, RIE) ; chaque conteneur Docker y joue le rôle d’un environnement d’exécution. [`plateforme.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch44/plateforme.py) est une petite plateforme de fonctions écrite pour le chapitre, où chaque environnement est un processus, afin de mesurer le trafic, les rafales et les connexions à PostgreSQL. [`cout.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch44/cout.py) calcule le point de bascule aux tarifs publiés. Les deux premiers scripts ont été lancés deux fois.
+
+## Fonctions à la demande
+
+Une fonction est un gestionnaire (handler) que la plateforme appelle avec un événement : une requête HTTP reçue par une passerelle, un lot de messages d’une file, la création d’un objet dans un stockage, une échéance d’horloge. Le développeur fournit le code et deux réglages principaux, la mémoire et le délai d’exécution maximal ; la plateforme choisit les machines, crée les environnements qui exécutent le code, en ajoute quand le trafic monte, les arrête quand il n’y a plus rien à faire, et facture la durée d’exécution multipliée par la mémoire, à la milliseconde, plus un prix par appel.
+
+Lambda exécute chaque invocation dans un environnement d’exécution (execution environment) isolé, qui contient le runtime du langage, le code de la fonction et ses extensions. Un environnement ne traite qu’une invocation à la fois. Alexandru Agache et ses coauteurs, qui décrivent l’architecture interne de Lambda, l’écrivent sans ambiguïté : un emplacement (slot) ne sert jamais qu’à une fonction et qu’à une invocation simultanée de cette fonction[^firecracker]. Deux invocations simultanées demandent donc deux environnements, et le nombre d’environnements actifs, la concurrence, vaut le débit multiplié par la durée moyenne d’une invocation (la loi de Little du [ch. 9](../partie-1/latence-debit.mdx)). Ainsi, 500 requêtes par seconde de 200 ms occupent 100 environnements.
+
+Le cycle de vie d’un environnement a trois phases, que la documentation de Lambda décrit[^cycle]. La phase Init démarre les extensions, puis le runtime, puis exécute le code statique de la fonction, c’est-à-dire tout ce qui est hors du gestionnaire (imports, lecture de la configuration, ouverture des connexions). La phase Invoke exécute le gestionnaire pour un événement. Entre deux invocations, Lambda gèle l’environnement ; il le dégèle à l’invocation suivante, et tout ce que l’Init a préparé est encore en mémoire. Quand l’environnement reste longtemps sans travail, ou de toute façon toutes les quelques heures pour la maintenance, Lambda l’arrête (phase Shutdown)[^cycle]. La figure 44.1 suit deux environnements d’une même fonction.
+
+<Figure svg={cycle} num="44.1" alt="Chronologie de deux environnements d’une fonction. L’invocation 1 arrive alors qu’aucun environnement n’existe : l’environnement 1 passe par la création, puis l’Init, puis traite l’invocation 1 ; l’ensemble forme le démarrage à froid. Il est ensuite gelé en gardant sa mémoire, traite l’invocation 2 dès son arrivée, puis l’invocation 3. Les invocations 3 et 4 arrivent en même temps : l’environnement 1 prend la 3, et l’environnement 2 est créé pour la 4, avec création, Init, puis invocation. Après un délai de maintien sans appel, chaque environnement est arrêté. Note : un environnement ne traite qu’une invocation à la fois ; une invocation qui arrive pendant qu’il travaille en crée un autre.">
+Cycle de vie des environnements d’exécution d’une fonction.
+</Figure>
+
+Le démarrage à froid (cold start) est l’ensemble création et Init que subit une invocation qui ne trouve pas d’environnement libre ; les invocations 1 et 4 le paient, les invocations 2 et 3 non.
+
+## Le démarrage à froid
+
+La première partie de `froid.py` crée dix fois un environnement neuf pour chaque fonction et chaque taille de mémoire, chronomètre le premier appel depuis la création du conteneur, relève la durée de la phase Init que le runtime écrit dans son journal (`INIT REPORT`) et la durée des imports mesurée dans le module, puis fait 20 appels chauds. La fonction `vide` n’importe rien ; la fonction `lourde` importe numpy et pandas à l’initialisation. Lambda donne du processeur en proportion de la mémoire configurée, l’équivalent d’un vCPU à 1 769 Mo[^memoire] ; le script reproduit ce partage en limitant chaque conteneur à `--cpus` = mémoire / 1 769.
+
+```text
+1. démarrage à froid (médianes de 10 environnements neufs, en ms)
+   fonction mémoire  1er appel  dont Init  dont code  chaud méd.    99e
+   vide       1 769        414         58          0        1.87   3.10
+   vide         512        633        201          0        2.01  66.31
+   lourde     1 769        910        552        492        2.02   3.46
+   lourde       512       2266       1898       1695        2.37  71.68
+   1er appel : de la création du conteneur à la première réponse ;
+   Init : phase Init rapportée par le runtime ; code : imports du module
+```
+
+La première passe a donné 389 et 511 ms pour la fonction vide, 873 et 2 135 ms pour la fonction lourde. Trois composantes s’additionnent. La création de l’environnement (ici le conteneur et l’émulateur, 0,33 à 0,36 s ; chez Lambda, une micro-machine virtuelle, voir l’exemple réel) ne dépend pas du code. Le démarrage du runtime Python prend 56 à 58 ms avec un vCPU, et 164 à 201 ms avec 0,29 vCPU. Le code statique, enfin, dépend entièrement de la fonction, et importer numpy et pandas prend 475 à 492 ms avec un vCPU, et 1,6 à 1,7 s à 512 Mo, plus que tout le reste réuni. Les appels chauds prennent 2 ms dans tous les cas, mais leur 99e centile monte à 66 à 73 ms à 512 Mo ; dans l’émulation, c’est le quota de processeur de Linux, qui accorde 29 ms de calcul par période de 100 ms et fait attendre la fin de la période au processus qui l’a épuisé.
+
+La documentation de Lambda indique que les démarrages à froid touchent en général moins de 1 % des invocations et durent de moins de 100 ms à plus d’une seconde, et qu’ils sont plus fréquents pour les fonctions peu appelées, de développement ou de test[^cycle]. La fréquence dépend en effet du trafic. Mohammad Shahrad et ses coauteurs ont publié en 2020 les traces de toutes les fonctions d’Azure Functions sur deux semaines : 45 % des applications sont appelées en moyenne au plus une fois par heure, et 81 % au plus une fois par minute, avec huit ordres de grandeur d’écart entre les moins et les plus appelées ; AWS et Azure gardaient alors un environnement en mémoire 10 et 20 minutes après sa dernière invocation[^shahrad]. Une application appelée une fois par heure démarre donc presque toujours à froid.
+
+La première partie de `plateforme.py` mesure cette dépendance. Elle envoie 80 invocations de 50 ms selon un processus de Poisson (des intervalles aléatoires indépendants), à cinq débits, avec un délai de maintien en vie $K$ de 0,5 s ou de 2 s, et compte les démarrages à froid. Si une seule invocation est en cours à la fois, une invocation démarre à froid quand l’intervalle qui la sépare de la précédente dépasse $K$, ce qui arrive avec la probabilité $e^{-\lambda K}$ pour un débit $\lambda$ ; la colonne `e^-λK` donne cette valeur. Les durées sont réduites (un maintien de quelques secondes au lieu de quelques minutes) pour que l’expérience tienne en dix minutes ; seul compte le produit $\lambda K$.
+
+```text
+1. trafic de Poisson, 80 invocations de 50 ms par point
+   maintien  req/s  froids   e^-λK  méd. ms  99e ms env. max  inactif
+       0.5s    0.5     74%     78%      159     335        2      90%
+       0.5s    1.0     62%     61%      155     246        2      89%
+       0.5s    2.0     44%     37%       51     253        4      87%
+       0.5s    5.0     25%      8%       51     242        4      83%
+       0.5s   20.0     12%      0%       51     227        7      72%
+       2.0s    0.5     46%     37%       51     228        3      96%
+       2.0s    1.0     20%     14%       51     267        3      95%
+       2.0s    2.0     14%      2%       51     254        3      93%
+       2.0s    5.0      6%      0%       51     218        3      87%
+       2.0s   20.0     14%      0%       51     389        9      89%
+   e^-λK : part des intervalles entre deux invocations plus longs que le
+   maintien K ; inactif : part de la vie des environnements passée sans
+   travail
+```
+
+La première passe a donné les mêmes parts à quatre points près (75, 62, 46, 25 et 12 % avec un maintien de 0,5 s ; 42, 19, 14, 6 et 14 % avec 2 s). Aux débits faibles, la mesure suit $e^{-\lambda K}$. Avec un maintien de 0,5 s, trois invocations sur quatre démarrent à froid à 0,5 requête par seconde, et la latence médiane est celle d’un démarrage à froid (155 à 175 ms) au lieu de 51 ms. Aux débits plus élevés, il y a plus de démarrages à froid que la formule n’en prévoit, jusqu’à 12 à 14 % à 20 requêtes par seconde, où elle n’en prévoit aucun. Ils ont lieu au début. Un démarrage à froid dure environ 0,2 s, pendant lesquels arrivent en moyenne quatre autres invocations ; elles ne trouvent aucun environnement libre et en créent chacune un, si bien que la plateforme monte à 7 à 9 environnements pour une concurrence moyenne de 1 ($20 \times 0{,}05$ s). Allonger le maintien de 0,5 à 2 s divise les démarrages à froid par 1,6 à 4 aux débits de 0,5 à 5 requêtes par seconde, mais les environnements passent alors 87 à 96 % de leur vie à attendre, mémoire réservée. C’est ce coût que Shahrad et ses coauteurs proposent de réduire en réglant le maintien de chaque application d’après l’histogramme de ses intervalles entre invocations ; dans leurs simulations, au 75e centile des applications, un maintien fixe de 10 minutes produit environ 2,5 fois plus de démarrages à froid que leur politique, pour la même mémoire[^shahrad].
+
+## Les rafales
+
+La deuxième partie de `plateforme.py` envoie 100 invocations simultanées à une plateforme vide, puis une seconde rafale juste après, d’abord avec une limite de concurrence de 1 000 environnements, puis de 40, l’équivalent de la concurrence réservée de Lambda. La première ligne sert de référence, avec dix démarrages à froid isolés.
+
+```text
+2. rafales de 100 invocations simultanées (50 ms chacune)
+   cas                        froids  refus  méd. ms  99e ms
+   une à la fois, à froid         10      0      200     209
+   limite 1000, rafale 1         100      0      840    1632
+   limite 1000, rafale 2           0      0       50      51
+   limite 40, rafale 1            40     60      809    1014
+   limite 40, rafale 2             0     60       51      51
+```
+
+La première passe a donné 182 ms pour un démarrage à froid isolé, et 1 047 et 820 ms en médiane pour les premières rafales. Un démarrage à froid isolé coûte 182 à 200 ms ; cent simultanés coûtent 840 à 1 047 ms en médiane et jusqu’à 1,3 à 1,6 s, parce que les cent processus s’initialisent en même temps sur les 16 cœurs du poste. Chez Lambda, le placement répartit les nouveaux environnements sur de nombreux hôtes, et ce ralentissement est moindre, mais la règle reste la même. La première rafale paie un démarrage à froid par invocation, la seconde n’en paie aucun (50 ms). Avec une limite de 40, 60 invocations sur 100 sont refusées à chaque rafale, y compris la seconde, puisque les 40 environnements chauds sont tous occupés quand les 60 autres arrivent.
+
+Lambda limite cette montée de deux façons. Chaque fonction peut ajouter au plus 1 000 environnements toutes les 10 secondes, et l’ensemble des fonctions d’un compte et d’une région partage une concurrence de 1 000 environnements par défaut, que l’on peut faire relever ; au-delà, les invocations synchrones échouent avec une erreur 429 (trop de requêtes)[^montee][^quotas]. On peut aussi réserver une partie de cette concurrence à une fonction, ce qui la plafonne du même coup. Les appelants doivent donc traiter le refus comme une erreur temporaire, avec les nouvelles tentatives espacées du [ch. 38](../partie-3/resilience-tentatives.mdx), ou passer par une file, qui absorbe la rafale et laisse la fonction la vider à son rythme.
+
+Pour supprimer le démarrage à froid d’un chemin sensible, Lambda propose la concurrence provisionnée (provisioned concurrency), qui garde un nombre fixé d’environnements initialisés en permanence, facturés même sans appel, et SnapStart, qui exécute l’Init à la publication d’une version, garde un instantané de la mémoire et du disque de l’environnement initialisé et en restaure les environnements suivants[^cycle]. Sans ces options, on réduit le démarrage à froid en important moins (pandas pour une somme de 1 000 nombres est le cas d’école du bloc précédent), en retardant les imports rares jusqu’à leur première utilisation, et en donnant plus de mémoire, donc plus de processeur, à une fonction dont l’Init calcule.
+
+## Les limites
+
+Lambda est conçu pour des tâches courtes qui ne gardent pas d’état entre deux invocations, et ses quotas le traduisent[^quotas] :
+
+| Ressource | Limite par défaut |
+|---|---|
+| Durée d’une invocation | 900 s (15 min) |
+| Mémoire | 128 à 10 240 Mo, un vCPU à 1 769 Mo |
+| Phase Init | 10 s (hors concurrence provisionnée et SnapStart) |
+| Charge utile synchrone | 6 Mo pour la requête, 6 Mo pour la réponse |
+| Charge utile asynchrone | 1 Mo |
+| Disque `/tmp` | 512 à 10 240 Mo |
+| Descripteurs de fichiers, processus et fils | 1 024 chacun |
+| Concurrence par compte et par région | 1 000 (relevable) |
+| Montée en concurrence par fonction | 1 000 environnements toutes les 10 s |
+
+La limite d’Init de 10 s vient de la page sur le cycle de vie[^cycle], les autres de la page des quotas. La deuxième partie de `froid.py` montre ce que la règle « processeur proportionnel à la mémoire » change pour une fonction de calcul. Elle hache 64 Mo de données à six tailles de mémoire et calcule le prix d’un million d’appels au tarif x86 de la région us-east-1, 0,0000166667 \$ par gigaoctet-seconde et 0,20 \$ par million d’appels[^prix].
+
+```text
+2. mémoire et processeur : hacher 64 Mo (médiane de 5 appels chauds)
+    mémoire   vCPU  durée ms     Go-s  $ / million
+        128   0.07      1096    0.137         2.48
+        256   0.14       499    0.125         2.28
+        512   0.29       284    0.142         2.56
+      1 024   0.58       116    0.116         2.13
+      1 769   1.00        69    0.119         2.18
+      3 008   1.70        61    0.180         3.21
+```
+
+La première passe a donné 1 098, 505, 218, 115, 67 et 64 ms. Jusqu’à 1 769 Mo, doubler la mémoire divise à peu près la durée par deux, et le produit durée × mémoire, que l’on paie, reste entre 0,11 et 0,14 Go-s ; la fonction répond donc seize fois plus vite à 1 769 Mo qu’à 128 Mo pour presque le même prix. Au-delà, la fonction, qui n’utilise qu’un fil, ne gagne presque plus rien (61 à 64 ms au lieu de 67 à 69) et l’on paie environ 50 % de plus. La documentation recommande d’ailleurs de mesurer plusieurs tailles plutôt que de prendre la plus petite[^memoire].
+
+La troisième partie montre ce qui arrive quand une invocation dépasse une limite, sur un environnement de 128 Mo dont le délai d’exécution est réglé à 2 s.
+
+```text
+3. limites (128 Mo, délai d'exécution réglé à 2 s)
+   appel               durée  réponse
+   premier appel              appels = 1, pid = 14
+   appel normal         4 ms  appels = 2, pid = 14
+   dormir 4 s       2 106 ms  Task timed out after 2.00 seconds
+   appel normal       994 ms  appels = 1, pid = 19
+   allouer 300 Mo   1 417 ms  Runtime.ExitError (signal: killed)
+   appel normal     1 377 ms  appels = 1, pid = 22
+```
+
+La première passe a donné la même suite. L’invocation qui dort 4 s est interrompue à 2 s (« Task timed out »), celle qui alloue 300 Mo dans 128 Mo est tuée par le noyau. Dans les deux cas, l’environnement est réinitialisé : l’invocation suivante voit un nouveau processus (pid 19, puis 22) et un compteur d’appels revenu à 1, et paie une nouvelle phase Init, ici 1 à 1,4 s parce que 128 Mo ne donnent que 0,07 vCPU. La documentation décrit ce même comportement. Après un échec pendant l’invocation, Lambda réinitialise l’environnement, et l’invocation suivante refait l’Init sans que le journal le signale comme tel (suppressed init)[^cycle]. Un travail qui peut durer plus de 15 minutes ne doit donc pas être confié à une seule invocation ; on le découpe en étapes enchaînées par une file ou par un orchestrateur, chaque étape enregistrant sa progression.
+
+## Les connexions aux bases de données
+
+Une fonction qui interroge une base relationnelle ouvre en général sa connexion pendant l’Init, pour la réutiliser aux invocations suivantes, ce que la documentation de Lambda recommande[^cycle]. Chaque environnement garde alors une connexion ouverte. Or la concurrence d’une fonction peut monter à des centaines d’environnements en quelques secondes, alors qu’une base PostgreSQL accepte un nombre fixe de connexions (`max_connections`, 100 par défaut) et consacre un processus à chacune ([ch. 19](../partie-2/index-modelisation.mdx)).
+
+La troisième partie de `plateforme.py` lance 100 invocations simultanées d’une fonction qui ouvre sa connexion à l’Init puis exécute une requête de 20 ms, contre une base PostgreSQL 18 réglée à `max_connections = 40`, d’abord directement, puis à travers PgBouncer 1.26 en mode transaction, avec 10 connexions vers la base. En mode transaction, PgBouncer rend la connexion serveur au pool dès que la transaction du client est finie[^pgbouncer] ; 100 clients se partagent ainsi 10 connexions (figure 44.2). La colonne `conn. PG` donne le plus grand nombre de connexions clientes vues par PostgreSQL pendant la rafale.
+
+```text
+3. 100 invocations simultanées qui interrogent PostgreSQL
+   (max_connections = 40 ; requête de 20 ms ; deux rafales)
+   chemin     rafale réussies erreurs  méd. ms  99e ms conn. PG
+   directe         1       38      62     1169    1714       39
+   directe         2       38      62       22      39       39
+   PgBouncer       1      100       0     1592    2449        5
+   PgBouncer       2      100       0      122     222       10
+   erreur à la connexion : sorry, too many clients already
+```
+
+La première passe a donné les mêmes nombres (38 réussies, 62 erreurs) et des latences proches (28 et 120 ms en médiane pour les rafales chaudes). Sans pool, PostgreSQL accepte 38 environnements (les deux dernières places sont prises par d’autres connexions de l’expérience) et refuse les autres avec « sorry, too many clients already ». Ces 62 environnements échouent à leur Init, et les invocations qui leur étaient destinées échouent avec eux, à la première rafale comme à la seconde, car chaque invocation qui ne trouve pas d’environnement libre en crée un nouveau, qui échoue de la même façon. À travers PgBouncer, les 100 invocations réussissent et la base ne voit jamais plus de 10 connexions. La seconde rafale montre le prix : 120 à 122 ms en médiane et 219 à 222 ms au 99e centile, au lieu de 22 à 28 ms, car 100 requêtes de 20 ms passent par 10 connexions, en dix vagues de 20 ms. Le pool transforme le refus en attente, ce qui est presque toujours préférable, mais il faut le dimensionner, car 10 connexions servent au plus 500 requêtes de 20 ms par seconde.
+
+<Figure svg={connexions} num="44.2" alt="Deux schémas. Connexion directe : une grille de 100 environnements, dont 38 en vert reliés à PostgreSQL (max_connections = 40) par 38 connexions, et 62 en rouge, qui échouent à l’Init avec « sorry, too many clients already ». PgBouncer en mode transaction : les 100 environnements, tous en vert, se connectent à PgBouncer (1 000 clients au plus), qui ne garde que 10 connexions vers PostgreSQL ; toutes les invocations sont servies, une requête attend qu’une des 10 connexions se libère, 120 ms en médiane au lieu de 22 à 28 ms.">
+Cent environnements contre une base limitée à 40 connexions, avec et sans PgBouncer.
+</Figure>
+
+En haut, les environnements rouges sont ceux que la base a refusés à l’Init ; en bas, tous passent, au prix d’une attente dans PgBouncer.
+
+AWS propose le même mécanisme sous forme de service géré, RDS Proxy, qui garde un pool de connexions vers la base, met en file ou refuse les connexions d’application qui ne peuvent pas être servies tout de suite, et protège ainsi la base des rafales de nouvelles connexions[^rdsproxy]. Les bases conçues pour être appelées par HTTP sans connexion persistante (DynamoDB, ou les API de données de certaines bases relationnelles) évitent le problème à la source.
+
+## Le modèle de coût
+
+Lambda facture deux choses : la durée de chaque invocation, arrondie à la milliseconde, multipliée par la mémoire configurée, à 0,0000166667 \$ le gigaoctet-seconde sur x86 dans us-east-1, et le nombre d’appels, à 0,20 \$ le million ; l’offre gratuite couvre un million d’appels et 400 000 Go-s par mois[^prix]. La durée facturée comprend aussi la phase Init ; AWS l’a étendue le 1er août 2025 aux fonctions empaquetées en archive ZIP avec un runtime géré, les seules qui en étaient encore exemptées[^init]. Deux traits de ce tarif comptent pour la comparaison avec des machines. Lambda facture la durée murale de l’invocation, attente comprise : une fonction qui attend sa base pendant 80 ms paie ces 80 ms, alors qu’une machine traite d’autres requêtes pendant ce temps. Et le prix au gigaoctet-seconde d’un environnement occupé est plus élevé que celui d’une machine pleine ; la machine ne coûte moins cher que si elle est assez remplie.
+
+`cout.py` compare, à débit moyen constant, la facture Lambda et celle d’une flotte de machines m7g.xlarge (4 vCPU, 16 Go, 0,1632 \$ de l’heure à la demande dans us-east-1, prix que la page des tarifs de Lambda cite elle-même[^prix]), d’au moins deux machines, remplies à 60 % au plus. La durée Lambda vaut l’attente plus le temps de processeur divisé par la part de vCPU que donne la mémoire, comme mesuré plus haut. Ce calcul ne compte ni la passerelle HTTP, ni le transfert réseau, ni l’offre gratuite, et compare une machine Arm à une fonction x86.
+
+```text
+coût mensuel ($) à débit moyen constant ; Lambda x86 ; flotte d'au
+moins 2 m7g.xlarge remplies à 60 % ; us-east-1
+
+routage : 2 ms de processeur, 10 ms d'attente, 128 Mo
+   durée facturée 38 ms ; le million d'appels : Lambda 0.28 $,
+   machine pleine 0.04 $ (1 200 req/s par machine)
+     req/s   appels/mois     Lambda  machines    flotte
+         1           3 M          1         2       238
+        10          26 M          7         2       238
+       100         263 M         73         2       238
+     1 000       2 628 M        732         2       238
+   bascule à 325.9 req/s en moyenne, 856.5 millions d'appels par mois
+
+API : 20 ms de processeur, 80 ms d'attente, 512 Mo
+   durée facturée 149 ms ; le million d'appels : Lambda 1.44 $,
+   machine pleine 0.38 $ (120 req/s par machine)
+     req/s   appels/mois     Lambda  machines    flotte
+         1           3 M          4         2       238
+        10          26 M         38         2       238
+       100         263 M        379         2       238
+     1 000       2 628 M      3 791         9     1 072
+   bascule à 62.9 req/s en moyenne, 165.3 millions d'appels par mois
+
+calcul : 1 000 ms de processeur, 0 ms d'attente, 1 769 Mo
+   durée facturée 1 000 ms ; le million d'appels : Lambda 28.99 $,
+   machine pleine 18.89 $ (2 req/s par machine)
+     req/s   appels/mois     Lambda  machines    flotte
+         1           3 M         76         2       238
+        10          26 M        762         5       596
+       100         263 M      7 619        42     5 004
+     1 000       2 628 M     76 192       417    49 680
+   bascule à 3.1 req/s en moyenne, 8.2 millions d'appels par mois
+```
+
+<Figure svg={bascule} num="44.3" alt="Graphique en échelles logarithmiques du coût mensuel en dollars (de 1 à 100 000) selon le débit moyen (de 1 à 1 000 requêtes par seconde). Pour le profil API (149 ms à 512 Mo), la droite Lambda part de 4 \$ à 1 req/s et monte à 3 800 \$ à 1 000 req/s ; la flotte de m7g.xlarge, en tirets, reste à 238 \$ (deux machines) jusqu’à 240 req/s puis monte par marches jusqu’à 1 072 \$ ; les deux se croisent à 63 req/s. Pour le profil calcul (1 s à 1 769 Mo), la droite Lambda part de 76 \$ et la flotte passe de 238 \$ à près de 50 000 \$ ; elles se croisent à 3,1 req/s.">
+Coût mensuel d’une fonction et d’une flotte de machines selon le débit moyen.
+</Figure>
+
+Les droites pleines sont les factures Lambda, proportionnelles au trafic ; les tirets, les flottes, fixes jusqu’à ce qu’il faille une machine de plus. Les deux échelles sont logarithmiques.
+
+Les trois profils donnent trois réponses. Pour le routage (2 ms de processeur, 10 ms d’attente, 128 Mo), le prix par appel, 0,20 \$ par million, pèse plus que la durée, et Lambda reste moins cher jusqu’à 326 requêtes par seconde en moyenne, soit 857 millions d’appels par mois. Pour l’API, la bascule tombe à 63 requêtes par seconde, parce que Lambda facture 149 ms par appel quand la machine ne dépense que 20 ms de processeur ; à pleine charge, le million d’appels coûte 1,44 \$ en Lambda et 0,38 \$ sur une machine. Pour le calcul, la machine pleine coûte 18,89 \$ le million d’appels contre 28,99 \$, et la bascule tombe à 3,1 requêtes par seconde, c’est-à-dire dès que le calcul occupe plus que les deux machines minimales. Le débit moyen ne suffit pas à conclure : un trafic de 50 requêtes par seconde en moyenne, concentré sur quatre heures par jour, demande une flotte dimensionnée pour la pointe, alors que la facture Lambda ne dépend que du nombre total d’appels.
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Fonction à la demande | aucun serveur à gérer, mise à l’échelle et arrêt automatiques, facture nulle sans trafic | démarrage à froid, limites de durée et de mémoire, une invocation par environnement | 0,39 à 2,3 s au premier appel, 2 ms ensuite | trafic irrégulier ou faible, traitements déclenchés par des événements |
+| Machines ou conteneurs permanents | coût fixe, pas de démarrage à froid, connexions et caches durables | capacité à prévoir et à payer même au repos, exploitation | voir le calcul de bascule | trafic soutenu et régulier, longues tâches |
+| Concurrence provisionnée | pas de démarrage à froid sur la part provisionnée | payée en permanence, comme une machine | non mesuré | chemin sensible à la latence |
+| Plus de mémoire | plus de processeur, Init et calcul plus rapides | prix par seconde plus élevé | 69 ms au lieu de 1 096 ms pour le même prix jusqu’à 1 769 Mo | fonctions qui calculent |
+| Connexion directe à la base | simple, aucune attente | une connexion par environnement | 62 environnements sur 100 refusés | concurrence plafonnée sous `max_connections` |
+| Pool de connexions (PgBouncer, RDS Proxy) | la base ne voit qu’un nombre fixe de connexions | attente dans le pool | 120 ms au lieu de 22 à 28 ms en médiane | fonctions qui interrogent une base relationnelle |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la concurrence d’une API sur Lambda]
+Hypothèses : 2 000 requêtes par seconde en pointe ; 150 ms par invocation ; démarrage à froid de 0,9 s ; montée de 1 000 environnements toutes les 10 s par fonction ; concurrence par défaut de 1 000 par compte et par région.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Environnements occupés en régime | 2 000 × 0,15 s | 300 |
+| Environnements occupés pendant les premiers démarrages à froid | 2 000 × (0,9 + 0,15) s | jusqu’à 2 100 |
+| Temps pour en créer 2 100 | 2 100 / 1 000 × 10 s | 21 s, refus 429 entre-temps |
+| Concurrence à demander pour la pointe et une marge | 300 × 2, plus la montée | 2 000 au moins |
+
+Conclusion : en régime, 300 environnements suffisent ; c’est la montée depuis zéro qui en demande sept fois plus, parce que chaque requête arrivée pendant un démarrage à froid en déclenche un autre. Une pointe prévisible se prépare par de la concurrence provisionnée, ou se lisse par une file.
+:::
+
+:::calcul[Calcul : les connexions d’une flotte de fonctions]
+Hypothèses : base PostgreSQL à `max_connections = 200` ; fonction de 100 ms ouverte à l’Init ; 1 500 requêtes par seconde en pointe ; chaque connexion PostgreSQL est un processus d’environ 10 Mo de mémoire privée.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Environnements, donc connexions, en pointe | 1 500 × 0,1 s | 150, et plus pendant les démarrages à froid |
+| Marge avant refus | 200 − 150 − connexions d’administration | une dizaine |
+| Mémoire des processus serveur | 150 × 10 Mo | 1,5 Go |
+| Avec un pool de 30 connexions | requêtes de 20 ms en base, 30 / 0,02 | 1 500 requêtes par seconde servies |
+
+Conclusion : la concurrence de la fonction, pas le débit, fixe le nombre de connexions ; un pool qui ne laisse passer que la durée de la requête en base sert le même débit avec cinq fois moins de connexions.
+:::
+
+:::calcul[Calcul : la facture d’un traitement d’images]
+Hypothèses : 3 millions d’images par mois, chacune redimensionnée en 1,2 s à 2 048 Mo ; tarif x86 us-east-1.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Go-s par mois | 3 × 10⁶ × 1,2 s × 2 Go | 7,2 millions de Go-s |
+| Durée | 7,2 × 10⁶ × 0,0000166667 \$ | 120 \$ |
+| Appels | 3 × 0,20 \$ | 0,60 \$ |
+| Débit moyen équivalent | 3 × 10⁶ / (730 × 3 600 s) | 1,1 image par seconde |
+
+Conclusion : 121 \$ par mois pour un traitement qui occuperait, en moyenne, 1,3 vCPU, mais par rafales (les dépôts d’images ne sont pas réguliers) ; deux machines permanentes coûteraient 238 \$. Le modèle à la demande gagne tant que la charge est faible ou irrégulière.
+:::
+
+## Exemple réel
+
+**AWS Lambda et Firecracker.** Alexandru Agache, Marc Brooker et six coauteurs d’AWS ont décrit en 2020 comment Lambda isole et place les fonctions[^firecracker]. Chaque environnement d’exécution est une micro-machine virtuelle Firecracker, un moniteur de machines virtuelles écrit pour ce service, qui démarre jusqu’au code de l’application en moins de 125 ms, consomme moins de 5 Mo de mémoire en plus de celle de la fonction, et permet de créer jusqu’à 150 micro-machines par seconde et par hôte ; il est en production dans Lambda depuis 2018. Il a remplacé l’isolation d’origine, où les fonctions d’un même client tournaient dans des conteneurs Linux à l’intérieur d’une machine virtuelle par client, que l’équipe jugeait insatisfaisante pour deux raisons : le compromis entre sécurité et compatibilité qu’imposent les conteneurs, et la difficulté de remplir efficacement des machines virtuelles de taille fixe. Chaque hôte, appelé worker, fait tourner des centaines ou des milliers de ces micro-machines, chacune réservée à une fonction et à une invocation à la fois. Un routeur à états, le Worker Manager, dirige les invocations d’une même fonction vers aussi peu de workers que possible, pour réutiliser les environnements déjà initialisés, avec une latence au 99,9e centile sous 10 ms ; quand aucun emplacement n’est libre, un service de placement en crée un en général en moins de 20 ms, sur le worker qui équilibre le mieux processeur, mémoire, réseau et disque. L’article explique aussi l’économie du modèle. La mémoire représente environ 40 % du coût d’achat d’un serveur, si bien qu’un environnement gelé ne devrait coûter que 40 % d’un environnement occupé, ce qui suppose de sur-allouer le processeur, vendu à d’autres environnements pendant qu’un environnement attend. Le service servait alors des milliers de milliards d’invocations par mois pour des centaines de milliers de clients.
+
+## Erreurs fréquentes
+
+Mesurer la latence d’une fonction sur des appels chauds seulement. Le premier appel coûte 0,39 à 2,3 s ici, et chaque rafale en produit des dizaines.
+
+Importer à l’Init des bibliothèques dont la fonction ne se sert presque pas. numpy et pandas ajoutent 0,5 s à 1 769 Mo et 1,7 s à 512 Mo (mesuré).
+
+Choisir la plus petite mémoire pour payer moins. Une fonction de calcul coûte le même prix de 128 à 1 769 Mo et répond seize fois plus vite à 1 769 Mo (mesuré).
+
+Ouvrir une connexion directe à une base relationnelle depuis chaque environnement, sans pool. 62 environnements sur 100 refusés à `max_connections = 40` (mesuré).
+
+Confier à une invocation un travail qui peut dépasser 15 minutes, ou qui doit garder un état en mémoire d’une invocation à l’autre. L’environnement peut être réinitialisé à tout moment, et l’est après chaque dépassement.
+
+Oublier que les invocations refusées (429) et les échecs d’Init sont des erreurs que l’appelant doit réessayer avec un espacement, ou absorber par une file.
+
+Comparer les coûts sur le débit moyen seul. La flotte se dimensionne sur la pointe, la facture Lambda sur le total des appels.
+
+:::piege[Erreur fréquente : « serverless, donc sans limite de montée en charge »]
+Une fonction monte en charge en créant des environnements, et chacun coûte un démarrage à froid, une part de la concurrence du compte (1 000 par défaut par région, partagés par toutes les fonctions), et une connexion à chaque ressource qu’il ouvre. Pendant qu’un démarrage à froid dure, chaque requête qui arrive en déclenche un autre : 100 requêtes simultanées créent 100 environnements, et la base derrière en refuse 62 si elle n’en accepte que 40. Les limites n’ont pas disparu, elles sont passées du serveur à la concurrence, à la vitesse de création des environnements et aux ressources partagées en aval ; c’est là qu’il faut les chercher et les mesurer.
+:::
+
+:::entretien
+Si l’on vous propose du serverless, demandez le profil du trafic (régulier ou par rafales, débit moyen et pointe) et la durée des traitements. Calculez la concurrence (débit × durée) et vérifiez-la contre les quotas et contre les ressources en aval, en particulier les connexions à la base, que vous protégerez par un pool. Dites comment vous traitez le démarrage à froid (Init minimal, mémoire, concurrence provisionnée sur le chemin critique) et les refus 429 (nouvelles tentatives, file). Pour le coût, comparez la facture à l’invocation, qui facture l’attente, à une flotte dimensionnée pour la pointe, et donnez le débit de bascule.
+:::
+
+## Exercices
+
+**Question 1.** Une fonction de 300 ms reçoit 400 requêtes par seconde. Combien d’environnements sont occupés en régime ? Si son démarrage à froid dure 1,2 s et que le trafic passe de 0 à 400 requêtes par seconde d’un coup, combien d’environnements seront créés au plus pendant la première seconde et demie ?
+
+**Question 2.** Une fonction de traitement de commandes s’exécute en 40 ms à 1 024 Mo, dont 30 ms d’attente d’une base distante. Calculez le prix d’un million d’appels. Que devient ce prix si l’on passe à 256 Mo, en supposant que les 10 ms de calcul durent alors quatre fois plus longtemps ?
+
+**Question 3.** Une équipe constate que sa fonction échoue par intermittence avec « too many clients » sur PostgreSQL lors des pointes, alors que le débit reste modeste. Expliquez le mécanisme et proposez deux corrections, avec leurs inconvénients.
+
+**Exercice de conception.** Une application de billetterie vend les places d’un concert qui ouvre à la vente à une heure annoncée. Le reste du temps, elle reçoit 5 requêtes par seconde ; à l’ouverture, 20 000 requêtes par seconde pendant dix minutes. Chaque achat lit et réserve un siège dans une base PostgreSQL (20 ms de requête) et appelle un prestataire de paiement (300 ms d’attente). Proposez une architecture qui utilise des fonctions là où elles conviennent, chiffrez la concurrence et les connexions à l’ouverture, dites comment vous traitez le démarrage à froid et les refus, et comparez le coût mensuel à une solution sur machines.
+
+## Corrigés
+
+**Question 1.** En régime, $400 \times 0{,}3 = 120$ environnements. Pendant le premier démarrage à froid, aucun environnement n’est libre, donc chaque requête arrivée dans la première 1,2 s en crée un, soit 480 ; celles qui arrivent ensuite en créent encore tant que les premiers environnements ne sont pas sortis de leur Init et de leur première invocation (1,5 s), soit environ $400 \times 1{,}5 = 600$ environnements, cinq fois le régime. Ils seront ensuite arrêtés faute de travail.
+
+**Question 2.** À 1 024 Mo : $0{,}04 \times 1 \times 0{,}0000166667 = 6{,}7 \times 10^{-7}$ \$ de durée, plus $2 \times 10^{-7}$ \$ par appel, soit 0,87 \$ par million. À 256 Mo : la durée devient $30 + 4 \times 10 = 70$ ms, et $0{,}07 \times 0{,}25 \times 0{,}0000166667 = 2{,}9 \times 10^{-7}$ \$, soit 0,49 \$ par million avec le prix de l’appel. Ici, comme la fonction attend surtout, réduire la mémoire fait baisser la facture, au prix de 30 ms de latence en plus ; c’est l’inverse d’une fonction de calcul.
+
+**Question 3.** Pendant une pointe, la concurrence monte (débit × durée), et chaque environnement neuf ouvre sa propre connexion à l’Init ; pendant les démarrages à froid, la concurrence dépasse même celle du régime. Le nombre de connexions suit la concurrence, pas le débit, et finit par dépasser `max_connections`. Première correction, un pool (PgBouncer, RDS Proxy) entre les fonctions et la base : la base voit un nombre fixe de connexions, au prix d’une attente dans le pool et, en mode transaction, de l’impossibilité de garder un état de session (variables, verrous consultatifs, instructions préparées non gérées par le pool). Seconde correction, plafonner la concurrence de la fonction (concurrence réservée) sous `max_connections` : la base est protégée, mais les invocations au-delà sont refusées (429) et doivent être réessayées ou mises en file.
+
+**Exercice de conception.**
+
+*Découpage.* Les pages de consultation (programme, plan de salle) sont statiques ou mises en cache ([ch. 15](../partie-2/cdn-edge.mdx)). L’achat passe par une file : une fonction légère reçoit la demande, la valide et la dépose dans la file, puis répond « demande enregistrée » ; un groupe de consommateurs à concurrence plafonnée réserve les sièges et appelle le paiement.
+
+*Concurrence à l’ouverture.* Recevoir et déposer en file prend environ 20 ms, soit $20\,000 \times 0{,}02 = 400$ environnements en régime, davantage pendant la montée ; on provisionne 1 000 environnements de concurrence pour l’heure d’ouverture, ce qui supprime les démarrages à froid sur ce chemin, et l’on fait relever le quota du compte en conséquence.
+
+*Achat et base.* Un achat occupe 320 ms (20 ms de base, 300 ms de paiement). Si l’on veut servir 2 000 achats par seconde, il faut $2\,000 \times 0{,}32 = 640$ consommateurs ; mais seuls les 20 ms de base demandent une connexion, donc un pool de $2\,000 \times 0{,}02 = 40$ connexions suffit, à condition de ne pas garder la connexion pendant l’appel au paiement (réserver le siège, valider, appeler le paiement, puis confirmer dans une seconde transaction, avec une saga au [ch. 37](../partie-3/transactions-distribuees.mdx) en cas d’échec). Le reste attend dans la file, qui fait aussi office de file d’attente visible pour l’acheteur.
+
+*Refus.* La fonction de réception renvoie 429 si la file est pleine ou la concurrence atteinte ; le client réessaie avec recul et gigue ([ch. 38](../partie-3/resilience-tentatives.mdx)).
+
+*Coût.* Hors ouverture, 5 requêtes par seconde coûtent quelques dollars par mois en Lambda. À l’ouverture, $20\,000 \times 600$ s $= 12$ millions de réceptions et, si 1 million d’achats aboutissent, $10^6 \times 0{,}32$ s $\times 0{,}5$ Go $= 160\,000$ Go-s, soit 2,70 \$, auxquels s’ajoutent 12 millions de réceptions de 20 ms à 512 Mo (120 000 Go-s, 2 \$), 2,60 \$ pour les 13 millions d’appels, et la concurrence provisionnée pendant l’heure d’ouverture. Une flotte de machines devrait être dimensionnée pour 20 000 requêtes par seconde et resterait inutilisée 99 % du temps. Ce profil (rare, très haute pointe) est celui où le modèle à la demande est le plus avantageux, à condition de protéger la base par la file et le pool.
+
+:::fiche
+- Fonction : un gestionnaire appelé par événement ; un environnement d’exécution ne traite qu’une invocation à la fois (Agache et al., 2020) ; concurrence = débit × durée.
+- Cycle de vie : Init (runtime, puis code statique, 10 s au plus), Invoke, gel entre deux invocations, arrêt après inactivité ou maintenance (documentation Lambda).
+- Démarrage à froid mesuré : 0,39 à 0,41 s pour une fonction vide, 0,87 à 0,91 s avec numpy et pandas à 1 769 Mo, 2,1 à 2,3 s à 512 Mo ; appel chaud 2 ms.
+- Fréquence : 81 % des applications d’Azure Functions appelées au plus une fois par minute (Shahrad et al., 2020) ; les requêtes arrivées pendant un démarrage à froid en déclenchent d’autres.
+- Limites : 15 min, 128 à 10 240 Mo, 6 Mo synchrone, 1 000 environnements par compte et par région, montée de 1 000 toutes les 10 s par fonction, refus 429 au-delà.
+- Mémoire = processeur (1 vCPU à 1 769 Mo) : une fonction de calcul coûte le même prix de 128 à 1 769 Mo et va seize fois plus vite (mesuré).
+- Dépassement de délai ou de mémoire : environnement réinitialisé, nouvel Init (mesuré).
+- Bases : une connexion par environnement ; 62 refus sur 100 à `max_connections = 40` ; PgBouncer en mode transaction sert les 100 avec 10 connexions (120 ms contre 22 à 28 ms en médiane).
+- Coût : 0,0000166667 \$ par Go-s et 0,20 \$ par million d’appels (x86, us-east-1), attente et Init comprises ; bascule contre deux m7g.xlarge à 326 req/s (routage), 63 (API), 3,1 (calcul).
+:::
+
+[^firecracker]: Alexandru Agache, Marc Brooker, Andreea Florescu, Alexandra Iordache, Anthony Liguori, Rolf Neugebauer, Phil Piwonka et Diana-Maria Popa, « Firecracker: Lightweight Virtualization for Serverless Applications », *17th USENIX Symposium on Networked Systems Design and Implementation (NSDI ’20)*, 2020, sections 1 et 4, [usenix.org/conference/nsdi20/presentation/agache](https://www.usenix.org/conference/nsdi20/presentation/agache).
+[^cycle]: AWS, « Understanding the Lambda execution environment lifecycle », *AWS Lambda Developer Guide*, consulté le 14 novembre 2026, [docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtime-environment.html).
+[^memoire]: AWS, « Configure Lambda function memory », *AWS Lambda Developer Guide*, consulté le 14 novembre 2026, [docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html).
+[^shahrad]: Mohammad Shahrad, Rodrigo Fonseca, Íñigo Goiri, Gohar Chaudhry, Paul Batum, Jason Cooke, Eduardo Laureano, Colby Tresness, Mark Russinovich et Ricardo Bianchini, « Serverless in the Wild: Characterizing and Optimizing the Serverless Workload at a Large Cloud Provider », *2020 USENIX Annual Technical Conference (ATC ’20)*, sections 1 et 3, [usenix.org/conference/atc20/presentation/shahrad](https://www.usenix.org/conference/atc20/presentation/shahrad).
+[^montee]: AWS, « Event Function scaling behavior », *AWS Lambda Developer Guide*, consulté le 14 novembre 2026, [docs.aws.amazon.com/lambda/latest/dg/scaling-behavior.html](https://docs.aws.amazon.com/lambda/latest/dg/scaling-behavior.html).
+[^quotas]: AWS, « Lambda quotas », *AWS Lambda Developer Guide*, consulté le 14 novembre 2026, [docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html).
+[^prix]: AWS, « AWS Lambda pricing », tarifs de la région US East (N. Virginia), consulté le 14 novembre 2026, [aws.amazon.com/lambda/pricing](https://aws.amazon.com/lambda/pricing/).
+[^init]: AWS, « AWS Lambda standardizes billing for INIT Phase », *AWS Compute Blog*, [aws.amazon.com/blogs/compute/aws-lambda-standardizes-billing-for-init-phase](https://aws.amazon.com/blogs/compute/aws-lambda-standardizes-billing-for-init-phase/).
+[^pgbouncer]: PgBouncer, « Configuration », paramètre `pool_mode`, [pgbouncer.org/config.html](https://www.pgbouncer.org/config.html).
+[^rdsproxy]: AWS, « Amazon RDS Proxy », *Amazon RDS User Guide*, consulté le 14 novembre 2026, [docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.html](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.html).

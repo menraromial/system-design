@@ -81,7 +81,7 @@ export const PARTIES: Partie[] = [
     chapitres: [
       {num: 42, titre: 'Monolithe, monolithe modulaire, SOA, microservices', doc: 'partie-4/monolithe-microservices'},
       {num: 43, titre: 'Architecture orientée événements, CQRS, event sourcing', doc: 'partie-4/evenements-cqrs'},
-      {num: 44, titre: 'Serverless'},
+      {num: 44, titre: 'Serverless', doc: 'partie-4/serverless'},
       {num: 45, titre: 'Architecture cellulaire'},
       {num: 46, titre: 'Multi-région'},
       {num: 47, titre: 'Traitement par lots : MapReduce, Spark'},
