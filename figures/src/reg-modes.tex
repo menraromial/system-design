@@ -1,0 +1,41 @@
+% Actif-passif (primaire unique, répliques en lecture) et actif-actif (deux
+% régions qui écrivent, réplication dans les deux sens, région d'attache).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    rg/.style={group=#1, minimum width=36mm, minimum height=24mm},
+    b/.style={soft=#1, minimum width=26mm, minimum height=9mm, font=\sffamily\small, align=center},
+    u/.style={font=\sffamily\small, text=Dink, align=center},
+    lab/.style={font=\sffamily\scriptsize, text=#1, align=center}, lab/.default=Dink]
+  % ---- actif-passif
+  \node[pillo=Dslate, anchor=west] at (-20,42) {actif-passif : un primaire à Paris};
+  \foreach \n/\x/\t/\c in {pa/0/Paris/Dblue, vi/62/Virginie/Dslate, si/124/Singapour/Dslate} {
+    \node[rg=\c] (g\n) at (\x,10) {};
+    \node[note, anchor=north west, text=\c] at ($(g\n.north west)+(1,-0.5)$) {\t};}
+  \node[b=Dblue] (ppa) at (0,6) {primaire\\{\scriptsize lectures et écritures}};
+  \node[b=Dslate] (pvi) at (62,6) {réplique\\{\scriptsize lectures}};
+  \node[b=Dslate] (psi) at (124,6) {réplique\\{\scriptsize lectures}};
+  \draw[arr=Dteal] (ppa.east) -- node[above, lab=Dteal] {WAL, asynchrone} node[below, lab=Dteal] {retard 54 ms} (pvi.west);
+  \draw[arr=Dteal] (ppa.south) to[out=-20, in=-160] node[below, lab=Dteal, pos=0.5] {retard 93 ms (médianes mesurées)} (psi.south);
+  \node[u] (usi) at (124,34) {utilisateurs d’Asie};
+  \draw[arr=Dred] (usi.west) to[out=180, in=60] node[above, lab=Dred, pos=0.45] {écritures : 165 ms par requête} (gpa.north east);
+  \draw[arr=Dslate] (usi.south) -- node[right, lab=Dslate] {lectures : 0,1 ms} (gsi.north);
+  % ---- actif-actif
+  \begin{scope}[yshift=-74mm]
+    \node[pillo=Dslate, anchor=west] at (-20,42) {actif-actif : chaque région écrit};
+    \foreach \n/\x/\t in {pa/0/Paris, vi/62/Virginie} {
+      \node[rg=Dblue] (h\n) at (\x,10) {};
+      \node[note, anchor=north west, text=Dblue] at ($(h\n.north west)+(1,-0.5)$) {\t};
+      \node[b=Dblue] (q\n) at (\x,6) {primaire\\{\scriptsize lectures et écritures}};}
+    \draw[arr=Dteal] ([yshift=2mm]qpa.east) -- node[above, lab=Dteal] {réplication logique} ([yshift=2mm]qvi.west);
+    \draw[arr=Dteal] ([yshift=-2mm]qvi.west) -- node[below, lab=Dteal] {et en retour} ([yshift=-2mm]qpa.east);
+    \node[u] (up) at (0,34) {utilisateurs d’Europe};
+    \node[u] (uv) at (62,34) {utilisateurs d’Amérique};
+    \draw[arr=Dslate] (up) -- (hpa.north);
+    \draw[arr=Dslate] (uv) -- (hvi.north);
+    \node[lab=Dred, anchor=west, align=left, font=\sffamily\small] at (86,16) {même ligne écrite des deux côtés\\à moins d’un aller-retour d’écart :\\les deux régions finissent différentes};
+    \node[lab=Dgreen, anchor=west, align=left, font=\sffamily\small] at (86,2) {chaque clé écrite dans sa région\\d’attache : aucune divergence};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

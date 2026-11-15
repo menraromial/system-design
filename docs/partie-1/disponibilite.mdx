@@ -135,7 +135,7 @@ Les façons d’ajouter de la redondance se distinguent par ce qu’elles coûte
 | Actif-passif : une copie en attente | panne d’une machine | celui de la détection et de la bascule | la copie attend sans servir | décider qui est actif sans en avoir deux ([ch. 32](../partie-3/pannes-partielles.mdx) et [35](../partie-3/consensus-raft.mdx)) |
 | Actif-actif : plusieurs copies servent | panne d’une machine | celui de la détection ; nul avec nouvelle tentative | les copies servent toutes | simple pour l’application sans état ([ch. 10](passer-echelle.mdx)), difficile pour les données ([ch. 24](../partie-2/replication-leader.mdx) et [25](../partie-2/replication-multi.mdx)) |
 | Plusieurs zones de disponibilité | panne d’un centre de données | idem, à quelques millisecondes de distance | trafic entre zones facturé | réplication des données entre zones |
-| Plusieurs régions | panne d’une région entière | de quelques secondes à des heures selon la préparation | infrastructure doublée | latence entre régions et cohérence des données (ch. 46) |
+| Plusieurs régions | panne d’une région entière | de quelques secondes à des heures selon la préparation | infrastructure doublée | latence entre régions et cohérence des données ([ch. 46](../partie-4/multi-region.mdx)) |
 
 Aucune ligne ne protège contre une erreur reproduite partout ; une configuration fausse, un bogue ou une suppression accidentelle atteignent toutes les copies. Contre ces pannes, il faut des déploiements progressifs (ch. 52) et des sauvegardes (ch. 53).
 

@@ -39,7 +39,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 4 · Styles d’architecture',
       collapsed: false,
       link: {type: 'doc', id: 'partie-4/index'},
-      items: ['partie-4/monolithe-microservices', 'partie-4/evenements-cqrs', 'partie-4/serverless', 'partie-4/architecture-cellulaire'],
+      items: ['partie-4/monolithe-microservices', 'partie-4/evenements-cqrs', 'partie-4/serverless', 'partie-4/architecture-cellulaire', 'partie-4/multi-region'],
     },
   ],
 };

@@ -271,7 +271,7 @@ Quand on vous demande « cohérence forte ou à terme ? », répondez donné
 
 *Choisir un pseudonyme.* Linéarisable : la vérification et la réservation se font en une seule opération sur le primaire, protégée par une contrainte d’unicité de la base ([ch. 18](../partie-2/transactions-isolation.mdx)). Elle coûte 80 ms pour un Américain, ce qui est acceptable pour une opération rare. Pendant une coupure, elle est impossible depuis l’Amérique, et c’est voulu, car accepter deux réservations du même pseudonyme de part et d’autre de la coupure créerait un conflit qu’aucun algorithme ne sait résoudre proprement après coup.
 
-*Bilan PACELC.* Le service est PA/EL pour l’affichage des profils, PC/EC pour les pseudonymes, et entre les deux pour les modifications. Le jour où les écritures américaines deviendront trop lentes ou trop souvent impossibles, il faudra des primaires dans les deux régions et une façon de résoudre les conflits ([ch. 25](../partie-2/replication-multi.mdx) et 46).
+*Bilan PACELC.* Le service est PA/EL pour l’affichage des profils, PC/EC pour les pseudonymes, et entre les deux pour les modifications. Le jour où les écritures américaines deviendront trop lentes ou trop souvent impossibles, il faudra des primaires dans les deux régions et une façon de résoudre les conflits ([ch. 25](../partie-2/replication-multi.mdx) et [46](../partie-4/multi-region.mdx)).
 
 :::fiche
 - Un modèle de cohérence dit quelles valeurs une lecture peut renvoyer quand il existe plusieurs copies ; rien à voir avec le C de ACID.

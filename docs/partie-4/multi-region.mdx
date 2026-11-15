@@ -1,0 +1,282 @@
+---
+title: "Multi-région"
+sidebar_label: "46. Multi-région"
+description: "Servir un système depuis plusieurs régions : actif-passif et actif-actif, réplication entre régions, latences inter-régions, routage des utilisateurs, conflits d'écriture, données qui doivent rester dans une juridiction, coût du trafic entre régions ; mesures sur trois régions simulées avec les délais publiés par Azure et PostgreSQL 18."
+partie: 4
+chapitre: 46
+---
+
+import modes from '@site/src/figures/reg-modes.svg';
+import distance from '@site/src/figures/reg-distance.svg';
+import perte from '@site/src/figures/reg-perte.svg';
+
+Entre les régions France Central et Southeast Asia d’Azure, un paquet met 162 ms à faire l’aller-retour, en médiane ; entre France Central et East US, 88 ms. Avec ces délais, un utilisateur de Singapour qui écrit dans une base dont le primaire est à Paris paie 165 ms par requête, et 658 ms s’il doit ouvrir une connexion. Rendre l’écriture synchrone vers une réplique en Virginie coûte 95 ms à chaque transaction ; la laisser asynchrone fait perdre 134 à 136 transactions déjà confirmées au client quand la région de Paris disparaît. Laisser deux régions écrire les mêmes lignes fait diverger 5 lignes sur 100 en dix secondes, définitivement ; attribuer chaque ligne à une seule région n’en fait diverger aucune. Ce chapitre examine pourquoi et comment servir un système depuis plusieurs régions, ce que coûtent la distance, la réplication et le trafic entre régions, et comment tenir compte des données qui doivent rester dans une juridiction.
+
+Le [ch. 24](../partie-2/replication-leader.mdx) a décrit la réplication avec un leader, le [ch. 25](../partie-2/replication-multi.mdx) la réplication multi-leader et ses conflits, le [ch. 45](architecture-cellulaire.mdx) les cellules. Une région est une cellule de plus grande taille, séparée des autres par des dizaines ou des centaines de millisecondes ; c’est cette distance, absente des chapitres précédents, qui change les choix.
+
+Une seule expérience a été écrite pour ce chapitre, dans [`outils/experiences/ch46/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch46). [`regions.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch46/regions.py) simule trois régions sur un poste. Chaque région est un conteneur qui porte un espace réseau, où tournent un serveur PostgreSQL 18 et le client de la région ([`client.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch46/client.py)) ; le planificateur `netem` du noyau Linux retarde chaque paquet qui sort vers une autre région de la moitié de l’aller-retour médian publié par Azure entre France Central (« Paris »), East US (« Virginie ») et Southeast Asia (« Singapour »), soit 88, 162 et 224 ms[^azure]. Ces délais sont fixes, sans la variation ni les pertes d’un vrai réseau. Le script a été lancé deux fois.
+
+## Pourquoi plusieurs régions
+
+Une région est un ensemble de centres de données d’une même zone géographique, découpé en zones de disponibilité. Trois raisons conduisent à en utiliser plusieurs. La première est la disponibilité, car une région peut perdre un service, une configuration ou un lien réseau, et un système limité à une région tombe avec elle. La deuxième est la latence, puisqu’un utilisateur de Singapour servi depuis Paris attend au moins un aller-retour intercontinental à chaque échange. La troisième est juridique, certaines données devant rester dans un territoire donné.
+
+La distance impose un plancher que rien ne fait baisser. La lumière parcourt environ 200 000 km par seconde dans une fibre optique (son indice de réfraction est voisin de 1,47), soit 200 km par milliseconde. Paris et Washington sont à 6 165 km l’un de l’autre à vol d’oiseau, Paris et Singapour à 10 729 km ; l’aller-retour ne peut donc pas descendre sous 62 et 107 ms. Les médianes publiées par Azure, 88 et 162 ms, sont 1,4 à 1,5 fois plus élevées, parce que les câbles ne suivent pas l’arc de grand cercle et que chaque routeur ajoute un peu de délai[^azure].
+
+## Ce que coûte la distance
+
+La première partie de `regions.py` mesure, depuis chaque région, une requête `SELECT 1` sur une connexion gardée ouverte, puis l’ouverture d’une connexion neuve suivie de la même requête, vers le serveur de chaque région.
+
+```text
+1. aller-retour mesuré entre régions (médiane, ms) ; délais réglés sur
+   les médianes publiées par Azure : 88, 162 et 224 ms
+   SELECT 1 sur une connexion gardée
+   client        vers paris  vers virginie  vers singapour
+   paris                0.1           89.1           163.2
+   virginie            89.2            0.1           225.2
+   singapour          163.2          225.2             0.1
+   nouvelle connexion (TCP, démarrage, SELECT 1)
+   client        vers paris  vers virginie  vers singapour
+   paris                4.5          361.2           657.8
+   virginie           361.8            4.7           906.0
+   singapour          657.8          905.6             4.6
+```
+
+La première passe a donné les mêmes valeurs à 2 ms près. Une requête sur une connexion ouverte coûte un aller-retour, 89, 163 ou 225 ms, ce qui valide le réglage. Une connexion neuve en coûte quatre : la poignée de main TCP ([ch. 4](../partie-1/transport.mdx)), la demande de chiffrement que la bibliothèque cliente libpq envoie d’abord et que le serveur refuse ici, l’échange de démarrage et d’authentification du protocole PostgreSQL, puis la requête. Il faut 361 ms pour ouvrir une connexion de Paris vers la Virginie, 658 ms de Singapour vers Paris, 906 ms de Singapour vers la Virginie ; avec le chiffrement TLS accepté ([ch. 6](../partie-1/tls.mdx)) et une authentification par mot de passe, il en faudrait encore un ou deux de plus. Deux règles en découlent. Les connexions entre régions doivent être ouvertes une fois et gardées, dans un pool ([ch. 19](../partie-2/index-modelisation.mdx)). Et un traitement qui enchaîne des appels vers une autre région multiplie ce coût par le nombre d’appels, comme les services bavards du [ch. 42](monolithe-microservices.mdx), et dix requêtes successives de Singapour vers Paris font 1,6 s.
+
+## Actif-passif
+
+Dans une architecture actif-passif, une seule région, la primaire, accepte les écritures ; les autres reçoivent une copie des données, servent des lectures, et peuvent prendre la relève si la primaire disparaît (figure 46.1, en haut). Dans une architecture actif-actif, plusieurs régions acceptent les écritures, et chacune transmet les siennes aux autres (en bas).
+
+<Figure svg={modes} num="46.1" alt="En haut, actif-passif : Paris porte le primaire, qui sert lectures et écritures, et envoie son journal de manière asynchrone aux répliques de Virginie (retard médian de 54 ms) et de Singapour (93 ms). Les utilisateurs d’Asie lisent sur la réplique de Singapour en 0,1 ms, mais leurs écritures partent vers Paris, 165 ms par requête. En bas, actif-actif : Paris et la Virginie portent chacune un primaire qui sert lectures et écritures, et se répliquent dans les deux sens ; les utilisateurs d’Europe vont à Paris, ceux d’Amérique en Virginie. Si la même ligne est écrite des deux côtés à moins d’un aller-retour d’écart, les deux régions finissent différentes ; si chaque clé est écrite dans sa région d’attache, il n’y a aucune divergence.">
+Actif-passif et actif-actif entre régions.
+</Figure>
+
+En haut, la flèche rouge est le prix de l’actif-passif pour les utilisateurs éloignés du primaire ; en bas, le texte rouge est le prix de l’actif-actif.
+
+La deuxième partie de `regions.py` mesure, avec le primaire à Paris et des répliques physiques en Virginie et à Singapour, 100 opérations successives dans six situations : une écriture à Paris avec réplication asynchrone, puis synchrone vers la Virginie, vers la première des deux répliques qui confirme (`ANY 1`) et vers les deux (`ANY 2`) ; une écriture envoyée depuis Singapour au primaire de Paris ; une lecture à Singapour sur la réplique locale.
+
+```text
+2. actif-passif, primaire à Paris : 100 opérations successives (ms)
+   cas                                           médiane     99e
+   écriture à Paris, réplication asynchrone          2.9     5.0
+   écriture à Paris, synchrone vers la Virginie     94.8   104.9
+   écriture à Paris, synchrone ANY 1 des deux       94.8   104.5
+   écriture à Paris, synchrone ANY 2 des deux      168.8   179.3
+   écriture depuis Singapour vers Paris            165.3   337.1
+   lecture à Singapour sur la réplique locale        0.1     4.1
+```
+
+La première passe a donné 3,3 ms pour l’écriture locale et les mêmes valeurs, à 0,3 ms près, pour les autres lignes. En asynchrone, une écriture à Paris ne coûte que l’écriture du journal sur le disque local (2,9 à 3,3 ms). En synchrone ([ch. 24](../partie-2/replication-leader.mdx)), elle attend en plus la confirmation de la réplique, soit un aller-retour vers la Virginie, 95 ms ; avec `ANY 1`, la réplique la plus proche, encore la Virginie ; avec `ANY 2`, la plus lointaine, Singapour, 169 ms. Pour l’utilisateur de Singapour, l’actif-passif est asymétrique : 0,1 ms pour lire sur la réplique de sa région, 165 ms pour écrire, et un 99e centile de 337 à 338 ms, deux allers-retours pour l’écriture la plus lente sur cent. La figure 46.2 rassemble ces coûts.
+
+<Figure svg={distance} num="46.2" alt="Barres horizontales des médianes mesurées : lecture sur la réplique locale de Singapour 0,1 ms ; écriture à Paris en réplication asynchrone 2,9 ms ; écriture à Paris synchrone vers la Virginie 94,8 ms ; écriture depuis Singapour sur le primaire de Paris 165,3 ms ; écriture à Paris synchrone vers les deux répliques 168,8 ms ; nouvelle connexion de Paris vers la Virginie 361,2 ms, de Singapour vers Paris 657,8 ms, de Singapour vers la Virginie 905,6 ms. Deux lignes pointillées marquent les allers-retours publiés de 88 et 162 ms.">
+Ce que coûte la distance entre régions : latences mesurées.
+</Figure>
+
+Les barres bleues tombent sur les allers-retours publiés ; les barres rouges, quatre fois plus longues, sont les connexions neuves.
+
+### Le retard des répliques
+
+La troisième partie écrit 500 lignes à Paris et note, pour chaque ligne, l’instant où elle devient visible dans chaque réplique.
+
+```text
+3. retard de réplication : 500 écritures à Paris, vues dans chaque
+   réplique (ms, de l'acquittement à Paris à la lecture dans la réplique)
+   réplique      médiane     99e  demi aller-retour
+   virginie         53.5   176.3                 44
+   singapour        93.2   364.7                 81
+```
+
+La première passe a donné 53,9 et 93,0 ms en médiane, 177 et 364 ms au 99e centile. Une ligne apparaît dans une réplique un peu plus d’un demi-aller-retour après sa confirmation à Paris, 54 ms en Virginie et 93 ms à Singapour ; au 99e centile, le retard atteint deux fois l’aller-retour. Un utilisateur qui écrit à Paris puis lit à Singapour, parce que son application a changé de région entre deux requêtes, peut donc ne pas retrouver ce qu’il vient d’écrire. Les remèdes sont ceux du [ch. 24](../partie-2/replication-leader.mdx) : lire sur le primaire pendant quelques secondes après sa propre écriture, garder chaque utilisateur dans une même région, ou attendre que la réplique ait rejoué la position du journal renvoyée par l’écriture.
+
+### Perdre la région primaire
+
+La quatrième partie simule la perte de la région de Paris pendant que huit fils y écrivent aussi vite que possible. Le réseau de la région est coupé, ce qui jette aussi les paquets déjà en route, le primaire est tué, puis la réplique de Virginie est promue. Le script compte les transactions que le primaire avait confirmées au client et que la Virginie n’a pas, une fois en réplication asynchrone et une fois en réplication synchrone vers la Virginie.
+
+```text
+4. perte de la région de Paris après 3 s d'écritures (8 fils) : réseau
+   coupé (paquets en route perdus), primaire tué, Virginie promue
+   réplication                acquittées   tx/s  perdues  promotion
+   asynchrone                       4682   1548      136      102 ms
+   synchrone vers Virginie           240     79        0      102 ms
+```
+
+La première passe a donné 3 769 transactions acquittées à 1 259 par seconde, dont 134 perdues, et 233 à 77 par seconde sans perte. En asynchrone, la perte correspond à ce que le réseau transportait au moment de la coupure, 88 à 106 ms de transactions sous cette charge, plus que le retard médian mesuré à vide (figure 46.3). C’est l’objectif de point de reprise (recovery point objective, RPO) que l’on accepte en choisissant l’asynchrone ([ch. 11](../partie-1/disponibilite.mdx)). En synchrone vers la Virginie, aucune transaction confirmée n’est perdue, mais chaque fil attend un aller-retour à chaque transaction, et le débit tombe de 1 260 à 1 550 transactions par seconde à 77 à 79. Avec `ANY 1`, il faudrait en outre promouvoir la réplique la plus avancée, puisque chaque transaction n’est garantie que sur l’une des deux. La promotion elle-même prend 102 ms ; le temps de reprise réel (recovery time objective, RTO) est dominé par la détection de la panne, la décision de basculer et le changement du routage des utilisateurs, qui se comptent en minutes.
+
+<Figure svg={perte} num="46.3" alt="Deux chronologies de 0 à 300 ms. En haut, en asynchrone, à 1 260 à 1 550 transactions par seconde : les transactions sont acquittées à Paris en continu, et reçues en Virginie avec un retard sous charge de 90 à 105 ms ; quand la région est coupée à 300 ms, les transactions acquittées dans la dernière centaine de millisecondes ne sont jamais arrivées : 134 à 136 perdues. En bas, en synchrone vers la Virginie, à 77 à 79 transactions par seconde : chaque transaction n’est acquittée à Paris qu’après sa réception en Virginie, une écriture prend 95 ms, et aucune transaction acquittée n’est perdue à la coupure.">
+Ce que perd une coupure de la région primaire, en réplication asynchrone et synchrone.
+</Figure>
+
+Chaque trait représente un groupe de transactions ; en haut, les traits rouges sont les transactions confirmées dont le journal n’a pas quitté la région à temps.
+
+## Actif-actif
+
+L’actif-actif supprime l’aller-retour des écritures pour les utilisateurs proches de chaque région, et la promotion lors d’une panne, puisque chaque région écrit déjà. Le prix est le conflit d’écriture du [ch. 25](../partie-2/replication-multi.mdx) : deux régions modifient la même ligne à moins d’un aller-retour d’écart, chacune applique sa version, puis reçoit celle de l’autre. La cinquième partie de `regions.py` met en place un primaire à Paris et un en Virginie, reliés par la réplication logique de PostgreSQL dans les deux sens (`origin = none`, qui évite de renvoyer à une région ses propres changements), et fait mettre à jour, dans chaque région, 100 lignes par seconde pendant 10 s sur une table de 100 lignes. Dans le premier mode, chaque région écrit n’importe quelle ligne ; dans le second, chaque ligne a une région d’attache (Paris les paires, la Virginie les impaires).
+
+```text
+5. actif-actif Paris et Virginie, réplication logique dans les deux sens ;
+   100 lignes, 100 mises à jour par seconde dans chaque région, 10 s ;
+   lignes qui diffèrent entre les deux régions une fois la réplication finie
+   clés écrites               aller-retour  divergentes
+   toutes partout                    88 ms            5
+   toutes partout                     0 ms            1
+   région d'attache                  88 ms            0
+```
+
+La première passe a donné 5, 0 et 0. Avec 88 ms d’aller-retour, 5 lignes sur 100 diffèrent entre les deux régions une fois la réplication terminée, et elles resteront différentes : la réplication logique de PostgreSQL applique la version reçue par-dessus la version locale, si bien que chaque région garde la dernière version arrivée chez elle, qui n’est pas la même des deux côtés. Sans délai, la fenêtre de conflit tombe à quelques millisecondes, et l’on observe 0 ou 1 ligne divergente. Avec une région d’attache, aucune ligne ne diverge, parce qu’une ligne n’est jamais écrite que d’un côté.
+
+Les systèmes conçus pour l’actif-actif évitent la divergence en choisissant le même gagnant partout. Les tables globales de DynamoDB sont multi-actives. Toute réplique sert lectures et écritures, la réplication entre régions est asynchrone et les conflits se règlent par la règle « le dernier qui écrit gagne » (last writer wins)[^dynamodb]. Toutes les régions convergent vers la même valeur, mais l’écriture perdante disparaît sans erreur, ce qui convient à un profil utilisateur et pas à un solde de compte. AWS indique aussi qu’une transaction n’y est atomique que dans la région où elle a été lancée, si bien qu’une autre région peut en voir une partie seulement, le temps que les écritures arrivent[^dynamodb-concepts]. Les autres remèdes sont ceux des chapitres précédents : des types de données qui fusionnent sans conflit (CRDT, [ch. 41](../partie-3/merkle-crdt.mdx)), ou une région d’attache par utilisateur, par compte ou par ligne, qui ramène chaque clé à un seul écrivain tout en gardant des écritures locales pour la plupart des utilisateurs.
+
+## Router les utilisateurs
+
+Un utilisateur doit atteindre la bonne région : la plus proche en temps normal, une autre quand la sienne est malade, et, en actif-actif avec région d’attache, celle qui possède ses données. Le DNS en est le moyen le plus courant ([ch. 3](../partie-1/client-serveur-dns.mdx)). Un service de résolution renvoie l’adresse d’une région selon l’origine géographique de la requête ou selon la latence mesurée, et une vérification de santé retire une région malade des réponses. Le basculement dépend alors de la durée de vie (TTL) des réponses dans les caches des résolveurs et des clients ; un TTL de 60 s laisse une partie du trafic arriver encore sur l’ancienne région pendant une minute, souvent plus. L’adressage anycast, où plusieurs régions annoncent la même adresse IP, laisse le routage d’Internet choisir la plus proche. Enfin, une passerelle en périphérie peut recevoir une requête dans une région et la relayer vers la région d’attache de l’utilisateur, au prix d’un aller-retour entre régions.
+
+## Les données qui doivent rester dans une juridiction
+
+Certaines données ne peuvent pas être copiées n’importe où. Le règlement général sur la protection des données (RGPD) de l’Union européenne pose, à son article 44, que tout transfert de données personnelles vers un pays tiers ou une organisation internationale ne peut avoir lieu que si les conditions du chapitre V sont respectées[^rgpd] ; ces conditions sont, notamment, une décision d’adéquation de la Commission (article 45) ou des garanties appropriées (article 46). D’autres pays ont leurs propres règles de localisation, et des contrats peuvent en imposer.
+
+Pour l’architecture, la contrainte se traduit par une partition des utilisateurs par juridiction : chaque utilisateur a une région d’attache, choisie dans sa juridiction, où vivent ses données personnelles, et la réplication de ces données ne sort pas de cette juridiction (deux régions européennes, par exemple). C’est l’architecture cellulaire du [ch. 45](architecture-cellulaire.mdx), avec une clé de partition géographique. Les services globaux (authentification, facturation, recherche) ne reçoivent que des identifiants ou des données pseudonymisées, et les copies indirectes comptent aussi : sauvegardes, journaux applicatifs, entrepôts de données, outils d’analyse.
+
+## Le coût du trafic entre régions
+
+La réplication fait passer chaque écriture sur des liens facturés. La dernière partie de `regions.py` mesure ce que la réplication physique envoie sur le réseau pour 10 000 insertions de 200 octets vers les deux répliques, et en déduit le prix mensuel à 1 000 transactions par seconde, aux tarifs de la liste de prix publiée par AWS : 0,02 \$ par gigaoctet pour le transfert de Paris ou de Virginie vers une autre région, 0,09 \$ de Singapour vers Paris, et 0,09 à 0,12 \$ pour la sortie vers Internet (premiers 10 To par mois)[^aws-transfert].
+
+```text
+6. réplication de 10 000 INSERT de 200 octets vers 2 répliques
+   journal (WAL) écrit : 429 octets par transaction
+   envoyé par Paris : 1008 octets par transaction, 504 par réplique
+   à 1 000 transactions par seconde : 1 324 Go par mois et par réplique
+   prix depuis Paris (0,02 $/Go) : 53 $ par mois pour 2 répliques
+   même flux depuis Singapour (0,09 $/Go) : 238 $ par mois
+```
+
+La première passe a donné les mêmes valeurs à 2 octets près. Une insertion de 200 octets écrit 429 octets de journal, et la réplication en envoie 504 par réplique, en-têtes TCP et IP compris. À 1 000 transactions par seconde, cela fait 1 324 Go par mois et par réplique, 53 \$ pour deux répliques depuis Paris, et 238 \$ si la même base était à Singapour, où le transfert coûte 4,5 fois plus. Ce n’est pas la réplication de la base qui fait les grosses factures, mais tout ce qui la multiplie : un journal d’événements répliqué dans chaque région ([ch. 27](../partie-2/files-messages.mdx)), des caches remplis depuis une autre région, des services qui s’appellent d’une région à l’autre à chaque requête, et des réponses envoyées aux utilisateurs depuis une région lointaine.
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Une seule région | simplicité, cohérence forte, pas de trafic entre régions | latence des utilisateurs lointains, aucune survie à la perte de la région | 165 ms par écriture depuis Singapour | services régionaux, début de produit |
+| Actif-passif asynchrone | écritures locales rapides, lectures proches, reprise possible | transactions confirmées perdues à la bascule, lectures en retard | 2,9 à 3,3 ms ; 134 à 136 perdues ; retard 54 et 93 ms | la plupart des systèmes multi-régions |
+| Actif-passif synchrone | aucune perte à la bascule | un aller-retour par écriture, débit divisé | 95 ms ; 77 à 79 tx/s au lieu de 1 260 à 1 550 | données dont la perte est inacceptable |
+| Actif-actif, toutes clés partout | écritures locales pour tous, pas de promotion | conflits, divergence ou écritures perdues (dernier gagnant) | 5 lignes sur 100 divergentes | données qui fusionnent (CRDT) ou tolèrent le dernier gagnant |
+| Actif-actif, région d’attache | écritures locales, aucun conflit | routage par utilisateur, utilisateurs qui voyagent, migration | 0 ligne divergente | la plupart des actifs-actifs |
+| Partition par juridiction | conformité, rayon d’impact réduit | services globaux à concevoir sans données personnelles | non mesuré | données personnelles réglementées |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : une page servie depuis une autre région]
+Hypothèses : utilisateur à Singapour, services et base à Paris (162 ms d’aller-retour) ; la page demande 1 connexion neuve et 8 requêtes successives à l’API.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Connexion neuve (TCP, TLS 1.3, HTTP) | 2 à 3 allers-retours | 324 à 486 ms |
+| 8 requêtes successives | 8 × 162 ms | 1 296 ms |
+| Total | | 1,6 à 1,8 s |
+| Même page avec une région à Singapour | 8 requêtes à quelques ms | moins de 100 ms |
+
+Conclusion : pour un utilisateur lointain, le nombre d’allers-retours compte plus que le temps de calcul ; on le réduit en servant la page depuis une région proche, ou au moins en regroupant les requêtes et en gardant les connexions ouvertes.
+:::
+
+:::calcul[Calcul : ce que perd une bascule asynchrone]
+Hypothèses : 5 000 commandes par seconde en pointe ; retard de réplication de 100 ms sous charge vers la région de secours ; une perte de région tous les quelques années.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Commandes confirmées et perdues | 5 000 × 0,1 s | 500 |
+| Avec un retard qui grimpe à 2 s pendant une pointe | 5 000 × 2 s | 10 000 |
+| En synchrone vers la région de secours (88 ms) | latence de chaque commande | +88 ms, débit par connexion divisé |
+| En synchrone vers une zone voisine (moins de 2 ms) et asynchrone entre régions | perte d’une zone : 0 ; perte de la région : 500 | compromis courant |
+
+Conclusion : le RPO d’une réplication asynchrone vaut le débit multiplié par le retard ; il faut surveiller le retard, qui grimpe pendant les pointes, et réserver la réplication synchrone entre régions aux données dont chaque transaction compte.
+:::
+
+:::calcul[Calcul : la facture du trafic entre régions]
+Hypothèses : une base qui écrit 20 Mo/s de journal ; deux régions de secours ; un journal d’événements de 50 Mo/s répliqué dans trois régions ; 0,02 \$ par Go entre régions.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Journal de la base, par mois | 20 Mo/s × 2 630 000 s | 52,6 To |
+| Vers deux régions | 2 × 52 600 Go × 0,02 \$ | 2 104 \$ par mois |
+| Journal d’événements vers deux autres régions | 2 × 50 Mo/s × 2 630 000 s × 0,02 \$/Go | 5 260 \$ par mois |
+| Même trafic au départ de Singapour (0,09 \$) | × 4,5 | 33 000 \$ par mois environ |
+
+Conclusion : le trafic entre régions se chiffre comme un poste du budget d’infrastructure ; il se réduit en ne répliquant que ce qui doit l’être, en compressant, et en évitant les appels entre régions sur le chemin des requêtes.
+:::
+
+## Exemple réel
+
+**Netflix en actif-actif entre deux régions américaines.** Ruslan Meshenberg, Naresh Gopalani et Luke Kosewski ont décrit en 2013 le passage de Netflix à une architecture actif-actif entre les régions AWS US-East-1 (Virginie) et US-West-2 (Oregon)[^netflix]. L’objectif interne de disponibilité était de 99,99 %, et la motivation moins la panne d’une région entière, jugée très improbable, que les changements qui cassaient parfois un service critique dans une région. Les conditions posées étaient strictes : des services sans état, la réplication des données confiée à la couche de stockage, chaque ressource (S3, SQS) accédée dans sa propre région, aucun appel entre régions sur le chemin d’une requête d’utilisateur, et une réplication asynchrone. En temps normal, le DNS géographique envoie chaque utilisateur vers la région la plus proche, à peu près moitié-moitié ; l’équipe a combiné le routage directionnel d’UltraDNS et une couche Route 53 pour basculer vite, et a écarté le routage par latence, jugé trop imprévisible dans ses déplacements de trafic. La passerelle Zuul repère les requêtes arrivées dans la mauvaise région, pour qu’une session ne s’étale pas sur deux régions, et peut délester le trafic au-delà d’un plafond pendant une bascule, quand les caches de la région de secours sont froids. Les données vivent dans Cassandra, répliquée de façon asynchrone entre régions ; pour s’assurer que le délai restait acceptable, l’équipe a écrit un million d’enregistrements dans une région et les a tous relus 500 ms plus tard dans l’autre, sous une charge de production. Les caches EvCache ne sont pas répliqués ; une écriture dans une région envoie par SQS un message qui invalide l’entrée correspondante dans l’autre. Les déploiements passent région par région, avec plusieurs heures d’attente entre deux régions[^netflix].
+
+## Erreurs fréquentes
+
+Ouvrir une connexion neuve à chaque requête vers une autre région. Quatre allers-retours, 658 ms de Singapour vers Paris (mesuré).
+
+Laisser des appels entre régions sur le chemin des requêtes, souvent sans le savoir (un cache, un service d’authentification, une configuration lus dans une autre région).
+
+Passer en réplication synchrone entre régions sans mesurer le débit : 77 à 79 transactions par seconde au lieu de 1 260 à 1 550 avec huit fils (mesuré).
+
+Croire que la réplication asynchrone ne perd rien parce que le retard moyen est faible. 134 à 136 transactions confirmées perdues en une coupure (mesuré), et davantage quand le retard grimpe.
+
+Laisser deux régions écrire les mêmes clés sans règle de résolution. 5 lignes sur 100 divergentes en 10 s, pour toujours (mesuré).
+
+Promouvoir la mauvaise réplique après une perte de région en `ANY 1`, alors que seule la plus avancée a toutes les transactions confirmées.
+
+Oublier les copies indirectes des données soumises à une juridiction : sauvegardes, journaux, entrepôts, outils tiers.
+
+Ne jamais exercer la bascule. Une région de secours qui n’a jamais servi le trafic réel cache des dépendances vers la région primaire et des capacités insuffisantes.
+
+:::piege[Erreur fréquente : « avec deux régions, on est disponible et rapide partout »]
+Deux régions donnent une possibilité de reprise, pas une disponibilité gratuite. En actif-passif, les utilisateurs éloignés du primaire paient un aller-retour intercontinental à chaque écriture (165 ms depuis Singapour), et la bascule perd les transactions en route si la réplication est asynchrone (134 à 136 ici) ou divise le débit si elle est synchrone (77 à 79 transactions par seconde). En actif-actif, les écritures concurrentes divergent si rien ne les arbitre. Et une région de secours ne sert que si la bascule est détectée, décidée et exercée. Le multi-région se conçoit à partir d’un RPO et d’un RTO choisis, et se teste en coupant réellement une région.
+:::
+
+:::entretien
+Si l’on vous demande un système mondial, commencez par les besoins : où sont les utilisateurs, quelle latence ils tolèrent, quel RPO et quel RTO sont acceptables, quelles données doivent rester dans quelle juridiction. Chiffrez les allers-retours entre régions (environ 90 ms à travers l’Atlantique, 160 ms entre l’Europe et l’Asie du Sud-Est) et dites ce qui les traverse. Proposez un actif-passif asynchrone par défaut, avec le RPO qu’il implique (débit × retard), ou un actif-actif avec région d’attache par utilisateur, et expliquez le routage (DNS géographique, vérifications de santé, TTL) et la bascule. Mentionnez le coût du trafic entre régions et la façon de le contenir.
+:::
+
+## Exercices
+
+**Question 1.** Une application de messagerie a son primaire à Paris et une réplique à Singapour. Un utilisateur de Singapour envoie un message puis recharge immédiatement la conversation, lue sur la réplique locale. Que peut-il voir, et pendant combien de temps environ ? Proposez deux corrections et leur coût.
+
+**Question 2.** Une base écrit 2 000 transactions par seconde à Paris et se réplique de façon asynchrone en Virginie avec un retard de 80 ms en régime et de 1,5 s pendant les pointes. Calculez le nombre de transactions confirmées perdues si Paris disparaît en régime et pendant une pointe. Que deviendrait la latence de chaque transaction en synchrone ?
+
+**Question 3.** Deux régions acceptent les écritures de profils d’utilisateurs, avec la règle « le dernier qui écrit gagne ». Un utilisateur modifie son nom sur son téléphone (servi par Paris) et sa photo sur son ordinateur (servi par la Virginie) à 30 ms d’écart. Que se passe-t-il si la règle s’applique à l’enregistrement entier ? Et si elle s’applique champ par champ ?
+
+**Exercice de conception.** Une plateforme de réservation de rendez-vous médicaux sert des patients et des praticiens en France, en Allemagne, au Canada et au Japon. Les données de santé de chaque patient doivent rester dans son pays ou dans l’Union européenne pour les patients européens. Le service doit survivre à la perte d’une région avec moins de 10 minutes d’interruption, et un créneau ne doit jamais être réservé deux fois. Proposez les régions, la répartition des données, le routage, la réplication et la bascule ; chiffrez les latences pour un patient de Montréal et le RPO.
+
+## Corrigés
+
+**Question 1.** Le message est écrit à Paris (165 ms environ), puis copié à Singapour un demi-aller-retour plus tard, 93 ms en médiane et jusqu’à 360 ms au 99e centile. Si le rechargement lit la réplique avant l’arrivée du message, la conversation n’affiche pas encore le message, pendant une centaine de millisecondes en général. Première correction, lire sur le primaire pendant quelques secondes après une écriture de l’utilisateur : il voit son message, au prix de 165 ms par lecture pendant ce délai. Seconde correction, renvoyer avec la confirmation d’écriture la position du journal, et faire attendre la lecture sur la réplique jusqu’à ce qu’elle ait rejoué cette position : la lecture reste locale, mais peut attendre jusqu’au retard de la réplique.
+
+**Question 2.** En régime, $2\,000 \times 0{,}08 = 160$ transactions perdues ; pendant une pointe, $2\,000 \times 1{,}5 = 3\,000$. En synchrone vers la Virginie, chaque transaction attend un aller-retour de 88 ms en plus de son écriture locale ; pour garder 2 000 transactions par seconde, il faudrait au moins $2\,000 \times 0{,}09 = 180$ transactions en cours en même temps, donc autant de connexions actives, ou regrouper les validations.
+
+**Question 3.** Si la règle porte sur l’enregistrement entier, la dernière des deux écritures (la photo, si elle a l’horodatage le plus récent) remplace l’enregistrement complet dans les deux régions, avec l’ancien nom : le changement de nom est perdu sans erreur. Si la règle s’applique champ par champ, chaque champ garde sa dernière valeur et les deux modifications survivent ; c’est le comportement d’un registre par champ (LWW-Map, [ch. 41](../partie-3/merkle-crdt.mdx)). Le conflit ne disparaît que pour des champs indépendants : deux modifications du même champ gardent la plus récente.
+
+**Exercice de conception.**
+
+*Régions et données.* Une cellule par juridiction : l’Union européenne (Paris, avec une région de secours à Francfort pour que les données restent dans l’Union), le Canada (deux régions canadiennes, l’une principale, l’autre de secours), le Japon (Tokyo, secours à Osaka). Chaque patient et chaque praticien a une région d’attache selon son pays ; ses données de santé, ses rendez-vous et l’agenda du praticien y vivent.
+
+*Double réservation.* Un créneau appartient à l’agenda d’un praticien, donc à une seule région, qui est la seule à écrire cet agenda ; la réservation est une transaction locale avec une contrainte d’unicité, sans conflit entre régions. Un patient qui consulte un praticien d’une autre juridiction (cas rare) passe par la région du praticien ; seules des données minimales de réservation y sont transmises, selon les règles du transfert.
+
+*Routage.* DNS géographique vers la cellule du pays, puis la passerelle vérifie la région d’attache et relaie si besoin. Les connexions entre régions sont gardées ouvertes.
+
+*Réplication et bascule.* Dans chaque juridiction, la base se réplique de façon synchrone entre zones de disponibilité de la région principale (RPO nul pour une panne de zone, quelques millisecondes par écriture) et de façon asynchrone vers la région de secours (RPO de l’ordre de 100 ms de transactions à la perte de la région). La bascule est automatisée, déclenchée sur des vérifications de santé, avec un TTL DNS de 60 s : promotion en moins d’une seconde, détection et propagation en quelques minutes, sous l’objectif de 10 minutes. Les créneaux confirmés dans les 100 dernières millisecondes avant la panne peuvent être perdus ; on le compense par un journal des confirmations envoyées aux patients, rapproché après la bascule.
+
+*Latences.* Un patient de Montréal est servi par Montréal, quelques millisecondes par requête ; s’il réserve chez un praticien français, chaque écriture traverse l’Atlantique, une centaine de millisecondes, ce qui reste acceptable pour une réservation.
+
+:::fiche
+- Plancher physique : 200 km par milliseconde dans la fibre ; Paris–Virginie 62 ms d’aller-retour au minimum, 88 ms publiés par Azure ; Paris–Singapour 107 et 162 ms.
+- Mesuré : une requête coûte un aller-retour (89, 163, 225 ms) ; une connexion neuve en coûte quatre (361, 658, 906 ms) : garder les connexions ouvertes.
+- Actif-passif asynchrone : écriture locale 2,9 à 3,3 ms ; répliques en retard de 54 et 93 ms (médiane), jusqu’à 365 ms ; perte de la région : 134 à 136 transactions confirmées perdues (RPO = débit × retard).
+- Actif-passif synchrone : 95 ms par écriture (169 ms avec les deux répliques), aucune perte, débit de 77 à 79 tx/s au lieu de 1 260 à 1 550.
+- Actif-actif : 5 lignes sur 100 divergentes en 10 s à 88 ms ; 0 avec une région d’attache par clé ; DynamoDB : dernier gagnant, transactions atomiques dans une seule région.
+- Routage : DNS géographique ou par latence, vérifications de santé, TTL ; anycast ; passerelle qui relaie vers la région d’attache.
+- Juridiction : RGPD article 44, transferts hors UE soumis au chapitre V ; partition des utilisateurs par juridiction, copies indirectes comprises.
+- Coût : 504 octets par transaction et par réplique ; 0,02 \$/Go depuis Paris ou la Virginie, 0,09 \$ depuis Singapour ; 53 \$ par mois pour 2 répliques à 1 000 tx/s.
+:::
+
+[^azure]: Microsoft, « Azure network round-trip latency statistics », *Azure networking documentation*, médianes P50 sur 30 jours, page mise à jour le 30 juillet 2026, consultée le 15 novembre 2026, [learn.microsoft.com/azure/networking/azure-network-latency](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency).
+[^dynamodb]: AWS, « Global tables - multi-active, multi-Region replication », *Amazon DynamoDB Developer Guide*, consulté le 15 novembre 2026, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/GlobalTables.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GlobalTables.html).
+[^dynamodb-concepts]: AWS, « Global tables core concepts », *Amazon DynamoDB Developer Guide*, section « Transactions », consulté le 15 novembre 2026, [docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-CoreConcepts.html](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/globaltables-CoreConcepts.html).
+[^rgpd]: Règlement (UE) 2016/679 du Parlement européen et du Conseil du 27 avril 2016 (RGPD), article 44, [eur-lex.europa.eu/eli/reg/2016/679/oj](https://eur-lex.europa.eu/eli/reg/2016/679/oj).
+[^aws-transfert]: AWS, « Amazon EC2 On-Demand Pricing », section « Data Transfer », tarifs de la liste de prix publiée le 11 novembre 2026, [aws.amazon.com/ec2/pricing/on-demand](https://aws.amazon.com/ec2/pricing/on-demand/).
+[^netflix]: Ruslan Meshenberg, Naresh Gopalani et Luke Kosewski, « Active-Active for Multi-Regional Resiliency », *Netflix TechBlog*, 2013, [netflixtechblog.com/active-active-for-multi-regional-resiliency-c47719f6685b](https://netflixtechblog.com/active-active-for-multi-regional-resiliency-c47719f6685b).

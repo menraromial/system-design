@@ -1,0 +1,37 @@
+% Perte de la région primaire : en asynchrone, les transactions acquittées dont
+% le journal est encore en route sont perdues ; en synchrone, l'acquittement
+% attend la Virginie et rien d'acquitté n'est perdu (outils/experiences/ch46).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=0.5mm, y=1mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \newcommand{\trait}[3]{\draw[#3, line width=0.9pt] (#1,#2-1.6) -- (#1,#2+1.6);}
+  % ---- asynchrone
+  \node[pillo=Dslate, anchor=west] at (-70,34) {asynchrone : 1 260 à 1 550 transactions par seconde};
+  \node[note, anchor=east] at (-6,22) {acquittées à Paris};
+  \node[note, anchor=east] at (-6,10) {reçues en Virginie};
+  \foreach \t in {0,8,...,296} {
+    \pgfmathsetmacro{\c}{\t>192 ? 1 : 0}
+    \ifdim\c pt>0.5pt \trait{\t}{22}{Dred}\else\trait{\t}{22}{Dblue}\fi}
+  \foreach \t in {0,8,...,192} {\pgfmathsetmacro{\a}{\t+106}\ifdim\a pt<300pt \trait{\a}{10}{Dteal}\fi}
+  \draw[Dred, line width=1.2pt] (300,30) -- (300,4) node[below, lab=Dred] {région coupée};
+  \draw[accol] (298,26) -- (194,26); \node[lab=Dred, anchor=south east] at (298,28) {acquittées, jamais arrivées : 134 à 136 perdues};
+  \draw[Dteal, line width=0.6pt, |<->|] (0,15) -- (106,15) node[midway, above, lab=Dteal] {retard sous charge : 90 à 105 ms};
+  % ---- synchrone
+  \begin{scope}[yshift=-44mm]
+    \node[pillo=Dslate, anchor=west] at (-70,36) {synchrone vers la Virginie : 77 à 79 transactions par seconde};
+    \node[note, anchor=east] at (-6,22) {acquittées à Paris};
+    \node[note, anchor=east] at (-6,10) {reçues en Virginie};
+    \foreach \d in {0,11,22,...,77} {
+      \foreach \k in {0,1,2} {\pgfmathsetmacro{\v}{\d+44+\k*95}\ifdim\v pt<300pt \trait{\v}{10}{Dteal}\fi
+        \pgfmathsetmacro{\a}{\d+95+\k*95}\ifdim\a pt<300pt \trait{\a}{22}{Dblue}\fi}}
+    \draw[Dred, line width=1.2pt] (300,30) -- (300,4);
+    \node[lab=Dred, anchor=south] at (300,30) {région coupée};
+    \node[lab=Dgreen, anchor=west] at (306,22) {aucune transaction\\acquittée perdue};
+    \draw[Dteal, line width=0.6pt, |<->|] (0,15) -- (95,15) node[midway, above, lab=Dteal] {une écriture : 95 ms};
+    \foreach \t in {0,100,200,300} {\draw[ligne] (\t,1) -- (\t,-0.5); \node[note, below] at (\t,-0.5) {\t\,ms};}
+    \draw[ligne] (0,1) -- (300,1);
+  \end{scope}
+\end{tikzpicture}
+\end{document}
