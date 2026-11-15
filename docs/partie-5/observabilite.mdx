@@ -1,0 +1,427 @@
+---
+title: "Observabilité"
+sidebar_label: "50. Observabilité"
+description: "Ce qu'un système en production doit émettre pour qu'on sache ce qu'il fait : journaux structurés, métriques (compteurs, jauges, histogrammes), traces distribuées et propagation de contexte (OpenTelemetry, W3C Trace Context), cardinalité, méthodes RED et USE, signaux d'or, alertes sur les symptômes et sur la consommation du budget d'erreur ; mesures avec Prometheus 3.16, Jaeger 2.23 et le SDK OpenTelemetry."
+partie: 5
+chapitre: 50
+---
+
+import signaux from '@site/src/figures/obs-signaux.svg';
+import quantile from '@site/src/figures/obs-quantile.svg';
+import trace from '@site/src/figures/obs-trace.svg';
+import alertes from '@site/src/figures/obs-alertes.svg';
+
+Dans une requête sur vingt, le service de stock attend 250 ms un verrou. Vu du client, la médiane ne bouge pas (20 ms) et le p99 monte à 271 ou 272 ms ; la métrique dit qu’il se passe quelque chose, sans dire où. Les traces de la même expérience, relues dans Jaeger, désignent la cause dans 19 cas sur 19 lors d’une passe et 20 sur 20 lors de l’autre, à savoir le span « attente du verrou » du service de stock. Dans une autre expérience, une étiquette « client » ajoutée par commodité à un histogramme fait passer Prometheus de 807 à 325 742 séries et de 100 Mo à près de 1 Go de mémoire. Dans une troisième, un seuil d’alerte sur le taux d’erreur, réglé exactement sur le SLO, déclenche 96 à 98 alertes en un mois simulé, dont 91 à 93 sans aucun incident derrière ; une règle sur la vitesse de consommation du budget d’erreur en déclenche 3, toutes justifiées. Ce chapitre traite des signaux qu’un système en production doit émettre (journaux, métriques, traces), de ce que chacun coûte, et de la façon d’en tirer des alertes qui ne réveillent quelqu’un que lorsque le budget d’erreur est en danger.
+
+Le [ch. 11](../partie-1/disponibilite.mdx) a défini les SLI, les SLO et le budget d’erreur, et le [ch. 9](../partie-1/latence-debit.mdx) les percentiles de latence. Ces notions supposent qu’on mesure, en production et en continu, la latence et le taux d’erreur que voient les clients ; et quand une requête traverse dix services ([ch. 42](../partie-4/monolithe-microservices.mdx)), il faut aussi savoir lequel l’a ralentie. C’est l’objet de l’observabilité.
+
+Quatre scripts ont été écrits pour ce chapitre, dans [`outils/experiences/ch50/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch50). [`journaux.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch50/journaux.py) écrit un million d’événements en texte libre et en JSON, et les interroge. [`metriques.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch50/metriques.py) mesure le coût de l’instrumentation avec la bibliothèque `prometheus_client`, puis fait calculer des quantiles et absorber des séries à un vrai Prometheus 3.16. [`traces.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch50/traces.py) lance quatre services instrumentés avec le SDK OpenTelemetry 1.45, qui envoient leurs spans à Jaeger 2.23. [`alertes.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch50/alertes.py) simule trente jours de trafic et compare des règles d’alerte. Chacun a été lancé deux fois ; les blocs reproduits sont ceux de la dernière passe, et le texte donne l’écart avec l’autre.
+
+## Ce qui est cassé, et pourquoi
+
+Le chapitre du livre *Site Reliability Engineering* de Google consacré à la surveillance pose deux questions auxquelles elle doit répondre, « ce qui est cassé, et pourquoi »[^sre-monitoring]. Le « quoi » est un symptôme, ce que subit l’utilisateur (des erreurs 500, des pages lentes) ; le « pourquoi » est une cause, parfois intermédiaire (une base saturée, un disque plein, un verrou). Le même chapitre distingue la surveillance en boîte noire, qui teste le comportement visible de l’extérieur comme le ferait un utilisateur, et la surveillance en boîte blanche, qui s’appuie sur ce que le système expose de son fonctionnement interne : métriques, journaux, traces. La première ne voit que les symptômes, mais elle les voit tous ; la seconde voit aussi les causes, et les problèmes qui couvent avant d’être visibles.
+
+Pour un système orienté utilisateurs, ce chapitre retient quatre signaux d’or (golden signals) : la latence, le trafic, les erreurs et la saturation[^sre-monitoring]. Il demande de séparer la latence des requêtes réussies de celle des requêtes en erreur, parce qu’une erreur 500 renvoyée en 2 ms fait baisser la latence moyenne au moment même où le service se dégrade ; et il définit la saturation comme le degré de remplissage de la ressource la plus contrainte, mémoire, entrées-sorties ou processeur.
+
+Deux méthodes déclinent cette idée. La méthode RED, proposée par Tom Wilkie (Grafana Labs) pour les microservices, mesure pour chaque service le débit de requêtes (*rate*), le nombre de requêtes en échec (*errors*) et leur durée (*duration*)[^red] ; son auteur dit l’avoir conçue parce que la méthode USE s’applique au matériel, pas aux services. La méthode USE, de Brendan Gregg, se résume ainsi[^use] : « pour chaque ressource, vérifier l’utilisation, la saturation et les erreurs ». Une ressource y est un composant physique (processeur, disque, bus, carte réseau), l’utilisation le temps moyen pendant lequel elle est occupée, la saturation la quantité de travail qu’elle ne peut pas servir et qui attend, souvent dans une file. RED décrit donc ce que voient les clients d’un service, c’est-à-dire les symptômes ; USE décrit les ressources, où se trouvent souvent les causes. Les files d’attente du [ch. 9](../partie-1/latence-debit.mdx) font le lien entre les deux, puisqu’une ressource saturée (USE) se traduit par une durée qui monte (RED).
+
+## Trois signaux
+
+Un service instrumenté laisse trois sortes de traces de chaque requête qu’il traite (figure 50.1). Une ligne de journal décrit un événement, avec autant de contexte qu’on veut. Une métrique agrège des événements en un nombre par intervalle de temps (combien de requêtes, combien en erreur, quelle répartition des durées), sans garder le détail. Une trace reconstitue le chemin d’une requête à travers les services, sous la forme d’un arbre de spans, chacun étant une opération chronométrée.
+
+<Figure svg={signaux} num="50.1" alt="Une requête GET /panier, qui porte un en-tête traceparent dont l’identifiant de trace commence par 4bf92f35, entre dans le service commandes, dont le code est instrumenté. Il en sort trois signaux. Une ligne de journal JSON (niveau ERROR, route /panier, statut 503, client 4217, trace_id 4bf92f35, durée 18,4 ms) part vers les journaux, et répond à la question « que s’est-il passé pour le client 4217 ? » ; son coût est d’une ligne par événement, 123 à 233 octets mesurés. Des compteurs d’histogramme (req_duree_seconds_bucket pour la route /panier et la borne 0,05, augmenté de 1 à chaque requête, et req_duree_seconds_count) partent vers les métriques, et répondent à « combien, quel taux d’erreur, quel p99 ? » ; leur coût est d’une série par combinaison d’étiquettes, quel que soit le trafic. Un span (trace_id 4bf92f35, span_id, parent_id, nom GET /panier, début, durée 18,4 ms) part vers les traces, et répond à « où le temps de cette requête est-il passé ? » ; son coût est de 8 spans par requête gardée, réduit par l’échantillonnage. Le même trace_id relie la ligne de journal à la trace.">
+Les trois signaux qu’une même requête laisse derrière elle.
+</Figure>
+
+La colonne de droite donne la question à laquelle chaque signal répond et ce qu’il coûte. Le coût d’un journal croît avec le trafic, celui d’une métrique avec le nombre de combinaisons d’étiquettes, celui des traces avec le trafic multiplié par la part des requêtes qu’on garde ; l’identifiant de trace, recopié dans la ligne de journal, permet de passer de l’une à l’autre.
+
+Le reste du chapitre prend les signaux un par un, avec ce que chacun coûte et ses pièges, puis passe aux alertes.
+
+## Journaux structurés
+
+Un journal en texte libre, du genre `GET /panier -> 503 en 41.7 ms client=4217`, est écrit pour être lu par un humain, ligne par ligne. Dès qu’il faut compter, filtrer ou corréler sur des millions de lignes, on le lit avec des expressions régulières, qui dépendent de la position et de l’orthographe de chaque champ. Un journal structuré écrit chaque événement comme un enregistrement aux champs nommés, le plus souvent un objet JSON par ligne. La première partie de `journaux.py` écrit le même million d’événements des deux façons, avec le module `logging` de Python.
+
+```text
+1. 1 000 000 événements écrits par logging (fichier local)
+   format         µs par ligne    taille     gzip  octets/ligne
+   texte                  10.0    123 Mo    30 Mo           123
+   json                   12.7    233 Mo    31 Mo           233
+   exemple texte : 2026-11-15 16:34:06,732 INFO [commandes] GET /commande…
+   exemple JSON  : {"ts": "2026-11-15T16:34:06.732Z", "niveau": "INFO", "…
+   première ligne JSON en entier :
+     {"ts": "2026-11-15T16:34:06.732Z", "niveau": "INFO", "service": "com
+     mandes", "msg": "requête traitée", "http.route": "/commande", "http.
+     status": 200, "duree_ms": 9.2, "client": 5407, "trace_id": "3971d00b
+     513fbea089daa17b15cee28d"}
+   log.debug désactivé, ("panier %s", panier) :     79 ns
+   log.debug désactivé, f"panier {panier}"   :   1212 ns
+```
+
+L’autre passe a donné 9,9 et 12,4 µs par ligne, 75 et 1 168 ns. La ligne JSON est presque deux fois plus longue (233 octets contre 123), parce qu’elle répète le nom de chaque champ ; compressées par gzip, les deux versions pèsent 30 et 31 Mo, car ces noms répétés se compressent presque entièrement. L’écriture coûte 25 à 28 % de plus en JSON, de l’ordre de 2,5 µs par ligne. La dernière mesure concerne les journaux de mise au point désactivés. `log.debug("panier %s", panier)` coûte 75 à 79 ns quand le niveau DEBUG est coupé, parce que le module ne met en forme le message que si le niveau est actif ; la même ligne écrite avec une f-chaîne coûte quinze fois plus, 1,2 µs, parce que Python construit la chaîne avant l’appel, qu’elle soit écrite ou non.
+
+La deuxième partie pose une question d’exploitation ordinaire, à savoir quelles erreurs 5xx le client 4217 a reçues, et sur quelles routes. La troisième simule un changement anodin, le jour où un développeur ajoute « region=eu-west » au milieu du message texte.
+
+```text
+2. erreurs 5xx du client 4217, par route (médiane de 3)
+   méthode                              durée  trouvées
+   regex sur le texte                  0.26 s   639 / 639
+   json.loads ligne à ligne            1.69 s   639 / 639
+   DuckDB read_json                    0.09 s   639 / 639
+
+3. au 500 000e événement, le message texte gagne « region=eu-west »
+   même regex sur le texte :  281 / 639 (281 dans la première moitié)
+   même requête sur le JSON : 639 / 639 (le champ region s'ajoute à côté)
+```
+
+L’autre passe a donné 0,25 s, 1,73 s et 0,09 s, et les mêmes comptes. Sur un format qui ne bouge pas, l’expression régulière est rapide (0,25 à 0,26 s), plus que le décodage JSON ligne à ligne en Python (1,69 à 1,73 s) ; un moteur qui lit le JSON en colonnes, DuckDB ici, répond en 0,09 s. La troisième partie montre ce que coûte le texte libre. Après le changement de format, la même expression régulière ne trouve plus que les 281 erreurs de la première moitié du fichier, et elle le fait sans signaler d’erreur ; la requête sur le JSON les trouve toutes, parce qu’elle cherche des champs par leur nom, et qu’un champ ajouté ne déplace pas les autres.
+
+Trois règles en découlent. Un événement par ligne, en JSON ou dans un format à champs nommés, avec des noms de champs stables d’un service à l’autre (`http.route`, `http.status`). L’identifiant de trace dans chaque ligne, pour passer d’une erreur à la trace de la requête qui l’a produite. Et une discipline sur le volume, puisque chaque ligne est payée à l’écriture, au transport, à l’indexation et au stockage ; les erreurs se gardent toutes, les succès peuvent s’échantillonner, et les données personnelles ou les secrets n’ont rien à faire dans un journal que des dizaines de personnes peuvent lire.
+
+## Métriques
+
+Prometheus définit quatre types de métriques[^prom-types]. Un compteur est une valeur cumulée qui ne fait que croître, ou revient à zéro quand le processus redémarre (requêtes servies, erreurs) ; on en tire un débit en dérivant, avec `rate()`. Une jauge est une valeur qui monte et descend (mémoire utilisée, longueur d’une file). Un histogramme compte les observations dans des seaux (buckets) aux bornes fixées à l’avance ; il expose, pour chaque borne $b$, le nombre d’observations inférieures ou égales à $b$, plus leur nombre total et leur somme. Un résumé (summary) calcule des quantiles dans le processus instrumenté, sur une fenêtre glissante. Le modèle de collecte est la lecture périodique, Prometheus interrogeant chaque service toutes les quelques secondes sur une adresse `/metrics` qui renvoie la valeur courante de chaque série. Une série est identifiée par le nom de la métrique et ses étiquettes, par exemple `req_duree_seconds_bucket{route="/panier",le="0.25"}`.
+
+La première partie de `metriques.py` mesure ce que coûte l’instrumentation dans le code.
+
+```text
+1. coût d'une opération (médiane de 5 × 1 million, ns, boucle vide déduite)
+   compteur.inc()                               132
+   compteur.labels(route, statut).inc()         650
+   enfant déjà résolu .inc()                    147
+   histogramme.observe(0.042)                   358
+   histogramme.labels(route).observe()          847
+```
+
+L’autre passe a donné 130, 623, 147, 361 et 833 ns. Incrémenter un compteur coûte 130 ns environ, observer une valeur dans un histogramme 360 ns, parce qu’il faut trouver le seau. Rechercher la série par ses étiquettes à chaque appel multiplie le coût par cinq (623 à 650 ns), le temps de construire la clé et de la chercher dans un dictionnaire ; garder une référence à la série déjà résolue le ramène à 147 ns. Même dans le pire cas, moins d’une microseconde pour une requête qui en dure des milliers ; et contrairement à une ligne de journal, une métrique ne coûte rien de plus à stocker quand le trafic double, puisque Prometheus ne lit qu’une valeur par série toutes les quelques secondes.
+
+### Quantiles et seaux
+
+Le résumé calcule ses quantiles dans chaque instance ; or la documentation de Prometheus rappelle qu’on ne peut pas agréger des quantiles[^prom-histo]. Le p99 de deux instances n’est pas la moyenne de leurs p99. L’histogramme, lui, s’agrège, puisque les compteurs de seaux de plusieurs instances s’additionnent ; le quantile est calculé ensuite, côté serveur, par la fonction `histogram_quantile`, qui suppose les observations réparties uniformément dans le seau et interpole linéairement entre ses bornes. Dans l’exemple de la documentation, un p95 estimé à 295 ms est seulement garanti entre 200 et 300 ms, les bornes du seau[^prom-histo]. L’erreur dépend donc de la largeur du seau qui contient le quantile (figure 50.2).
+
+<Figure svg={quantile} num="50.2" alt="Courbe de la part des requêtes plus rapides qu’une latence donnée, entre 150 et 650 ms, pour 400 000 latences de deux instances, l’une rapide, l’autre lente. La courbe exacte monte vite jusqu’à 97 % vers 250 ms, puis lentement ; elle coupe la ligne des 99 % à 427 ms, le p99 exact. Les seaux par défaut n’ont de bornes qu’à 250 et 500 ms ; histogram_quantile relie ces deux points par une droite, qui coupe les 99 % à 472 ms, le p99 estimé. Les seaux autour du SLO, avec des bornes à 250, 300, 350, 400 et 500 ms, suivent la courbe exacte de près et donnent 424 ms.">
+P99 exact et p99 estimé par l’interpolation linéaire de `histogram_quantile`, avec deux jeux de seaux.
+</Figure>
+
+Entre 250 et 500 ms, la courbe exacte est concave, et la droite tirée entre les deux bornes des seaux par défaut passe en dessous ; elle atteint 99 % plus tard, d’où un p99 surestimé. Les seaux autour du SLO, espacés de 50 ms dans cette zone, suivent la courbe et ne laissent presque pas d’erreur.
+
+La deuxième partie de `metriques.py` fait faire ce calcul à Prometheus. Deux instances exposent les mêmes 200 000 latences chacune dans trois histogrammes aux bornes différentes : celles que `prometheus_client` utilise par défaut (de 5 ms à 10 s), des bornes resserrées autour d’un SLO de 300 ms, et 97 bornes en progression géométrique de raison 1,1.
+
+```text
+2. quantiles : 200 000 observations par instance, a rapide, b lente
+   p99 exacts : a 127 ms, b 588 ms, a+b 427 ms ;
+   moyenne des p99 de a et de b : 358 ms (faux, un p99 ne se moyenne pas)
+   seaux              séries  p99 a+b estimé  erreur  seau qui le contient
+   défaut                 17          472 ms    +11 %          250 à 500 ms
+   autour du SLO          16          424 ms     -1 %          400 à 500 ms
+   exponentiel ×1,1      100          426 ms      0 %          405 à 446 ms
+   part des requêtes sous un seuil (a+b) :
+     ≤ 250 ms : exacte 97.33 %, défaut 97.33 %, SLO 97.33 %
+     ≤ 300 ms : exacte 98.44 %, défaut 97.71 %, SLO 98.44 %
+```
+
+L’autre passe, avec d’autres tirages, a donné un p99 exact de 422 ms, des estimations de 472, 421 et 421 ms, et les mêmes conclusions. La moyenne des p99 des deux instances (356 à 358 ms) sous-estime de 16 % le p99 de l’ensemble (422 à 427 ms), parce que l’instance lente, qui contient presque toutes les requêtes lentes, pèse autant que l’autre dans la moyenne. Avec les seaux par défaut, `histogram_quantile` surestime le p99 de 11 à 12 % ; le seau qui le contient va de 250 à 500 ms, et toute valeur dans cet intervalle aurait été « garantie » par la documentation. Avec des seaux resserrés autour de la zone qui compte, l’erreur tombe à 1 % au plus, pour 16 séries au lieu de 17 ; cent séries de seaux géométriques ne font pas mieux.
+
+La dernière ligne compte le plus pour un SLO de latence. La part des requêtes sous 250 ms est exacte avec tous les seaux, parce que 250 ms est une borne de seau, et que le compteur de cette borne donne directement le nombre de requêtes qui la respectent ; sous 300 ms, qui n’est pas une borne des seaux par défaut, l’estimation donne 97,71 % au lieu de 98,44 à 98,45 %. Pour un SLO de la forme « 99 % des requêtes en moins de 300 ms », on place donc une borne de seau à 300 ms, et le SLI devient un rapport de deux compteurs, exact. Les histogrammes natifs de Prometheus, à seaux exponentiels que le développeur n’a pas à choisir, réduisent ce problème de choix des bornes[^prom-types].
+
+### Cardinalité
+
+Selon la documentation de Prometheus, chaque combinaison distincte de paires étiquette-valeur est une nouvelle série temporelle, et une étiquette aux valeurs non bornées, comme un identifiant d’utilisateur ou une adresse électronique, est à proscrire[^prom-naming]. Le nombre de séries d’une métrique est le produit du nombre de valeurs de chaque étiquette, multiplié, pour un histogramme, par le nombre de seaux plus deux (la somme et le compte). La troisième partie de `metriques.py` part d’un histogramme de dix seaux par route, sur cinq routes, soit 65 séries, et lui ajoute une étiquette `client` à 100, 1 000 puis 5 000 valeurs. Un Prometheus neuf, limité à 3 Go de mémoire, collecte toutes les 5 s pendant 60 s.
+
+```text
+3. cardinalité : histogramme de 10 seaux par route, 5 routes, étiquette
+   client ; collecte toutes les 5 s pendant 60 s, Prometheus limité à 3 Go
+    clients    séries  exposition  collecte   mémoire  par série  requête
+          1       807      0.0 Mo      1 ms    102 Mo          -     1 ms
+        100     7 242      0.5 Mo      9 ms    114 Mo     1.9 Ko     9 ms
+      1 000    65 742      4.5 Mo     58 ms    279 Mo     2.7 Ko    64 ms
+      5 000   325 742     22.5 Mo    376 ms    974 Mo     2.7 Ko   373 ms
+```
+
+L’autre passe a donné 100, 117, 279 et 941 Mo, 54 et 348 ms pour les deux dernières collectes, 360 ms pour la dernière requête. Les 807 séries de départ comprennent les 742 séries que Prometheus publie sur lui-même. Avec 5 000 clients, la page `/metrics` du service pèse 22,5 Mo, la collecter prend 348 à 376 ms (sur un intervalle de 5 s), et Prometheus occupe 941 à 974 Mo, soit 1,9 à 2,8 Ko par série ; la requête qui calcule le p99 par route, identique dans les quatre cas, passe de 1 ms à 360 à 373 ms, parce qu’elle doit additionner les seaux de 5 000 clients pour chaque route. Rien ici ne dépend du trafic, tout dépend du nombre de valeurs de l’étiquette. Un service populaire avec 5 millions de clients serait mille fois plus loin, hors de portée de n’importe quel Prometheus.
+
+L’information par client n’est pas perdue pour autant ; elle va dans les journaux et les traces, dont le coût suit le nombre d’événements et non le nombre de valeurs distinctes. Les métriques gardent des étiquettes à peu de valeurs connues à l’avance (route, méthode, classe de statut, région, instance), et la question « que s’est-il passé pour le client 4217 ? » se pose aux journaux, comme dans la deuxième partie de `journaux.py`.
+
+## Traces distribuées
+
+Le modèle des traces distribuées vient de Dapper, le système de traçage de Google, décrit en 2010[^dapper]. Une trace est un arbre de spans ; chaque span a un nom, une heure de début et une durée, l’identifiant de la trace, son propre identifiant et celui de son parent, et des attributs. Quand un service en appelle un autre, il transmet l’identifiant de la trace et celui du span qui fait l’appel, et le service appelé crée ses spans comme enfants de celui-ci. Les spans sont envoyés séparément par chaque service, hors du chemin de la requête, et réassemblés par l’identifiant de trace.
+
+OpenTelemetry fournit aujourd’hui l’interface de programmation, les SDK et le protocole d’export (OTLP) de ces données, pour la plupart des langages. La propagation du contexte d’un service à l’autre est normalisée par la recommandation W3C Trace Context du 23 novembre 2021[^w3c]. Elle définit l’en-tête HTTP `traceparent`, formé de quatre champs hexadécimaux séparés par des tirets, à savoir la version (2 caractères), l’identifiant de trace (32 caractères, 16 octets), l’identifiant du span parent (16 caractères, 8 octets) et les indicateurs (2 caractères), dont le bit de poids faible signifie que l’appelant a peut-être enregistré la trace (*sampled*). Un second en-tête, `tracestate`, transporte des informations propres à chaque système de traçage. La figure 50.3 montre une trace relue dans Jaeger par la première partie de `traces.py`, et l’en-tête qui l’a portée.
+
+<Figure svg={trace} num="50.3" alt="Chronogramme d’une trace de 8 spans, sur 20 ms. passerelle, GET /passerelle, de 0 à 20,5 ms ; en dessous, son span client GET /commandes, 20,3 ms ; commandes, GET /commandes, de 1 à 20 ms environ, 19 ms ; à l’intérieur, SELECT commandes, 5,1 ms, puis le span client GET /stock, 4,6 ms, qui contient le span serveur de stock, 3,2 ms, puis le span client GET /paiement, 9,2 ms, qui contient le span serveur de paiement, 8,2 ms. Les spans clients sont en pointillés, les spans serveurs ou internes en plein. En bas, l’en-tête reçu par commandes : traceparent 00, un identifiant de trace de 32 caractères hexadécimaux commun à tous les spans de la requête, un identifiant de parent de 16 caractères qui est celui du span client de passerelle, et les indicateurs 03 (01 échantillonnée, 02 identifiant tiré au hasard, niveau 2 de la norme).">
+Une trace réelle de quatre services relue dans Jaeger, et l’en-tête `traceparent` reçu par le deuxième.
+</Figure>
+
+Chaque ligne est un span, indenté sous son parent ; un span client en pointillés contient le span serveur du service appelé, et l’écart entre les deux est le temps passé dans le réseau et dans les bibliothèques HTTP. On lit directement que commandes appelle stock puis paiement l’un après l’autre, et que les appeler en parallèle ferait gagner les 4,6 ms de l’appel à stock.
+
+```text
+1. une requête ; en-tête traceparent reçu par chaque service :
+   passerelle (aucun)
+   commandes  00-1297f8ddc4652faf4919ea4a86e1d61a-e3737b98ab5516e4-03
+   stock      00-1297f8ddc4652faf4919ea4a86e1d61a-bf074da057d67de0-03
+   paiement   00-1297f8ddc4652faf4919ea4a86e1d61a-508fc273b3ff544a-03
+   trace 1297f8dd… dans Jaeger : 8 spans
+   service    opération                   début    durée
+   passerelle GET /passerelle            0.0 ms  20.5 ms
+   passerelle   GET /commandes           0.1 ms  20.3 ms
+   commandes      GET /commandes         1.0 ms  19.0 ms
+   commandes        SELECT commandes     1.0 ms   5.1 ms
+   commandes        GET /stock           6.2 ms   4.6 ms
+   stock              GET /stock         6.9 ms   3.2 ms
+   commandes        GET /paiement       10.8 ms   9.1 ms
+   paiement           GET /paiement     11.5 ms   8.2 ms
+```
+
+L’autre passe a donné un arbre identique, de 19,7 ms au total. L’identifiant de trace est le même aux trois sauts ; l’identifiant de parent change à chaque appel, parce que c’est celui du span client qui a fait cet appel. Les indicateurs valent 03, le bit 01 (trace échantillonnée) et le bit 02, que le niveau 2 de la norme, encore à l’état de projet, réserve aux identifiants de trace tirés au hasard[^w3c2] ; le SDK Python le positionne déjà.
+
+### Trouver la cause d’une lenteur
+
+La deuxième partie fait attendre au service de stock un verrou de 250 ms dans 5 % des cas, envoie 400 requêtes, puis demande à Jaeger les traces de plus de 200 ms. Pour chacune, le script calcule le temps propre de chaque service, c’est-à-dire la durée de ses spans moins celle de leurs enfants.
+
+```text
+2. stock attend un verrou dans 5 % des cas ; 400 requêtes
+   latence vue du client : p50 20 ms, p95 32 ms, p99 271 ms
+   traces de plus de 200 ms dans Jaeger : 19
+   service au plus grand temps propre : stock 19
+   spans de plus de 200 ms dans ces traces : « attente du verrou » 19
+```
+
+L’autre passe a donné 20 traces lentes, toutes imputées au stock, et un p99 de 272 ms. Les percentiles, qu’une métrique aurait donnés, disent qu’une requête sur vingt environ est lente ; ils ne disent pas laquelle, ni pourquoi. Les traces répondent aux deux. Toutes les traces lentes ont leur plus grand temps propre dans stock, et contiennent un span interne de plus de 200 ms, « attente du verrou », avec l’attribut qui désigne l’article verrouillé. La recherche par durée minimale est ce qu’on fait en pratique, à partir d’un p99 qui monte sur un tableau de bord.
+
+### Ce que coûte le traçage
+
+La troisième partie envoie 3 000 requêtes, seize à la fois, avec quatre configurations. Dans la première, le code appelle l’API d’OpenTelemetry sans SDK installé, si bien que chaque appel ne fait rien. Dans les trois autres, le SDK est installé, avec une décision prise à la racine de garder 0 %, 1 % ou 100 % des traces, et suivie par tous les services. Le temps CPU est celui des quatre processus de services, divisé par le nombre de requêtes.
+
+```text
+3. coût du traçage : 3 000 requêtes, 16 en parallèle
+   configuration               req/s     p50  CPU/requête  traces
+   API seule, sans SDK           801 19.7 ms       977 µs       -
+   SDK, échantillon 0 %          799 19.7 ms      1057 µs       0
+   SDK, échantillon 1 %          779 20.2 ms      1210 µs      28
+   SDK, échantillon 100 %        733 20.4 ms      1393 µs   3 000
+```
+
+L’autre passe a donné 767, 870, 880 et 1 113 µs de CPU par requête, et des débits de 826, 819, 823 et 766 requêtes par seconde. D’une passe à l’autre, le temps CPU de base varie de 25 % ; le rapport entre les configurations, lui, est stable. Tout tracer coûte 43 à 45 % de CPU en plus, soit 346 à 416 µs pour 8 spans, ou 43 à 52 µs par span dans ce SDK écrit en Python, et fait perdre 7 à 8,5 % de débit. Échantillonner 0 % des traces ne ramène pas au coût de l’API seule (80 à 103 µs de plus par requête), car les spans sont tout de même créés, comme objets qui n’enregistrent rien, et le contexte est propagé. À 1 %, on garde 24 à 28 traces sur 3 000, assez pour voir la forme des requêtes d’un service à fort trafic. Dapper, écrit en C++, mesurait 176 à 204 ns pour créer et détruire un span, et notait que l’effet sur la latence d’un service de recherche tombait dans l’erreur de mesure au-dessous d’une trace sur 16 ; un taux d’une trace sur 1 024 restait suffisant pour les services à fort trafic[^dapper].
+
+### Échantillonner de façon cohérente
+
+OpenTelemetry distingue l’échantillonnage en tête (head sampling), qui décide le plus tôt possible, à la création du span racine, et l’échantillonnage en queue (tail sampling), qui décide après avoir vu tous les spans ou presque de la trace[^otel-sampling]. Le premier est simple et peu coûteux, mais décide avant de savoir si la requête sera lente ou en erreur ; le second peut garder toutes les traces lentes ou en erreur, mais la même documentation note qu’il est difficile à mettre en œuvre et à exploiter, parce qu’il faut des systèmes à état capables de recevoir et de garder une grande quantité de données en attendant la décision. Dans les deux cas, la décision doit porter sur la trace entière. La quatrième partie de `traces.py` compare une décision prise à la racine et transmise par le bit *sampled* de `traceparent` (l’échantillonneur `ParentBased` d’OpenTelemetry), et une décision prise par chaque service pour son compte, au même taux de 10 %.
+
+```text
+4. 2 000 requêtes, 10 % des traces gardées ; 8 spans par requête
+   décision                            traces  complètes   spans
+   à la racine, propagée                  211        211   1 688
+   par chaque service                     705          0   1 722
+```
+
+L’autre passe a donné 219 traces complètes sur 219, puis 697 fragments et aucune trace complète. Avec la décision propagée, une requête sur dix environ est gardée en entier, avec ses 8 spans. Avec des décisions indépendantes, les services gardent à peu près autant de spans au total, mais pas les mêmes requêtes ; on obtient 697 à 705 fragments, dont aucun ne contient la requête entière, car la probabilité que les quatre services gardent la même vaut $0{,}1^4$, une sur dix mille. Dapper appliquait la même idée à sa seconde étape d’échantillonnage, à la collecte, où chaque span est gardé ou jeté selon un hachage de l’identifiant de trace, si bien que les traces sont gardées ou jetées en entier[^dapper].
+
+### Une propagation oubliée
+
+La cinquième partie modifie un seul appel, celui de commandes vers paiement, qui n’injecte plus l’en-tête `traceparent`.
+
+```text
+5. commandes appelle paiement sans injecter traceparent : une requête
+   trace ba41e367… : 7 spans, services passerelle, commandes, stock
+   trace 2446feb9… : 1 span, services paiement
+```
+
+Les deux passes ont donné le même résultat. Sans en-tête, paiement ne sait pas qu’il travaille pour une requête déjà tracée, et ouvre une nouvelle trace, d’un seul span. Dans Jaeger, la requête paraît passer 9 ms dans un appel sortant de commandes sans que rien ne se passe ailleurs, et le span de paiement apparaît seul, sans parent. Chaque saut doit transmettre le contexte, y compris ceux qu’on oublie : une bibliothèque HTTP non instrumentée, un appel à travers un proxy qui filtre les en-têtes, un message posé dans une file, où le contexte doit voyager dans les en-têtes du message.
+
+## Alerter sur les symptômes
+
+Une alerte qui réveille quelqu’un doit correspondre à un problème que subissent les utilisateurs et qui demande une action ; ce sont les symptômes, mesurés par les signaux d’or ou par la méthode RED, et non les causes possibles (un processeur à 90 %, une instance redémarrée), qui n’ont souvent aucun effet visible[^sre-monitoring]. Le SLO du [ch. 11](../partie-1/disponibilite.mdx) donne un critère, puisqu’un problème est grave s’il menace le budget d’erreur.
+
+Le chapitre « Alerting on SLOs » du *Site Reliability Workbook* compare six façons d’alerter sur un SLO, selon quatre critères : la précision (part des alertes qui correspondent à un vrai problème), le rappel (part des vrais problèmes qui déclenchent une alerte), le délai de détection et le délai de réarmement après la fin du problème[^sre-alerting]. La première, une alerte quand le taux d’erreur sur 10 minutes dépasse le seuil du SLO, détecte vite mais a une précision médiocre ; le chapitre calcule qu’elle peut déclencher 144 alertes par jour sans que le SLO soit jamais manqué. La dernière, recommandée, repose sur la vitesse de consommation du budget (burn rate), définie comme la vitesse à laquelle le service consomme son budget d’erreur, relativement au SLO :
+
+$$
+\text{vitesse de consommation} = \frac{\text{taux d’erreur sur la fenêtre}}{1 - \text{SLO}}.
+$$
+
+À vitesse 1, le budget est épuisé exactement à la fin de la période du SLO ; à vitesse 14,4, une heure consomme $14{,}4 / 720 = 2\,\%$ d’un budget de 30 jours. Le workbook recommande, pour un SLO de 99,9 %, une page quand la vitesse dépasse 14,4 sur 1 heure (2 % du budget consommés) ou 6 sur 6 heures (5 %), et un ticket quand elle dépasse 1 sur 3 jours (10 %). Chaque condition est doublée d’une fenêtre courte, d’un douzième de la longue (5 minutes, 30 minutes, 6 heures), qui doit dépasser le même seuil ; elle fait cesser l’alerte peu après la fin du problème, au lieu d’attendre que l’heure entière soit passée[^sre-alerting].
+
+`alertes.py` simule, minute par minute, trente jours d’un service à 1 000 requêtes par seconde en moyenne, avec un cycle jour-nuit, un bruit de fond de 0,005 % d’erreurs, des bouffées de 1 à 3 minutes à 0,5 à 2 % d’erreurs (quatre par jour en moyenne, comme un redémarrage d’instance ou un déploiement), et quatre incidents placés à des heures tirées au hasard. Chaque passe utilise une graine différente.
+
+```text
+1. 30 jours, 2 592 millions de requêtes, SLO 99,9 %,
+   budget de 2 592 022 erreurs (graine 51)
+   source                                    erreurs  part du budget
+   A, panne totale, 10 min                   466 496          18.0 %
+   B, 5 % pendant 1 h                         87 652           3.4 %
+   C, 1 % pendant 6 h                        242 820           9.4 %
+   D, 0,3 % pendant 3 jours                  776 268          29.9 %
+   bruit de fond et 120 bouffées             276 760          10.7 %
+   total                                   1 849 996          71.4 %
+```
+
+L’autre passe (graine 50) a donné 12,5 %, 6,8 %, 4,2 %, 30,0 % et 10,4 %, pour un total de 63,9 %. Le poids d’un incident court dépend de l’heure où il tombe. Selon la passe, la même panne de 10 minutes consomme 12,5 % ou 18,0 % du budget du mois, parce que le trafic varie de 0,4 à 1,6 fois la moyenne au fil de la journée et que le budget se compte en requêtes, pas en minutes. Le mois reste dans le SLO dans les deux passes, mais l’incident D, le plus discret (0,3 % d’erreurs), est aussi celui qui consomme le plus.
+
+```text
+2. délai de détection de chaque incident, réarmement médian après la fin
+   règle                 alertes fausses      A      B      C      D réarm.
+   seuil 0,1 % sur 10 min     98      93  0 min  0 min  0 min  3 min  8 min
+   seuil 1 % sur 5 min        30       9  0 min  0 min  4 min      -  3 min
+   conso. ≥ 14,4 sur 1 h       2       0  0 min 16 min      -      - 58 min
+   multifenêtre, pages         3       0  0 min 16 min  3.8 h      - 25 min
+   multifenêtre, tickets       3       0  4 min      -  5.6 h 19.5 h  5.6 h
+```
+
+L’autre passe a donné 96 alertes dont 91 fausses pour le premier seuil, 24 dont 6 fausses pour le second, les mêmes délais pour les pages (C détecté après 3,8 h), et un ticket pour D après 22,3 h, sans ticket pour C. Le seuil réglé sur le SLO détecte tout, et vite (D en 3 minutes) ; mais 91 à 93 de ses 96 à 98 alertes répondent à des bouffées de quelques minutes qui ne menacent pas le budget, soit trois réveils par jour pour rien. Un seuil plus haut (1 % sur 5 minutes) réduit le bruit sans le supprimer (6 à 9 fausses alertes), et ne voit plus du tout l’incident D. La vitesse de consommation sur une seule fenêtre d’une heure n’a aucune fausse alerte, mais rate C, qui consomme à vitesse 10, sous le seuil de 14,4, et reste en alerte 58 minutes après la fin des incidents, le temps que l’heure de mauvaises minutes sorte de la fenêtre. La règle multifenêtre déclenche 3 pages, une par incident grave, sans aucune fausse alerte. La panne totale est vue dès la première minute, B au bout de 16 minutes, C au bout de 3,8 heures par la règle des 6 heures ; D, trop lent pour une page, déclenche un ticket au bout de 19,5 à 22,3 heures, avec encore deux jours devant soi. Le réarmement médian de 25 minutes vient de la règle des 6 heures, dont la fenêtre courte de 30 minutes reste au-dessus du seuil après une panne totale ; la paire 1 heure et 5 minutes se réarme en 5 minutes environ (figure 50.4).
+
+<Figure svg={alertes} num="50.4" alt="Courbe du budget d’erreur consommé sur 30 jours, en pourcentage, avec quatre bandes rouges pour les incidents. La courbe monte doucement avec le bruit de fond, saute de 2 à 20 % au jour 4 (panne totale A), monte un peu au jour 9 (B), saute à 36 % au jour 15,6 (C), puis monte de 38 à 68 % pendant les trois jours de l’incident D, à partir du jour 20, et finit à 71 %, sous la ligne des 100 % au-delà de laquelle le SLO est manqué. En dessous, trois rangées d’alertes. Le seuil de 0,1 % sur 10 minutes : 98 traits répartis sur tout le mois, et une longue barre pendant D. Les pages de la règle multifenêtre : 3 traits, aux incidents A, B et C. Les tickets : 3 barres, à A, à C et pendant D.">
+Budget d’erreur consommé en trente jours simulés, et alertes de trois règles (graine 51).
+</Figure>
+
+Chaque saut de la courbe correspond à un incident, et la pente pendant D montre un problème lent qui consomme autant qu’une panne totale. La rangée orange montre ce qu’est la vie avec un seuil sur le SLO ; les deux rangées du bas ne s’allument qu’aux incidents.
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Journal en texte libre | lisible par un humain | requêtes fragiles, cassées par un changement de format | 123 octets par ligne ; 281 erreurs trouvées sur 639 après un champ ajouté | sortie de mise au point locale |
+| Journal structuré (JSON) | champs nommés, requêtes stables, corrélation par trace_id | 89 % d’octets en plus avant compression, 25 à 28 % de CPU d’écriture en plus | 233 octets, 31 Mo compressés contre 30 ; 639 sur 639 | par défaut |
+| Métriques | coût indépendant du trafic, agrégation, tendances | aucun détail par requête ; coût proportionnel aux séries | 130 à 360 ns par mise à jour | signaux d’or, RED, USE, SLI |
+| Histogramme à seaux par défaut | rien à régler | quantiles approchés, seuils hors bornes estimés | p99 surestimé de 11 à 12 % | jamais pour un SLI |
+| Histogramme avec une borne au seuil du SLO | SLI exact (rapport de deux compteurs), quantiles à 1 % près | choisir les bornes à l’avance | 0 à 1 % d’erreur sur le p99, 16 séries | SLO de latence |
+| Étiquette à forte cardinalité | détail par client dans les métriques | séries, mémoire, collecte et requêtes proportionnelles au nombre de valeurs | 325 742 séries, 941 à 974 Mo, requête de 360 à 373 ms | jamais ; mettre ce détail dans les journaux et les traces |
+| Traces à 100 % | chaque requête explicable | CPU, réseau, stockage proportionnels au trafic | 43 à 45 % de CPU en plus, 7 à 8,5 % de débit en moins | faible trafic, mise au point |
+| Traces échantillonnées en tête, décision propagée | traces complètes, coût réduit | requêtes rares (lentes, en erreur) souvent perdues | 1 % : 24 à 28 traces sur 3 000, toutes complètes | par défaut à fort trafic |
+| Échantillonnage indépendant par service | aucun | traces en fragments | 0 trace complète sur 697 à 705 | jamais |
+| Échantillonnage en queue | garde les traces lentes ou en erreur | collecteur à état, mémoire tampon | non mesuré | quand on a besoin des cas rares |
+| Alerte sur un seuil de taux d’erreur | simple, détection immédiate | précision médiocre | 96 à 98 alertes, dont 91 à 93 fausses | jamais pour une page |
+| Alerte multifenêtre sur la vitesse de consommation | précision et rappel, réarmement rapide | règles à écrire et à comprendre | 3 pages, aucune fausse ; panne totale vue en moins d’une minute | pages et tickets sur SLO |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : ce que coûtent les journaux d’un service]
+Hypothèses : 5 000 requêtes par seconde ; une ligne JSON de 233 octets par requête (mesuré) ; un facteur de compression de 7,5 (233 Mo réduits à 31 Mo par gzip, mesuré) ; ingestion facturée 0,50 \$ par Go au-delà des 5 premiers Go (Amazon CloudWatch Logs, us-east-1)[^cloudwatch].
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Lignes par jour | 5 000 × 86 400 | 432 millions |
+| Volume brut par jour | 432 × 10⁶ × 233 octets | 101 Go |
+| Volume brut par mois | 101 Go × 30 | 3,0 To |
+| Ingestion par mois | 3 000 Go × 0,50 \$ | 1 500 \$ |
+| Stockage compressé par mois | 3,0 To / 7,5 | 400 Go |
+| En gardant toutes les erreurs (2 %) et 1 % des succès | 432 × 10⁶ × (0,02 + 0,98 × 0,01) | 12,9 millions de lignes par jour, 3 % du volume |
+
+Conclusion : une ligne par requête coûte, à 5 000 requêtes par seconde, de l’ordre de 1 500 \$ d’ingestion par mois pour un seul service ; échantillonner les succès et garder toutes les erreurs divise ce coût par plus de trente sans perdre les événements qu’on cherche.
+:::
+
+:::calcul[Calcul : le nombre de séries d’une métrique]
+Hypothèses : un histogramme de durée de requête à 10 seaux, soit 13 séries par combinaison d’étiquettes (10 bornes, +Inf, somme, compte) ; étiquettes route (20 valeurs), méthode (4), classe de statut (5) et instance (50) ; 2,7 Ko par série dans Prometheus (mesuré) ; métriques personnalisées facturées 0,30 \$ par mois pour les 10 000 premières, 0,10 \$ jusqu’à 250 000, 0,05 \$ au-delà (Amazon CloudWatch)[^cloudwatch].
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Combinaisons d’étiquettes | 20 × 4 × 5 × 50 | 20 000 |
+| Séries | 20 000 × 13 | 260 000 |
+| Mémoire dans Prometheus | 260 000 × 2,7 Ko | 702 Mo |
+| Prix en métriques personnalisées | 10 000 × 0,30 + 240 000 × 0,10 + 10 000 × 0,05 | 27 500 \$ par mois |
+| En ajoutant un identifiant de client (100 000 valeurs) | 260 000 × 100 000 | 26 milliards de séries |
+
+Conclusion : une seule métrique à quatre étiquettes ordinaires tient dans un Prometheus, mais coûte déjà cher dans un service facturé à la série ; une étiquette de plus aux valeurs non bornées la rend impossible à stocker.
+:::
+
+:::calcul[Calcul : la vitesse de consommation qui justifie une page]
+Hypothèses : SLO de 99,9 % sur 30 jours, soit 720 heures et un budget de 0,1 % des requêtes ; seuils du workbook (14,4 sur 1 h, 6 sur 6 h, 1 sur 3 jours)[^sre-alerting].
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Taux d’erreur à vitesse 14,4 | 14,4 × 0,1 % | 1,44 % |
+| Budget consommé en 1 h à vitesse 14,4 | 14,4 × 1 / 720 | 2 % |
+| Budget consommé en 6 h à vitesse 6 | 6 × 6 / 720 | 5 % |
+| Budget consommé en 3 jours à vitesse 1 | 1 × 72 / 720 | 10 % |
+| Temps avant épuisement à vitesse 14,4 | 720 h / 14,4 | 50 h |
+| Délai de détection d’une panne totale (vitesse 1 000) sur 1 h | 60 min × 14,4 / 1 000 | 52 s |
+
+Conclusion : à 1,44 % d’erreurs, le budget du mois est épuisé en un peu plus de deux jours, ce qui justifie de réveiller quelqu’un ; une panne totale franchit le seuil en moins d’une minute, comme dans la simulation.
+:::
+
+## Exemple réel
+
+**Dapper, le traçage chez Google.** Benjamin Sigelman et sept coauteurs ont décrit en 2010 Dapper, le système de traçage distribué de Google, en production depuis plus de deux ans au moment de la publication[^dapper]. Son modèle (traces, spans, identifiants de parent, annotations) est celui qu’ont repris les systèmes de traçage ouverts, puis OpenTelemetry. Les chiffres de l’article montrent la place de l’échantillonnage. Sur une machine x86 à 2,2 GHz, créer et détruire un span racine coûte 204 ns, un span ordinaire 176 ns ; une annotation coûte 9 ns quand la trace n’est pas échantillonnée, 40 ns quand elle l’est. Sur un cluster de recherche web, tout tracer augmente la latence moyenne de 16,3 % et réduit le débit de 1,48 % ; une trace sur 16 n’a plus d’effet mesurable au-delà de l’erreur expérimentale, et la première version de production gardait une trace sur 1 024, ce qui suffisait pour les services à fort trafic. Le démon de collecte n’utilise jamais plus de 0,3 % d’un cœur, chaque span stocké pèse 426 octets en moyenne, et la collecte représente moins de 0,01 % du trafic réseau de production. Même échantillonnés, les clusters de production produisaient plus d’un téraoctet de traces par jour, que les utilisateurs voulaient garder au moins deux semaines ; Dapper ajoutait donc une seconde étape d’échantillonnage à la collecte, en hachant l’identifiant de trace pour garder ou jeter chaque trace en entier.
+
+## Erreurs fréquentes
+
+Alerter sur les causes plutôt que sur les symptômes. Un processeur à 90 % ou une instance redémarrée ne gênent souvent personne ; les pages doivent suivre le taux d’erreur et la latence vus des clients.
+
+Moyenner des percentiles. La moyenne des p99 de deux instances valait 356 à 358 ms pour un p99 réel de 422 à 427 ms ; on additionne les seaux d’histogrammes, puis on calcule le quantile.
+
+Garder les seaux par défaut d’un histogramme. Le p99 estimé était faux de 11 à 12 %, et la part des requêtes sous 300 ms fausse de 0,7 point ; une borne au seuil du SLO rend le SLI exact.
+
+Mettre un identifiant d’utilisateur, de requête ou de session en étiquette de métrique. 5 000 valeurs ont donné 325 742 séries et près de 1 Go de mémoire.
+
+Écrire des journaux en texte libre qu’on interroge par expressions régulières. Un champ ajouté au milieu du message a fait perdre, sans erreur, plus de la moitié des résultats.
+
+Construire les messages de journal avant de savoir s’ils seront écrits. Une f-chaîne dans un `log.debug` désactivé coûte quinze fois plus que le passage des arguments.
+
+Laisser chaque service décider seul de garder une trace. Sur 697 à 705 fragments, aucune trace n’était complète.
+
+Oublier un saut dans la propagation du contexte. Une file, un proxy ou une bibliothèque non instrumentée coupe la trace en deux.
+
+Régler une alerte sur le seuil du SLO à court terme. 96 à 98 alertes en un mois, dont plus de neuf sur dix sans incident.
+
+Alerter sur une seule fenêtre longue. L’alerte reste active près d’une heure après la fin de l’incident, et les incidents plus lents passent sous le seuil.
+
+:::piege[Erreur fréquente : « on ajoute l’identifiant du client en étiquette, ce sera pratique pour le support »]
+Une étiquette de métrique n’est pas un champ d’enregistrement ; chacune de ses valeurs crée des séries, et le nombre de séries est le produit des nombres de valeurs de toutes les étiquettes. Avec 5 000 clients sur un histogramme de cinq routes, Prometheus est passé de 807 à 325 742 séries, de 100 Mo à près de 1 Go, et la requête du p99 par route de 1 ms à plus d’un tiers de seconde ; avec des millions de clients, il ne tiendrait plus. Le besoin du support est légitime, mais il relève des journaux et des traces, dont le coût suit le nombre d’événements et pas le nombre de valeurs distinctes : une requête sur le champ `client` d’un journal structuré a retrouvé les 639 erreurs du client 4217 en 0,09 s.
+:::
+
+:::entretien
+Pour l’observabilité d’un système, commencez par les SLO et les signaux qui les mesurent : taux d’erreur et latence vus des clients (signaux d’or, RED par service), saturation des ressources (USE). Décrivez les trois signaux et leur usage : métriques à faible cardinalité pour les tableaux de bord et les alertes, avec des histogrammes dont une borne tombe sur le seuil du SLO ; journaux structurés avec l’identifiant de trace pour le détail par requête ou par client ; traces distribuées avec propagation W3C Trace Context et échantillonnage en tête cohérent, éventuellement complété par un échantillonnage en queue pour garder les requêtes lentes et en erreur. Proposez des alertes multifenêtres sur la vitesse de consommation du budget (pages à 14,4 sur 1 heure et 6 sur 6 heures, tickets à 1 sur 3 jours pour un SLO de 99,9 %). Chiffrez le volume de journaux, le nombre de séries et le coût des traces au trafic annoncé.
+:::
+
+## Exercices
+
+**Question 1.** Un histogramme de latence a 12 seaux et trois étiquettes, `route` (30 valeurs), `statut` (code HTTP exact, 15 valeurs observées) et `pod` (80 pods, renouvelés à chaque déploiement, trois fois par jour). Combien de séries actives ? Combien de séries différentes Prometheus voit-il passer en une journée ? Que proposez-vous ?
+
+**Question 2.** Un histogramme a des seaux de bornes 100, 200, 400 et 800 ms. Sur une fenêtre, les compteurs cumulés valent 9 200, 9 700, 9 930 et 9 990 pour 10 000 requêtes. Quel p99 donne `histogram_quantile` ? Entre quelles valeurs le vrai p99 se trouve-t-il ? Quelle part des requêtes respecte un SLO de 300 ms, et que peut-on en dire ?
+
+**Question 3.** Un service a un SLO de disponibilité de 99,95 % sur 30 jours. Depuis 70 minutes, 0,8 % des requêtes échouent, et depuis 5 minutes encore 0,8 %. Calculez la vitesse de consommation. Les règles du workbook déclenchent-elles une page ? Quelle part du budget a été consommée ?
+
+**Exercice de conception.** Une boutique en ligne de 30 microservices sert 20 000 requêtes par seconde en pointe ; une page de commande traverse en moyenne 12 services. L’équipe d’astreinte reçoit quarante alertes par semaine, dont la plupart se résolvent seules, et met plusieurs heures à trouver le service fautif lors des vrais incidents. Proposez un dispositif d’observabilité : SLO et SLI, métriques et cardinalité, journaux, traces et échantillonnage, alertes ; chiffrez le volume de journaux et de traces et le coût CPU du traçage.
+
+## Corrigés
+
+**Question 1.** Séries actives : $30 \times 15 \times 80 \times (12 + 2) = 504\,000$. Chaque déploiement remplace les 80 pods par 80 nouveaux noms, donc les séries des anciens pods cessent d’être alimentées et de nouvelles apparaissent ; en une journée, Prometheus voit passer quatre générations de pods, soit environ 2 millions de séries différentes, qu’il garde en mémoire jusqu’à leur expiration. Propositions : remplacer le code exact par la classe de statut (2xx, 4xx, 5xx, soit 3 valeurs au lieu de 15), retirer l’étiquette `pod` des métriques de latence agrégées (ou l’agréger par service avant de stocker, par une règle d’enregistrement) ; on tombe à $30 \times 3 \times 14 = 1\,260$ séries par service, et le détail par pod reste dans les traces et les journaux.
+
+**Question 2.** Le rang du p99 est $0{,}99 \times 10\,000 = 9\,900$. Il tombe dans le seau de 200 à 400 ms (9 700 à 9 930). Interpolation : $200 + 200 \times (9\,900 - 9\,700) / (9\,930 - 9\,700) = 200 + 200 \times 200 / 230 \approx 374$ ms. Le vrai p99 est seulement garanti entre 200 et 400 ms. La part des requêtes sous 300 ms n’est pas connue, puisque 300 n’est pas une borne ; elle est comprise entre 97 % (sous 200 ms) et 99,3 % (sous 400 ms), et l’interpolation donne 98,15 %. On ne peut donc pas dire si un SLO de 99 % sous 300 ms est tenu ; il faut ajouter une borne à 300 ms.
+
+**Question 3.** Budget : $1 - 0{,}9995 = 0{,}05\,\%$. Vitesse : $0{,}8 / 0{,}05 = 16$ sur 1 heure et sur 5 minutes. Les deux dépassent 14,4, donc la règle de page des 1 heure et 5 minutes se déclenche. Budget consommé en 70 minutes : $16 \times 70 / (30 \times 24 \times 60) = 16 \times 70 / 43\,200 \approx 2{,}6\,\%$. À cette vitesse, le budget du mois serait épuisé en $720 / 16 = 45$ heures.
+
+**Exercice de conception.**
+
+*SLO et SLI.* Deux ou trois SLO par parcours client (consulter le catalogue, payer), mesurés à l’entrée du système, à la passerelle ou au répartiteur : disponibilité (part des requêtes sans erreur 5xx) et latence (part des requêtes sous un seuil, par exemple 99 % des commandes en moins de 800 ms), sur 30 jours.
+
+*Métriques.* RED pour chaque service, avec un histogramme dont une borne tombe sur chaque seuil de SLO ; étiquettes route, méthode, classe de statut, service ; pas d’étiquette par pod dans les métriques agrégées, ni par client ou par commande. USE pour les ressources (processeur, mémoire, disques, pools de connexions, files). Ordre de grandeur : 30 services, 20 routes, 4 méthodes, 3 classes, 14 séries par histogramme, soit $30 \times 20 \times 4 \times 3 \times 14 \approx 100\,000$ séries.
+
+*Journaux.* JSON avec `trace_id`, noms de champs communs à tous les services ; toutes les erreurs, 1 % des succès. Volume : $20\,000 \times 12$ services $= 240\,000$ lignes par seconde potentielles, soit $240\,000 \times 233 \approx 56$ Mo/s, 4,8 To par jour sans échantillonnage ; en gardant 2 % d’erreurs et 1 % des succès, environ 3 % de ce volume, 145 Go par jour.
+
+*Traces.* Propagation W3C Trace Context dans tous les services, y compris dans les en-têtes des messages de file ; échantillonnage en tête à 1 %, décidé à la passerelle et propagé ; un collecteur à échantillonnage en queue qui garde en plus les traces en erreur ou de plus de 2 s. Volume : 200 traces par seconde de 12 spans, soit 2 400 spans par seconde à 426 octets (chiffre de Dapper), environ 1 Mo/s, 88 Go par jour. Coût CPU : les spans non gardés coûtent encore, de l’ordre de 10 à 13 µs chacun dans le SDK Python mesuré, soit $20\,000 \times 12 \times 12\ \mu\text{s} \approx 2{,}9$ cœurs pour l’ensemble du système, bien moins dans un SDK compilé.
+
+*Alertes.* Remplacer les quarante alertes sur des causes par des alertes multifenêtres sur la vitesse de consommation des SLO : pages à 14,4 sur 1 heure (fenêtre courte 5 minutes) et 6 sur 6 heures (30 minutes), tickets à 1 sur 3 jours (6 heures) ; les alertes sur les causes deviennent des tableaux de bord consultés pendant l’incident. Lors d’une page, le tableau de bord du SLO mène aux traces lentes ou en erreur de la fenêtre, puis au service fautif par le temps propre de chaque service, et de la trace aux journaux par l’identifiant de trace.
+
+:::fiche
+- Surveiller, c’est répondre à « ce qui est cassé, et pourquoi » : symptômes (ce que voient les utilisateurs), puis causes ; boîte noire et boîte blanche (livre SRE de Google, chapitre 6).
+- Signaux d’or : latence (succès et erreurs séparés), trafic, erreurs, saturation ; RED (débit, erreurs, durée) par service ; USE (utilisation, saturation, erreurs) par ressource.
+- Journaux structurés : un événement JSON par ligne, noms de champs stables, `trace_id` ; mesuré, 233 octets contre 123 en texte, 31 Mo contre 30 compressés ; une regex a perdu 358 erreurs sur 639 après un champ ajouté.
+- Métriques : compteur, jauge, histogramme, résumé ; 130 à 360 ns par mise à jour ; coût indépendant du trafic.
+- Les quantiles ne se moyennent pas ; `histogram_quantile` interpole dans le seau : p99 faux de 11 à 12 % avec les seaux par défaut, de 1 % au plus avec des seaux resserrés ; une borne au seuil du SLO rend le SLI exact.
+- Cardinalité : séries = produit des nombres de valeurs des étiquettes × (seaux + 2) ; 5 000 clients en étiquette, 325 742 séries, 941 à 974 Mo, requête de 360 à 373 ms.
+- Traces : arbre de spans (Dapper, 2010), contexte propagé par l’en-tête `traceparent` (W3C, 2021), qui porte la version, le trace-id de 16 octets, le parent-id de 8 octets et les indicateurs.
+- Mesuré : tout tracer coûte 43 à 45 % de CPU et 7 à 8,5 % de débit dans le SDK Python ; décision d’échantillonnage propagée, traces complètes ; décisions indépendantes, 0 trace complète sur 697 à 705.
+- Alertes : vitesse de consommation = taux d’erreur / (1 − SLO) ; pages à 14,4 sur 1 h et 6 sur 6 h, ticket à 1 sur 3 jours, fenêtre courte d’un douzième (SRE workbook).
+- Simulé : seuil sur le SLO, 96 à 98 alertes dont 91 à 93 fausses ; multifenêtre, 3 pages sans fausse alerte, panne totale détectée dans la minute.
+:::
+
+[^sre-monitoring]: Rob Ewaschuk, « Monitoring Distributed Systems », dans Betsy Beyer, Chris Jones, Jennifer Petoff et Niall Richard Murphy (dir.), *Site Reliability Engineering*, O’Reilly, 2016, chapitre 6, [sre.google/sre-book/monitoring-distributed-systems](https://sre.google/sre-book/monitoring-distributed-systems/).
+[^sre-alerting]: Steven Thurgood, avec Jess Frame, Anthony Lenton, Carmela Quinito, Anton Tolchanov et Nejc Trdin, « Alerting on SLOs », dans Betsy Beyer, Niall Richard Murphy, David K. Rensin, Kent Kawahara et Stephen Thorne (dir.), *The Site Reliability Workbook*, O’Reilly, 2018, chapitre 5, tableau 5-8, [sre.google/workbook/alerting-on-slos](https://sre.google/workbook/alerting-on-slos/).
+[^red]: Julie Dam, « The RED Method: How to Instrument Your Services », Grafana Labs, 2018, d’après l’exposé de Tom Wilkie, [grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services](https://grafana.com/blog/2018/08/02/the-red-method-how-to-instrument-your-services/).
+[^use]: Brendan Gregg, « The USE Method », consulté le 15 novembre 2026, [brendangregg.com/usemethod.html](https://www.brendangregg.com/usemethod.html) ; la méthode a été publiée dans « Thinking Methodically about Performance », *ACM Queue*, vol. 10, no 12, 2012.
+[^prom-types]: Prometheus, « Metric types », documentation, consultée le 15 novembre 2026, [prometheus.io/docs/concepts/metric_types](https://prometheus.io/docs/concepts/metric_types/).
+[^prom-histo]: Prometheus, « Histograms and summaries », documentation, consultée le 15 novembre 2026, [prometheus.io/docs/practices/histograms](https://prometheus.io/docs/practices/histograms/).
+[^prom-naming]: Prometheus, « Metric and label naming », documentation, consultée le 15 novembre 2026, [prometheus.io/docs/practices/naming](https://prometheus.io/docs/practices/naming/).
+[^dapper]: Benjamin H. Sigelman, Luiz André Barroso, Mike Burrows, Pat Stephenson, Manoj Plakal, Donald Beaver, Saul Jaspan et Chandan Shanbhag, « Dapper, a Large-Scale Distributed Systems Tracing Infrastructure », rapport technique Google dapper-2010-1, avril 2010, sections 2, 4 et 4.5, [research.google/pubs/dapper-a-large-scale-distributed-systems-tracing-infrastructure](https://static.googleusercontent.com/media/research.google.com/en//archive/papers/dapper-2010-1.pdf).
+[^w3c]: W3C, « Trace Context », recommandation du 23 novembre 2021, sections 3.2 et 3.3, [w3.org/TR/trace-context](https://www.w3.org/TR/trace-context/).
+[^w3c2]: W3C, « Trace Context Level 2 », projet de recommandation candidate du 28 mars 2024, section 3.2.2.5, [w3.org/TR/trace-context-2](https://www.w3.org/TR/trace-context-2/).
+[^otel-sampling]: OpenTelemetry, « Sampling », documentation, consultée le 15 novembre 2026, [opentelemetry.io/docs/concepts/sampling](https://opentelemetry.io/docs/concepts/sampling/).
+[^cloudwatch]: AWS, « Amazon CloudWatch Pricing », région US East (N. Virginia), consulté le 15 novembre 2026, [aws.amazon.com/cloudwatch/pricing](https://aws.amazon.com/cloudwatch/pricing/).

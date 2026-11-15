@@ -1,0 +1,33 @@
+% histogram_quantile interpole linéairement dans le seau qui contient le quantile :
+% p99 exact et p99 estimé avec les seaux par défaut ou des seaux autour du SLO
+% (outils/experiences/ch50/metriques.py --figure).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch50-quantile.tex}
+\begin{tikzpicture}[x=0.26mm, y=1200mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \begin{scope}
+  \clip (150,0.95) rectangle (660,1.002);
+  \draw[Dteal, line width=1.4pt] plot coordinates {\cdfexacte};
+  \draw[Dorange, line width=1pt] plot[mark=*, mark size=0.7mm] coordinates {\seauxdefaut};
+  \draw[Dpurple, line width=1pt, dash pattern=on 3pt off 1.5pt] plot[mark=square*, mark size=0.6mm] coordinates {\seauxslo};
+  \end{scope}
+  % axes
+  \draw[ligne] (150,0.95) -- (665,0.95); \draw[ligne] (150,0.95) -- (150,1.003);
+  \foreach \x in {200,300,...,600} {\draw[ligne] (\x,0.95) -- (\x,0.9488); \node[note, below] at (\x,0.9488) {\x};}
+  \foreach \y/\t in {0.95/95, 0.96/96, 0.97/97, 0.98/98, 0.99/99, 1.0/100} {\draw[ligne] (150,\y) -- (145,\y); \node[note, anchor=east] at (145,\y) {\t\,\%};}
+  \node[axe, anchor=north] at (405,0.9455) {latence, ms};
+  \node[axe, anchor=south, rotate=90] at (112,0.975) {part des requêtes plus rapides};
+  % p99
+  \draw[Dred, line width=0.6pt, dash pattern=on 2pt off 2pt] (150,0.99) -- (660,0.99);
+  \draw[Dteal, line width=0.6pt] (\pvrai,0.95) -- (\pvrai,0.99);
+  \draw[Dorange, line width=0.6pt] (\pdefaut,0.95) -- (\pdefaut,0.99);
+  \node[lab=Dteal, anchor=south east, align=right] at (\pvrai-4,0.952) {p99 exact\\\pvrai\,ms};
+  \node[lab=Dorange, anchor=south west] at (\pdefaut+4,0.952) {p99 estimé avec les\\seaux par défaut : \pdefaut\,ms\\(seaux autour du SLO : \pslo\,ms)};
+  % légende
+  \node[lab=Dteal, anchor=west] at (150,0.9395) {trait plein vert : répartition exacte des 400 000 latences des instances a et b};
+  \node[lab=Dorange, anchor=west] at (150,0.9345) {points orange : seaux par défaut (250, 500 ms), reliés par une droite comme dans histogram\_quantile};
+  \node[lab=Dpurple, anchor=west] at (150,0.9295) {tirets violets : seaux autour du SLO (250, 300, 350, 400, 500 ms)};
+\end{tikzpicture}
+\end{document}

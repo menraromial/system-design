@@ -1,0 +1,33 @@
+% Budget d'erreur consommé sur 30 jours et alertes déclenchées par trois règles
+% (outils/experiences/ch50/alertes.py 51 --figure).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch50-budget.tex}
+\begin{tikzpicture}[x=4.4mm, y=0.55mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  % incidents
+  \foreach \n/\d/\f in \incidents {
+    \fill[DredBg] (\d,0) rectangle ({max(\f,\d+0.12)},100);
+    \node[lab=Dred, font=\sffamily\small\bfseries, anchor=south] at ({(\d+max(\f,\d+0.12))/2},100) {\n};}
+  % axes
+  \draw[ligne] (0,0) -- (30.5,0); \draw[ligne] (0,0) -- (0,104);
+  \foreach \j in {0,5,...,30} {\draw[ligne] (\j,0) -- (\j,-1.5); \node[note, below] at (\j,-1.5) {\j};}
+  \foreach \p in {0,25,50,75,100} {\draw[ligne] (0,\p) -- (-0.25,\p); \node[note, anchor=east] at (-0.25,\p) {\p\,\%};}
+  \node[axe, anchor=south, rotate=90] at (-3,50) {budget d’erreur consommé};
+  \draw[Dslate, dash pattern=on 3pt off 2pt, line width=0.6pt] (0,100) -- (30,100);
+  \node[lab=Dslate, anchor=north east] at (30,98.5) {au-delà : budget du mois épuisé, SLO de 99,9 \% manqué};
+  \draw[Dblue, line width=1.2pt] plot coordinates {\courbebudget};
+  % rangées d'alertes
+  \def\rangee#1#2#3#4{%
+    \node[lab=#3, anchor=west] at (0,#1+5) {#4};
+    \draw[Dcloud, line width=0.4pt] (0,#1) -- (30,#1);
+    \foreach \d/\f in #2 {\fill[#3] (\d,#1-2.4) rectangle ({max(\f,\d+0.08)},#1+2.4);}}
+  \node[axe, anchor=north] at (15,-7) {jours};
+  \rangee{-26}{\alertesseuil}{Dorange}{seuil : taux d’erreur ≥ 0,1 \% sur 10 min, \nombreseuil{} alertes}
+  \rangee{-42}{\alertespages}{Dred}{pages, vitesse de consommation sur deux fenêtres : \nombrepages{} alertes}
+  \rangee{-58}{\alertestickets}{Dpurple}{tickets, consommation ≥ 1 sur 3 jours et 6 h : \nombretickets{} alertes}
+  \node[lab=Dslate, anchor=north west, align=left] at (0,-64) {A : panne totale de 10 min ; B : 5 \% d’erreurs pendant 1 h ;
+    C : 1 \% pendant 6 h ; D : 0,3 \% pendant 3 jours ;\\le reste du budget part en bruit de fond et en 120 bouffées de 1 à 3 min.};
+\end{tikzpicture}
+\end{document}

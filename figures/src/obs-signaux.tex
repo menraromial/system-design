@@ -1,0 +1,28 @@
+% Les trois signaux qu'une même requête laisse derrière elle, ce que chacun coûte
+% et la question à laquelle il répond.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    sig/.style={draw=#1, fill=#1Bg, line width=0.7pt, rounded corners=2pt, align=left,
+      font=\ttfamily\scriptsize, inner sep=2.5pt, minimum height=13mm, text width=70mm},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \node[soft=Dslate, minimum width=26mm, minimum height=50mm] (svc) at (0,0) {commandes\\[2pt]{\small code}\\{\small instrumenté}};
+  \node[lab, anchor=east, align=right] (req) at (-20,0) {GET /panier\\[1pt]{\ttfamily\scriptsize traceparent:}\\{\ttfamily\scriptsize 00-\textcolor{Dred}{4bf92f35…}-…}};
+  \draw[arr=Dslate] (req.east) -- (svc.west);
+  % journal
+  \node[sig=Dteal, anchor=west] (j) at (22,22) {\{"niveau": "ERROR", "http.route": "/panier",\\ \ "http.status": 503, "client": 4217,\\ \ "trace\_id": "\textcolor{Dred}{4bf92f35…}", "duree\_ms": 18.4\}};
+  \node[sig=Damber, anchor=west] (m) at (22,0) {req\_duree\_seconds\_bucket\{route="/panier",\\ \ le="0.05"\} 18342 \ \ (+1 à chaque requête)\\req\_duree\_seconds\_count\{route="/panier"\} 19007};
+  \node[sig=Dpurple, anchor=west] (t) at (22,-22) {span \{trace\_id: \textcolor{Dred}{4bf92f35…}, span\_id: 00f067aa…,\\ \ parent\_id: 53995c3f…, nom: "GET /panier",\\ \ début: 12:04:07.512, durée: 18,4 ms\}};
+  \foreach \n in {j,m,t} {\draw[arr=Dslate] (svc.east |- \n.west) -- (\n.west);}
+  % destinations
+  \node[pillo=Dteal, anchor=west] (bj) at (100,22) {journaux};
+  \node[pillo=Damber, anchor=west] (bm) at (100,0) {métriques};
+  \node[pillo=Dpurple, anchor=west] (bt) at (100,-22) {traces};
+  \foreach \a/\b in {j/bj, m/bm, t/bt} {\draw[arr=Dslate] (\a.east) -- (\b.west);}
+  \node[lab=Dteal, anchor=west] at (122,22) {que s’est-il passé pour le client 4217 ?\\coût : une ligne par événement (123 à 233 octets)};
+  \node[lab=Damber, anchor=west] at (122,0) {combien, quel taux d’erreur, quel p99 ?\\coût : une série par combinaison d’étiquettes,\\quel que soit le trafic};
+  \node[lab=Dpurple, anchor=west] at (122,-22) {où le temps de cette requête est-il passé ?\\coût : 8 spans par requête gardée,\\réduit par l’échantillonnage};
+  \node[lab=Dred, anchor=north west] at (22,-33) {le même trace\_id relie la ligne de journal à la trace : on passe de l’un à l’autre sans chercher};
+\end{tikzpicture}
+\end{document}

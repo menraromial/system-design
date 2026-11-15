@@ -1,0 +1,46 @@
+% Une trace réelle relue dans Jaeger 2 (outils/experiences/ch50/traces.py --figure),
+% et l'en-tête traceparent qui la porte d'un service à l'autre.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch50-trace.tex}
+\begin{tikzpicture}[x=6.2mm, y=1mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \colorlet{c-passerelle}{Dblue}\colorlet{c-commandes}{Dteal}\colorlet{c-stock}{Damber}\colorlet{c-paiement}{Dpurple}
+  \colorlet{c-passerelle-bg}{DblueBg}\colorlet{c-commandes-bg}{DtealBg}\colorlet{c-stock-bg}{DamberBg}\colorlet{c-paiement-bg}{DpurpleBg}
+  \def\kclient{client}
+  \newcounter{rang}
+  \newcommand{\spantrace}[6]{%
+    \stepcounter{rang}%
+    \pgfmathsetmacro{\yy}{-9*\value{rang}}%
+    \def\cc{c-#1}\def\kk{#6}%
+    \node[lab=\cc, anchor=west, font=\sffamily\small\bfseries] at (-13.5,\yy) {#1};
+    \node[lab, anchor=west, font=\ttfamily\small] at ({-9.6+0.45*#3},\yy) {#2};
+    \ifx\kk\kclient
+      \draw[draw=\cc, fill=white, line width=0.8pt, dash pattern=on 2pt off 1pt] (#4,\yy-2.6) rectangle ++(#5,5.2);
+    \else
+      \draw[draw=\cc, fill=\cc-bg, line width=0.8pt] (#4,\yy-2.6) rectangle ++(#5,5.2);
+    \fi
+    \pgfmathsetmacro{\fin}{#4+#5}%
+    \node[note, anchor=west, font=\sffamily\scriptsize] at (\fin,\yy) {\pgfmathprintnumber[fixed, fixed zerofill, precision=1, use comma, assume math mode=true]{#5} ms};
+  }
+  % axe
+  \draw[ligne] (0,-4) -- (22,-4);
+  \foreach \t in {0,5,10,15,20} {\draw[ligne] (\t,-4) -- (\t,-3); \node[note, above] at (\t,-3) {\t\,ms};}
+  \foreach \t in {0,5,10,15,20} {\draw[Dcloud, line width=0.3pt, dash pattern=on 1pt off 2pt] (\t,-4) -- (\t,-78);}
+  \traceentiere
+  % légende
+  \draw[draw=Dslate, fill=DslateBg, line width=0.8pt] (-13.4,-89) rectangle ++(0.8,4);
+  \node[lab=Dslate, anchor=west] at (-12.4,-87) {span serveur ou interne : travail fait dans le service};
+  \draw[draw=Dslate, fill=white, line width=0.8pt, dash pattern=on 2pt off 1pt] (2.6,-89) rectangle ++(0.8,4);
+  \node[lab=Dslate, anchor=west] at (3.6,-87) {span client : appel sortant, réseau compris};
+  % traceparent
+  \node[lab, anchor=west, font=\sffamily\small\bfseries] at (-13.5,-102) {en-tête reçu par commandes :};
+  \node[anchor=west, font=\ttfamily\small] (tp) at (-13.5,-110) {traceparent: \textcolor{Dslate}{00}-\textcolor{Dblue}{\tracetid}-\textcolor{Dred}{\traceparentid}-\textcolor{Dgreen}{03}};
+  \node[lab=Dslate, anchor=north west, align=left] at (-13.5,-116) {%
+    \textcolor{Dslate}{\textbf{00}} version ;
+    \textcolor{Dblue}{\textbf{trace-id}} 16 octets, commun à tous les spans de la requête ;\\
+    \textcolor{Dred}{\textbf{parent-id}} 8 octets, le span client de passerelle qui a fait l’appel ;\\
+    \textcolor{Dgreen}{\textbf{03}} indicateurs : 01 échantillonnée, 02 identifiant tiré au hasard (niveau 2)};
+\end{tikzpicture}
+\end{document}

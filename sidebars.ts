@@ -41,6 +41,13 @@ const sidebars: SidebarsConfig = {
       link: {type: 'doc', id: 'partie-4/index'},
       items: ['partie-4/monolithe-microservices', 'partie-4/evenements-cqrs', 'partie-4/serverless', 'partie-4/architecture-cellulaire', 'partie-4/multi-region', 'partie-4/traitement-lots', 'partie-4/traitement-flux', 'partie-4/entrepots-lacs'],
     },
+    {
+      type: 'category',
+      label: 'Partie 5 · Exploitation en production',
+      collapsed: false,
+      link: {type: 'doc', id: 'partie-5/index'},
+      items: ['partie-5/observabilite'],
+    },
   ],
 };
 

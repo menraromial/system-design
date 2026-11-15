@@ -249,7 +249,7 @@ Il ne faut pas non plus supposer que HTTP/3 est toujours disponible. Un réseau 
 En entretien, le piège est de citer les versions sans compter. « HTTP/2 est plus rapide » ne dit rien ; « HTTP/2 évite six ouvertures de connexion et fait passer 60 requêtes en un aller-retour au lieu de dix » est un argument.
 
 :::piege[Erreur fréquente : renvoyer 200 pour une erreur]
-Une API qui répond `200 OK` avec `{"erreur": "introuvable"}` dans le corps trompe tous les intermédiaires. Le CDN met l’erreur en cache, le répartiteur de charge la compte comme un succès, les tableaux de bord de disponibilité ([ch. 11](disponibilite.mdx) et 50) restent au vert, et le client ne peut pas décider s’il doit réessayer. Le code d’état est le seul champ que tout le monde lit.
+Une API qui répond `200 OK` avec `{"erreur": "introuvable"}` dans le corps trompe tous les intermédiaires. Le CDN met l’erreur en cache, le répartiteur de charge la compte comme un succès, les tableaux de bord de disponibilité ([ch. 11](disponibilite.mdx) et [50](../partie-5/observabilite.mdx)) restent au vert, et le client ne peut pas décider s’il doit réessayer. Le code d’état est le seul champ que tout le monde lit.
 :::
 
 :::entretien
