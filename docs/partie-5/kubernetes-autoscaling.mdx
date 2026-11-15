@@ -1,0 +1,460 @@
+---
+title: "Conteneurs, Kubernetes et autoscaling"
+sidebar_label: "51. Conteneurs, Kubernetes et autoscaling"
+description: "Ce que Kubernetes fait à la place du concepteur et ce qu'il lui laisse : pods, Deployments, Services, StatefulSets, requêtes et limites de ressources, quota CFS, arrêts pour manque de mémoire, sondes de démarrage, de vie et de disponibilité, autoscaling horizontal sur le processeur et sur la longueur d'une file (KEDA), autoscaling vertical, ajout de nœuds ; mesures sur un cluster Kubernetes 1.36."
+partie: 5
+chapitre: 51
+---
+
+import objets from '@site/src/figures/k8s-objets.svg';
+import cfs from '@site/src/figures/k8s-cfs.svg';
+import hpa from '@site/src/figures/k8s-hpa.svg';
+import file from '@site/src/figures/k8s-file.svg';
+
+Un service qui passe brusquement de 5 à 80 requêtes par seconde, sous un HorizontalPodAutoscaler réglé comme dans la documentation, attend 18 à 37 s sa première réplique supplémentaire et 66 à 99 s les huit dont il a besoin ; pendant ce temps, 7 à 14 % des requêtes échouent. Si chaque pod met 20 s à s’initialiser, il faut 115 à 139 s, et 20 à 25 % des requêtes échouent. Le même pod, quand on abaisse sa limite de processeur à 200m, met 282 à 290 ms à servir une requête qui demande 50 ms de calcul. Des travailleurs qui attendent un service lent, sans calculer, ne déclenchent jamais un autoscaling sur le processeur, pendant que leur file monte à 3 600 tâches ; mis à l’échelle sur la longueur de la file, ils la vident en une minute, et une tâche attend en médiane 0,2 s au lieu de 97 s. Ces chiffres viennent d’un vrai cluster Kubernetes 1.36. Ce chapitre traite de ce que Kubernetes décide à la place du concepteur (où placer un conteneur, quand le redémarrer, vers qui envoyer le trafic, combien de copies lancer) et des paramètres qui gouvernent ces décisions.
+
+Le [ch. 10](../partie-1/passer-echelle.mdx) a montré qu’on passe à l’échelle en ajoutant des machines, à condition que le service soit sans état, et le [ch. 13](../partie-2/repartition-charge.mdx) comment un répartiteur distribue les requêtes entre elles. Kubernetes automatise les deux. Il lance et remplace les copies, tient à jour la liste de celles qui peuvent recevoir du trafic, et peut en changer le nombre selon la charge. Ce chapitre ne remplace pas un cours de Kubernetes ; la pratique (installation, manifestes, déploiement d’une application complète) fait l’objet du cours [Conteneurs et Kubernetes](https://menraromial.com/container-k8s/). Il retient ce dont le concepteur a besoin pour dimensionner un système et prévoir son comportement.
+
+Quatre scripts ont été écrits pour ce chapitre, dans [`outils/experiences/ch51/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch51). Ils pilotent un cluster kind de trois nœuds (un plan de contrôle, deux nœuds de travail auxquels on n’a laissé que 2 cœurs et 2 Gio allouables chacun, décrit dans [`cluster.yaml`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch51/cluster.yaml)) et une petite application aiohttp ([`appli/appli.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch51/appli/appli.py)) qui calcule pendant une durée donnée, s’initialise en un temps réglable, ou consomme une file Redis. [`ressources.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch51/ressources.py) étudie les requêtes et les limites de ressources, [`sondes.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch51/sondes.py) le démarrage des pods et les sondes, [`autoscaling.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch51/autoscaling.py) l’autoscaling horizontal sur le processeur, [`file.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch51/file.py) l’autoscaling sur la longueur d’une file avec KEDA 2.21. Chacun a été lancé trois fois ; les blocs reproduits sont ceux de la dernière passe, et le texte donne l’écart avec les autres.
+
+## Ce que Kubernetes décide
+
+Un pod est la plus petite unité qu’on peut créer et gérer dans Kubernetes : un ou plusieurs conteneurs qui partagent le réseau et le stockage, avec une spécification de la façon de les exécuter[^k8s-pod]. On ne crée presque jamais de pods à la main. Un Deployment gère un ensemble de pods d’une application, le plus souvent sans état ; on y décrit un état voulu (une image, un nombre de répliques), et son contrôleur fait évoluer l’état réel vers cet état voulu, à un rythme contrôlé, en passant par un ReplicaSet qui maintient le nombre de pods[^k8s-deployment]. Kubernetes repose partout sur ce principe de boucle de contrôle, chaque contrôleur comparant en permanence l’état voulu et l’état observé et agissant pour les rapprocher.
+
+Les pods sont éphémères, et la documentation prévient qu’il ne faut pas compter sur la fiabilité ni la durée de vie d’un pod donné ; d’un instant à l’autre, on ne sait ni combien de pods sont en bonne santé, ni comment ils s’appellent[^k8s-service]. Un Service donne une adresse stable à un groupe de pods désigné par un sélecteur d’étiquettes ; son contrôleur tient à jour la liste des pods qui correspondent (les EndpointSlices), vers lesquels le trafic est réparti[^k8s-service]. Pour les applications à état, un StatefulSet donne à chaque pod un nom stable de la forme `<nom>-<numéro>` (`base-0`, `base-1`), un stockage persistant qui le suit, et un déploiement et une mise à l’échelle ordonnés ; il s’appuie sur un Service sans adresse propre (headless) pour l’identité réseau de chaque pod[^k8s-statefulset]. C’est la forme qu’on donne à une base répliquée ([ch. 24](../partie-2/replication-leader.mdx)) ou à un courtier de messages.
+
+La figure 51.1 résume qui fait quoi.
+
+<Figure svg={objets} num="51.1" alt="À gauche, une chaîne de contrôleurs : le HPA, dont la cible est 50 % de la requête et qui lit l’usage des pods auprès de metrics-server toutes les 15 s, fixe le nombre de répliques du Deployment web (3) ; le Deployment crée et remplace un ReplicaSet, gabarit de pod, qui crée les pods ; l’ordonnanceur place chaque pod sur un nœud où ses requêtes tiennent encore. Au centre, deux nœuds : le nœud 1, 2 cœurs et 2 Gio allouables, porte les pods web-a (demande 200m, limite 500m) et web-b (prêt) ; le nœud 2 porte web-c, qui démarre et n’est pas prêt. Le kubelet de chaque nœud lance les conteneurs, applique les limites par les cgroups et exécute les sondes de démarrage, de vie et de disponibilité ; une sonde de vie en échec fait redémarrer le conteneur. À droite, les clients s’adressent au Service web, adresse stable, qui ne route que vers les pods prêts : web-a et web-b, pas web-c, exclu tant que sa sonde de disponibilité échoue.">
+Les objets Kubernetes utiles au concepteur, et le composant qui agit sur chacun.
+</Figure>
+
+Trois composants décident pour le concepteur. L’ordonnanceur choisit un nœud pour chaque pod d’après les ressources qu’il demande ; le kubelet de chaque nœud lance les conteneurs, leur impose leurs limites et décide de les redémarrer selon leurs sondes ; le contrôleur du Service n’envoie le trafic qu’aux pods prêts. Le HPA, en haut à gauche, ajoute un quatrième décideur qui change le nombre de répliques.
+
+## Requêtes et limites de ressources
+
+Chaque conteneur peut déclarer, pour le processeur et la mémoire, une requête (request) et une limite (limit). L’ordonnanceur utilise les requêtes pour choisir le nœud d’un pod, et le kubelet réserve au moins la requête au conteneur ; la limite est un plafond que le noyau fait respecter[^k8s-ressources]. Le processeur se compte en cœurs, et `500m` vaut un demi-cœur. La première partie de `ressources.py` demande 10 répliques qui réclament chacune 500m, sur deux nœuds de travail à 2 cœurs allouables.
+
+```text
+1. 10 répliques demandant 500m de processeur, nœuds à 2 cœurs allouables
+   nœud                         répliques  processeur demandé
+   cours-sd-ch51-worker                 3            1 800 m
+   cours-sd-ch51-worker2                3            1 900 m
+   en attente (Pending) : 4
+   message de l'ordonnanceur :
+     0/3 nodes are available: 1 node(s) had untolerated taint(s), 2 Insuf
+     ficient cpu. no new claims to deallocate, preemption: 0/3 nodes are 
+     available: 1 Preemption is not helpful for scheduling, 2 No preempti
+     on victims found for incoming pod.
+```
+
+Les trois passes ont donné la même répartition. Chaque nœud porte trois répliques, soit 1 500m, plus ce que demandent déjà les autres pods du nœud (100m pour un composant réseau du cluster lors de la première passe, 300 à 400m une fois Redis et KEDA installés pour les autres expériences) ; une quatrième réplique dépasserait les 2 000m allouables. Les quatre dernières restent en attente, et le message de l’ordonnanceur en donne la raison : le plan de contrôle refuse les pods ordinaires (taint), les deux autres nœuds manquent de processeur. Le placement ne dépend que des requêtes déclarées, pas de la consommation réelle ; ces répliques au repos n’utilisent presque rien, et pourtant le cluster est plein. Un pod qui demande trop gaspille de la capacité, un pod qui demande trop peu se retrouve sur un nœud déjà chargé.
+
+### La limite de processeur
+
+La documentation de Kubernetes décrit la limite de processeur comme une limite dure, que le noyau applique en bridant le conteneur (throttling)[^k8s-ressources]. Sous Linux, ce bridage passe par le quota de l’ordonnanceur CFS, qu’on lit dans le cgroup du conteneur. La deuxième partie de `ressources.py` crée un pod limité à 2 cœurs, puis abaisse sa limite jusqu’à 100m sans le redémarrer, par la sous-ressource `resize` ; ce redimensionnement en place est stable depuis Kubernetes 1.35[^k8s-resize]. À chaque palier, elle envoie une à une 30 requêtes de 50 ms de calcul, puis 200 requêtes de 5 ms.
+
+```text
+2. limite de processeur abaissée en place ; requêtes envoyées une à une
+   limite   quota CFS 50 ms p50    p99  5 ms p50    p99  bridé redém.
+        2  200/100 ms     51 ms  52 ms    5.7 ms   7 ms    0 %      0
+        1  100/100 ms     51 ms  52 ms    5.7 ms   6 ms    0 %      0
+     500m   50/100 ms    101 ms 102 ms    5.9 ms  52 ms  100 %      0
+     200m   20/100 ms    282 ms 292 ms    6.1 ms  86 ms   98 %      0
+     100m   10/100 ms    501 ms 592 ms   94.3 ms  96 ms   80 %      0
+   classe de QoS du pod : Burstable
+```
+
+Les deux autres passes ont donné les mêmes médianes pour les requêtes longues, à 8 ms près (51, 51, 101, 282 à 290 et 501 ms). La colonne « quota CFS » est le contenu du fichier `cpu.max` du cgroup. Une limite de 200m y devient un droit à 20 ms de processeur par période de 100 ms ; une fois ces 20 ms consommées, le conteneur attend la période suivante, même si la machine a des cœurs libres (figure 51.2).
+
+<Figure svg={cfs} num="51.2" alt="Trois chronogrammes d’une requête de 50 ms de calcul, sur 300 ms découpées en périodes CFS de 100 ms. Avec une limite d’un cœur (quota de 100 ms), le calcul tient d’un bloc et finit à 50 ms ; mesuré 51 ms. Avec 500m (quota de 50 ms), la requête dépasse un peu 50 ms à cause du traitement HTTP : 50 ms de calcul, le reste de la période bridé, puis la fin au début de la période suivante ; mesuré 101 ms. Avec 200m (quota de 20 ms), 20 ms de calcul, 80 ms bridé, 20 ms de calcul, 80 ms bridé, puis 10 ms : au moins 210 ms ; mesuré 282 à 290 ms.">
+Une requête de 50 ms de calcul sous trois limites de processeur, et le quota CFS qui la découpe.
+</Figure>
+
+Les blocs verts sont le temps de calcul, les blocs roses le temps passé bridé. Dès que le quota d’une période ne suffit pas à finir la requête, sa latence saute à la période suivante, d’où une latence qui monte par paliers de 100 ms.
+
+Trois enseignements sortent du tableau. D’abord, une limite basse multiplie la latence même quand le pod n’est pas surchargé, puisque ces requêtes arrivent une à une ; 50 ms de calcul deviennent 101 ms à 500m, 282 à 290 ms à 200m, 501 ms à 100m. Ensuite, les requêtes courtes ne voient le bridage qu’en queue de distribution, tant que le quota de la période suffit : à 500m, la médiane des requêtes de 5 ms ne bouge pas (5,8 à 5,9 ms), mais leur p99 passe à 52 ms, celles qui tombent après l’épuisement du quota attendant la fin de la période ; à 100m, le quota de 10 ms ne laisse passer qu’une requête par période, et la médiane elle-même monte à 89 à 94 ms. Enfin, le pod a changé cinq fois de limite sans redémarrer (colonne « redém. »), ce qui permet de corriger une limite en production sans perdre l’état du processus.
+
+### La limite de mémoire
+
+La mémoire ne se bride pas. Selon la documentation, un conteneur qui dépasse sa limite de mémoire peut être arrêté par le noyau, quand celui-ci détecte une pression mémoire[^k8s-ressources]. La troisième partie de `ressources.py` lance un pod limité à 128 Mio dont le programme veut en allouer 300, par blocs de 10 Mo, et observe pendant 100 s.
+
+```text
+3. limite de mémoire de 128 Mio, le programme en alloue 300 (100 s)
+    vie   début   durée      raison  code  attente avant redémarrage
+      1     0 s     1 s   OOMKilled   137                          -
+      2     2 s     1 s   OOMKilled   137                        1 s
+      3    17 s     1 s   OOMKilled   137                       14 s
+      4    40 s     2 s   OOMKilled   137                       22 s
+      5    91 s     2 s   OOMKilled   137                       49 s
+   redémarrages : 4 ; état à 100 s : terminated ;
+   allocation la plus haute relevée dans le journal avant l'arrêt : 80 Mo
+
+   classes de QoS selon les ressources déclarées :
+     rien                  BestEffort
+     requêtes < limites    Burstable
+     requêtes = limites    Guaranteed
+```
+
+Les deux autres passes ont donné cinq vies également, avec des attentes de 1, 13 à 15, 21 à 25 et 43 à 45 s. Chaque vie du conteneur dure une à deux secondes et se termine par `OOMKilled`, code de sortie 137 (128 + 9, le signal SIGKILL) ; le programme n’a jamais l’occasion de traiter l’erreur ou de libérer quoi que ce soit. Le dernier message écrit fait état de 80 Mo alloués (90 Mo lors d’une passe) ; l’interpréteur Python et les copies temporaires de chaque bloc font le reste jusqu’à 128 Mio. Le kubelet relance le conteneur après des attentes croissantes : le premier redémarrage est immédiat, les suivants viennent 14, 22 puis 49 s après l’arrêt, ce qui correspond, au délai de la boucle du kubelet près, au délai exponentiel de 10, 20, 40 s… plafonné à 5 minutes que décrit la documentation[^k8s-cycle]. Un programme dont la consommation de mémoire dépasse sa limite ne se dégrade donc pas ; il meurt et revient de plus en plus tard, et le Service ne lui envoie plus de trafic pendant ce temps.
+
+Les requêtes et les limites déterminent aussi la classe de qualité de service (QoS) d’un pod. Un pod est Guaranteed si chacun de ses conteneurs a des requêtes égales à ses limites, pour le processeur comme pour la mémoire, BestEffort s’il n’en déclare aucune, Burstable dans les autres cas[^k8s-qos]. Quand un nœud manque de ressources, Kubernetes expulse d’abord les pods BestEffort, puis les Burstable, enfin les Guaranteed, et seuls les pods qui consomment plus que leurs requêtes sont candidats à l’expulsion[^k8s-qos]. Un service critique déclare donc des requêtes proches de sa consommation réelle, et une limite de mémoire égale à sa requête.
+
+## Démarrer, être prêt, rester en vie
+
+Un pod ne sert pas de requêtes dès sa création. La première partie de `sondes.py` passe un Deployment de 1 à 4 répliques et relève, pour chaque nouveau pod, les étapes de son démarrage ; l’image est déjà présente sur le nœud, et l’application met 8 s à s’initialiser (chargement simulé d’un cache) avant d’écouter.
+
+```text
+1. passage de 1 à 4 répliques ; initialisation de 8 s ; secondes depuis
+   la commande kubectl scale (relevés en boucle, 0,3 s d'écart environ)
+   pod                          créé  affecté   lancé    prêt
+   lent-685c775fb6-54422         0.1      0.1     0.9    10.0
+   lent-685c775fb6-g5qvd         0.1      0.1     0.9    10.0
+   lent-685c775fb6-ldcg2         0.1      0.1     0.9    10.0
+```
+
+Les deux autres passes ont donné les mêmes étapes à quelques dixièmes près. Le contrôleur crée les pods et l’ordonnanceur les affecte en 0,1 à 0,3 s, le conteneur tourne à 0,8 ou 0,9 s, et le pod n’est prêt qu’à 9,6 à 10,1 s, une fois l’initialisation finie et la sonde de disponibilité passée. Sur ce cluster, presque tout le délai vient de l’application. En production s’ajoutent le téléchargement de l’image quand elle n’est pas sur le nœud, et parfois l’ajout d’un nœud entier (plus bas).
+
+Kubernetes distingue trois sondes, que le kubelet exécute périodiquement[^k8s-cycle]. Quand la sonde de vie (liveness) échoue, le kubelet tue le conteneur et le redémarre selon sa politique. Quand la sonde de disponibilité (readiness) échoue, le pod est retiré des EndpointSlices de tous les Services qui le sélectionnent, sans être redémarré. La sonde de démarrage (startup), enfin, suspend les deux autres jusqu’à son premier succès, et tue le conteneur si elle échoue trop longtemps ; elle sert aux applications longues à démarrer.
+
+La deuxième partie envoie 20 requêtes par seconde pendant 30 s, en ouvrant une connexion par requête, et passe le Deployment de 1 à 4 répliques à t = 5 s, une fois sans sonde de disponibilité, une fois avec.
+
+```text
+2. de 1 à 4 répliques à t = 5 s, 20 requêtes par seconde pendant 30 s,
+   initialisation de 8 s, une connexion par requête
+   sonde de disponibilité   envoyées  erreurs  secondes touchées
+   aucune                        600       79           5 à 13 s
+     ServerDisconnectedError 25, ClientOSError 54
+   httpGet /pret, 1 s            600        0                  -
+```
+
+Les deux autres passes ont donné 90 et 95 erreurs, sur la même plage, et aucune avec la sonde. Sans sonde de disponibilité, un pod est considéré comme prêt dès que son conteneur tourne ; le Service lui envoie donc sa part du trafic pendant les 8 s où l’application n’écoute pas encore, et ces connexions sont refusées ou coupées. Avec trois pods sur quatre dans ce cas, une bonne partie des requêtes échoue pendant 8 s (79 à 95 sur les quelque 160 envoyées de 5 à 13 s). Avec une sonde, les nouveaux pods n’entrent dans le Service qu’une fois prêts, et aucune requête n’échoue. Le même mécanisme protège une mise en production, où les nouveaux pods remplacent les anciens ; on y reviendra au ch. 52.
+
+La troisième partie montre le piège inverse. L’application met 30 s à démarrer ; une sonde de vie l’interroge toutes les 5 s et tolère trois échecs.
+
+```text
+3. initialisation de 30 s ; sonde de vie toutes les 5 s, 3 échecs tolérés
+   sondes                     redémarrages  prêt après      état à 120 s
+   vie seule                             5      jamais  CrashLoopBackOff
+   démarrage 60 s, puis vie              0        36 s           running
+```
+
+Les trois passes ont donné le même résultat. Avec la sonde de vie seule, le kubelet tue le conteneur au bout de 15 s environ, avant la fin de son initialisation, puis le relance, et ainsi de suite ; en deux minutes, le conteneur a redémarré cinq fois, n’a jamais servi une requête et se trouve en `CrashLoopBackOff`. Une sonde de démarrage qui laisse 60 s à l’application (12 essais toutes les 5 s) suspend la sonde de vie pendant ce temps ; le pod est prêt à 36 s, sans redémarrage. Une sonde de vie mal réglée transforme ainsi un démarrage lent en panne permanente, et le même effet se produit en production quand un pod surchargé répond trop lentement à sa sonde de vie : le kubelet le tue au moment où il est le plus utile.
+
+## L’autoscaling horizontal
+
+Le HorizontalPodAutoscaler (HPA) ajuste le nombre de répliques d’un Deployment d’après une métrique. Sa boucle tourne toutes les 15 s par défaut et calcule[^k8s-hpa]
+
+$$
+\text{répliques voulues} = \left\lceil \text{répliques actuelles} \times \frac{\text{valeur mesurée}}{\text{valeur cible}} \right\rceil.
+$$
+
+Il n’agit pas si le rapport reste entre 0,9 et 1,1. Pour le processeur, la valeur est une utilisation exprimée en pourcentage de la requête, si bien qu’une cible de 50 % sur des pods qui demandent 200m vise 100m par pod. Par défaut, il peut au plus doubler le nombre de répliques ou en ajouter 4 toutes les 15 s, la plus grande des deux valeurs ; il ne réduit qu’en retenant la plus haute recommandation des 300 dernières secondes (fenêtre de stabilisation)[^k8s-hpa]. Les mesures de processeur viennent de metrics-server, qui interroge les kubelets toutes les 15 s.
+
+`autoscaling.py` déploie un service dont les pods demandent 200m et sont limités à 500m, avec une sonde de disponibilité ; chaque requête coûte 10 ms de calcul, si bien qu’un pod en sert 50 par seconde au plus. Le HPA vise 50 % de la requête, de 1 à 10 répliques. Après 30 s à 5 requêtes par seconde, la charge passe à 80 requêtes par seconde pendant 240 s, soit 0,8 cœur de calcul et, à 100m par pod, 8 pods. Le client ouvre une connexion par requête, et les délais au-delà de 2 s comptent comme des erreurs.
+
+```text
+initialisation de 1 s ; 80 requêtes/s à partir de t = 0
+        t  envoyées  erreurs      p50      p99  voulues  prêtes  util.
+      0 s        75        0    12 ms    12 ms        1       1    3 %
+     15 s      1115      760  1031 ms  1986 ms        1       0   27 %
+     30 s      1154     1126  1149 ms  1754 ms        1       0   33 %
+     45 s      1147      653    11 ms  1468 ms        4       3  249 %
+     60 s      1148        0    11 ms    32 ms        5       5  249 %
+     75 s      1146        0    11 ms   573 ms        5       5  250 %
+     90 s      1148        0    11 ms    13 ms       10      10  132 %
+    105 s      1147        0    11 ms    12 ms       10      10   86 %
+    120 s      1149        0    11 ms    12 ms       10      10   62 %
+    135 s      1149        0    11 ms    12 ms       10      10   41 %
+    150 s      1147        0    11 ms    12 ms       10      10   39 %
+    180 s      1146        0    11 ms    12 ms       10      10   40 %
+    240 s      1148        0    11 ms    12 ms       10      10   41 %
+   premier ajout de répliques : 37 s ; 5 prêtes : 56 s ; 8 prêtes : 85 s
+   erreurs pendant la charge : 2 539 sur 18 336 (13.8 %),
+   délai de 2 s dépassé ou connexion refusée
+   dernière minute de charge : p50 11 ms, p99 12 ms, 10 répliques
+   après l'arrêt de la charge : moins de répliques voulues à 171 s ;
+   une seule réplique prête à 337 s
+```
+
+Les deux autres passes ont donné un premier ajout à 37 et 18 s, 5 répliques prêtes à 56 et 52 s, 8 à 99 et 66 s, et 14,3 et 6,5 % d’erreurs. Les quinze premières secondes montrent ce que vit un service pendant que l’autoscaling réagit. L’unique pod reçoit 80 requêtes par seconde pour une capacité de 50 ; les requêtes s’accumulent dans le processus, la médiane passe à une seconde, et la sonde de disponibilité, qui attend sa réponse derrière elles, finit par échouer. Le pod sort alors du Service (aucune réplique prête à 15 et 30 s), et les connexions suivantes sont refusées faute de destinataire.
+
+La colonne « util. » montre le retard de la mesure. Le composant metrics-server publie une moyenne sur sa dernière fenêtre, si bien que le HPA lit 27 % puis 33 % alors que le pod tourne déjà à sa limite, et ne décide qu’à 37 s ; l’écart entre les passes (18 à 37 s pour la première décision) vient de l’endroit où tombe le pic dans les cycles de 15 s de metrics-server et du HPA. Le HPA lit ensuite 249 à 250 %, et ce chiffre est un plafond. Limité à 500m, un pod ne peut pas consommer plus de 2,5 fois sa requête, alors que la charge en demanderait 4 fois (0,8 cœur pour 200m demandés). Le HPA demande donc d’abord 4 puis 5 répliques ($\lceil 1 \times 250 / 50 \rceil = 5$), et ce n’est qu’en mesurant ces cinq pods encore au-dessus de la cible qu’il passe à 10. Les erreurs cessent vers 50 s. Le service tourne ensuite avec 10 répliques au lieu des 8 nécessaires, la mesure, moyennée sur une fenêtre qui contenait encore des secondes de surcharge, ayant surestimé le besoin ; il les garde, puisque le HPA ne réduit qu’en retenant la plus haute recommandation des 300 dernières secondes. Après l’arrêt de la charge, les répliques voulues ne baissent qu’à 171 s (171 à 289 s selon la passe), et il ne reste qu’un pod à 337 s (318 à 337 s), soit un peu plus de 300 s après la dernière recommandation faite sous charge.
+
+Une première version de l’expérience envoyait la charge moins de 5 minutes après la création du premier pod. Le HPA n’a alors rien fait pendant 189 s, et 27 % des requêtes ont échoué. La documentation l’explique : pendant les 5 minutes qui suivent le démarrage d’un pod, le HPA ignore son processeur, sauf si le pod est prêt et que l’échantillon a été pris entièrement pendant qu’il l’était[^k8s-hpa]. Or l’unique pod, surchargé, échouait à sa sonde ; il a fallu qu’il atteigne 5 minutes d’âge pour que sa consommation compte. Le script attend désormais ce délai avant d’envoyer la charge. En production, la même situation se présente quand un pic suit de peu un déploiement, qui renouvelle tous les pods. Dans cette version, le client gardait aussi ses connexions ouvertes, et à la fin de la charge 9 pods étaient prêts mais la médiane restait à 572 ms, parce que les connexions établies restaient attachées au premier pod. Un Service répartit des connexions, pas des requêtes ([ch. 13](../partie-2/repartition-charge.mdx)), et le script ouvre maintenant une connexion par requête.
+
+La même expérience avec une initialisation de 20 s donne ceci.
+
+```text
+initialisation de 20 s ; 80 requêtes/s à partir de t = 0
+        t  envoyées  erreurs      p50      p99  voulues  prêtes  util.
+      0 s        75        0    12 ms    12 ms        1       1   18 %
+     15 s      1119      778  1042 ms  1974 ms        1       0   27 %
+     30 s      1158     1132  1095 ms  1911 ms        1       0   27 %
+     45 s      1149     1131  1126 ms  1831 ms        4       0  209 %
+     60 s      1149     1133  1479 ms  1772 ms        5       1  250 %
+     75 s      1138      397    13 ms  1677 ms        5       3  250 %
+     90 s      1133        0    11 ms   919 ms        5       5  250 %
+    105 s      1139        0    11 ms   981 ms        8       5  178 %
+    120 s      1150        0    11 ms    12 ms        8       5  109 %
+    135 s      1148        0    11 ms    12 ms        8       8   86 %
+    150 s      1147        0    11 ms    12 ms        8       8   79 %
+    180 s      1145        0    11 ms    12 ms        8       8   51 %
+    240 s      1137        0    11 ms    13 ms        8       8   51 %
+   premier ajout de répliques : 43 s ; 5 prêtes : 79 s ; 8 prêtes : 125 s
+   erreurs pendant la charge : 4 571 sur 18 275 (25.0 %),
+   délai de 2 s dépassé ou connexion refusée
+   dernière minute de charge : p50 11 ms, p99 12 ms, 8 répliques
+```
+
+Les deux autres passes ont donné un premier ajout à 28 et 33 s, 5 répliques prêtes à 81 et 71 s, 8 à 139 et 115 s, et 24,2 et 19,9 % d’erreurs. Les décisions du HPA arrivent à peu près au même moment qu’avec une initialisation de 1 s, mais chaque nouveau pod met 20 s de plus à devenir prêt, pendant lesquelles le pod initial, seul et surchargé, entre et sort du Service. Les erreurs durent jusque vers 75 s au lieu de 50 s, et touchent 20 à 25 % des requêtes de la charge au lieu de 7 à 14 %. Le HPA s’arrête cette fois à 8 répliques (9 lors d’une passe), parce qu’il compte pour 0 % de la cible les pods qui ne sont pas encore prêts[^k8s-hpa], ce qui modère sa hausse. Le temps de démarrage d’un pod s’ajoute donc presque tel quel au temps de réaction de l’autoscaling.
+
+<Figure svg={hpa} num="51.3" alt="Deux graphiques sur 270 s, la charge passant de 5 à 80 requêtes par seconde à t = 0. En haut, les répliques. Avec une initialisation de 1 s, les répliques voulues par le HPA restent à 1 jusqu’à 37 s, passent à 4, 5 puis 10 vers 80 s ; les répliques prêtes suivent quelques secondes après, après avoir oscillé entre 0 et 1 pendant que l’unique pod, surchargé, échouait à sa sonde. Avec une initialisation de 20 s, les répliques prêtes restent entre 0 et 1 jusqu’à 65 s environ, atteignent 5 à 79 s et 8 à 125 s. En bas, le p99 par tranche de 5 s, tracé à 2 000 ms quand au moins une requête a échoué : à 2 000 ms de 0 à 40 s environ avec une initialisation de 1 s, de 0 à 70 s environ avec 20 s, puis autour de 12 ms, avec un pic à 650 ms vers 60 s pour la première variante et deux pics à 1 300 ms vers 80 et 95 s pour la seconde.">
+Montée en charge sous un HPA : répliques et p99, pour une initialisation de 1 s et de 20 s.
+</Figure>
+
+En haut, les répliques prêtes montent par paliers, chaque palier attendant une décision du HPA puis le démarrage des pods ; les retours à 0 du début sont les moments où le pod surchargé sort du Service. En bas, la période où des requêtes échouent dure environ 40 s avec une initialisation de 1 s et 70 s avec 20 s, suivie de pics de latence le temps que la charge se répartisse ; c’est le temps de réaction du système entier, et non du seul HPA.
+
+## Mettre à l’échelle sur une file
+
+Le processeur est une bonne mesure de la charge d’un service qui calcule. Il ne l’est plus pour des travailleurs qui passent leur temps à attendre une base, un service tiers ou un disque ; leur processeur reste bas alors que le travail s’accumule. KEDA (Kubernetes Event-driven Autoscaling) ajoute des déclencheurs sur des sources externes, dont la longueur d’une liste Redis. Il travaille en deux phases : il décide lui-même de passer de zéro à une réplique et de revenir à zéro (activation), puis confie la mise à l’échelle entre une et N répliques à un HPA qu’il crée et auquel il fournit la métrique[^keda]. Pour une liste Redis, le paramètre `listLength` est la valeur moyenne visée par réplique[^keda].
+
+`file.py` lance des travailleurs qui prennent des tâches dans une liste Redis ; chaque tâche attend 200 ms un service lent, sans calculer, si bien qu’un travailleur en traite 5 par seconde. Un producteur pousse 25 tâches par seconde pendant 180 s, ce qui demande 5 travailleurs. Trois réglages sont comparés : un HPA sur le processeur (A), KEDA avec 10 tâches visées par travailleur, entre 0 et 10 travailleurs, retour à zéro 30 s après avoir trouvé la file vide (B), et le même déclencheur avec un travailleur au moins (C).
+
+```text
+A. HPA sur le processeur (50 % de 50m), de 1 à 10 travailleurs
+        t  en file   faites  voulues  prêtes
+      0 s        0        0        1       1
+     20 s      411      102        1       1
+     40 s      821      204        1       1
+     60 s    1 192      295        1       1
+     80 s    1 602      397        1       1
+    100 s    2 011      499        1       1
+    120 s    2 423      601        1       1
+    140 s    2 792      693        1       1
+    160 s    3 202      795        1       1
+    180 s    3 602      897        1       1
+    240 s    3 306    1 193        1       1
+   file la plus longue : 3 602 tâches
+   attente d'une tâche : p50 97.0 s, p99 191.9 s
+   utilisation vue par le HPA à la fin : 8 % (4m) ; il reste 3 296 tâches,
+   soit 11 min de travail au rythme de 1 travailleur(s)
+```
+
+Les trois passes ont donné le même résultat, à quelques tâches près. Le HPA mesure 4m de processeur par travailleur, 8 % de sa requête de 50m, et ne voit aucune raison d’ajouter un pod. La file grossit de 20 tâches par seconde (25 arrivent, 5 repartent) jusqu’à 3 602 ; une tâche attend 97 s en médiane, 192 s au p99, et il reste à la fin 11 minutes de travail pour l’unique travailleur. Le HPA n’a pas pris de mauvaise décision ; il a mesuré correctement une grandeur qui ne dit rien du retard accumulé.
+
+```text
+B. KEDA sur la longueur de la file (10 tâches par travailleur), de 0 à 10
+        t  en file   faites  voulues  prêtes
+      0 s        1        0        0       0
+     20 s      335      174        4       4
+     40 s      202      816        8       8
+     60 s        0    1 483       10      10
+     80 s       17    1 977        0       0
+    100 s      280    2 222        4       4
+    120 s       41    2 968       10      10
+    140 s        0    3 474       10      10
+    160 s      136    3 850        1       1
+    180 s      277    4 205        8       8
+   file la plus longue : 376 tâches
+   attente d'une tâche : p50 6.6 s, p99 15.0 s
+   premier travailleur prêt à 4 s (parti de zéro), cinq à 29 s
+   de 60 à 180 s : 0 à 10 travailleurs prêts ;
+   13 changements de la consigne pendant la production
+   producteur arrêté à 180 s : file vide à 189 s, 0 travailleur à 219 s
+```
+
+L’autre passe a donné une file de 378 tâches au plus, une attente de 6,7 s en médiane et de 15,2 s au p99 (la première, 500 tâches, 5,9 et 19,9 s). KEDA démarre un premier travailleur 4 s après la première tâche et en a cinq à 29 s (35 s lors de la première passe). La file monte à quelques centaines de tâches le temps que les travailleurs arrivent, puis se vide, parce que le HPA en a lancé 10, deux fois plus que nécessaire (une file de 335 tâches, à 10 tâches par travailleur, en demande 34, ramenés au maximum de 10). C’est alors que le retour à zéro se retourne contre le système. Une file vide désactive le déclencheur, et 30 s plus tard KEDA ramène le Deployment à zéro (aucun travailleur prêt à 80 s) alors que les tâches continuent d’arriver ; la file remonte, KEDA réactive, le HPA remonte par paliers, et ainsi de suite, trois cycles en 180 s et 11 à 13 changements de consigne. Les tâches arrivées pendant chaque remontée attendent des dizaines de secondes, d’où un p99 de 15 à 20 s.
+
+```text
+C. KEDA sur la longueur de la file (10 tâches par travailleur), de 1 à 10
+        t  en file   faites  voulues  prêtes
+      0 s        0        0        1       1
+     20 s      348      161        4       4
+     40 s      262      755        8       8
+     60 s        0    1 481       10      10
+     80 s        0    1 993       10      10
+    100 s        0    2 507       10      10
+    120 s        0    3 019       10      10
+    140 s        0    3 480       10      10
+    160 s        0    3 993       10      10
+    180 s        0    4 500       10      10
+    240 s        0    4 500       10      10
+    300 s        0    4 500       10      10
+   file la plus longue : 400 tâches
+   attente d'une tâche : p50 0.2 s, p99 16.1 s
+   cinq travailleurs prêts à 31 s
+   de 60 à 180 s : 10 à 10 travailleurs prêts ;
+   3 changements de la consigne pendant la production
+   producteur arrêté à 180 s : file vide à 180 s, 1 travailleur à 347 s
+```
+
+L’autre passe a donné une file de 215 tâches au plus et un p99 de 8,6 s. Sans retour à zéro, la montée initiale est la même (il faut attendre l’interrogation de KEDA, la décision du HPA et le démarrage des travailleurs, si bien que cinq travailleurs sont prêts à 18 ou 31 s selon la passe), puis plus rien ne bouge. Avec 10 travailleurs, la file reste vide et une tâche attend en médiane 0,2 s, sa propre durée. Le HPA garde 10 travailleurs, deux fois le nécessaire, parce que sa fenêtre de stabilisation retient la plus haute recommandation des 300 dernières secondes ; il revient à un travailleur 332 et 347 s après le début, 150 à 170 s après la fin de la production. Cette surcapacité est le prix de la stabilité ; une politique de montée plus prudente (moins de pods ajoutés par période) réduirait le dépassement initial, au prix d’une montée plus lente.
+
+<Figure svg={file} num="51.4" alt="Deux graphiques sur 300 s, le producteur poussant 25 tâches par seconde de 0 à 180 s. En haut, les tâches en file, sur une échelle logarithmique. Avec le HPA sur le processeur (A), la file monte sans arrêt jusqu’à 3 600 tâches à 180 s et ne redescend que lentement. Avec KEDA entre 0 et 10 travailleurs (B), la file monte à quelques centaines de tâches, retombe à zéro, puis remonte deux fois, en trois bosses successives. Avec KEDA entre 1 et 10 travailleurs (C), une seule bosse de quelques centaines de tâches dans les 50 premières secondes, puis une file vide. En bas, les travailleurs prêts : A reste à 1 ; B monte par paliers à 10, retombe à 0, remonte, trois fois ; C monte à 10 en 60 s et y reste jusqu’à la fin du graphique. Une ligne marque les 5 travailleurs qui suffisent.">
+Tâches en file et travailleurs prêts sous trois réglages d’autoscaling.
+</Figure>
+
+En haut, l’échelle logarithmique fait tenir sur le même graphique les 3 600 tâches de A et les quelques centaines de B et C. Les trois bosses de B correspondent aux trois retours à zéro visibles en bas ; C n’a qu’une bosse, celle du démarrage.
+
+## Autoscaling vertical et ajout de nœuds
+
+L’autoscaling vertical change les ressources de chaque pod plutôt que leur nombre. Le Vertical Pod Autoscaler (VPA), un projet du groupe autoscaling de Kubernetes, se compose d’un recommandeur qui analyse la consommation, d’un module de mise à jour qui applique les nouvelles valeurs et d’un contrôleur d’admission qui les impose aux pods créés[^vpa]. Son mode `Off` se contente de calculer des recommandations, `Initial` ne les applique qu’à la création des pods, `Recreate` expulse les pods pour les recréer avec les nouvelles valeurs, `InPlaceOrRecreate` utilise d’abord le redimensionnement en place de la deuxième partie de `ressources.py`, et `InPlace` n’utilise que lui[^vpa-modes]. Le projet déconseille d’employer le VPA et le HPA sur la même métrique (processeur ou mémoire) ; les combiner reste possible quand le HPA suit une autre métrique, comme la longueur d’une file[^vpa-limites].
+
+Quand les pods ne tiennent plus sur les nœuds existants, ils restent en attente, comme les quatre répliques de la première partie de `ressources.py`. Cluster Autoscaler ajoute alors des nœuds ; il agit quand des pods n’ont pas pu être placés faute de ressources, et retire les nœuds inutiles depuis une dizaine de minutes[^ca-faq]. Ses objectifs de service sont une décision en moins de 30 s pour un cluster de moins de 100 nœuds (5 s en moyenne), en moins de 60 s jusqu’à 1 000 nœuds ; vient ensuite le temps que met le fournisseur à livrer la machine, de 3 à 4 minutes sur Google Compute Engine selon la même FAQ[^ca-faq]. Un pic qui exige de nouveaux nœuds attend donc plusieurs minutes, bien plus que les délais du HPA mesurés plus haut ; la FAQ de Cluster Autoscaler décrit pour cela une réserve de capacité, faite de pods inactifs de très faible priorité qui occupent des nœuds, sont préemptés dès que de vrais pods ont besoin de place, et, devenus impossibles à placer, déclenchent à leur tour l’ajout d’un nœud[^ca-faq].
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Requêtes proches de la consommation | placement juste, nœuds bien remplis | mesurer la consommation, la revoir | 10 répliques au repos remplissent 2 nœuds | toujours |
+| Limite de processeur basse | protège les voisins | latence en paliers de 100 ms, même sans surcharge | 50 ms de calcul servis en 101 à 501 ms selon la limite | rarement ; plutôt une limite haute ou aucune |
+| Limite de mémoire égale à la requête | classe Guaranteed, expulsé en dernier | arrêt brutal au dépassement | `OOMKilled` en 1 à 2 s, puis redémarrages espacés | services critiques |
+| Sonde de disponibilité | pas de trafic vers un pod qui n’est pas prêt | un point de terminaison à écrire et à garder rapide | 0 erreur contre 79 à 95 sur 600 | toujours |
+| Sonde de vie seule | redémarre un processus bloqué | tue les démarrages lents et les pods surchargés | 5 redémarrages, jamais prêt | avec une sonde de démarrage |
+| HPA sur le processeur | suit la charge sans intervention | 30 à 60 s de réaction, puis le démarrage des pods ; mesure plafonnée par la limite | 8 pods prêts en 66 à 139 s ; 7 à 25 % d’erreurs pendant la montée | services dont le processeur suit la charge |
+| Autoscaling sur une file (KEDA) | suit le travail en attente, pas le processeur | un composant de plus ; oscillations si on retourne à zéro trop vite | attente médiane de 0,2 à 6,7 s, contre 97 s sur le processeur | travailleurs, traitements asynchrones |
+| Retour à zéro | aucun pod sans travail | premier travail attend un démarrage | premier travailleur en 4 s ; avec 30 s de repos, trois cycles en 180 s | charges intermittentes |
+| VPA | requêtes justes sans intervention | redémarrages (sauf en place), conflit avec le HPA sur la même métrique | non mesuré | régler les requêtes |
+| Ajout de nœuds (Cluster Autoscaler) | capacité au-delà du cluster | minutes de démarrage d’une machine | non mesuré (3 à 4 min sur GCE selon la FAQ) | avec une réserve de capacité |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : combien de pods tiennent sur un nœud]
+Hypothèses : nœud de 8 cœurs et 32 Gio, dont 0,5 cœur et 2 Gio réservés au système et aux composants du cluster ; pods qui demandent 250m et 512 Mio et en consomment en moyenne 100m et 300 Mio.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Pods placés selon le processeur | 7,5 / 0,25 | 30 |
+| Pods placés selon la mémoire | 30 Gio / 0,5 Gio | 60 |
+| Pods par nœud | le plus petit des deux | 30 |
+| Processeur réellement utilisé | 30 × 0,1 / 8 | 38 % |
+| Pods par nœud si l’on demande 120m | 7,5 / 0,12 | 62, limité à 60 par la mémoire |
+
+Conclusion : le placement ne voit que les requêtes ; des requêtes deux fois et demie trop hautes laissent le nœud aux deux tiers vide, et le corriger fait tenir deux fois plus de pods sur les mêmes machines.
+:::
+
+:::calcul[Calcul : le temps de réaction d’un HPA]
+Hypothèses : réglages par défaut (métriques toutes les 15 s, boucle du HPA toutes les 15 s, au plus 4 pods ou 100 % de plus toutes les 15 s) ; pods prêts 2 s après leur création, plus l’initialisation de l’application ; charge qui passe de 1 à 8 pods nécessaires.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Délai avant que la hausse apparaisse dans les métriques | jusqu’à 15 s + une fenêtre de mesure | 15 à 30 s |
+| Délai avant la décision | jusqu’à 15 s de plus | 15 à 45 s |
+| Paliers de 1 à 8 répliques | 1 → 5 → 10 (4 pods, puis 100 %) | 2 décisions, 15 s d’écart au moins |
+| Démarrage d’un pod, initialisation de 1 s ou de 20 s | 2 s + initialisation | 3 ou 22 s |
+| Total estimé | 45 + 15 + démarrage | 1 à 1,5 min |
+| Mesuré (8 pods prêts) | | 66 à 99 s et 115 à 139 s |
+
+Conclusion : un HPA met une à deux minutes à absorber une montée brutale, davantage si les pods sont lents à démarrer ou si la limite de processeur masque la vraie demande ; la cible d’utilisation (50 %) est la marge qui absorbe la charge pendant ce temps, et elle doit couvrir la hausse possible en deux minutes.
+:::
+
+:::calcul[Calcul : combien de travailleurs pour une file]
+Hypothèses : 25 tâches par seconde ; 200 ms par tâche ; un travailleur traite une tâche à la fois ; KEDA vise 10 tâches en file par travailleur.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Travailleurs occupés (loi de Little) | 25 × 0,2 s | 5 |
+| Tâches en file pour 5 travailleurs, à la cible de KEDA | 5 × 10 | 50 |
+| Attente correspondante (loi de Little) | 50 / 25 | 2 s |
+| File après 180 s avec un seul travailleur | (25 − 5) × 180 | 3 600 |
+| Temps pour la vider avec un travailleur | 3 600 / 5 | 12 min |
+
+Conclusion : la cible d’un autoscaling sur file fixe directement l’attente des tâches, par la loi de Little ([ch. 9](../partie-1/latence-debit.mdx)) ; 10 tâches par travailleur à 5 tâches par seconde chacun donnent 2 s d’attente, et l’on règle la cible sur l’attente acceptable.
+:::
+
+## Exemple réel
+
+**Autopilot, l’autoscaling de Google.** Krzysztof Rzadca et dix coauteurs de Google ont décrit en 2020 Autopilot, le système qui règle automatiquement les ressources des travaux exécutés sur Borg, l’ordonnanceur de grappes interne de Google[^autopilot]. Le point de départ est celui de ce chapitre. Un utilisateur doit déclarer une limite de processeur et de mémoire, une tâche qui la dépasse est bridée ou tuée, au prix de requêtes retardées ou perdues, et les équipes, prudentes, demandent donc plus que nécessaire ; à l’échelle de Google, ce surplus devient un gaspillage massif de ressources. Autopilot ajuste à la fois le nombre de tâches d’un travail (autoscaling horizontal) et les limites de processeur et de mémoire de chaque tâche (autoscaling vertical), à partir de l’historique des exécutions passées, avec des algorithmes d’apprentissage et des heuristiques réglées finement. Les travaux gérés par Autopilot ont un écart (slack) de 23 % entre leur limite et leur consommation, contre 46 % pour les travaux réglés à la main, et le nombre de travaux sévèrement touchés par des arrêts pour manque de mémoire est divisé par dix ; au moment de la publication, ces travaux représentaient plus de 48 % de la consommation de ressources de toute la flotte de Google[^autopilot].
+
+## Erreurs fréquentes
+
+Déclarer des requêtes au hasard ou les recopier d’un autre service. Le placement et l’autoscaling sur le processeur reposent dessus ; trop hautes, elles gaspillent les nœuds, trop basses, elles entassent les pods.
+
+Fixer une limite de processeur basse « par précaution ». La latence monte par paliers de 100 ms bien avant toute surcharge (50 ms de calcul servis en 282 à 290 ms à 200m).
+
+Laisser un conteneur dépasser sa limite de mémoire. Il est tué sans prévenir (code 137), et ses redémarrages s’espacent.
+
+Ne pas écrire de sonde de disponibilité. Pendant chaque mise à l’échelle, les nouveaux pods reçoivent du trafic avant d’écouter (79 à 95 erreurs sur 600 ici).
+
+Utiliser une sonde de vie sans sonde de démarrage pour une application lente à démarrer. Le conteneur est tué avant d’avoir fini, indéfiniment.
+
+Faire dépendre la sonde de vie d’une base de données ou d’un autre service. Une panne de la dépendance fait redémarrer tous les pods à la fois, sans rien réparer.
+
+Mettre à l’échelle sur le processeur des travailleurs qui attendent des entrées-sorties. Leur processeur reste bas pendant que la file grandit.
+
+Régler un autoscaling sur file avec retour à zéro et un délai de repos court. Les travailleurs disparaissent dès que la file se vide, puis reviennent, en boucle.
+
+Oublier le temps de démarrage dans le calcul de la marge. Le HPA ne fait rien de mieux que la somme de ses délais et du démarrage d’un pod.
+
+Combiner le VPA et le HPA sur le processeur. Chacun défait ce que fait l’autre.
+
+:::piege[Erreur fréquente : « avec un HPA, la capacité suit la charge »]
+Le HPA suit la charge avec retard, et ce retard se paie en erreurs. Dans la mesure, la première réplique supplémentaire arrive 18 à 43 s après le début du pic, les huit nécessaires 66 à 139 s après, et 7 à 25 % des requêtes échouent entre-temps. Le HPA ne voit d’ailleurs pas la demande réelle quand le pod est plafonné par sa limite (il lit 250 %, alors qu’il en faudrait 400 %), si bien qu’il lui faut plusieurs paliers ; et un pod surchargé qui échoue à sa sonde de disponibilité sort du Service, ce qui transforme les requêtes lentes en connexions refusées. Une montée de charge se prépare donc par une marge (la cible d’utilisation), des pods qui démarrent vite, une réserve de nœuds, et, pour un pic connu à l’avance, un nombre minimal de répliques relevé avant l’heure.
+:::
+
+:::entretien
+Pour déployer un service sur Kubernetes, décrivez les objets : un Deployment pour les services sans état, un StatefulSet pour une base ou un courtier, un Service devant chacun. Fixez les requêtes de ressources d’après la consommation mesurée, et justifiez les limites : mémoire égale à la requête, processeur sans limite basse. Écrivez les trois sondes : disponibilité pour le trafic, démarrage pour les démarrages lents, vie pour les blocages, sans dépendance externe. Choisissez la métrique d’autoscaling selon ce qui sature : processeur pour un service de calcul, longueur de file ou nombre de requêtes en cours pour des travailleurs qui attendent. Chiffrez le temps de réaction (métriques, décision, démarrage des pods, éventuellement nouveaux nœuds) et la marge qui couvre la charge pendant ce temps.
+:::
+
+## Exercices
+
+**Question 1.** Un nœud offre 3,5 cœurs et 13 Gio allouables. Un service A demande 300m et 1 Gio par pod, un service B 1 cœur et 512 Mio. Combien de pods de A tiennent sur un nœud vide ? De B ? Un nœud porte déjà 6 pods de A : combien de pods de B peut-il encore recevoir ?
+
+**Question 2.** Un service Java demande 500m et il est limité à 500m. Au démarrage, la machine virtuelle compile le code à la volée et consomme 2 cœurs pendant 40 s ; le service répond ensuite en 20 ms. Que se passe-t-il au démarrage ? Que devient une sonde de vie réglée avec un délai de 1 s, toutes les 5 s, 3 échecs tolérés ? Que proposez-vous ?
+
+**Question 3.** Un HPA vise 60 % d’utilisation du processeur. Quatre pods demandent 400m chacun et consomment 320m, 360m, 400m et 280m. Combien de répliques le HPA demande-t-il ? Et si l’un des pods, qui vient de démarrer, n’est pas encore prêt et consomme 600m pendant son initialisation ?
+
+**Exercice de conception.** Un service de génération de vignettes reçoit des images déposées par les utilisateurs : 50 par seconde en moyenne en journée, des pointes à 400 par seconde pendant 10 minutes lors des campagnes, presque rien la nuit. Chaque vignette demande 300 ms de calcul sur un cœur et 200 Mio de mémoire. Proposez le déploiement sur Kubernetes : file d’attente, travailleurs, requêtes et limites, sondes, autoscaling (métrique, cible, minimum et maximum, retour à zéro ou non), nœuds ; chiffrez le nombre de travailleurs et de nœuds en pointe, l’attente des images et le temps de réaction.
+
+## Corrigés
+
+**Question 1.** A : 3,5 / 0,3 = 11 pods selon le processeur, 13 / 1 = 13 selon la mémoire, donc 11. B : 3 pods selon le processeur (26 selon la mémoire). Avec 6 pods de A, il reste 3,5 − 1,8 = 1,7 cœur et 13 − 6 = 7 Gio, donc 1 pod de B ; il resterait alors 0,7 cœur, de quoi placer encore 2 pods de A.
+
+**Question 2.** Limité à 500m, le service ne reçoit que 50 ms de processeur toutes les 100 ms, au lieu des 2 cœurs dont la compilation a besoin ; les 40 s de démarrage deviennent environ 160 s (80 cœurs-secondes à 0,5 cœur). La sonde de vie, qui tue le conteneur après 3 échecs à 5 s d’intervalle, l’arrête vers 16 s, bien avant la fin, et le pod entre en `CrashLoopBackOff`. Il faut une sonde de démarrage qui laisse au moins 3 minutes (par exemple 36 essais toutes les 5 s), et relever la limite de processeur, ou la supprimer, pour que le démarrage reprenne ses 40 s ; le redimensionnement en place permet aussi de démarrer avec une limite haute et de l’abaisser ensuite.
+
+**Question 3.** Consommation moyenne : (320 + 360 + 400 + 280) / 4 = 340m, soit 85 % de 400m. Répliques voulues : $\lceil 4 \times 85 / 60 \rceil = \lceil 5{,}67 \rceil = 6$. Avec le pod qui n’est pas prêt : pendant les 5 minutes qui suivent son démarrage, le HPA met de côté le processeur d’un pod qui n’est pas prêt[^k8s-hpa] ; il calcule donc sur les trois autres, puis, la décision allant vers une hausse, compte le pod mis de côté pour 0 % de la cible, ce qui modère la hausse. Les 600m de l’initialisation ne déclenchent pas d’ajout de répliques à eux seuls.
+
+**Exercice de conception.**
+
+*File et travailleurs.* Les images déposées vont dans une file (une liste Redis, une file SQS, un sujet Kafka) ; des travailleurs dans un Deployment les traitent une à une. Le traitement est du calcul, mais la métrique pertinente reste la file : c’est elle qui mesure le retard des utilisateurs.
+
+*Ressources.* Requête de 1 cœur et 256 Mio, limite de mémoire de 256 Mio, pas de limite de processeur basse (une limite égale à la requête, à 1 cœur, ne bride pas un travailleur qui traite une image à la fois). Sonde de vie sur un point qui vérifie que la boucle de travail avance ; sonde de disponibilité inutile pour un travailleur qui ne reçoit pas de trafic HTTP.
+
+*Nombre de travailleurs.* Loi de Little : 50 images/s × 0,3 s = 15 travailleurs occupés en journée, 400 × 0,3 = 120 en pointe. Avec une cible KEDA de 5 images en file par travailleur, la file vise 75 images en journée et 600 en pointe, soit 1,5 s d’attente (75 / 50 ou 600 / 400).
+
+*Nœuds.* Nœuds de 16 cœurs, dont 15 allouables : 15 travailleurs par nœud, donc 1 nœud en journée, 8 en pointe. Ajouter 7 nœuds prend plusieurs minutes (3 à 4 minutes de livraison sur GCE, plus la décision) ; une campagne connue à l’avance se prépare en relevant le minimum de répliques une demi-heure avant, ou en gardant des pods de réserve de faible priorité.
+
+*Temps de réaction.* KEDA interroge la file toutes les 5 à 15 s ; les travailleurs démarrent en quelques secondes s’ils trouvent de la place ; sans nœud libre, la pointe s’accumule : à 400 images/s pour 15 travailleurs, la file grandit de 350 images par seconde, soit 105 000 images en 5 minutes, vidées en 15 minutes environ une fois les 120 travailleurs en place. D’où l’intérêt de la préparation des campagnes.
+
+*Nuit.* Retour à zéro possible, avec un délai de repos de quelques minutes pour éviter les oscillations ; la première image du matin attend le démarrage d’un travailleur (quelques secondes, mesuré : 4 s ici).
+
+:::fiche
+- Pod : plus petite unité, conteneurs qui partagent réseau et stockage ; Deployment (sans état, via un ReplicaSet), StatefulSet (nom, stockage et ordre stables), Service (adresse stable, trafic vers les pods prêts).
+- Les requêtes servent au placement, les limites sont un plafond appliqué par le noyau. Mesuré : 10 répliques de 500m au repos, 4 en attente sur 2 nœuds de 2 cœurs.
+- Limite de processeur = quota CFS par période de 100 ms ; mesuré, 50 ms de calcul servis en 51, 101, 282 à 290 et 501 ms à 1 cœur, 500m, 200m et 100m ; redimensionnement en place sans redémarrage (stable depuis 1.35).
+- Limite de mémoire dépassée : `OOMKilled`, code 137, redémarrages espacés (10, 20, 40 s… plafonnés à 5 min).
+- QoS : Guaranteed (requêtes = limites), Burstable, BestEffort ; expulsion dans l’ordre inverse.
+- Sondes : disponibilité (retrait du Service), vie (redémarrage), démarrage (suspend les deux autres) ; mesuré, 79 à 95 erreurs sur 600 sans sonde de disponibilité ; vie seule sur un démarrage de 30 s, 5 redémarrages, jamais prêt.
+- HPA : répliques = ⌈répliques × mesure / cible⌉, toutes les 15 s, tolérance de 10 %, hausse de 4 pods ou 100 % par 15 s, baisse après 300 s ; processeur des pods non prêts ignoré pendant leurs 5 premières minutes.
+- Mesuré : 8 pods prêts en 66 à 99 s (initialisation de 1 s) et 115 à 139 s (20 s), 7 à 14 % et 20 à 25 % d’erreurs pendant la montée.
+- Travailleurs qui attendent : HPA sur le processeur aveugle (4m mesurés, file à 3 602, attente médiane de 97 s) ; KEDA sur la file, 0,2 à 6,7 s ; retour à zéro avec 30 s de repos, trois cycles en 180 s.
+- VPA (modes Off, Initial, Recreate, InPlaceOrRecreate, InPlace), pas sur la même métrique que le HPA ; Cluster Autoscaler : décision en moins de 30 s, machine en 3 à 4 min sur GCE.
+:::
+
+[^k8s-pod]: Kubernetes, « Pods », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/workloads/pods](https://kubernetes.io/docs/concepts/workloads/pods/).
+[^k8s-deployment]: Kubernetes, « Deployments », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/workloads/controllers/deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+[^k8s-service]: Kubernetes, « Service », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/services-networking/service](https://kubernetes.io/docs/concepts/services-networking/service/).
+[^k8s-statefulset]: Kubernetes, « StatefulSets », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/workloads/controllers/statefulset](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
+[^k8s-ressources]: Kubernetes, « Resource Management for Pods and Containers », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/configuration/manage-resources-containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
+[^k8s-resize]: Kubernetes, « Resize CPU and Memory Resources assigned to Containers », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+[^k8s-cycle]: Kubernetes, « Pod Lifecycle », documentation, sections « Container probes » et « Container restarts », consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/).
+[^k8s-qos]: Kubernetes, « Pod Quality of Service Classes », documentation, consultée le 15 novembre 2026, [kubernetes.io/docs/concepts/workloads/pods/pod-qos](https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/).
+[^k8s-hpa]: Kubernetes, « Horizontal Pod Autoscaling », documentation, sections « Algorithm details » et « Pod readiness and autoscaling metrics », consultée le 15 novembre 2026, [kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/).
+[^keda]: KEDA, « Scaling Deployments, StatefulSets & Custom Resources » et « Redis Lists », documentation de la version 2.21, consultée le 15 novembre 2026, [keda.sh/docs/2.21/concepts/scaling-deployments](https://keda.sh/docs/2.21/concepts/scaling-deployments/) et [keda.sh/docs/2.21/scalers/redis-lists](https://keda.sh/docs/2.21/scalers/redis-lists/).
+[^vpa]: Kubernetes Autoscaler, « Vertical Pod Autoscaler », README, consulté le 15 novembre 2026, [github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler).
+[^vpa-modes]: Kubernetes Autoscaler, « Quick start », section sur les modes de mise à jour, consulté le 15 novembre 2026, [github.com/kubernetes/autoscaler/blob/master/vertical-pod-autoscaler/docs/quickstart.md](https://github.com/kubernetes/autoscaler/blob/master/vertical-pod-autoscaler/docs/quickstart.md).
+[^vpa-limites]: Kubernetes Autoscaler, « Known limitations », consulté le 15 novembre 2026, [github.com/kubernetes/autoscaler/blob/master/vertical-pod-autoscaler/docs/known-limitations.md](https://github.com/kubernetes/autoscaler/blob/master/vertical-pod-autoscaler/docs/known-limitations.md).
+[^ca-faq]: Kubernetes Autoscaler, « Cluster Autoscaler FAQ », sections « What is Cluster Autoscaler? », « What are the Service Level Objectives for Cluster Autoscaler? » et « How can I configure overprovisioning with Cluster Autoscaler? », consulté le 15 novembre 2026, [github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md](https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/FAQ.md).
+[^autopilot]: Krzysztof Rzadca, Paweł Findeisen, Jacek Świderski, Przemysław Zych, Przemysław Broniek, Jarek Kusmierek, Paweł Nowak, Beata Strack, Piotr Witusowski, Steven Hand et John Wilkes, « Autopilot: Workload Autoscaling at Google », *Proceedings of the Fifteenth European Conference on Computer Systems (EuroSys ’20)*, ACM, 2020, résumé, [doi.org/10.1145/3342195.3387524](https://doi.org/10.1145/3342195.3387524).
+

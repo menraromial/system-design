@@ -95,7 +95,7 @@ export const PARTIES: Partie[] = [
     resume: 'Observabilité, déploiement, reprise après sinistre, sécurité, coûts.',
     chapitres: [
       {num: 50, titre: 'Observabilité', doc: 'partie-5/observabilite'},
-      {num: 51, titre: 'Conteneurs, Kubernetes et autoscaling'},
+      {num: 51, titre: 'Conteneurs, Kubernetes et autoscaling', doc: 'partie-5/kubernetes-autoscaling'},
       {num: 52, titre: 'Mettre en production sans coupure'},
       {num: 53, titre: 'Reprise après sinistre'},
       {num: 54, titre: 'Sécurité (1) : authentification'},

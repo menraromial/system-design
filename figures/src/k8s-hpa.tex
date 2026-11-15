@@ -1,0 +1,36 @@
+% Montée en charge de 5 à 80 requêtes par seconde à t = 0 : répliques voulues par
+% le HPA et répliques prêtes, p99 par tranche de 5 s (2 s = délai dépassé), pour une
+% initialisation de 1 s et de 20 s ; 2 000 ms marque une tranche avec au moins une erreur (outils/experiences/ch51/autoscaling.py --figure).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch51-hpa.tex}
+\begin{tikzpicture}[x=0.5mm, y=4mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  % panneau du haut : répliques
+  \begin{scope}
+  \draw[ligne] (-30,0) -- (245,0); \draw[ligne] (-30,0) -- (-30,10.6);
+  \foreach \r in {0,2,...,10} {\draw[ligne] (-30,\r) -- (-33,\r); \node[note, anchor=east] at (-33,\r) {\r};}
+  \foreach \t in {0,60,120,180,240} {\draw[Dcloud, line width=0.3pt, dash pattern=on 1pt off 2pt] (\t,0) -- (\t,10.5);}
+  \node[axe, anchor=south, rotate=90] at (-48,5) {répliques};
+  \draw[Dblue, line width=0.7pt, dash pattern=on 3pt off 2pt] plot[const plot] coordinates {\vouluesrapide};
+  \draw[Dblue, line width=1.3pt] plot[const plot] coordinates {\pretesrapide};
+  \draw[Dorange, line width=1.3pt] plot[const plot] coordinates {\preteslent};
+  \node[lab=Dblue, anchor=west] at (150,3.2) {prêtes, initialisation de 1 s};
+  \node[lab=Dblue, anchor=west] at (150,2.0) {tirets : voulues par le HPA (1 s)};
+  \node[lab=Dorange, anchor=west] at (150,0.8) {prêtes, initialisation de 20 s};
+  \end{scope}
+  % panneau du bas : p99
+  \begin{scope}[yshift=-50mm, y=0.015mm]
+  \draw[ligne] (-30,0) -- (245,0); \draw[ligne] (-30,0) -- (-30,2100);
+  \foreach \l in {0,500,1000,1500,2000} {\draw[ligne] (-30,\l) -- (-33,\l); \node[note, anchor=east] at (-33,\l) {\l};}
+  \foreach \t in {0,60,120,180,240} {\draw[Dcloud, line width=0.3pt, dash pattern=on 1pt off 2pt] (\t,0) -- (\t,2050);
+    \draw[ligne] (\t,0) -- ++(0,-1mm); \node[note, below=1mm] at (\t,0) {\t\,s};}
+  \node[axe, anchor=south, rotate=90] at (-52,1000) {p99, ms};
+  \draw[Dblue, line width=1pt] plot coordinates {\latencerapide};
+  \draw[Dorange, line width=1pt] plot coordinates {\latencelent};
+  \node[axe, anchor=north, yshift=-7mm] at (107,0) {temps depuis l’arrivée de la charge (80 requêtes/s, 8 pods nécessaires)};
+  \node[lab=Dslate, anchor=west] at (130,1500) {tracé à 2 000 ms : au moins une requête en erreur\\(délai de 2 s dépassé ou connexion refusée)};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -35,7 +35,7 @@ Il faut ajouter une limite plus sournoise. Une machine deux fois plus grosse ne 
 
 ### Plus de machines
 
-La scalabilité horizontale ajoute des machines identiques et répartit les requêtes entre elles. Elle n’a pas de plafond matériel, elle permet de perdre une machine sans interruption (il suffit d’en avoir une de plus que nécessaire, la règle N + 1 du [ch. 2](../partie-0/estimation.mdx)), et elle permet d’ajouter ou de retirer des machines selon la charge du moment (ch. 51). Elle a un prérequis, que n’importe quelle machine puisse traiter n’importe quelle requête, ce qui suppose qu’aucune ne garde pour elle une information dont les autres auraient besoin.
+La scalabilité horizontale ajoute des machines identiques et répartit les requêtes entre elles. Elle n’a pas de plafond matériel, elle permet de perdre une machine sans interruption (il suffit d’en avoir une de plus que nécessaire, la règle N + 1 du [ch. 2](../partie-0/estimation.mdx)), et elle permet d’ajouter ou de retirer des machines selon la charge du moment ([ch. 51](../partie-5/kubernetes-autoscaling.mdx)). Elle a un prérequis, que n’importe quelle machine puisse traiter n’importe quelle requête, ce qui suppose qu’aucune ne garde pour elle une information dont les autres auraient besoin.
 
 Le script `echelle.sh` mesure ce que donne cette approche dans le cas le plus favorable. Le service est un petit serveur Python (aiohttp) qui fait environ 2 ms de calcul par requête ; on en lance 1, 2 puis 4 exemplaires, chacun épinglé sur son propre cœur de performance, derrière Caddy configuré en répartiteur tournant (round-robin), et l’outil de charge `wrk` envoie des requêtes sur 64 connexions pendant 10 secondes, depuis d’autres cœurs :
 

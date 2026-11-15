@@ -1,0 +1,20 @@
+# Cluster kind du chapitre 51 : un plan de contrôle et deux nœuds de travail.
+# Chaque nœud réserve au « système » 20 des 22 cœurs et 13 des 15 Gio de la
+# machine, pour n'offrir aux pods que 2 cœurs et 1,9 Gio environ : les pods ne
+# tiennent plus tous sur un nœud, comme sur de vraies machines.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cours-sd-ch51
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    systemReserved:
+      cpu: "20"
+      memory: "13Gi"
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - {containerPort: 30080, hostPort: 13101, listenAddress: "127.0.0.1"}
+      - {containerPort: 30379, hostPort: 13102, listenAddress: "127.0.0.1"}
+  - role: worker
+  - role: worker

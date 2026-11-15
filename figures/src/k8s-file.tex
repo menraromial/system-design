@@ -1,0 +1,48 @@
+% Tâches en file et travailleurs prêts : HPA sur le processeur (A), KEDA sur la
+% longueur de la file avec retour à zéro (B) et avec un travailleur au moins (C) ;
+% producteur à 25 tâches/s de 0 à 180 s (outils/experiences/ch51/file.py --figure).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch51-file.tex}
+\begin{tikzpicture}[x=0.36mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \def\xmax{300}
+  % panneau du haut : tâches en file, échelle logarithmique (log10(n + 1))
+  \begin{scope}[y=12mm]
+  \fill[DslateBg] (0,0) rectangle (180,3.75);
+  \node[lab=Dslate, anchor=north west] at (2,3.75) {le producteur pousse 25 tâches/s};
+  \draw[ligne] (0,0) -- (\xmax+5,0); \draw[ligne] (0,0) -- (0,3.8);
+  \foreach \v/\y in {0/0, 10/1.0414, 100/2.0043, 1000/3.0004} {\draw[ligne] (0,\y) -- (-3,\y); \node[note, anchor=east] at (-3,\y) {\v};}
+  \foreach \t in {60,120,180,240,300} {\draw[Dcloud, line width=0.3pt, dash pattern=on 1pt off 2pt] (\t,0) -- (\t,3.75);}
+  \node[axe, anchor=south, rotate=90] at (-30,1.9) {tâches en file};
+  \begin{scope}
+  \clip (0,0) rectangle (\xmax,3.8);
+  \draw[Dred, line width=1.1pt] plot coordinates {\fileA};
+  \draw[Dpurple, line width=1.1pt] plot coordinates {\fileB};
+  \draw[Dteal, line width=1.1pt] plot coordinates {\fileC};
+  \end{scope}
+  \node[lab=Dred, anchor=west] at (195,1.35) {A : HPA sur le processeur};
+  \node[lab=Dpurple, anchor=west] at (195,0.95) {B : KEDA, de 0 à 10};
+  \node[lab=Dteal, anchor=west] at (195,0.55) {C : KEDA, de 1 à 10};
+  \end{scope}
+  % panneau du bas : travailleurs prêts
+  \begin{scope}[yshift=-58mm, y=4mm]
+  \fill[DslateBg] (0,0) rectangle (180,10.5);
+  \draw[ligne] (0,0) -- (\xmax+5,0); \draw[ligne] (0,0) -- (0,10.6);
+  \foreach \r in {0,5,10} {\draw[ligne] (0,\r) -- (-3,\r); \node[note, anchor=east] at (-3,\r) {\r};}
+  \foreach \t in {0,60,120,180,240,300} {\draw[Dcloud, line width=0.3pt, dash pattern=on 1pt off 2pt] (\t,0) -- (\t,10.5);
+    \draw[ligne] (\t,0) -- ++(0,-1mm); \node[note, below=1mm] at (\t,0) {\t\,s};}
+  \draw[Dslate, line width=0.5pt, dash pattern=on 3pt off 2pt] (0,5) -- (\xmax,5);
+  \node[lab=Dslate, anchor=south east] at (\xmax,5) {5 travailleurs suffisent};
+  \node[axe, anchor=south, rotate=90] at (-30,5) {travailleurs prêts};
+  \begin{scope}
+  \clip (0,-0.2) rectangle (\xmax,10.6);
+  \draw[Dred, line width=1.1pt] plot[const plot] coordinates {\prA};
+  \draw[Dpurple, line width=1.1pt] plot[const plot] coordinates {\prB};
+  \draw[Dteal, line width=1.1pt] plot[const plot] coordinates {\prC};
+  \end{scope}
+  \node[axe, anchor=north, yshift=-7mm] at (150,0) {temps depuis la première tâche};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

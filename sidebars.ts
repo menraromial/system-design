@@ -46,7 +46,7 @@ const sidebars: SidebarsConfig = {
       label: 'Partie 5 · Exploitation en production',
       collapsed: false,
       link: {type: 'doc', id: 'partie-5/index'},
-      items: ['partie-5/observabilite'],
+      items: ['partie-5/observabilite', 'partie-5/kubernetes-autoscaling'],
     },
   ],
 };
