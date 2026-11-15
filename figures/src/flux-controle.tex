@@ -1,0 +1,42 @@
+% Points de contrôle de Flink et sortie transactionnelle : barrières dans le flux,
+% instantané (positions, état, transaction), validation à chaque point de contrôle.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    op/.style={soft=#1, minimum width=24mm, minimum height=11mm, font=\sffamily\small, align=center},
+    lab/.style={font=\sffamily\small, text=#1, align=center}, lab/.default=Dink]
+  % ---- chaîne
+  \node[op=Dslate] (k1) at (0,30) {Kafka « clics »\\{\scriptsize relisible}};
+  \node[op=Dblue] (src) at (36,30) {source\\{\scriptsize position lue}};
+  \node[op=Dblue] (win) at (72,30) {fenêtres\\{\scriptsize état : comptes}};
+  \node[op=Dblue] (snk) at (108,30) {sortie\\{\scriptsize transaction ouverte}};
+  \node[op=Dslate] (k2) at (144,30) {Kafka « comptes »\\{\scriptsize lu en read\_committed}};
+  \foreach \a/\b in {k1/src, src/win, win/snk, snk/k2} \draw[arr=Dslate] (\a) -- (\b);
+  \foreach \x in {50,86,122} {\draw[Dred, line width=1.6pt] (\x,26.5) -- (\x,33.5);}
+  \node[lab=Dred] at (86,39) {barrière n : tout ce qui la précède appartient au point de contrôle n};
+  \node[op=Damber, minimum width=70mm] (st) at (72,8) {point de contrôle n : positions, état des fenêtres, transaction à valider};
+  \foreach \o in {src, win, snk} \draw[Damber, dash pattern=on 3pt off 2pt, line width=0.6pt, -{Stealth}] (\o.south) -- (\o.south |- st.north);
+  % ---- chronologie des transactions
+  \begin{scope}[yshift=-24mm]
+    \node[note, anchor=east] at (-6,14) {exactly-once};
+    \draw[ligne] (0,14) -- (170,14);
+    \foreach \x/\t in {0/{T1}, 40/{T2}, 80/{T3}} {
+      \draw[draw=Dteal, fill=DtealBg, line width=0.5pt] (\x+1,11.5) rectangle (\x+39,16.5);
+      \node[lab=Dteal] at (\x+20,14) {\t\ validée};}
+    \draw[draw=Dred, fill=DredBg, line width=0.5pt] (121,11.5) rectangle (137,16.5);
+    \node[lab=Dred] at (129,14) {T4};
+    \node[lab=Dred, font=\sffamily\bfseries] at (139,14) {×};
+    \draw[draw=Dteal, fill=DtealBg, line width=0.5pt] (145,11.5) rectangle (169,16.5);
+    \node[lab=Dteal] at (157,14) {T4 refaite};
+    \node[lab=Dred, anchor=north] at (130,10) {panne : T4 annulée, jamais visible ;\\reprise depuis le point de contrôle 3};
+    \node[note, anchor=east] at (-6,-6) {at-least-once};
+    \draw[ligne] (0,-6) -- (170,-6);
+    \draw[draw=Dslate, fill=DslateBg, line width=0.5pt] (1,-8.5) rectangle (137,-3.5);
+    \node[lab=Dslate] at (69,-6) {résultats écrits et visibles aussitôt};
+    \draw[draw=Dred, fill=DredBg, line width=0.5pt] (145,-8.5) rectangle (169,-3.5);
+    \node[lab=Dred] at (157,-6) {réécrits};
+    \node[lab=Dred, anchor=north] at (150,-10) {ce qui suivait le point 3 sort deux fois\\(2 650 à 3 000 résultats en double, mesuré)};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

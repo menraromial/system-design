@@ -1,0 +1,1038 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 602.96 252.25">
+<defs>
+<g>
+<g id="flux-controle-glyph-0-0">
+<path d="M 4.54 0 L 5.46 0 L 2.98 -3.56 L 5.31 -6.23 L 4.39 -6.23 L 2.5 -4 L 1.60 -2.92 L 1.57 -2.92 L 1.57 -6.23 L 0.82 -6.23 L 0.82 0 L 1.57 0 L 1.57 -2.07 L 2.46 -3.06 Z M 4.54 0 "/>
+</g>
+<g id="flux-controle-glyph-0-1">
+<path d="M 4.51 0 L 4.51 -0.62 L 3.98 -0.62 L 3.98 -3.15 C 3.98 -4.14 3.32 -4.71 2.21 -4.71 C 1.39 -4.71 0.82 -4.31 0.57 -3.81 L 1.01 -3.42 C 1.26 -3.82 1.62 -4.10 2.18 -4.10 C 2.90 -4.10 3.26 -3.75 3.26 -3.09 L 3.26 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.28 C 0.39 -0.42 0.96 0.10 1.93 0.10 C 2.57 0.10 3.07 -0.18 3.26 -0.75 L 3.31 -0.75 C 3.37 -0.32 3.57 0 4.10 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.84 1.51 -2.09 2.32 -2.09 L 3.26 -2.09 L 3.26 -1.34 C 3.26 -0.85 2.76 -0.5 2.06 -0.5 Z M 2.06 -0.5 "/>
+</g>
+<g id="flux-controle-glyph-0-2">
+<path d="M 1.01 0 L 1.71 0 L 1.71 -3.98 L 2.71 -3.98 L 2.71 -4.60 L 1.71 -4.60 L 1.71 -5.98 L 2.71 -5.98 L 2.71 -6.60 L 2.01 -6.60 C 1.34 -6.60 1.01 -6.17 1.01 -5.54 L 1.01 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 Z M 1.01 0 "/>
+</g>
+<g id="flux-controle-glyph-0-3">
+<path d="M 0.76 0 L 1.46 0 L 1.46 -1.64 L 2.15 -2.34 L 3.68 0 L 4.56 0 L 2.68 -2.78 L 4.39 -4.60 L 3.51 -4.60 L 2.21 -3.20 L 1.51 -2.42 L 1.46 -2.42 L 1.46 -6.60 L 0.76 -6.60 Z M 0.76 0 "/>
+</g>
+<g id="flux-controle-glyph-0-4">
+<path d="M 2.25 -1.20 L 1.03 -2.53 L 2.25 -3.87 L 2.03 -4.35 L 0.32 -2.87 L 0.32 -2.20 L 2.03 -0.71 Z M 4.12 -1.20 L 2.89 -2.53 L 4.12 -3.87 L 3.90 -4.35 L 2.18 -2.87 L 2.18 -2.20 L 3.90 -0.71 Z M 4.12 -1.20 "/>
+</g>
+<g id="flux-controle-glyph-0-5">
+<path d="M 2.46 0.10 C 3.35 0.10 3.95 -0.32 4.25 -0.98 L 3.73 -1.32 C 3.48 -0.79 3.06 -0.53 2.46 -0.53 C 1.62 -0.53 1.18 -1.10 1.18 -1.90 L 1.18 -2.70 C 1.18 -3.5 1.62 -4.07 2.46 -4.07 C 3.03 -4.07 3.43 -3.81 3.60 -3.32 L 4.20 -3.64 C 3.93 -4.26 3.39 -4.71 2.46 -4.71 C 1.18 -4.71 0.42 -3.78 0.42 -2.31 C 0.42 -0.82 1.18 0.10 2.46 0.10 Z M 2.46 0.10 "/>
+</g>
+<g id="flux-controle-glyph-0-6">
+<path d="M 2.15 0 L 2.15 -0.62 L 1.46 -0.62 L 1.46 -6.60 L 0.76 -6.60 L 0.76 -0.73 C 0.76 -0.31 1.03 0 1.51 0 Z M 2.15 0 "/>
+</g>
+<g id="flux-controle-glyph-0-7">
+<path d="M 1.12 -5.68 C 1.42 -5.68 1.56 -5.85 1.56 -6.09 L 1.56 -6.21 C 1.56 -6.45 1.42 -6.60 1.12 -6.60 C 0.81 -6.60 0.67 -6.45 0.67 -6.21 L 0.67 -6.09 C 0.67 -5.85 0.81 -5.68 1.12 -5.68 Z M 0.76 0 L 1.46 0 L 1.46 -4.60 L 0.76 -4.60 Z M 0.76 0 "/>
+</g>
+<g id="flux-controle-glyph-0-8">
+<path d="M 2.14 0.10 C 3.20 0.10 3.85 -0.43 3.85 -1.32 C 3.85 -2.03 3.45 -2.46 2.43 -2.62 L 2.07 -2.68 C 1.51 -2.76 1.20 -2.95 1.20 -3.39 C 1.20 -3.82 1.51 -4.10 2.09 -4.10 C 2.68 -4.10 3.07 -3.82 3.28 -3.54 L 3.76 -3.98 C 3.39 -4.43 2.89 -4.71 2.15 -4.71 C 1.21 -4.71 0.51 -4.26 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 2 -2.03 L 2.35 -1.96 C 2.96 -1.89 3.15 -1.60 3.15 -1.25 C 3.15 -0.78 2.81 -0.5 2.20 -0.5 C 1.62 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.14 0.10 Z M 2.14 0.10 "/>
+</g>
+<g id="flux-controle-glyph-0-9">
+<path d="M 0.46 -1.20 L 0.67 -0.71 L 2.39 -2.20 L 2.39 -2.87 L 0.67 -4.35 L 0.46 -3.87 L 1.68 -2.53 Z M 2.32 -1.20 L 2.54 -0.71 L 4.26 -2.20 L 4.26 -2.87 L 2.54 -4.35 L 2.32 -3.87 L 3.56 -2.53 Z M 2.32 -1.20 "/>
+</g>
+<g id="flux-controle-glyph-0-10">
+<path d="M 2.5 0.10 C 3.73 0.10 4.57 -0.84 4.57 -2.31 C 4.57 -3.76 3.73 -4.71 2.5 -4.71 C 1.26 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.96 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.07 2.5 -4.07 C 3.26 -4.07 3.81 -3.60 3.81 -2.64 L 3.81 -1.96 C 3.81 -1 3.26 -0.53 2.5 -0.53 Z M 2.5 -0.53 "/>
+</g>
+<g id="flux-controle-glyph-0-11">
+<path d="M 3.60 0 L 4.31 0 L 4.31 -4.60 L 3.60 -4.60 L 3.60 -1.42 C 3.60 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.43 -0.95 1.43 -1.78 L 1.43 -4.60 L 0.71 -4.60 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.26 0.10 C 3.03 0.10 3.39 -0.31 3.56 -0.75 L 3.60 -0.75 Z M 3.60 0 "/>
+</g>
+<g id="flux-controle-glyph-0-12">
+<path d="M 1.46 0 L 1.46 -3.12 C 1.46 -3.56 1.93 -3.89 2.70 -3.89 L 3.12 -3.89 L 3.12 -4.60 L 2.84 -4.60 C 2.09 -4.60 1.68 -4.20 1.51 -3.76 L 1.46 -3.76 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="flux-controle-glyph-0-13">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.5 -4.12 "/>
+</g>
+<g id="flux-controle-glyph-0-14">
+<path d="M 1.46 0 L 1.46 -3.20 C 1.46 -3.79 2.03 -4.07 2.59 -4.07 C 3.28 -4.07 3.64 -3.65 3.64 -2.82 L 3.64 0 L 4.35 0 L 4.35 -2.95 C 4.35 -4.07 3.76 -4.71 2.81 -4.71 C 2.12 -4.71 1.73 -4.37 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="flux-controle-glyph-0-15">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.04 -6.84 L 1.04 -5.56 L 1.45 -5.28 L 2.5 -6.32 L 3.54 -5.28 L 3.93 -5.56 L 2.93 -6.84 Z M 2.04 -6.84 "/>
+</g>
+<g id="flux-controle-glyph-0-16">
+<path d="M 2.67 0 L 2.67 -0.62 L 1.73 -0.62 L 1.73 -3.98 L 2.75 -3.98 L 2.75 -4.60 L 1.73 -4.60 L 1.73 -5.89 L 1.09 -5.89 L 1.09 -5.03 C 1.09 -4.71 0.98 -4.60 0.68 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 L 1.01 -0.76 C 1.01 -0.31 1.28 0 1.78 0 Z M 2.67 0 "/>
+</g>
+<g id="flux-controle-glyph-0-17">
+<path d="M 1.46 0 L 1.46 -3.20 C 1.46 -3.79 2.01 -4.07 2.57 -4.07 C 3.25 -4.07 3.56 -3.65 3.56 -2.82 L 3.56 0 L 4.28 0 L 4.28 -3.20 C 4.28 -3.79 4.79 -4.07 5.35 -4.07 C 6.06 -4.07 6.37 -3.64 6.37 -2.82 L 6.37 0 L 7.09 0 L 7.09 -2.95 C 7.09 -4.07 6.53 -4.71 5.59 -4.71 C 4.79 -4.71 4.35 -4.28 4.18 -3.78 L 4.17 -3.78 C 3.92 -4.43 3.35 -4.71 2.75 -4.71 C 2.03 -4.71 1.71 -4.32 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="flux-controle-glyph-0-18">
+<path d="M 0.76 1.78 L 1.46 1.78 L 1.46 -0.75 L 1.51 -0.75 C 1.78 -0.17 2.21 0.10 2.85 0.10 C 4.01 0.10 4.73 -0.82 4.73 -2.31 C 4.73 -3.78 4.01 -4.71 2.85 -4.71 C 2.21 -4.71 1.75 -4.43 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 Z M 2.65 -0.53 C 2.01 -0.53 1.46 -0.87 1.46 -1.46 L 1.46 -3.18 C 1.46 -3.70 2.01 -4.07 2.65 -4.07 C 3.46 -4.07 3.96 -3.51 3.96 -2.70 L 3.96 -1.90 C 3.96 -1.09 3.46 -0.53 2.65 -0.53 Z M 2.65 -0.53 "/>
+</g>
+<g id="flux-controle-glyph-0-19">
+<path d="M 0.76 0 L 1.46 0 L 1.46 -0.75 L 1.51 -0.75 C 1.78 -0.17 2.21 0.10 2.85 0.10 C 4.01 0.10 4.73 -0.82 4.73 -2.31 C 4.73 -3.78 4.01 -4.71 2.85 -4.71 C 2.21 -4.71 1.75 -4.43 1.51 -3.85 L 1.46 -3.85 L 1.46 -6.60 L 0.76 -6.60 Z M 2.65 -0.53 C 2.01 -0.53 1.46 -0.87 1.46 -1.46 L 1.46 -3.18 C 1.46 -3.70 2.01 -4.07 2.65 -4.07 C 3.46 -4.07 3.96 -3.51 3.96 -2.70 L 3.96 -1.90 C 3.96 -1.09 3.46 -0.53 2.65 -0.53 Z M 2.65 -0.53 "/>
+</g>
+<g id="flux-controle-glyph-0-20">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.43 -5.23 L 2.89 -5.43 L 2.14 -6.96 L 1.48 -6.65 Z M 2.43 -5.23 "/>
+</g>
+<g id="flux-controle-glyph-0-21">
+<path d="M 1.31 0.10 C 1.68 0.10 1.84 -0.10 1.84 -0.40 L 1.84 -0.53 C 1.84 -0.82 1.68 -1.04 1.31 -1.04 C 0.92 -1.04 0.76 -0.82 0.76 -0.53 L 0.76 -0.40 C 0.76 -0.10 0.92 0.10 1.31 0.10 Z M 1.31 -3.56 C 1.68 -3.56 1.84 -3.78 1.84 -4.07 L 1.84 -4.20 C 1.84 -4.5 1.68 -4.71 1.31 -4.71 C 0.92 -4.71 0.76 -4.5 0.76 -4.20 L 0.76 -4.07 C 0.76 -3.78 0.92 -3.56 1.31 -3.56 Z M 1.31 -3.56 "/>
+</g>
+<g id="flux-controle-glyph-0-22">
+<path d="M 3.70 1.78 L 4.42 1.78 L 4.42 -4.60 L 3.70 -4.60 L 3.70 -3.85 L 3.67 -3.85 C 3.43 -4.43 2.95 -4.71 2.32 -4.71 C 1.17 -4.71 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.70 C 1.21 -3.51 1.71 -4.07 2.51 -4.07 C 3.17 -4.07 3.70 -3.70 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="flux-controle-glyph-0-23">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 3.5 -6.65 L 2.84 -6.96 L 2.09 -5.43 L 2.56 -5.23 Z M 3.5 -6.65 "/>
+</g>
+<g id="flux-controle-glyph-0-24">
+<path d="M 3.70 0 L 4.42 0 L 4.42 -6.60 L 3.70 -6.60 L 3.70 -3.85 L 3.67 -3.85 C 3.43 -4.43 2.95 -4.71 2.32 -4.71 C 1.17 -4.71 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.70 C 1.21 -3.51 1.71 -4.07 2.51 -4.07 C 3.17 -4.07 3.70 -3.70 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="flux-controle-glyph-0-25">
+<path d="M 2.5 0.10 C 3.73 0.10 4.57 -0.84 4.57 -2.31 C 4.57 -3.76 3.73 -4.71 2.5 -4.71 C 1.26 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.96 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.07 2.5 -4.07 C 3.26 -4.07 3.81 -3.60 3.81 -2.64 L 3.81 -1.96 C 3.81 -1 3.26 -0.53 2.5 -0.53 Z M 2.06 -6.84 L 1.06 -5.56 L 1.45 -5.28 L 2.5 -6.32 L 3.54 -5.28 L 3.93 -5.56 L 2.95 -6.84 Z M 2.06 -6.84 "/>
+</g>
+<g id="flux-controle-glyph-0-26">
+<path d="M 1.21 -1.04 C 0.84 -1.04 0.67 -0.82 0.67 -0.51 L 0.67 -0.39 C 0.67 -0.15 0.78 0.03 1.01 0.07 C 0.92 0.5 0.70 0.81 0.34 1.18 L 0.95 1.18 C 1.45 0.75 1.76 0.09 1.76 -0.39 L 1.76 -0.51 C 1.76 -0.82 1.59 -1.04 1.21 -1.04 Z M 1.21 -1.04 "/>
+</g>
+<g id="flux-controle-glyph-0-27">
+<path d="M 4.51 0 L 4.51 -0.62 L 3.98 -0.62 L 3.98 -3.15 C 3.98 -4.14 3.32 -4.71 2.21 -4.71 C 1.39 -4.71 0.82 -4.31 0.57 -3.81 L 1.01 -3.42 C 1.26 -3.82 1.62 -4.10 2.18 -4.10 C 2.90 -4.10 3.26 -3.75 3.26 -3.09 L 3.26 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.28 C 0.39 -0.42 0.96 0.10 1.93 0.10 C 2.57 0.10 3.07 -0.18 3.26 -0.75 L 3.31 -0.75 C 3.37 -0.32 3.57 0 4.10 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.84 1.51 -2.09 2.32 -2.09 L 3.26 -2.09 L 3.26 -1.34 C 3.26 -0.85 2.76 -0.5 2.06 -0.5 Z M 2.18 -5.23 L 2.65 -5.43 L 1.89 -6.96 L 1.25 -6.65 Z M 2.18 -5.23 "/>
+</g>
+<g id="flux-controle-glyph-0-28">
+<path d="M 2.60 0 L 4.23 -4.60 L 3.54 -4.60 L 2.71 -2.32 L 2.21 -0.75 L 2.18 -0.75 L 1.68 -2.32 L 0.87 -4.60 L 0.15 -4.60 L 1.78 0 Z M 2.60 0 "/>
+</g>
+<g id="flux-controle-glyph-0-29">
+<path d="M 0.18 0 L 0.98 0 L 2.28 -1.81 L 2.31 -1.81 L 3.5 0 L 4.34 0 L 2.68 -2.37 L 4.31 -4.60 L 3.51 -4.60 L 2.29 -2.89 L 2.26 -2.89 L 1.09 -4.60 L 0.26 -4.60 L 1.89 -2.32 Z M 0.18 0 "/>
+</g>
+<g id="flux-controle-glyph-0-30">
+<path d="M 2.48 -1.46 L 2.23 -0.71 L 2.18 -0.71 L 1.96 -1.46 L 0.85 -4.60 L 0.15 -4.60 L 1.87 0.17 L 1.53 1.15 L 0.79 1.15 L 0.79 1.78 L 1.17 1.78 C 1.84 1.78 2.03 1.62 2.25 1.07 L 4.31 -4.60 L 3.60 -4.60 Z M 2.48 -1.46 "/>
+</g>
+<g id="flux-controle-glyph-0-31">
+<path d="M 2.95 -2.32 L 2.95 -3.09 L 0.60 -3.09 L 0.60 -2.32 Z M 2.95 -2.32 "/>
+</g>
+<g id="flux-controle-glyph-0-32">
+<path d="M 4.92 -5.57 L 4.92 -6.23 L 0.20 -6.23 L 0.20 -5.57 L 2.18 -5.57 L 2.18 0 L 2.93 0 L 2.93 -5.57 Z M 4.92 -5.57 "/>
+</g>
+<g id="flux-controle-glyph-0-33">
+<path d="M 4.89 0 L 4.89 -0.65 L 3.28 -0.65 L 3.28 -6.23 L 2.10 -6.23 L 0.45 -4.68 L 0.89 -4.21 L 2.46 -5.68 L 2.53 -5.68 L 2.53 -0.65 L 0.78 -0.65 L 0.78 0 Z M 4.89 0 "/>
+</g>
+<g id="flux-controle-glyph-0-34">
+<path d="M 4.76 -0.65 L 1.48 -0.65 L 3.15 -2.17 C 3.95 -2.89 4.53 -3.56 4.53 -4.53 C 4.53 -5.59 3.82 -6.34 2.62 -6.34 C 1.40 -6.34 0.85 -5.60 0.60 -4.87 L 1.28 -4.62 C 1.45 -5.20 1.81 -5.67 2.57 -5.67 C 3.35 -5.67 3.73 -5.20 3.73 -4.51 L 3.73 -4.40 C 3.73 -3.81 3.28 -3.18 2.70 -2.64 L 0.67 -0.76 L 0.67 0 L 4.76 0 Z M 4.76 -0.65 "/>
+</g>
+<g id="flux-controle-glyph-0-35">
+<path d="M 1.65 -3.59 L 1.65 -2.93 L 2.39 -2.93 C 3.26 -2.93 3.73 -2.51 3.73 -1.78 L 3.73 -1.71 C 3.73 -0.98 3.26 -0.56 2.39 -0.56 C 1.62 -0.56 1.26 -0.89 0.93 -1.39 L 0.37 -0.95 C 0.76 -0.42 1.31 0.10 2.39 0.10 C 3.67 0.10 4.51 -0.64 4.51 -1.70 C 4.51 -2.64 3.87 -3.14 3.20 -3.28 L 3.20 -3.31 C 3.85 -3.48 4.39 -3.96 4.39 -4.76 C 4.39 -5.78 3.56 -6.34 2.5 -6.34 C 1.5 -6.34 0.95 -5.82 0.64 -5.32 L 1.20 -4.89 C 1.45 -5.37 1.84 -5.67 2.48 -5.67 C 3.14 -5.67 3.60 -5.34 3.60 -4.68 L 3.60 -4.62 C 3.60 -4.03 3.17 -3.59 2.32 -3.59 Z M 1.65 -3.59 "/>
+</g>
+<g id="flux-controle-glyph-0-36">
+<path d="M 4.06 0 L 4.06 -1.21 L 4.96 -1.21 L 4.96 -1.84 L 4.06 -1.84 L 4.06 -6.23 L 2.95 -6.23 L 0.34 -1.89 L 0.34 -1.21 L 3.35 -1.21 L 3.35 0 Z M 3.31 -5.65 L 3.35 -5.65 L 3.35 -1.84 L 1.04 -1.84 Z M 3.31 -5.65 "/>
+</g>
+<g id="flux-controle-glyph-0-37">
+<path d="M 0.76 1.15 L 0.01 1.15 L 0.01 1.78 L 0.46 1.78 C 1.15 1.78 1.46 1.34 1.46 0.71 L 1.46 -4.60 L 0.76 -4.60 Z M 1.12 -5.68 C 1.42 -5.68 1.56 -5.85 1.56 -6.09 L 1.56 -6.21 C 1.56 -6.45 1.42 -6.60 1.12 -6.60 C 0.81 -6.60 0.67 -6.45 0.67 -6.21 L 0.67 -6.09 C 0.67 -5.85 0.81 -5.68 1.12 -5.68 Z M 1.12 -5.68 "/>
+</g>
+<g id="flux-controle-glyph-0-38">
+<path d="M 1.31 -1.04 C 0.92 -1.04 0.76 -0.82 0.76 -0.51 L 0.76 -0.39 C 0.76 -0.15 0.85 0.03 1.10 0.07 C 1.01 0.5 0.79 0.81 0.43 1.18 L 1.03 1.18 C 1.54 0.75 1.84 0.09 1.84 -0.39 L 1.84 -0.51 C 1.84 -0.82 1.68 -1.04 1.31 -1.04 Z M 1.31 -3.56 C 1.68 -3.56 1.84 -3.78 1.84 -4.07 L 1.84 -4.20 C 1.84 -4.5 1.68 -4.71 1.31 -4.71 C 0.92 -4.71 0.76 -4.5 0.76 -4.20 L 0.76 -4.07 C 0.76 -3.78 0.92 -3.56 1.31 -3.56 Z M 1.31 -3.56 "/>
+</g>
+<g id="flux-controle-glyph-0-39">
+<path d="M 0.73 -2.78 C 0.73 -1.04 1.46 0.46 2.35 1.21 L 3.03 1.21 C 2.07 0.35 1.40 -1.14 1.40 -2.39 L 1.40 -3.15 C 1.40 -4.42 2.04 -5.90 3.03 -6.79 L 2.35 -6.79 C 1.45 -6.01 0.73 -4.51 0.73 -2.78 Z M 0.73 -2.78 "/>
+</g>
+<g id="flux-controle-glyph-0-40">
+<path d="M 2.68 0.10 C 3.93 0.10 4.76 -0.73 4.76 -1.95 C 4.76 -3.14 4 -3.87 2.92 -3.87 C 2.15 -3.87 1.71 -3.5 1.42 -2.98 L 1.37 -3 C 1.71 -4.45 2.45 -5.26 3.79 -6.23 L 2.82 -6.23 C 1.82 -5.59 0.59 -4.14 0.59 -2.28 C 0.59 -0.79 1.39 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.85 -0.54 1.37 -1.01 1.37 -1.85 L 1.37 -1.93 C 1.37 -2.76 1.85 -3.25 2.68 -3.25 C 3.5 -3.25 3.98 -2.76 3.98 -1.93 L 3.98 -1.85 C 3.98 -1.01 3.5 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="flux-controle-glyph-0-41">
+<path d="M 4.45 -6.23 L 1.10 -6.23 L 0.89 -2.81 L 1.51 -2.71 C 1.78 -3 2.06 -3.25 2.64 -3.25 C 3.48 -3.25 3.93 -2.76 3.93 -1.95 L 3.93 -1.85 C 3.93 -1.03 3.48 -0.56 2.64 -0.56 C 1.89 -0.56 1.57 -0.89 1.25 -1.39 L 0.68 -0.95 C 1.06 -0.42 1.59 0.10 2.64 0.10 C 3.95 0.10 4.73 -0.73 4.73 -1.95 C 4.73 -3.15 3.95 -3.89 2.87 -3.89 C 2.21 -3.89 1.89 -3.62 1.59 -3.20 L 1.53 -3.20 L 1.71 -5.57 L 4.45 -5.57 Z M 4.45 -6.23 "/>
+</g>
+<g id="flux-controle-glyph-0-42">
+<path d="M 2.68 0.10 C 4.17 0.10 4.82 -1.07 4.82 -3.12 C 4.82 -5.15 4.17 -6.34 2.68 -6.34 C 1.18 -6.34 0.53 -5.15 0.53 -3.12 C 0.53 -1.07 1.18 0.10 2.68 0.10 Z M 2.68 -0.54 C 1.70 -0.54 1.32 -1.40 1.32 -2.60 L 1.32 -3.62 C 1.32 -4.82 1.70 -5.68 2.68 -5.68 C 3.65 -5.68 4.04 -4.82 4.04 -3.62 L 4.04 -2.60 C 4.04 -1.40 3.65 -0.54 2.68 -0.54 Z M 2.68 -0.54 "/>
+</g>
+<g id="flux-controle-glyph-0-43">
+<path d="M 2.25 -2.78 C 2.25 -4.51 1.54 -6.01 0.64 -6.79 L -0.04 -6.79 C 0.95 -5.90 1.57 -4.42 1.57 -3.15 L 1.57 -2.39 C 1.57 -1.14 0.92 0.35 -0.04 1.21 L 0.64 1.21 C 1.51 0.46 2.25 -1.04 2.25 -2.78 Z M 2.25 -2.78 "/>
+</g>
+<g id="flux-controle-glyph-1-0">
+<path d="M 1.14 0 L 1.14 -2.43 C 1.14 -2.78 1.51 -3.03 2.10 -3.03 L 2.43 -3.03 L 2.43 -3.59 L 2.21 -3.59 C 1.64 -3.59 1.31 -3.26 1.18 -2.92 L 1.14 -2.92 L 1.14 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="flux-controle-glyph-1-1">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.35 -0.73 L 2.96 -1.01 C 2.78 -0.62 2.42 -0.40 1.96 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.51 -3.20 2.89 -2.78 2.89 -2.15 L 2.89 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.32 -3.20 1.93 -3.20 Z M 1.93 -3.20 "/>
+</g>
+<g id="flux-controle-glyph-1-2">
+<path d="M 1.67 0 L 1.67 -0.48 L 1.14 -0.48 L 1.14 -5.14 L 0.59 -5.14 L 0.59 -0.57 C 0.59 -0.25 0.79 0 1.18 0 Z M 1.67 0 "/>
+</g>
+<g id="flux-controle-glyph-1-3">
+<path d="M 0.87 -4.42 C 1.10 -4.42 1.20 -4.54 1.20 -4.73 L 1.20 -4.82 C 1.20 -5.01 1.10 -5.14 0.87 -5.14 C 0.62 -5.14 0.53 -5.01 0.53 -4.82 L 0.53 -4.73 C 0.53 -4.54 0.62 -4.42 0.87 -4.42 Z M 0.59 0 L 1.14 0 L 1.14 -3.59 L 0.59 -3.59 Z M 0.59 0 "/>
+</g>
+<g id="flux-controle-glyph-1-4">
+<path d="M 1.67 0.07 C 2.48 0.07 3 -0.34 3 -1.03 C 3 -1.57 2.68 -1.92 1.89 -2.04 L 1.62 -2.09 C 1.17 -2.15 0.93 -2.29 0.93 -2.64 C 0.93 -2.98 1.17 -3.20 1.64 -3.20 C 2.09 -3.20 2.40 -2.98 2.56 -2.76 L 2.92 -3.09 C 2.64 -3.45 2.25 -3.67 1.67 -3.67 C 0.95 -3.67 0.39 -3.32 0.39 -2.60 C 0.39 -1.95 0.89 -1.67 1.54 -1.57 L 1.82 -1.53 C 2.31 -1.46 2.46 -1.25 2.46 -0.96 C 2.46 -0.60 2.18 -0.39 1.70 -0.39 C 1.26 -0.39 0.92 -0.59 0.64 -0.93 L 0.25 -0.62 C 0.56 -0.18 1.01 0.07 1.67 0.07 Z M 1.67 0.07 "/>
+</g>
+<g id="flux-controle-glyph-1-5">
+<path d="M 0.59 0 L 1.14 0 L 1.14 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.21 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.93 3.12 -3.67 2.21 -3.67 C 1.73 -3.67 1.35 -3.45 1.17 -3 L 1.14 -3 L 1.14 -5.14 L 0.59 -5.14 Z M 2.07 -0.42 C 1.56 -0.42 1.14 -0.68 1.14 -1.14 L 1.14 -2.48 C 1.14 -2.87 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.73 3.09 -2.09 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="flux-controle-glyph-1-6">
+<path d="M 0.59 1.39 L 1.14 1.39 L 1.14 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.21 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.93 3.12 -3.67 2.21 -3.67 C 1.73 -3.67 1.35 -3.45 1.17 -3 L 1.14 -3 L 1.14 -3.59 L 0.59 -3.59 Z M 2.07 -0.42 C 1.56 -0.42 1.14 -0.68 1.14 -1.14 L 1.14 -2.48 C 1.14 -2.87 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.73 3.09 -2.09 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="flux-controle-glyph-1-7">
+<path d="M 1.95 0.07 C 2.90 0.07 3.56 -0.65 3.56 -1.79 C 3.56 -2.93 2.90 -3.67 1.95 -3.67 C 0.98 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.95 0.07 Z M 1.95 -0.40 C 1.34 -0.40 0.92 -0.78 0.92 -1.53 L 0.92 -2.04 C 0.92 -2.81 1.34 -3.17 1.95 -3.17 C 2.54 -3.17 2.96 -2.81 2.96 -2.04 L 2.96 -1.53 C 2.96 -0.78 2.54 -0.40 1.95 -0.40 Z M 1.95 -0.40 "/>
+</g>
+<g id="flux-controle-glyph-1-8">
+<path d="M 2.07 0 L 2.07 -0.48 L 1.34 -0.48 L 1.34 -3.09 L 2.14 -3.09 L 2.14 -3.59 L 1.34 -3.59 L 1.34 -4.57 L 0.84 -4.57 L 0.84 -3.92 C 0.84 -3.67 0.76 -3.59 0.53 -3.59 L 0.20 -3.59 L 0.20 -3.09 L 0.79 -3.09 L 0.79 -0.59 C 0.79 -0.25 1 0 1.39 0 Z M 2.07 0 "/>
+</g>
+<g id="flux-controle-glyph-1-9">
+<path d="M 1.14 0 L 1.14 -2.48 C 1.14 -2.95 1.57 -3.17 2.01 -3.17 C 2.56 -3.17 2.84 -2.84 2.84 -2.20 L 2.84 0 L 3.39 0 L 3.39 -2.29 C 3.39 -3.17 2.92 -3.67 2.18 -3.67 C 1.65 -3.67 1.34 -3.40 1.17 -3 L 1.14 -3 L 1.14 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="flux-controle-glyph-1-10">
+<path d="M 2.79 0 L 3.35 0 L 3.35 -3.59 L 2.79 -3.59 L 2.79 -1.10 C 2.79 -0.62 2.37 -0.42 1.93 -0.42 C 1.39 -0.42 1.10 -0.75 1.10 -1.39 L 1.10 -3.59 L 0.56 -3.59 L 0.56 -1.28 C 0.56 -0.42 1.03 0.07 1.76 0.07 C 2.35 0.07 2.64 -0.25 2.78 -0.57 L 2.79 -0.57 Z M 2.79 0 "/>
+</g>
+<g id="flux-controle-glyph-1-11">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.35 -0.73 L 2.96 -1.01 C 2.78 -0.62 2.42 -0.40 1.96 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.51 -3.20 2.89 -2.78 2.89 -2.15 L 2.89 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.32 -3.20 1.93 -3.20 Z M 2.71 -5.17 L 2.21 -5.42 L 1.62 -4.23 L 1.98 -4.06 Z M 2.71 -5.17 "/>
+</g>
+<g id="flux-controle-glyph-1-12">
+<path d="M 3.51 0 L 3.51 -0.48 L 3.09 -0.48 L 3.09 -2.46 C 3.09 -3.21 2.59 -3.67 1.71 -3.67 C 1.07 -3.67 0.64 -3.34 0.45 -2.96 L 0.78 -2.65 C 0.98 -2.98 1.26 -3.18 1.70 -3.18 C 2.26 -3.18 2.54 -2.90 2.54 -2.40 L 2.54 -2.04 L 1.82 -2.04 C 0.79 -2.04 0.31 -1.67 0.31 -1 C 0.31 -0.32 0.75 0.07 1.51 0.07 C 2.01 0.07 2.39 -0.14 2.54 -0.57 L 2.57 -0.57 C 2.62 -0.25 2.78 0 3.20 0 Z M 1.59 -0.39 C 1.17 -0.39 0.89 -0.59 0.89 -0.95 L 0.89 -1.09 C 0.89 -1.43 1.17 -1.64 1.81 -1.64 L 2.54 -1.64 L 2.54 -1.04 C 2.54 -0.67 2.15 -0.39 1.59 -0.39 Z M 1.59 -0.39 "/>
+</g>
+<g id="flux-controle-glyph-1-13">
+<path d="M 1.01 0.07 C 1.31 0.07 1.43 -0.07 1.43 -0.31 L 1.43 -0.40 C 1.43 -0.64 1.31 -0.81 1.01 -0.81 C 0.71 -0.81 0.59 -0.64 0.59 -0.40 L 0.59 -0.31 C 0.59 -0.07 0.71 0.07 1.01 0.07 Z M 1.01 -2.78 C 1.31 -2.78 1.43 -2.93 1.43 -3.17 L 1.43 -3.26 C 1.43 -3.5 1.31 -3.67 1.01 -3.67 C 0.71 -3.67 0.59 -3.5 0.59 -3.26 L 0.59 -3.17 C 0.59 -2.93 0.71 -2.78 1.01 -2.78 Z M 1.01 -2.78 "/>
+</g>
+<g id="flux-controle-glyph-1-14">
+<path d="M 1.92 0.07 C 2.60 0.07 3.07 -0.25 3.29 -0.76 L 2.90 -1.03 C 2.70 -0.62 2.37 -0.40 1.92 -0.40 C 1.26 -0.40 0.92 -0.85 0.92 -1.48 L 0.92 -2.09 C 0.92 -2.71 1.26 -3.17 1.92 -3.17 C 2.35 -3.17 2.67 -2.96 2.79 -2.59 L 3.26 -2.82 C 3.06 -3.32 2.64 -3.67 1.92 -3.67 C 0.92 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.64 0.92 0.07 1.92 0.07 Z M 1.92 0.07 "/>
+</g>
+<g id="flux-controle-glyph-1-15">
+<path d="M 1.14 0 L 1.14 -2.48 C 1.14 -2.95 1.56 -3.17 2 -3.17 C 2.53 -3.17 2.78 -2.84 2.78 -2.20 L 2.78 0 L 3.32 0 L 3.32 -2.48 C 3.32 -2.95 3.73 -3.17 4.17 -3.17 C 4.71 -3.17 4.95 -2.84 4.95 -2.20 L 4.95 0 L 5.51 0 L 5.51 -2.29 C 5.51 -3.17 5.07 -3.67 4.34 -3.67 C 3.73 -3.67 3.39 -3.32 3.25 -2.93 L 3.23 -2.93 C 3.04 -3.45 2.60 -3.67 2.14 -3.67 C 1.57 -3.67 1.32 -3.37 1.17 -3 L 1.14 -3 L 1.14 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="flux-controle-glyph-1-16">
+<path d="M 2.03 0 L 3.29 -3.59 L 2.76 -3.59 L 2.12 -1.81 L 1.73 -0.57 L 1.70 -0.57 L 1.31 -1.81 L 0.68 -3.59 L 0.12 -3.59 L 1.39 0 Z M 2.03 0 "/>
+</g>
+<g id="flux-controle-glyph-1-17">
+<path d="M 2.89 0 L 3.43 0 L 3.43 -5.14 L 2.89 -5.14 L 2.89 -3 L 2.85 -3 C 2.67 -3.45 2.29 -3.67 1.81 -3.67 C 0.90 -3.67 0.34 -2.93 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.81 0.07 C 2.29 0.07 2.64 -0.14 2.85 -0.57 L 2.89 -0.57 Z M 1.95 -0.42 C 1.32 -0.42 0.95 -0.84 0.95 -1.48 L 0.95 -2.09 C 0.95 -2.73 1.32 -3.17 1.95 -3.17 C 2.46 -3.17 2.89 -2.87 2.89 -2.48 L 2.89 -1.14 C 2.89 -0.68 2.46 -0.42 1.95 -0.42 Z M 1.95 -0.42 "/>
+</g>
+<g id="flux-controle-glyph-1-18">
+<path d="M 3.71 1.14 L 3.71 0.65 L 0.20 0.65 L 0.20 1.14 Z M 3.71 1.14 "/>
+</g>
+<g id="flux-controle-glyph-2-0">
+<path d="M 4.42 -0.76 L 5.14 -1.48 L 3.70 -2.98 L 5.14 -4.48 L 4.42 -5.20 L 2.98 -3.70 L 1.54 -5.20 L 0.82 -4.48 L 2.26 -2.98 L 0.82 -1.48 L 1.54 -0.76 L 2.98 -2.28 Z M 4.42 -0.76 "/>
+</g>
+</g>
+</defs>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 31.15 100.62 L -31.15 100.62 C -32.80 100.62 -34.14 99.29 -34.14 97.64 L -34.14 72.43 C -34.14 70.78 -32.80 69.44 -31.15 69.44 L 31.15 69.44 C 32.80 69.44 34.14 70.78 34.14 72.43 L 34.14 97.64 C 34.14 99.29 32.80 100.62 31.15 100.62 Z M 31.15 100.62 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-0" x="52.63" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="58.17" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-2" x="62.94" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-3" x="65.84" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="70.51" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-4" x="77.39" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="84.09" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="88.58" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="91.01" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="93.25" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="97.75" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-9" x="104.21" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-0" x="68.30" y="47.81"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="70.82" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-2" x="74.64" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-3" x="76.53" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-4" x="78.27" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-3" x="81.66" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-5" x="83.40" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-2" x="87.43" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-1" x="89.32" y="47.81"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 133.07 100.62 L 71.01 100.62 C 69.37 100.62 68.03 99.29 68.03 97.64 L 68.03 72.43 C 68.03 70.78 69.37 69.44 71.01 69.44 L 133.07 69.44 C 134.72 69.44 136.06 70.78 136.06 72.43 L 136.06 97.64 C 136.06 99.29 134.72 100.62 133.07 100.62 Z M 133.07 100.62 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-8" x="168.95" y="35.28"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="173.30" y="35.28"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="178.31" y="35.28"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="183.39" y="35.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="186.62" y="35.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="191.07" y="35.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-6" x="164.28" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-7" x="168.31" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-4" x="172.20" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-3" x="175.59" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-8" x="177.33" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-3" x="179.77" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-7" x="181.51" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-9" x="185.40" y="46.21"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-2" x="190.99" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-10" x="192.88" y="46.21"/>
+<use xlink:href="#flux-controle-glyph-1-1" x="196.83" y="46.21"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 235.12 100.62 L 173.07 100.62 C 171.41 100.62 170.08 99.29 170.08 97.64 L 170.08 72.43 C 170.08 70.78 171.41 69.44 173.07 69.44 L 235.12 69.44 C 236.77 69.44 238.11 70.78 238.11 72.43 L 238.11 97.64 C 238.11 99.29 236.77 100.62 235.12 100.62 Z M 235.12 100.62 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-2" x="267.51" y="36.34"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="270.37" y="36.34"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="275.28" y="36.34"/>
+<use xlink:href="#flux-controle-glyph-0-15" x="280.36" y="36.34"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="285.27" y="36.34"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="288.41" y="36.34"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="291.64" y="36.34"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="296.55" y="36.34"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-11" x="261.56" y="47.27"/>
+<use xlink:href="#flux-controle-glyph-1-8" x="265.38" y="47.27"/>
+<use xlink:href="#flux-controle-glyph-1-12" x="267.82" y="47.27"/>
+<use xlink:href="#flux-controle-glyph-1-8" x="271.53" y="47.27"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-13" x="275.61" y="47.27"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-14" x="279.83" y="47.27"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-7" x="283.29" y="47.27"/>
+<use xlink:href="#flux-controle-glyph-1-15" x="287.18" y="47.27"/>
+<use xlink:href="#flux-controle-glyph-1-6" x="293.25" y="47.27"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-8" x="297.24" y="47.27"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="299.66" y="47.27"/>
+<use xlink:href="#flux-controle-glyph-1-4" x="303.47" y="47.27"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 339.58 100.62 L 272.70 100.62 C 271.05 100.62 269.71 99.29 269.71 97.64 L 269.71 72.43 C 269.71 70.78 271.05 69.44 272.70 69.44 L 339.58 69.44 C 341.23 69.44 342.57 70.78 342.57 72.43 L 342.57 97.64 C 342.57 99.29 341.23 100.62 339.58 100.62 Z M 339.58 100.62 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-8" x="374.48" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="378.83" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="383.84" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="387.14" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="390.28" y="36.88"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="392.52" y="36.88"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-8" x="355.59" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-0" x="358.03" y="47.81"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-12" x="360.56" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-9" x="364.27" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-4" x="368.22" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-12" x="371.61" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-14" x="375.32" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-8" x="378.82" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-3" x="381.26" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-7" x="383.00" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-9" x="386.89" y="47.81"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-7" x="392.48" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-10" x="396.37" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-16" x="400.32" y="47.81"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="403.69" y="47.81"/>
+<use xlink:href="#flux-controle-glyph-1-0" x="407.51" y="47.81"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-8" x="410.09" y="47.81"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="412.50" y="47.81"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 447.73 100.62 L 368.64 100.62 C 366.99 100.62 365.65 99.29 365.65 97.64 L 365.65 72.43 C 365.65 70.78 366.99 69.44 368.64 69.44 L 447.73 69.44 C 449.38 69.44 450.72 70.78 450.72 72.43 L 450.72 97.64 C 450.72 99.29 449.38 100.62 447.73 100.62 Z M 447.73 100.62 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-0" x="451.25" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="456.79" y="36.35"/>
+<use xlink:href="#flux-controle-glyph-0-2" x="461.56" y="36.35"/>
+<use xlink:href="#flux-controle-glyph-0-3" x="464.46" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="469.12" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-4" x="476.01" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="482.70" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="487.15" y="36.35"/>
+<use xlink:href="#flux-controle-glyph-0-17" x="492.15" y="36.35"/>
+<use xlink:href="#flux-controle-glyph-0-18" x="499.96" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="505.09" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="508.19" y="36.35"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="513.10" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-9" x="519.56" y="36.35"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-2" x="453.53" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-10" x="455.42" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="461.00" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-9" x="464.82" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-0" x="470.41" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="472.93" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-12" x="476.75" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-17" x="480.46" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-18" x="484.50" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-14" x="488.01" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-7" x="491.46" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-15" x="495.36" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-15" x="501.43" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-3" x="507.50" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-8" x="509.24" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-8" x="511.61" y="47.28"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-1-1" x="514.03" y="47.28"/>
+<use xlink:href="#flux-controle-glyph-1-17" x="517.84" y="47.28"/>
+</g>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 34.63 85.04 L 62.75 85.04 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.36 Z M 6.39 0.00 " transform="matrix(0.997059, 0, 0, -0.997059, 140.424099, 39.08272)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 136.56 85.04 L 164.80 85.04 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.38 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.36 Z M 6.38 0.00 " transform="matrix(0.997059, 0, 0, -0.997059, 242.172025, 39.08272)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 238.61 85.04 L 264.43 85.04 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.36 Z M 6.39 0.00 " transform="matrix(0.997059, 0, 0, -0.997059, 341.513888, 39.08272)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 343.07 85.04 L 360.38 85.04 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.36 Z M 6.39 0.00 " transform="matrix(0.997059, 0, 0, -0.997059, 437.175086, 39.08272)"/>
+<path fill="none" stroke-width="1.59" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-miterlimit="10" d="M 141.73 75.11 L 141.73 94.96 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill="none" stroke-width="1.59" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-miterlimit="10" d="M 243.78 75.11 L 243.78 94.96 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill="none" stroke-width="1.59" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-red)" stroke-opacity="1" stroke-miterlimit="10" d="M 345.82 75.11 L 345.82 94.96 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-19" x="190.56" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="195.75" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="200.52" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="203.80" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="207.08" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-20" x="209.32" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="214.23" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="217.46" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-14" x="224.48" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-21" x="231.67" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="237.09" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="240.20" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="245.20" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="250.28" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="255.52" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="259.97" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-22" x="266.98" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="272.17" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="277.25" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-6" x="281.59" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="284.02" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="290.91" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="296.09" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="299.34" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="304.24" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-20" x="308.69" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-24" x="313.60" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="318.78" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="325.79" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-18" x="330.56" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-18" x="335.75" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="340.93" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="345.71" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="349.02" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="352.16" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="354.40" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="359.31" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="364.38" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="369.63" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="374.41" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="381.59" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="386.78" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="391.78" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="394.02" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="399.10" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="404.35" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="409.53" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="416.55" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="421.00" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="426.01" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="431.09" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="434.22" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-25" x="437.46" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="442.47" y="16.23"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="444.90" y="16.23"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-14" x="451.91" y="16.23"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-amber-bg);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 346.48 38.26 L 61.71 38.26 C 60.06 38.26 58.72 36.93 58.72 35.28 L 58.72 10.07 C 58.72 8.42 60.06 7.08 61.71 7.08 L 346.48 7.08 C 348.13 7.08 349.46 8.42 349.46 10.07 L 349.46 35.28 C 349.46 36.93 348.13 38.26 346.48 38.26 Z M 346.48 38.26 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="145.22" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="150.41" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="155.42" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="157.65" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="162.73" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="167.98" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="173.16" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="180.18" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="184.62" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="189.63" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="194.71" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="197.84" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-25" x="201.08" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="206.09" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="208.52" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-14" x="215.54" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-21" x="222.72" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="228.14" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="233.33" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="238.33" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="242.69" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="244.92" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="248.06" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="250.30" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="255.30" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="260.38" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-26" x="264.70" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="269.23" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="274.14" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="277.28" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="282.05" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="287.30" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="292.48" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="297.39" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-2" x="303.86" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="306.73" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="311.63" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-15" x="316.71" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="321.62" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="324.76" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="327.99" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="332.90" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-26" x="337.21" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="341.74" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="344.88" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="348.14" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="352.91" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="357.99" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="362.34" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="367.11" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="371.61" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="374.75" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="376.98" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="381.99" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-27" x="389.17" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-28" x="396.05" y="103.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="400.38" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="405.15" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="407.59" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-24" x="409.82" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="415.01" y="103.85"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="419.91" y="103.85"/>
+</g>
+<path fill="none" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-amber)" stroke-opacity="1" stroke-dasharray="2.98 1.99" stroke-miterlimit="10" d="M 102.04 68.95 L 102.04 42.35 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-amber);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 4.82 0.00 L 0.96 1.45 L 2.24 0.00 L 0.96 -1.45 Z M 4.82 0.00 " transform="matrix(0, 0.997059, 0.997059, 0, 182.468035, 79.558352)"/>
+<path fill="none" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-amber)" stroke-opacity="1" stroke-dasharray="2.98 1.99" stroke-miterlimit="10" d="M 204.09 68.95 L 204.09 42.35 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-amber);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 4.82 -0.00 L 0.96 1.45 L 2.24 -0.00 L 0.96 -1.45 Z M 4.82 -0.00 " transform="matrix(0, 0.997059, 0.997059, 0, 284.215961, 79.558352)"/>
+<path fill="none" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-amber)" stroke-opacity="1" stroke-dasharray="2.98 1.99" stroke-miterlimit="10" d="M 306.14 68.95 L 306.14 42.35 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-amber);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.59" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 4.82 0.00 L 0.96 1.45 L 2.24 0.00 L 0.96 -1.45 Z M 4.82 0.00 " transform="matrix(0, 0.997059, 0.997059, 0, 385.963887, 79.558352)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="10.52" y="154.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-29" x="15.32" y="154.54"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="19.85" y="154.54"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="24.63" y="154.54"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="29.13" y="154.54"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="32.26" y="154.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-30" x="34.61" y="154.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-31" x="38.98" y="154.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="42.63" y="154.54"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="47.64" y="154.54"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="52.72" y="154.54"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="57.16" y="154.54"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00 -28.34 L 481.89 -28.34 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-teal-bg);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 2.83 -35.43 L 2.83 -21.26 L 110.55 -21.26 L 110.55 -35.43 Z M 2.83 -35.43 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-32" x="116.57" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-33" x="121.68" y="155.56"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-28" x="129.15" y="155.56"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="133.47" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="138.25" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="140.68" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-24" x="142.91" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-23" x="148.10" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="153.01" y="155.56"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-teal-bg);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 116.22 -35.43 L 116.22 -21.26 L 223.93 -21.26 L 223.93 -35.43 Z M 116.22 -35.43 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-32" x="229.62" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-34" x="234.73" y="155.56"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-28" x="242.21" y="155.56"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="246.52" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="251.30" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="253.73" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-24" x="255.97" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-23" x="261.15" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="266.06" y="155.56"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-teal-bg);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 229.60 -35.43 L 229.60 -21.26 L 337.32 -21.26 L 337.32 -35.43 Z M 229.60 -35.43 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-32" x="342.67" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-35" x="347.79" y="155.56"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-28" x="355.25" y="155.56"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="359.58" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="364.35" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="366.78" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-24" x="369.02" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-23" x="374.20" y="155.56"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="379.11" y="155.56"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 342.99 -35.43 L 342.99 -21.26 L 388.34 -21.26 L 388.34 -35.43 Z M 342.99 -35.43 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-32" x="440.07" y="155.25"/>
+<use xlink:href="#flux-controle-glyph-0-36" x="445.18" y="155.25"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-2-0" x="470.59" y="154.73"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-teal-bg);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 411.02 -35.43 L 411.02 -21.26 L 479.05 -21.26 L 479.05 -35.43 Z M 411.02 -35.43 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-32" x="505.12" y="155.38"/>
+<use xlink:href="#flux-controle-glyph-0-36" x="510.23" y="155.38"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-12" x="517.71" y="155.38"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="520.94" y="155.38"/>
+<use xlink:href="#flux-controle-glyph-0-2" x="525.85" y="155.38"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="528.75" y="155.38"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="533.52" y="155.38"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="535.76" y="155.38"/>
+</g>
+<g style="fill:var(--fig-teal)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="538.86" y="155.38"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="377.88" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="383.06" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="387.83" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="392.91" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="397.99" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-21" x="405.01" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-32" x="410.43" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-36" x="415.54" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="423.01" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="427.79" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="432.87" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="437.94" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="443.02" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-23" x="445.45" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="450.36" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-26" x="455.10" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-37" x="459.63" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="461.87" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-17" x="466.64" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="474.45" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="479.22" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="481.45" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-28" x="487.92" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="492.32" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="494.55" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="498.91" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-19" x="501.14" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="506.33" y="173.91"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="508.76" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-38" x="515.78" y="173.91"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-12" x="375.93" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="379.17" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-18" x="384.08" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="389.26" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="392.54" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="394.78" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="399.13" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="406.15" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="411.34" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-18" x="416.24" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="421.43" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="426.51" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="428.74" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-6" x="435.21" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="437.64" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="444.66" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="449.84" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="454.85" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="457.08" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="462.16" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="467.41" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="472.59" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="479.61" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="484.05" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="489.06" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="494.14" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="497.28" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-25" x="500.51" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="505.52" y="184.84"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="507.95" y="184.84"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-35" x="514.97" y="184.84"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="8.31" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="13.09" y="211.91"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-31" x="16.05" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="19.61" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="22.04" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="26.95" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="31.73" y="211.91"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="36.02" y="211.91"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-31" x="38.98" y="211.91"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="42.63" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="47.64" y="211.91"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="52.72" y="211.91"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="57.16" y="211.91"/>
+</g>
+<path fill="none" stroke-width="0.79" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-ink)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00 -85.04 L 481.89 -85.04 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 2.83 -92.12 L 2.83 -77.95 L 388.34 -77.95 L 388.34 -92.12 Z M 2.83 -92.12 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-12" x="207.55" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="210.79" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="215.70" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="220.05" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="225.13" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="227.52" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="230.65" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="235.43" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="238.57" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="245.03" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="249.94" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="254.43" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="257.72" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="259.95" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="263.09" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="269.55" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="274.46" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-28" x="279.71" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="284.11" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="286.34" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="290.70" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-19" x="292.93" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="298.12" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="300.55" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="305.46" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="311.92" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="316.69" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="321.77" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-8" x="326.07" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="330.42" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="332.66" y="212.09"/>
+</g>
+<g style="fill:var(--fig-slate)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-25" x="335.76" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="340.77" y="212.09"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 411.02 -92.12 L 411.02 -77.95 L 479.05 -77.95 L 479.05 -92.12 Z M 411.02 -92.12 " transform="matrix(0.997059, 0, 0, -0.997059, 80.720109, 123.872652)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-12" x="509.17" y="212.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="512.40" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-23" x="517.31" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-5" x="522.22" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="526.71" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="530.00" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="532.23" y="212.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="535.37" y="212.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-5" x="430.57" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="435.01" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-22" x="442.03" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="447.22" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="452.29" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-8" x="456.64" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="460.99" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="466.07" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-28" x="468.31" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-1" x="472.62" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="477.40" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="479.63" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-6" x="484.88" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="487.31" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-18" x="494.33" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="499.51" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="504.52" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="506.76" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="511.83" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-35" x="517.08" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-8" x="524.56" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="528.91" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="533.92" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="537.23" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="542.48" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="547.67" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="552.57" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-29" x="557.65" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-2" x="564.29" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-10" x="567.15" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-7" x="572.16" y="230.09"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="574.40" y="230.09"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-39" x="416.54" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-34" x="419.53" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-40" x="427.01" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-41" x="432.37" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-42" x="437.73" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-27" x="445.21" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-35" x="452.09" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-42" x="459.57" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-42" x="464.93" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-42" x="470.29" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-12" x="477.77" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="481.00" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="485.91" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="490.27" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="495.34" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-16" x="497.73" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-1" x="500.87" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-16" x="505.64" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="508.78" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-13" x="515.24" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-14" x="520.15" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-24" x="527.34" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-10" x="532.53" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="537.53" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-19" x="542.61" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-6" x="547.79" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="550.23" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-26" x="554.96" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-17" x="559.50" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-13" x="567.30" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-8" x="572.21" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-11" x="576.56" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-12" x="581.64" y="241.01"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#flux-controle-glyph-0-23" x="584.88" y="241.01"/>
+<use xlink:href="#flux-controle-glyph-0-43" x="589.79" y="241.01"/>
+</g>
+</svg>

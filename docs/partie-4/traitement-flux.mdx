@@ -1,0 +1,268 @@
+---
+title: "Traitement de flux : Flink, Lambda, Kappa"
+sidebar_label: "48. Traitement de flux"
+description: "Traiter des données non bornées au fil de l'eau : temps d'événement et temps de traitement, fenêtres, filigranes (watermarks), données tardives, état et points de contrôle, exactly-once de bout en bout, architectures Lambda et Kappa ; mesures sur une simulation de flux dans le désordre et sur Apache Flink 2.1 relié à Kafka 4.3, avec panne du TaskManager."
+partie: 4
+chapitre: 48
+---
+
+import temps from '@site/src/figures/flux-temps.svg';
+import controle from '@site/src/figures/flux-controle.svg';
+import lambdakappa from '@site/src/figures/flux-lambda-kappa.svg';
+
+Dix minutes de clics arrivés dans le désordre, comptés par page sur des fenêtres de 10 s selon leur instant d’arrivée, donnent 2 624 comptes faux sur 3 000. Comptés selon l’instant où les clics ont eu lieu, ils sont justes à condition d’attendre les retardataires. Avec Apache Flink, un filigrane de 5 s perd 693 à 694 clics sur 90 000 et livre chaque résultat 5 à 6 s après la fin de sa fenêtre, un filigrane de 30 s n’en perd que 74 à 77 et le livre 31 s après. Quand on tue le TaskManager de Flink au milieu d’un calcul, une sortie exactly-once livre chacune des 10 000 fenêtres une fois et juste ; une sortie at-least-once en livre 2 650 à 3 000 en double. Ce chapitre traite du traitement de flux, c’est-à-dire du calcul sur des données qui n’ont pas de fin, en temps d’événement, avec un état qui survit aux pannes, et choisir entre une architecture qui double le calcul en lots (Lambda) et une architecture qui relit le flux (Kappa).
+
+Le [ch. 47](traitement-lots.mdx) a traité des données au repos, dont on connaît la fin ; un flux n’en a pas. Les clics, les paiements, les mesures de capteurs arrivent sans arrêt, et l’on veut des résultats pendant qu’ils arrivent, pas le lendemain. Les journaux de messages du [ch. 27](../partie-2/files-messages.mdx) transportent ces flux, les garanties de livraison du [ch. 28](../partie-2/garanties-livraison.mdx) disent ce qui arrive en cas de panne ; ce chapitre traite de ce qu’on calcule dessus.
+
+Trois scripts ont été écrits pour ce chapitre, dans [`outils/experiences/ch48/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch48). [`evenements.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch48/evenements.py) produit un flux de clics sur 50 pages, dans le désordre : 90 % des clics arrivent moins de 0,5 s après avoir eu lieu, 9 % entre 0,5 et 4 s, et 1 % entre 4 et 40 s, comme les clics d’un téléphone resté hors ligne. [`fenetres.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch48/fenetres.py) traite 10 minutes de ce flux à 1 000 clics par seconde dans l’ordre d’arrivée, pour comparer des fenêtres et des filigranes. [`flux_flink.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch48/flux_flink.py) lance Apache Flink 2.1 (un JobManager, un TaskManager) et Kafka 4.3 dans des conteneurs, soumet une requête Flink SQL qui compte les clics par page sur des fenêtres de 10 s, et mesure ce qu’elle produit en direct, en relecture et après une panne. `fenetres.py` est déterministe ; `flux_flink.py` a été lancé deux fois, puis sa partie de relecture deux fois encore après un resserrement des colonnes de sa sortie, et ce sont ces deux dernières passes que reproduit le chapitre.
+
+## Temps d’événement et temps de traitement
+
+Tyler Akidau et dix autres ingénieurs de Google ont formalisé en 2015 le modèle Dataflow, issu des systèmes internes MillWheel et FlumeJava, qui a fixé le vocabulaire du domaine[^dataflow]. Ils distinguent deux temps. Le temps d’événement (event time) est l’instant où l’événement a eu lieu ; il ne change jamais. Le temps de traitement (processing time) est l’instant où le système l’observe ; l’écart entre les deux varie sans cesse, selon le réseau, les files d’attente, les pannes et la charge[^dataflow]. Un calcul « par minute » peut découper le flux selon l’un ou l’autre, et les deux ne donnent pas le même résultat (figure 48.1).
+
+<Figure svg={temps} num="48.1" alt="Nuage de points : en abscisse le temps d’arrivée (traitement) de 0 à 44 s, en ordonnée le temps d’événement de 0 à 40 s, pour 40 s de clics à 15 par seconde. La plupart des points sont sur la diagonale ou juste en dessous ; quelques points arrivent plusieurs secondes après leur temps d’événement. Une ligne bleue en escalier, le filigrane, suit le plus grand temps d’événement vu moins 5 s. Une bande orange marque la fenêtre de 10 à 20 s en temps d’événement ; une ligne verticale à 25,2 s indique le moment où le filigrane atteint 20 s et où la fenêtre est émise. Un point rouge, arrivé vers 37,6 s avec un temps d’événement de 12,4 s, appartient à cette fenêtre déjà émise : il est en retard.">
+Temps d’événement contre temps d’arrivée, filigrane et événement tardif.
+</Figure>
+
+Chaque point est un clic, et plus il est bas sous la diagonale, plus il est arrivé tard. Le point rouge appartient à la fenêtre [10 s ; 20 s), émise à 25,2 s, mais n’arrive qu’à 37,6 s.
+
+La première partie de `fenetres.py` compte les clics par page sur des fenêtres de 10 s, découpées selon l’instant d’arrivée, et compare aux comptes exacts par temps d’événement.
+
+```text
+600 000 événements, 3 000 fenêtres (page, 10 s)
+
+1. fenêtres en temps de traitement (selon l'arrivée)
+   comptes faux : 2 624 fenêtres sur 3 000 ; écart moyen 2.7 %
+```
+
+Découper selon l’arrivée fausse 2 624 comptes sur 3 000, avec un écart moyen de 2,7 %. L’écart moyen est faible parce que la plupart des clics arrivent dans la même fenêtre que celle où ils ont eu lieu ; mais presque toutes les fenêtres ont perdu ou gagné quelques clics, et le résultat change si le réseau ralentit ou si le traitement prend du retard. Une facturation, une détection de fraude ou une statistique qu’on veut pouvoir recalculer à l’identique se calcule en temps d’événement.
+
+## Fenêtres
+
+Une fenêtre découpe un flux sans fin en morceaux finis sur lesquels on peut agréger. Le modèle Dataflow en distingue trois formes[^dataflow]. Les fenêtres fixes, ou basculantes (tumbling), découpent le temps en intervalles égaux et disjoints, par exemple une fenêtre par tranche de 10 s, comme dans les expériences. Les fenêtres glissantes (sliding), de taille fixe, commencent à intervalle régulier et se chevauchent, par exemple une heure toutes les minutes ; un événement appartient alors à plusieurs fenêtres. Les sessions regroupent l’activité d’une même clé séparée par moins d’un délai d’inactivité, si bien que chaque utilisateur a ses propres fenêtres, de longueurs différentes ; les auteurs indiquent que les sessions sont l’un des besoins qui ont fait créer MillWheel, et qu’elles servent dans la recherche, la publicité, l’analytique et YouTube[^dataflow].
+
+## Filigranes et données tardives
+
+Pour émettre le résultat d’une fenêtre en temps d’événement, le système doit savoir quand il a vu tous ses événements, ce qu’il ne peut pas savoir, puisqu’un téléphone hors ligne peut renvoyer ses clics des heures plus tard. Le filigrane (watermark) est sa meilleure estimation. Akidau et ses coauteurs le définissent comme une borne inférieure, souvent heuristique, des temps d’événement que le système a déjà traités : le filigrane dit « tous les événements antérieurs à t sont, a priori, arrivés »[^dataflow]. Ils notent qu’un filigrane heuristique est parfois trop rapide, et des données arrivent derrière lui, en retard ; parfois trop lent, et il retarde les résultats, par exemple quand une seule source en retard le retient[^dataflow]. Le filigrane le plus simple, celui qu’emploie la requête Flink de ce chapitre, est le plus grand temps d’événement vu moins un délai fixe. La deuxième partie de `fenetres.py` fait varier ce délai.
+
+```text
+2. temps d'événement, filigrane = plus grand temps vu - délai
+     délai   perdus    part  fenêtres exactes  attente méd.
+        0s   29 275   4.88%              4.2%         0.0 s
+      0.5s   14 792   2.47%             13.6%         0.5 s
+        1s   12 250   2.04%             18.2%         1.0 s
+        2s    8 237   1.37%             28.1%         2.0 s
+        5s    4 875   0.81%             43.2%         5.0 s
+       10s    3 977   0.66%             49.2%        10.0 s
+       30s      790   0.13%             82.1%        30.0 s
+       60s        0   0.00%            100.0%        60.0 s
+```
+
+Chaque seconde de délai ajoutée retarde d’autant chaque résultat, et réduit la part des événements perdus, de 4,88 % sans délai à 0,81 % à 5 s, 0,13 % à 30 s et rien à 60 s, au-delà du plus grand retard du flux (40 s). La proportion de fenêtres exactes monte plus lentement, parce qu’un seul clic perdu suffit à fausser une fenêtre (43 % à 5 s, 82 % à 30 s). Il n’existe pas de bon délai en soi ; il dépend de ce que coûte un résultat en retard et de ce que coûte un résultat faux.
+
+Le modèle Dataflow ajoute un troisième levier, le déclencheur (trigger), qui décide quand émettre un résultat, indépendamment du filigrane, par exemple émettre tôt, puis réémettre la fenêtre corrigée quand des événements tardifs arrivent[^dataflow]. Flink appelle « retard admis » (allowed lateness) la durée pendant laquelle une fenêtre émise reste ouverte aux corrections. La troisième partie simule un délai de 2 s suivi d’une tolérance.
+
+```text
+3. délai de 2 s, puis corrections pendant une tolérance
+   tolérance   perdus  réémissions  fenêtres exactes
+          0s    8 237            0             28.1%
+         10s    3 646        4 591             51.6%
+         60s        0        8 237            100.0%
+```
+
+Avec 60 s de tolérance, le résultat de chaque fenêtre sort 2 s après sa fin, puis se corrige ; toutes les fenêtres finissent exactes, au prix de 8 237 réémissions et d’un état gardé 60 s de plus. Les consommateurs doivent alors savoir traiter un résultat qui remplace le précédent (une écriture par clé, pas un ajout).
+
+### Le filigrane dans Flink
+
+La première partie de `flux_flink.py` envoie en direct 90 s de clics à 1 000 par seconde dans Kafka, en respectant leurs instants d’arrivée, et lit les résultats de la requête Flink en `read_committed`. Elle mesure les clics comptés et l’attente de chaque résultat après la fin de sa fenêtre, avec un filigrane de 5 s puis de 30 s, et avec une sortie exactly-once ou at-least-once.
+
+```text
+1. en direct : 90 s à 1 000 clics par seconde, fenêtres de 10 s
+   filigrane, garantie        produits  comptés  perdus attente méd.    99e
+   5 s, exactly-once            90 000   89 306     694        6.1 s  6.2 s
+   5 s, at-least-once           90 000   89 306     694        5.2 s  5.3 s
+   30 s, exactly-once           90 000   89 926      74       31.2 s 31.3 s
+```
+
+La première passe a donné 694, 693 et 77 clics perdus, et 5,8, 5,2 et 31,3 s d’attente médiane. Les pertes sont les mêmes à trois clics près d’une passe à l’autre, et suivent la simulation, avec 0,77 % des clics avec un filigrane de 5 s, 0,08 à 0,09 % avec 30 s (la simulation donnait 0,81 et 0,13 % sur un flux plus long). Le résultat d’une fenêtre sort un peu plus d’un délai de filigrane après sa fin, 5,2 s en at-least-once, 5,8 à 6,1 s en exactly-once, 31,2 à 31,3 s avec un filigrane de 30 s. L’écart de 0,6 à 0,9 s entre les deux garanties vient de la sortie transactionnelle : un résultat n’est visible qu’une fois sa transaction validée, au point de contrôle suivant, ici toutes les 2 s.
+
+## État et points de contrôle
+
+Une fenêtre en cours est un état, fait des comptes de chaque page depuis le début de la fenêtre. Flink garde cet état sur le TaskManager qui traite la clé, et le sauvegarde par des points de contrôle (checkpoints). La documentation décrit le mécanisme : les sources insèrent dans le flux des barrières numérotées ; quand un opérateur a reçu la barrière n sur toutes ses entrées, il enregistre son état, puis transmet la barrière ; un point de contrôle complet contient donc la position de lecture de chaque source et l’état de chaque opérateur après le traitement exact des événements qui précèdent ces positions. C’est une variante de l’algorithme de Chandy et Lamport, l’instantané asynchrone par barrières (asynchronous barrier snapshotting), qui ne suspend pas le traitement. En cas de panne, Flink restaure tout l’état du dernier point de contrôle et relit les sources à partir des positions enregistrées[^flink-pannes] (figure 48.2).
+
+<Figure svg={controle} num="48.2" alt="En haut, la chaîne de traitement : Kafka « clics » (relisible), la source (position lue), les fenêtres (état : comptes), la sortie (transaction ouverte), Kafka « comptes » (lu en read_committed). Des barrières rouges circulent entre les opérateurs ; tout ce qui précède la barrière n appartient au point de contrôle n, qui enregistre les positions, l’état des fenêtres et la transaction à valider. En bas, deux chronologies. Exactly-once : les transactions T1, T2 et T3 sont validées à chaque point de contrôle ; une panne arrive pendant T4, qui est annulée et jamais visible, puis T4 est refaite depuis le point de contrôle 3. At-least-once : les résultats sont écrits et visibles aussitôt ; après la panne, ce qui suivait le point de contrôle 3 est réécrit et sort deux fois.">
+Points de contrôle de Flink et sortie transactionnelle.
+</Figure>
+
+En haut, les barrières découpent le flux en époques ; en bas, seule la sortie transactionnelle empêche la reprise de produire deux fois les mêmes résultats.
+
+La relecture d’un flux est aussi la seule façon de le recalculer ; si la source garde ses messages (un sujet Kafka avec une rétention suffisante), une nouvelle version d’une tâche peut repartir du début. La deuxième partie de `flux_flink.py` remplit un sujet Kafka avec 2 millions de clics (2 000 s de temps d’événement) et les fait relire par la même requête, d’abord sans panne, avec un filigrane de 5 s puis de 60 s, plus que le plus grand retard du flux.
+
+```text
+2. relecture de 2 millions de clics déjà dans Kafka (retard maximal 40 s)
+   2 000 000 événements, 10 000 fenêtres (page, 10 s)
+   filigrane, garantie, panne      durée résultats doubles  ≠ vrai reprise
+   5 s, exactly-once               14.6s    10 000       0     987        
+   5 s, exactly-once               10.8s    10 000       0     680        
+   60 s, exactly-once              12.2s    10 000       0       0        
+   (panne après 709 630 événements lus par la source)
+   60 s, exactly-once, panne       25.1s    10 000       0       0   3.3 s
+   (panne après 644 309 événements lus par la source)
+   60 s, at-least-once, panne      22.8s    12 650   2 650       0   3.3 s
+   débit sans panne : 163 324 événements par seconde ;
+   agrégation en deux phases : 2 000 002 enregistrements lus par la source,
+   11 785 agrégats partiels envoyés à l'agrégation finale
+   doubles : résultats reçus plusieurs fois pour une même fenêtre ;
+   ≠ vrai : fenêtres dont le dernier compte reçu diffère du compte exact ;
+   reprise : de la panne au redémarrage de la tâche
+```
+
+La passe précédente a donné 955 et 796 fenêtres fausses avec un filigrane de 5 s, aucune avec 60 s, et 188 885 événements par seconde. Trois résultats ressortent. Sans panne, Flink relit les 2 millions de clics en 10,6 à 12,2 s, soit 163 000 à 189 000 par seconde sur un seul cœur, démarrage de la tâche compris. Avec un filigrane de 5 s, deux relectures du même sujet ne donnent pas le même résultat (680 à 987 fenêtres fausses selon l’exécution) : Flink émet le filigrane toutes les 200 ms par défaut[^flink-filigranes], et pendant 200 ms il lit des dizaines de milliers de clics, si bien que la frontière entre « à temps » et « en retard » dépend de la vitesse de lecture du moment. Avec un filigrane de 60 s, plus long que le plus grand retard, aucun clic n’est en retard, et le résultat est exact à chaque fois. Enfin, les métriques de Flink montrent que la requête SQL agrège en deux phases : 2 000 002 enregistrements entrent dans la source, mais seuls 11 579 à 11 785 agrégats partiels traversent le réseau vers l’agrégation finale, comme avec le combineur du [ch. 47](traitement-lots.mdx).
+
+## Exactly-once de bout en bout
+
+« Exactly-once » ne veut pas dire que chaque événement est traité une seule fois ; après une panne, Flink retraite tout ce qui suit le dernier point de contrôle. Cela veut dire que l’effet visible est le même que si chaque événement avait été traité une seule fois. La documentation de Flink en donne les deux conditions : des sources relisibles, et des sorties transactionnelles ou idempotentes[^flink-pannes]. La sortie Kafka de Flink est transactionnelle. Elle écrit dans une transaction Kafka ([ch. 28](../partie-2/garanties-livraison.mdx)), ne la valide qu’une fois le point de contrôle correspondant terminé, et une transaction ouverte au moment d’une panne est annulée ; un lecteur en `read_committed` ne voit que les transactions validées. Une sortie idempotente obtient le même effet autrement, en écrivant chaque résultat sous une clé (page et fenêtre), si bien qu’une deuxième écriture remplace la première au lieu de s’y ajouter ([ch. 38](../partie-3/resilience-tentatives.mdx)).
+
+Les deux dernières lignes du bloc de relecture tuent le TaskManager quand la source a lu 32 à 39 % des clics, et le relancent 3 s plus tard. Flink redémarre la tâche 3,3 s après la panne, le temps que le TaskManager revienne, restaure le dernier point de contrôle et relit le sujet à partir des positions enregistrées ; le travail passe de 11 à 12 s à 23 à 25 s. En exactly-once, le lecteur reçoit exactement une fois chacune des 10 000 fenêtres, toutes avec leur compte exact : les résultats produits entre le dernier point de contrôle et la panne étaient dans une transaction qui a été annulée. En at-least-once, la même panne fait sortir 2 650 à 3 000 résultats en double : ceux qui avaient été écrits avant la panne, puis recalculés après la reprise. Les comptes restent justes, puisque l’état a été restauré ; seul un consommateur qui additionnerait les résultats au lieu de les écrire par clé se tromperait. Le prix de l’exactly-once est l’attente mesurée plus haut, de l’ordre d’un intervalle entre points de contrôle, et une transaction Kafka par point de contrôle.
+
+## Lambda et Kappa
+
+Avant que les moteurs de flux sachent garder un état exact, Nathan Marz a proposé en 2011 l’architecture Lambda. Une couche de traitement par lots recalcule, toutes les quelques heures, des vues sur toutes les données, qui sont immuables ; une couche rapide, en flux, compense les dernières heures que le traitement par lots n’a pas encore vues ; la requête fusionne les deux. Pour Marz, tout ce que calcule la couche rapide finit par être remplacé par le calcul par lots, ce qui limite les conséquences de ses erreurs[^marz]. Jay Kreps en a contesté le prix en 2014, à partir de l’expérience de LinkedIn : la même logique doit être écrite deux fois, une fois pour MapReduce et une fois pour le moteur de flux, et maintenir du code qui doit produire le même résultat dans deux systèmes distribués complexes est, écrit-il, aussi pénible qu’on l’imagine ; chez LinkedIn, garder ces deux versions parfaitement synchrones s’est révélé très difficile. Son alternative, qu’il nomme Kappa, garde un seul traitement de flux. On conserve le journal assez longtemps (30 jours, par exemple), et pour changer le calcul on lance une seconde instance de la tâche qui relit le journal depuis le début et écrit dans une nouvelle table, puis on fait basculer les lecteurs et on supprime l’ancienne[^kreps] (figure 48.3).
+
+<Figure svg={lambdakappa} num="48.3" alt="En haut, Lambda (Marz, 2011) : les événements, données brutes immuables, alimentent une couche lots, qui recalcule tout toutes les quelques heures et produit des vues par lots, et une couche rapide, en flux sur les dernières heures, qui produit des vues temps réel ; la requête fusionne les deux. La même logique est écrite deux fois, dans deux systèmes. En bas, Kappa (Kreps, 2014) : un journal Kafka à rétention longue alimente la tâche de flux v1, qui produit la table v1 servie ; une tâche de flux v2 relit le journal depuis le début et produit la table v2 ; la requête lit v1, puis v2. Une seule logique ; la v2 rattrape le journal, on bascule, on supprime la v1 ; relecture mesurée de 2 millions de clics en 10,6 à 12,2 s sur un seul cœur Flink.">
+Architectures Lambda et Kappa.
+</Figure>
+
+En haut, deux chaînes de calcul à maintenir pour un même résultat ; en bas, une seule, relancée sur le journal quand le calcul change.
+
+La relecture mesurée plus haut donne l’ordre de grandeur du prix de Kappa, avec 2 millions de clics relus en 10,6 à 12,2 s par un seul cœur, soit 163 000 à 189 000 par seconde pour une agrégation simple. Kappa suppose que la relecture d’un journal entier tienne dans un délai acceptable, que le journal soit gardé assez longtemps, et que les résultats soient reproductibles, donc calculés en temps d’événement avec un filigrane qui ne perde rien ; le modèle Dataflow pousse la même idée, une seule logique exécutable en lots ou en flux selon le moteur[^dataflow].
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Temps de traitement | simple, résultat immédiat | faux dès qu’il y a des retards, non reproductible | 2 624 fenêtres sur 3 000 fausses | métriques d’exploitation approximatives |
+| Temps d’événement, filigrane court | résultats rapides | pertes, relectures non reproductibles | 5 s : 693 à 694 clics perdus sur 90 000, résultat à 5 à 6 s | tableaux de bord |
+| Filigrane long | exact et reproductible | résultats tardifs, état gardé plus longtemps | 30 s : 74 à 77 perdus, résultat à 31 s ; 60 s : aucun | facturation, rapports |
+| Corrections (retard admis) | résultat rapide puis exact | réémissions, sortie par clé | 8 237 réémissions pour 3 000 fenêtres | quand il faut les deux |
+| Sortie exactly-once | aucune trace des calculs refaits | attente du point de contrôle, transactions | 0 doublon après une panne ; 0,6 à 0,9 s d’attente en plus | sorties additionnées ou facturées |
+| Sortie at-least-once | résultat visible aussitôt | doublons après une panne | 2 650 à 3 000 doublons après une panne | sortie idempotente, écrite par clé |
+| Lambda | couche rapide approximative, lots exacts | deux implémentations à garder identiques | non mesuré | systèmes existants, besoins très différents |
+| Kappa | une seule logique | relecture du journal, rétention longue | 2 millions de clics relus en 10,6 à 12,2 s | par défaut |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la taille de l’état d’un flux]
+Hypothèses : 20 millions d’utilisateurs actifs par jour ; un compteur par utilisateur et par fenêtre d’une minute, 40 octets avec sa clé ; un filigrane de 2 minutes ; un état gardé 60 s de plus pour les corrections.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Utilisateurs actifs dans une minute | 20 × 10⁶ / 1 440 × 10 (pointe) | environ 140 000 |
+| Fenêtres ouvertes par utilisateur | 1 + 2 (filigrane) + 1 (corrections) | 4 |
+| État des fenêtres | 140 000 × 4 × 40 octets | 22 Mo |
+| Si l’état est un ensemble d’URL vues (1 Ko par utilisateur et fenêtre) | 140 000 × 4 × 1 Ko | 560 Mo |
+
+Conclusion : l’état d’une agrégation simple est petit ; il grossit avec ce qu’on garde par clé et avec la durée pendant laquelle les fenêtres restent ouvertes. Un point de contrôle toutes les 10 s copie cet état, entièrement ou par différences selon le stockage d’état.
+:::
+
+:::calcul[Calcul : relire un an de journal (Kappa)]
+Hypothèses : 50 000 événements par seconde en moyenne ; 300 octets par événement ; rétention d’un an ; une tâche qui traite 170 000 événements par seconde et par cœur (163 000 à 189 000 mesurés sur l’agrégation simple de ce chapitre).
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Événements par an | 50 000 × 31,5 × 10⁶ s | 1,6 × 10¹² |
+| Volume du journal | 1,6 × 10¹² × 300 octets | 470 To, avant réplication |
+| Relecture sur 32 cœurs | 1,6 × 10¹² / (32 × 170 000) | 290 000 s, 3,4 jours |
+| Relecture sur 256 cœurs | même calcul | 10 heures |
+
+Conclusion : relire un an de données en flux prend des heures à des jours ; on garde dans Kafka quelques semaines pour les relectures courantes, et le reste dans un stockage objet ([ch. 29](../partie-2/stockage-objet.mdx)), d’où une tâche de flux ou de lots peut repartir.
+:::
+
+:::calcul[Calcul : choisir le délai du filigrane]
+Hypothèses : distribution des retards de ce chapitre ; tableau de bord de trafic qui doit être à jour en moins de 10 s ; facturation qui doit être exacte.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Tableau de bord, délai de 5 s | mesuré | 0,81 % de clics perdus, résultat 5 à 7 s après la fin de la fenêtre |
+| Facturation, délai couvrant le plus grand retard | 40 s de retard maximal | délai de 60 s, rien de perdu, 1 min d’attente |
+| Ou délai court et corrections | 2 s puis 60 s de tolérance | résultat à 2 s, puis 8 237 corrections sur 3 000 fenêtres |
+
+Conclusion : un même flux peut alimenter deux sorties avec deux filigranes, l’une rapide et approximative pour l’affichage, une lente et exacte pour ce qui se facture.
+:::
+
+## Exemple réel
+
+**Ce que les équipes de Google ont appris de MillWheel.** L’article Dataflow consacre une section aux expériences de production qui ont motivé le modèle[^dataflow]. Un grand pipeline de jointure de journaux tournait en flux sur MillWheel, avec une seconde implémentation en lots, sous FlumeJava, pour les recalculs massifs ; les auteurs auraient préféré une seule implémentation. Un client de MillWheel faisait tourner son pipeline de flux en cohérence faible, avec un MapReduce nocturne pour produire la vérité, à la manière de Lambda ; ses propres clients ont cessé, avec le temps, de faire confiance aux résultats du flux, et l’équipe a reconstruit son système autour d’une cohérence forte. Deux équipes de facturation ont rencontré des difficultés : l’une, faute de mécanisme pour corriger et retirer des résultats, a quitté la plateforme pour une solution maison ; l’autre souffrait de filigranes en retard à cause de retardataires dans ses entrées. Ces difficultés ont déplacé l’objectif du modèle, de la complétude vers la capacité à corriger les résultats dans le temps, d’où les déclencheurs et les retraits. À l’inverse, des pipelines de statistiques, comme des moyennes de latence, et de détection d’abus se contentent d’un résultat très majoritairement complet obtenu vite, et utilisent un seul résultat par fenêtre déclenché par le filigrane, ou des filigranes par centile.
+
+## Erreurs fréquentes
+
+Calculer en temps de traitement ce qui doit pouvoir être recalculé. 2 624 fenêtres sur 3 000 fausses ici, et un résultat qui change à chaque relecture.
+
+Choisir le délai du filigrane sans regarder la distribution des retards. 5 s perdent 0,7 à 0,8 % des clics de ce flux ; 60 s n’en perdent aucun.
+
+Oublier qu’un filigrane trop court rend les résultats non reproductibles, deux relectures identiques ayant donné des comptes différents.
+
+Laisser une partition sans événements retenir le filigrane. Le filigrane d’un opérateur est le minimum de ses entrées ; une partition muette le bloque, et Flink propose de la déclarer inactive après un délai[^flink-filigranes].
+
+Croire qu’exactly-once signifie un seul traitement par événement. Flink retraite ce qui suit le dernier point de contrôle ; c’est la sortie transactionnelle ou idempotente qui évite les doublons.
+
+Lire une sortie transactionnelle sans `read_committed`. Le lecteur voit alors les résultats des transactions annulées.
+
+Écrire les résultats par ajout quand le calcul peut les corriger ou les réémettre. Une écriture par clé (page, fenêtre) absorbe les réémissions.
+
+Construire une architecture Lambda pour un besoin qu’un seul traitement de flux exact couvrirait. Deux implémentations à garder identiques.
+
+:::piege[Erreur fréquente : « avec exactly-once, chaque événement n’est traité qu’une fois »]
+Après une panne, Flink revient au dernier point de contrôle et relit tout ce qui le suit, soit jusqu’à 2 s de lecture dans la mesure, des centaines de milliers de clics. Exactly-once garantit que l’effet observable est celui d’un traitement unique : l’état est restauré tel qu’il était au point de contrôle, et les résultats émis depuis ne sont visibles que si la transaction est validée. Avec une sortie at-least-once, la même panne a renvoyé 2 650 à 3 000 résultats en double. Un effet de bord hors de la transaction (un courriel, un appel à un service de paiement) sera, lui, refait ; il faut le rendre idempotent.
+:::
+
+:::entretien
+Pour un calcul sur un flux, demandez d’abord en quel temps il doit être juste : temps d’événement si le résultat doit être reproductible ou facturé. Proposez des fenêtres adaptées (fixes pour un tableau de bord, sessions pour l’activité d’un utilisateur), un filigrane réglé sur la distribution des retards, et ce que vous faites des retardataires (perte acceptée, corrections, sortie latérale). Expliquez les points de contrôle (positions des sources et état, barrières) et les conditions de l’exactly-once de bout en bout : source relisible, sortie transactionnelle ou idempotente. Chiffrez l’état et le temps de relecture. Entre Lambda et Kappa, préférez un seul traitement relisible, et dites ce qu’il suppose.
+:::
+
+## Exercices
+
+**Question 1.** Une application compte les trajets de vélos en libre-service par station et par quart d’heure. Les vélos envoient leurs événements par réseau mobile ; 2 % arrivent avec plus de 10 minutes de retard, quelques-uns avec plusieurs heures. Proposez des fenêtres, un filigrane et un traitement des retardataires, pour un tableau de bord à jour en moins d’une minute et pour un rapport mensuel exact.
+
+**Question 2.** Une tâche Flink fait un point de contrôle toutes les 60 s et écrit dans Kafka en exactly-once. Les lecteurs se plaignent d’un retard d’environ une minute. Expliquez la cause et proposez deux corrections avec leurs inconvénients.
+
+**Question 3.** Une tâche lit un sujet Kafka de 12 partitions, dont deux ne reçoivent presque rien la nuit. Le matin, les résultats de la nuit ne sont pas sortis. Expliquez et proposez une correction.
+
+**Exercice de conception.** Une banque veut détecter en moins de 2 s les cartes utilisées dans deux pays à moins d’une heure d’intervalle, à partir de 20 000 transactions par seconde, et produire chaque jour un relevé exact des alertes. Les transactions arrivent de plusieurs réseaux, parfois avec plusieurs minutes de retard. Proposez le découpage du flux, la clé, l’état, les fenêtres, le filigrane, les points de contrôle, la sortie et la façon de recalculer après une correction de la règle ; chiffrez l’état et dites si vous choisissez Lambda ou Kappa.
+
+## Corrigés
+
+**Question 1.** Fenêtres fixes de 15 minutes par station, en temps d’événement. Pour le tableau de bord, un filigrane court (une minute) et des corrections pendant une ou deux heures de retard admis : le résultat sort une minute après la fin de la fenêtre et se corrige quand les retardataires arrivent, la sortie étant une écriture par clé (station, quart d’heure). Les événements qui arrivent après la tolérance partent dans une sortie latérale (un sujet des retardataires) au lieu d’être perdus. Le rapport mensuel se calcule en lots sur toutes les données une fois le mois clos, ou par une relecture de la même tâche avec un filigrane de plusieurs heures.
+
+**Question 2.** Avec une sortie transactionnelle, les résultats ne deviennent visibles qu’à la validation, au point de contrôle suivant : un résultat produit juste après un point de contrôle attend jusqu’à 60 s. Première correction, raccourcir l’intervalle des points de contrôle (5 à 10 s) : l’attente baisse, au prix de points de contrôle plus fréquents, donc plus d’écritures de l’état et de transactions plus courtes. Seconde correction, passer à une sortie idempotente (écriture par clé dans une base) en at-least-once : les résultats sont visibles aussitôt, et les réémissions après une panne remplacent les valeurs déjà écrites au lieu de s’y ajouter.
+
+**Question 3.** Le filigrane de la tâche est le minimum des filigranes de ses partitions. Les deux partitions muettes ne font plus avancer le leur, si bien que le filigrane global reste bloqué et qu’aucune fenêtre ne se ferme. Correction : déclarer une partition inactive au bout d’un délai sans événements (`withIdleness` dans l’API, `scan.watermark.idle-timeout` en SQL), pour que le filigrane avance selon les seules partitions actives ; ou envoyer des événements de battement de cœur dans chaque partition.
+
+**Exercice de conception.**
+
+*Clé et état.* Le flux est partitionné par numéro de carte. Pour chaque carte, l’état garde les transactions de la dernière heure en temps d’événement (pays, instant), ou seulement le dernier pays et son instant par pays vu dans l’heure. Une nouvelle transaction compare son pays à cet état et émet une alerte si un autre pays apparaît à moins d’une heure.
+
+*Temps et filigrane.* Le calcul est en temps d’événement pour être reproductible. Pour tenir 2 s, l’alerte est émise dès qu’une transaction suffit à la conclure, sans attendre la fermeture d’une fenêtre ; le filigrane ne sert qu’à purger l’état des transactions de plus d’une heure, avec un délai de plusieurs minutes pour couvrir les retards. Une transaction tardive qui crée une alerte la crée en retard, ce qui reste préférable à ne pas la créer.
+
+*État.* 20 000 transactions par seconde, une heure de rétention : $20\,000 \times 3\,600 = 72$ millions de transactions, 50 octets chacune, environ 3,6 Go d’état, réparti sur les TaskManagers et sauvegardé par différences (stockage d’état sur disque local, points de contrôle incrémentaux) toutes les 10 s.
+
+*Sortie.* Les alertes vont dans un sujet Kafka en exactly-once, ou dans une table où chaque alerte a pour clé (carte, transaction déclenchante), ce qui rend les réémissions sans effet. L’envoi au client (SMS) se fait par un consommateur idempotent de ce sujet.
+
+*Recalcul.* Kappa : le sujet des transactions est gardé 30 jours, et une nouvelle version de la règle se valide en relisant le journal dans une tâche à part, qui écrit dans une table séparée ; le relevé quotidien exact est une relecture de la journée avec un filigrane couvrant les plus grands retards. Une seule logique de détection, exécutée en direct et en relecture.
+
+:::fiche
+- Temps d’événement (quand c’est arrivé) contre temps de traitement (quand on le voit) ; mesuré, fenêtres selon l’arrivée, 2 624 comptes faux sur 3 000.
+- Fenêtres fixes, glissantes, sessions (modèle Dataflow, Akidau et al., 2015).
+- Filigrane : borne inférieure heuristique des temps d’événement traités ; trop rapide, des données en retard ; trop lent, des résultats tardifs ; simulé, 4,88 % perdus sans délai, 0,81 % à 5 s, 0 à 60 s.
+- Corrections (retard admis) : résultat tôt puis réémis ; sortie par clé ; 8 237 réémissions pour 3 000 fenêtres justes.
+- Flink : filigrane émis toutes les 200 ms par défaut, minimum des entrées ; une partition muette le bloque ; un filigrane court rend les relectures non reproductibles (mesuré).
+- Points de contrôle : barrières dans le flux, positions des sources et état des opérateurs, variante de Chandy-Lamport ; reprise par restauration et relecture.
+- Exactly-once de bout en bout : source relisible et sortie transactionnelle ou idempotente ; Kafka en read_committed ; résultats visibles au point de contrôle suivant.
+- Lambda et Kappa : Lambda (Marz, 2011) fait lots et couche rapide, logique écrite deux fois ; Kappa (Kreps, 2014) garde un seul flux, relu depuis un journal gardé longtemps.
+:::
+
+[^dataflow]: Tyler Akidau, Robert Bradshaw, Craig Chambers, Slava Chernyak, Rafael J. Fernández-Moctezuma, Reuven Lax, Sam McVeety, Daniel Mills, Frances Perry, Eric Schmidt et Sam Whittle, « The Dataflow Model: A Practical Approach to Balancing Correctness, Latency, and Cost in Massive-Scale, Unbounded, Out-of-Order Data Processing », *Proceedings of the VLDB Endowment*, vol. 8, no 12, 2015, sections 1 à 3, [vldb.org/pvldb/vol8/p1792-Akidau.pdf](https://www.vldb.org/pvldb/vol8/p1792-Akidau.pdf).
+[^flink-pannes]: Apache Flink, « Fault Tolerance via State Snapshots », documentation de Flink 2.1, consultée le 15 novembre 2026, [nightlies.apache.org/flink/flink-docs-release-2.1/docs/learn-flink/fault_tolerance](https://nightlies.apache.org/flink/flink-docs-release-2.1/docs/learn-flink/fault_tolerance/).
+[^flink-filigranes]: Apache Flink, « Generating Watermarks », documentation de Flink 2.1, consultée le 15 novembre 2026, [nightlies.apache.org/flink/flink-docs-release-2.1/docs/dev/datastream/event-time/generating_watermarks](https://nightlies.apache.org/flink/flink-docs-release-2.1/docs/dev/datastream/event-time/generating_watermarks/).
+[^marz]: Nathan Marz, « How to beat the CAP theorem », 13 octobre 2011, [nathanmarz.com/blog/how-to-beat-the-cap-theorem.html](http://nathanmarz.com/blog/how-to-beat-the-cap-theorem.html).
+[^kreps]: Jay Kreps, « Questioning the Lambda Architecture », *O’Reilly Radar*, 2 juillet 2014, [oreilly.com/radar/questioning-the-lambda-architecture](https://www.oreilly.com/radar/questioning-the-lambda-architecture/).

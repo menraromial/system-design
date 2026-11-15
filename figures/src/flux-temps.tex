@@ -1,0 +1,31 @@
+% Temps d'événement contre temps d'arrivée : 40 s de clics à 15 par seconde
+% (outils/experiences/ch48/fenetres.py --figure), filigrane à 5 s.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\input{ch48-points.tex}
+\begin{tikzpicture}[x=3mm, y=2.2mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  % fenêtre [10, 20) en temps d'événement
+  \fill[DamberBg] (0,10) rectangle (44,20);
+  \node[lab=Damber, anchor=west] at (26.5,18.6) {fenêtre [10 s ; 20 s) en temps d’événement};
+  % axes
+  \draw[ligne] (0,0) -- (44.5,0); \draw[ligne] (0,0) -- (0,41);
+  \foreach \t in {0,10,20,30,40} {\draw[ligne] (\t,0) -- (\t,-0.6); \node[note, below] at (\t,-0.6) {\t};
+    \draw[ligne] (0,\t) -- (-0.4,\t); \node[note, anchor=east] at (-0.4,\t) {\t};}
+  \node[axe, anchor=north] at (22,-3.5) {temps d’arrivée (traitement), s};
+  \node[axe, anchor=south, rotate=90] at (-3.2,20) {temps d’événement, s};
+  % diagonale et filigrane
+  \draw[Dslate, dash pattern=on 2pt off 2pt, line width=0.5pt] (0,0) -- (40,40);
+  \node[lab=Dslate, anchor=west] at (1,38) {pointillés : arrivée sans retard (temps d’arrivée = temps d’événement)};
+  \draw[Dblue, line width=1pt] plot coordinates {\filigrane};
+  \node[lab=Dblue, anchor=north west] at (31,24.5) {filigrane : plus grand\\temps vu moins 5 s};
+  % points
+  \draw[Dteal] plot[only marks, mark=*, mark size=0.35mm] coordinates {\normaux};
+  \draw[Dred] plot[only marks, mark=*, mark size=0.9mm] coordinates {\tardifs};
+  % émission de la fenêtre
+  \draw[Damber, line width=0.8pt, dash pattern=on 3pt off 2pt] (25.2,20) -- (25.2,0);
+  \node[lab=Damber, anchor=north east] at (25,8) {le filigrane atteint 20 s :\\la fenêtre est émise};
+  \node[lab=Dred, anchor=north west] at (26.5,8) {en rouge : arrivé après l’émission\\de sa fenêtre, donc en retard};
+\end{tikzpicture}
+\end{document}
