@@ -1,0 +1,331 @@
+---
+title: "Entrepôts, lacs, lakehouse"
+sidebar_label: "49. Entrepôts, lacs, lakehouse"
+description: "Organiser les données pour l'analyse : OLTP et OLAP, stockage en colonnes (Parquet), entrepôt de données, lac de données, formats de tables (Delta Lake, Iceberg) et lakehouse, ETL et ELT, modélisation en étoile ; mesures sur 10 millions de ventes en CSV, en Parquet, dans PostgreSQL 18 et DuckDB, et sur une table Delta."
+partie: 4
+chapitre: 49
+---
+
+import architectures from '@site/src/figures/lake-architectures.svg';
+import parquet from '@site/src/figures/lake-parquet.svg';
+import delta from '@site/src/figures/lake-delta.svg';
+import etoile from '@site/src/figures/lake-etoile.svg';
+
+Les mêmes 10 millions de ventes occupent 896 Mo en CSV, 1 368 Mo dans une table PostgreSQL avec son index, et 320 Mo en Parquet compressé par Zstd. Le chiffre d’affaires par mois s’y calcule en 68 à 79 ms avec DuckDB, contre 1,1 s dans PostgreSQL, parce que Parquet range les données par colonne et que la requête n’en lit que deux, soit 27 Mo. Inversement, PostgreSQL retrouve une vente par son identifiant en 0,15 ms, quand il faut 23 ms à DuckDB sur le fichier Parquet, et supprimer une seule ligne d’une table Delta Lake recopie 559 103 lignes. Un lecteur qui compte les lignes d’un dossier de fichiers Parquet pendant qu’on y écrit voit 99 à 100 états différents, la plupart à moitié écrits ; sur la même donnée rangée en table Delta, il n’en voit que 6, un par lot terminé. Ce chapitre traite de ces écarts, c’est-à-dire du stockage en colonnes, des entrepôts et les lacs de données, des formats de tables qui ont donné naissance au lakehouse, et des façons de modéliser et de charger les données pour l’analyse.
+
+Les chapitres précédents ont produit des données, qu’il s’agisse de transactions dans des bases ([ch. 18](../partie-2/transactions-isolation.mdx)), des événements dans des journaux ([ch. 43](evenements-cqrs.mdx)), des résultats de traitements par lots et de flux ([ch. 47](traitement-lots.mdx), [ch. 48](traitement-flux.mdx)). Ce chapitre traite de l’endroit où on les rassemble pour les analyser, et de la forme qu’on leur donne pour que l’analyse soit rapide.
+
+Trois scripts ont été écrits pour ce chapitre, dans [`outils/experiences/ch49/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch49). [`colonnes.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch49/colonnes.py) génère 10 millions de ventes avec DuckDB, les écrit en CSV et en Parquet, les charge dans PostgreSQL 18, et compare des requêtes analytiques et transactionnelles. [`tables.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch49/tables.py) compare un dossier de fichiers Parquet et une table Delta Lake, écrite et lue par delta-rs 1.6. [`etoile.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch49/etoile.py) compare trois modélisations et deux façons de construire une table dans DuckDB 2.0. Chacun a été lancé deux fois ; les blocs reproduits sont ceux de la dernière passe, et le texte donne l’écart avec l’autre.
+
+## OLTP et OLAP
+
+Deux familles de charge se partagent les données d’une entreprise. Le traitement transactionnel en ligne (OLTP) sert l’application : lire et modifier une commande, un compte, un panier, par sa clé, des milliers de fois par seconde, chaque opération touchant quelques lignes. Le traitement analytique en ligne (OLAP) sert la décision : le chiffre d’affaires par mois et par région, la part des retours par catégorie, chaque requête parcourant des millions de lignes mais peu de colonnes. Les bases du [ch. 18](../partie-2/transactions-isolation.mdx) et du [ch. 19](../partie-2/index-modelisation.mdx) sont conçues pour la première ; ce chapitre traite de la seconde, et la quatrième partie de `colonnes.py` montre pourquoi on ne les sert pas avec le même stockage.
+
+## Le stockage en colonnes
+
+Une base comme PostgreSQL range les lignes les unes après les autres, toutes les colonnes d’une vente, puis toutes celles de la suivante. Pour sommer une colonne, elle lit donc toutes les colonnes de toutes les lignes. Un format en colonnes range ensemble les valeurs d’une même colonne. Apache Parquet, le format en colonnes le plus répandu dans les lacs de données, découpe un fichier en groupes de lignes (row groups) ; dans chaque groupe, les valeurs de chaque colonne forment un morceau de colonne (column chunk) compressé, découpé en pages ; un pied de fichier, à la fin, décrit le schéma et la position de chaque morceau[^parquet]. La documentation recommande de grands groupes de lignes, de 512 Mo à 1 Go, pour de longues lectures séquentielles, et des pages de 8 Ko[^parquet-config] ; la compression se choisit colonne par colonne[^parquet-motivation]. Le pied contient aussi, pour chaque morceau, le minimum et le maximum de la colonne, qui permettent à un lecteur de sauter les groupes qui ne peuvent pas contenir les lignes cherchées (figure 49.1).
+
+<Figure svg={parquet} num="49.1" alt="En haut, deux rangements de trois ventes. En lignes, comme dans PostgreSQL, toutes les colonnes de la vente 1, puis de la vente 2, puis de la vente 3 : pour sommer une colonne, on lit toutes les lignes. En colonnes, comme dans Parquet, toutes les valeurs de jour, puis de montant, puis de magasin, de produit et de client : on ne lit que jour et montant, 27 Mo sur 320 Mo mesurés. En bas, un fichier Parquet : un marqueur PAR1, des groupes de lignes, chacun avec un morceau par colonne et une plage de jours (1 au 9 janvier, puis 9 au 18 janvier), puis le pied du fichier avec le schéma, la position de chaque morceau et le minimum et le maximum de chaque colonne, et un second marqueur PAR1. Un lecteur lit d’abord le pied, puis les seuls morceaux utiles ; pour une semaine de mars, 2 groupes lus sur 82 si le fichier est trié par jour, 82 sur 82 sinon.">
+Stockage en lignes, en colonnes, et organisation d’un fichier Parquet.
+</Figure>
+
+En haut, les cases bleues et vertes sont les deux colonnes dont une requête a besoin ; en bas, les plages de dates du pied permettent d’écarter des groupes entiers sans les lire.
+
+La première partie de `colonnes.py` écrit les mêmes 10 millions de ventes dans chaque format.
+
+```text
+1. 10 000 000 ventes, 10 colonnes
+   format                         taille
+   CSV                            896 Mo
+   Parquet brut                   646 Mo
+   Parquet Snappy                 527 Mo
+   Parquet Zstd                   320 Mo
+   PostgreSQL (table + index)    1368 Mo   (chargée en 31 s)
+```
+
+L’autre passe a donné les mêmes tailles. Le Parquet sans compression est déjà plus petit que le CSV (646 Mo contre 896), parce que les nombres y sont stockés en binaire et que des valeurs voisines d’une même colonne s’encodent bien ; Snappy, rapide, le ramène à 527 Mo, Zstd, plus lent mais plus efficace, à 320 Mo. La table PostgreSQL, avec son index sur l’identifiant, pèse 1 368 Mo, parce que chaque ligne porte un en-tête, les valeurs ne sont pas compressées, et l’index ajoute sa propre copie des clés.
+
+La deuxième partie calcule le chiffre d’affaires par mois, qui n’a besoin que de deux colonnes sur dix.
+
+```text
+2. chiffre d'affaires par mois (jour, montant), médiane de 3
+   moteur et format                      durée
+   DuckDB, CSV                           654 ms
+   DuckDB, Parquet Zstd                   68 ms
+   PostgreSQL, lignes                   1084 ms
+   colonnes jour et montant dans le Parquet Zstd : 27 Mo sur 320 Mo
+```
+
+L’autre passe a donné 662, 79 et 1 076 ms. DuckDB lit le Parquet huit à dix fois plus vite que le CSV, qu’il doit analyser caractère par caractère, et quatorze à seize fois plus vite que PostgreSQL ne parcourt sa table en lignes. Le pied du fichier lui indique où sont les morceaux des colonnes `jour` et `montant`, 27 Mo sur 320 ; il ne lit que ceux-là, et les traite par vecteurs de valeurs d’une même colonne.
+
+La troisième partie cherche les ventes d’une semaine, dans un fichier trié par date puis dans le même fichier dont les lignes ont été mélangées.
+
+```text
+3. ventes d'une semaine (jour entre le 3 et le 9 mars 2025), médiane de 3
+   fichier                     groupes lus    durée
+   Parquet Zstd                     2 / 82      7 ms
+   Parquet Zstd, non trié          82 / 82     38 ms
+   PostgreSQL, sans index                     204 ms
+```
+
+L’autre passe a donné les mêmes nombres de groupes et 7, 38 et 205 ms. Dans le fichier trié par date, les minimums et maximums du pied montrent que seuls 2 groupes sur 82 peuvent contenir la semaine cherchée, et la requête prend 7 ms ; dans le même fichier mélangé, chaque groupe contient des dates de toute la période, rien ne peut être écarté, et elle prend 38 ms. L’ordre dans lequel on écrit les données compte donc autant que le format, et l’on trie, ou l’on partitionne, selon les colonnes par lesquelles on filtre le plus.
+
+La quatrième partie fait ce que fait une application, lire une vente par son identifiant et en modifier une.
+
+```text
+4. une vente par son identifiant (médiane de 200 tirages, ms)
+   lecture, DuckDB sur Parquet          23.37
+   lecture, PostgreSQL (index)           0.16
+   mise à jour, PostgreSQL               2.42
+   mise à jour dans un Parquet : réécrire le fichier (voir tables.py)
+```
+
+L’autre passe a donné 23,7, 0,15 et 4,1 ms. Pour une vente, PostgreSQL descend son index B-tree et lit une page, en 0,15 à 0,16 ms ; DuckDB doit ouvrir le pied, lire le morceau de la colonne `id` de chaque groupe candidat puis les morceaux des autres colonnes, soit 23 à 24 ms, 150 fois plus. Une mise à jour coûte 2,4 à 4,1 ms à PostgreSQL, l’écriture de son journal sur disque comprise ; un fichier Parquet, lui, ne se modifie pas, il se réécrit. Un même stockage ne sert pas bien les deux charges, et l’on garde les bases transactionnelles pour l’application, en copiant leurs données vers un stockage en colonnes pour l’analyse.
+
+## Entrepôt, lac et lakehouse
+
+Michael Armbrust, Ali Ghodsi, Reynold Xin et Matei Zaharia, de Databricks, ont retracé en 2021 l’évolution des plateformes d’analyse en trois générations (figure 49.2)[^lakehouse]. La première est l’entrepôt de données (data warehouse), où les données des bases opérationnelles sont copiées par ETL, avec un schéma imposé à l’écriture, pour l’aide à la décision et les rapports ; ces entrepôts couplaient calcul et stockage dans un même appareil, à dimensionner pour la pointe, et ne savaient pas stocker de données non structurées (vidéo, son, texte). La deuxième génération verse toutes les données brutes dans un lac de données (data lake), un stockage bon marché à interface de fichiers, d’abord HDFS puis, à partir de 2015, les stockages objet des nuages (S3, ADLS, GCS) ([ch. 29](../partie-2/stockage-objet.mdx)), avec des formats ouverts comme Parquet et un schéma appliqué à la lecture ; une partie seulement des données est ensuite copiée par ETL ou ELT dans un entrepôt pour les usages les plus importants. Selon les auteurs, cette architecture à deux étages est utilisée par presque toutes les entreprises du classement Fortune 500, et souffre de quatre problèmes : la difficulté de garder lac et entrepôt cohérents, des données d’entrepôt en retard sur le lac, souvent de plusieurs jours, un mauvais support de l’apprentissage automatique, et le coût de deux copies ; ils citent une enquête de Dimensional Research et Fivetran selon laquelle 86 % des analystes travaillent sur des données périmées[^lakehouse]. La troisième génération, qu’ils nomment lakehouse, garde une seule copie dans le lac, en format ouvert, et lui ajoute une couche de métadonnées transactionnelle qui apporte ce qui manquait au lac, à savoir des transactions, des versions, des contraintes et des performances proches d’un entrepôt[^lakehouse].
+
+<Figure svg={architectures} num="49.2" alt="Trois architectures côte à côte. 1, entrepôt : les bases OLTP alimentent par ETL un entrepôt à schéma imposé à l’écriture, qui sert les rapports et la BI. 2, lac plus entrepôt : les bases OLTP, journaux, fichiers et images sont versés par ETL dans un lac sur stockage objet (Parquet, schéma à la lecture), dont une copie choisie est chargée par ELT dans un entrepôt ; la BI lit l’entrepôt, l’apprentissage automatique lit le lac ; deux copies à garder cohérentes, données de l’entrepôt en retard. 3, lakehouse : les mêmes sources sont versées dans un stockage objet en Parquet, doté d’un format de table (journal, transactions, versions) ; BI, SQL et apprentissage lisent directement cette copie unique et ouverte.">
+Entrepôt, lac plus entrepôt, lakehouse.
+</Figure>
+
+Au milieu, chaque flèche ETL ou ELT est une copie à maintenir ; à droite, tous les moteurs lisent la même copie, rendue fiable par le format de table.
+
+## Les formats de tables
+
+Un lac fait de fichiers Parquet nus a les défauts que l’article sur Delta Lake énumère : aucune atomicité quand une opération écrit plusieurs objets, si bien que d’autres clients voient des écritures partielles, et qu’un échec laisse des données corrompues ; une cohérence à terme des listes d’objets ; des listes lentes (une requête LIST de S3 renvoie au plus 1 000 clés et prend des dizaines à des centaines de millisecondes) ; et aucune gestion de versions ni d’historique[^delta]. Les formats de tables (Delta Lake, Apache Iceberg, Apache Hudi) y répondent de la même façon. La table est un ensemble de fichiers Parquet plus un journal de métadonnées qui dit quels fichiers en font partie à chaque version.
+
+Dans Delta Lake, ce journal est un dossier `_delta_log` de fichiers JSON numérotés ; chacun décrit une transaction (fichiers ajoutés, fichiers retirés), et un point de contrôle au format Parquet résume le journal, par défaut toutes les 10 transactions[^delta]. Pour valider une transaction, un client écrit le fichier de la version suivante seulement s’il n’existe pas encore (une écriture conditionnelle, put-if-absent, ou un renommage atomique selon le stockage) ; si un autre client l’a écrit avant lui, il relit le journal et réessaie, à la manière d’un contrôle de concurrence optimiste ([ch. 18](../partie-2/transactions-isolation.mdx))[^delta]. Un lecteur lit le journal jusqu’à la dernière version et n’ouvre que les fichiers actifs, sans lister le dossier (figure 49.3). Iceberg suit le même principe avec des fichiers manifestes et un instantané par version.
+
+<Figure svg={delta} num="49.3" alt="Une table Delta « ventes » : un dossier _delta_log contenant 00000.json (ajout des fichiers a, b, c, d), 00001.json (ajout de e, f, g, h), 00002.json (retrait de a, ajout de i), et 00003.json, écrit seulement s’il n’existe pas ; un point de contrôle Parquet résume le journal toutes les 10 versions. À côté, les fichiers Parquet a à i, a étant retiré et effacé plus tard par vacuum. Deux écrivains tentent tous deux 00003.json : un seul réussit, l’autre relit le journal et réessaie, ou échoue s’il a lu des lignes que l’autre a changées. Lire la table revient à lire le journal jusqu’à la dernière version, puis les seuls fichiers encore actifs ; mesuré, un lecteur ne voit jamais un lot à moitié écrit (6 comptes distincts contre 99 à 100 sur un dossier de Parquet nus).">
+Une table Delta : fichiers Parquet et journal de transactions.
+</Figure>
+
+Le fichier en pointillés est la prochaine version, et c’est son écriture conditionnelle qui sert de verrou, sans serveur de métadonnées.
+
+`tables.py` met ces mécanismes à l’épreuve avec delta-rs, l’implémentation de Delta Lake en Rust, sur des fichiers locaux. La première partie ajoute 5 lots de 2 millions de lignes pendant qu’un lecteur compte les lignes en boucle ; dans le dossier nu, l’écrivain écrit chaque fichier sous un nom temporaire puis le renomme, comme le fait un moteur de calcul, si bien que chaque fichier est atomique mais pas le lot.
+
+```text
+1. un écrivain ajoute 5 lots de 2 000 000 lignes (plusieurs fichiers par
+   lot), un lecteur compte les lignes en boucle
+   stockage               lectures  erreurs  comptes vus  intermédiaires
+   Parquet nu                 9483        0          100              94
+   table Delta               11880        0            6               0
+   Parquet nu : 100 fichiers ; table Delta : 20 fichiers, version 4
+
+2. historique et voyage dans le temps (table Delta)
+   version 0 : WRITE    4 fichiers,  2 000 000 lignes
+   version 1 : WRITE    4 fichiers,  2 000 000 lignes
+   version 2 : WRITE    4 fichiers,  2 000 000 lignes
+   version 3 : WRITE    4 fichiers,  2 000 000 lignes
+   version 4 : WRITE    4 fichiers,  2 000 000 lignes
+   lignes à la version 0 : 2 000 000 ; à la dernière : 10 000 000
+   journal : 5 fichiers JSON
+```
+
+L’autre passe a donné 100 comptes distincts dont 94 intermédiaires pour le dossier nu, et 6 sans intermédiaire pour la table Delta ; une passe plus ancienne, 99 et 93. Le lecteur du dossier voit chaque fichier apparaître à son tour, et compte successivement 200 000, 300 000, 400 000 lignes…, si bien que 94 de ses 100 comptes ne correspondent à aucun lot terminé. Sur la table Delta, chaque lot n’existe qu’à partir de l’écriture de son fichier de journal, et le lecteur ne voit que 0, 2, 4, 6, 8 et 10 millions de lignes. Le format de table apporte ce que le dossier n’a pas, l’atomicité d’un lot de plusieurs fichiers.
+
+```text
+3. petits fichiers : 300 ajouts de 1 000 lignes
+   état                       fichiers  version  somme ms
+   avant compactage                300      299     115.8
+   après compactage                  1      300      15.1
+   compactage en 0.10 s : 300 fichiers retirés, 1 ajouté ;
+   nettoyage : 300 fichiers supprimés du disque, 1 restant
+
+4. deux écrivains concurrents
+   2 × 30 ajouts simultanés : version 60, 61 000 lignes ;
+   validations refusées puis refaites par le script : 0
+   suppression et mise à jour simultanées des lignes id < 5000 :
+     supprimer      validée
+     mettre à jour  CommitFailedError
+
+5. supprimer une ligne dans une table de 2 000 000 lignes
+   4 fichiers ; suppression en 124 ms : 1 fichier retiré, 1 ajouté,
+   559 103 lignes recopiées pour 1 supprimée
+
+6. ajout d'une colonne (schema_mode = merge)
+   colonnes : id, magasin, montant, commentaire, canal
+   lignes sans canal (écrites avant) : 1 000
+   colonnes de la version 0 : id, magasin, montant, commentaire
+```
+
+L’autre passe a donné les mêmes versions et les mêmes comptes, 112 et 13 ms pour la somme, 126 ms pour la suppression. Chaque écriture crée une version, qu’on peut relire plus tard ; la version 0 a encore ses 2 millions de lignes quand la table en compte 10. Le revers apparaît dans la troisième partie, où 300 petits ajouts font 300 fichiers et 300 versions, et sommer une colonne prend 112 à 116 ms ; le compactage (`optimize`) les réécrit en un seul fichier en 0,10 à 0,13 s, et la même somme ne prend plus que 12 à 16 ms ; les anciens fichiers, retirés du journal mais encore sur disque pour le voyage dans le temps, ne disparaissent qu’au nettoyage (`vacuum`). Deux écrivains qui ajoutent des lignes en même temps réussissent tous les deux, puisque leurs ajouts ne se contredisent pas ; une suppression et une mise à jour des mêmes lignes, lancées en même temps, ne peuvent pas réussir toutes les deux, et l’une échoue (`CommitFailedError`), selon les passes la suppression ou la mise à jour. Supprimer une seule ligne réécrit tout le fichier qui la contient, soit 559 103 lignes recopiées en 115 à 129 ms ; c’est la copie à l’écriture (copy-on-write) des formats de tables, qui rend les modifications ligne à ligne coûteuses.
+
+## Modélisation en étoile
+
+Un entrepôt organise souvent ses tables selon la modélisation dimensionnelle de Ralph Kimball. Un schéma en étoile (star schema) relie une table de faits à des tables de dimensions par des clés primaires et étrangères ; les faits portent les mesures (une vente, son montant, sa quantité), les dimensions le contexte descriptif, le « qui, quoi, où, quand, pourquoi et comment »[^kimball] (figure 49.4). Les dimensions sont dénormalisées, si bien que la dimension produit porte directement la marque et la catégorie, là où un schéma normalisé ([ch. 19](../partie-2/index-modelisation.mdx)) les rangerait dans des tables séparées.
+
+<Figure svg={etoile} num="49.4" alt="Une table de faits « ventes » de 10 millions de lignes (jour, magasin_id, produit_id, client_id, quantité, montant) au centre, reliée à quatre dimensions : jour (730 lignes : année, trimestre, mois, jour de la semaine), produit (50 000 lignes : produit, marque, catégorie), magasin (500 lignes : magasin, ville, région) et client (1 million de lignes : segment). Les faits portent les mesures et les clés ; chaque dimension, dénormalisée, porte les attributs par lesquels on filtre et on regroupe.">
+Un schéma en étoile : la table des ventes et ses dimensions.
+</Figure>
+
+Une requête filtre et regroupe par les attributs des dimensions, et agrège les mesures des faits ; chaque dimension coûte une jointure, avec une petite table.
+
+`etoile.py` construit les mêmes faits sous trois formes dans DuckDB, un schéma normalisé (le produit pointe vers sa marque et sa catégorie, le magasin vers sa ville, la ville vers sa région), un schéma en étoile, et une table large où chaque vente porte tous ses attributs.
+
+```text
+1. chiffre d'affaires par catégorie et par région, premier trimestre 2025
+   schéma         jointures  taille Zstd   requête
+   normalisé              6       111 Mo     24 ms
+   étoile                 3       111 Mo     23 ms
+   table large            0       189 Mo     30 ms
+   (480 lignes de résultat, médiane de 5)
+```
+
+L’autre passe a donné 25, 33 et 18 ms. Les trois schémas répondent en 18 à 33 ms, sans écart qui se reproduise d’une passe à l’autre ; dans un moteur en colonnes comme DuckDB, joindre les 10 millions de ventes à des dimensions de quelques centaines à quelques dizaines de milliers de lignes ne coûte presque rien, et c’est le parcours des faits qui domine. La table large, elle, occupe 189 Mo au lieu de 111, parce que chaque vente recopie le nom de son produit, de sa marque, de sa catégorie, de son magasin, de sa ville et de sa région. Elle a aussi un défaut que la mesure ne montre pas, puisque si un produit change de catégorie, il faut réécrire toutes ses ventes, là où le schéma en étoile modifie une ligne de la dimension. L’étoile reste le compromis courant, avec peu de jointures, toutes avec de petites tables, et des attributs rangés une seule fois.
+
+## ETL et ELT
+
+L’ETL (extract, transform, load) extrait les données des sources, les transforme hors de l’entrepôt (nettoyage, jointures, calculs), puis charge le résultat ; l’ELT (extract, load, transform) charge les données brutes, puis les transforme dans l’entrepôt, en SQL. L’ETL convient quand on ne veut charger dans l’entrepôt que des données prêtes, par exemple pour ne pas y stocker de données personnelles brutes ; l’ELT garde les données brutes, qu’on peut retransformer quand une règle change, et confie les jointures au moteur de l’entrepôt, qui est fait pour cela. L’article Lakehouse décrit d’ailleurs les architectures à deux étages comme un ETL vers le lac suivi d’un ELT vers l’entrepôt[^lakehouse]. La seconde partie de `etoile.py` construit la table large des deux façons.
+
+```text
+2. construire la table large (10 millions de lignes, 5 jointures) :
+   ETL : extraire, joindre hors de l'entrepôt, charger ; ELT : charger les
+   données brutes, puis transformer dans l'entrepôt
+   ETL, jointures dans pyarrow par lots :  13.4 s, 10 000 000 lignes
+   ELT, jointures en SQL dans DuckDB    :   1.1 s, 10 000 000 lignes
+```
+
+L’autre passe a donné 12,9 s et 1,1 s. Construire la même table large prend 12,4 à 13,4 s quand on sort les données de DuckDB pour les joindre dans pyarrow, par lots d’un million de lignes, et 1,1 s quand on laisse DuckDB faire les jointures en SQL, car l’ETL paie l’extraction, les copies entre deux systèmes et un moteur de jointure moins adapté. La première version de l’ETL, qui joignait les 10 millions de lignes d’un seul coup, a dépassé le plafond de 6 Go de mémoire fixé à l’expérience et a été tuée ; un ETL travaille par lots, et doit être conçu pour cela.
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Stockage en lignes (OLTP) | lecture et modification d’une ligne en une page | parcours complet pour une agrégation | 0,15 ms par lecture, 2,4 à 4,1 ms par mise à jour ; 1,1 s pour l’agrégation | l’application |
+| Parquet (colonnes) | ne lire que les colonnes utiles, compression, saut de groupes | fichiers immuables, lecture ponctuelle lente | 68 à 79 ms pour l’agrégation, 320 Mo ; 23 ms par lecture ponctuelle | l’analyse |
+| Tri ou partitionnement par date | saut de groupes de lignes | ordre d’écriture à maîtriser | 2 groupes lus sur 82, 7 ms contre 38 ms | filtres fréquents sur une colonne |
+| Lac de fichiers nus | simple, ouvert, bon marché | pas d’atomicité ni de versions | 94 états intermédiaires vus sur 100 | données brutes en dépôt |
+| Format de table (Delta, Iceberg) | transactions, versions, schéma évolutif | journal, compactage et nettoyage à faire, copie à l’écriture | 6 états, tous complets ; 559 103 lignes recopiées pour une suppression | lakehouse |
+| Entrepôt séparé | performances, gestion intégrée | copie à maintenir, retard, format fermé | non mesuré | besoins de BI très exigeants |
+| Schéma en étoile | peu de jointures, attributs rangés une fois | jointures | 18 à 33 ms, 111 Mo | par défaut |
+| Table large | aucune jointure | taille, réécriture quand un attribut change | 18 à 33 ms, 189 Mo | tables de consultation très lues |
+| ELT | moteur de l’entrepôt, données brutes gardées | données brutes à stocker et à protéger | 1,1 s contre 12,4 à 13,4 s | par défaut |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : la taille d’un entrepôt de ventes]
+Hypothèses : 50 millions de ventes par jour ; 10 colonnes ; 32 octets par vente en Parquet Zstd (320 Mo pour 10 millions, mesuré) ; 5 ans d’historique ; 0,023 \$ par Go et par mois de stockage objet (tarif standard d’Amazon S3 dans us-east-1, 50 premiers To)[^s3].
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Volume par jour | 50 × 10⁶ × 32 octets | 1,6 Go |
+| Sur 5 ans | 1,6 Go × 1 826 | 2,9 To |
+| En CSV, 2,8 fois plus | 2,9 To × 2,8 | 8,2 To |
+| Stockage objet par mois | 2 900 Go × 0,023 \$ | 67 \$ |
+
+Conclusion : en colonnes compressées, cinq ans de ventes d’un grand distributeur tiennent en quelques téraoctets et coûtent quelques dizaines de dollars de stockage par mois ; le coût d’un lakehouse est dans le calcul des requêtes, pas dans le stockage.
+:::
+
+:::calcul[Calcul : ce que lit une requête analytique]
+Hypothèses : la table de 2,9 To du calcul précédent ; une requête lit 2 colonnes sur 10 (27 Mo sur 320, soit 8,4 %, mesuré) et un mois sur 60 ; groupes de lignes triés par date.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Sans colonnes ni tri (CSV) | 8,2 To | tout lire |
+| Colonnes utiles seulement | 2,9 To × 8,4 % | 244 Go |
+| Plus le saut des groupes hors du mois | 244 Go / 60 | 4 Go |
+| À 1 Go/s par cœur sur 32 cœurs | 4 Go / 32 Go/s | 0,13 s de lecture |
+
+Conclusion : le rangement en colonnes et le tri divisent par 2 000 le volume lu ; c’est cette réduction, plus que la puissance de calcul, qui rend l’analyse interactive.
+:::
+
+:::calcul[Calcul : les petits fichiers d’un flux]
+Hypothèses : un traitement de flux écrit un fichier par partition et par minute ; 64 partitions ; une table Delta compactée chaque nuit en fichiers de 512 Mo ; 40 Go de données par jour.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Fichiers écrits par jour | 64 × 1 440 | 92 160 |
+| Taille moyenne d’un fichier | 40 Go / 92 160 | 434 Ko |
+| Fichiers après compactage | 40 Go / 512 Mo | 79 |
+| Versions de la table par jour (une par minute) | 1 440 | points de contrôle toutes les 10 versions : 144 |
+
+Conclusion : un flux qui écrit souvent produit des milliers de petits fichiers et de versions ; sans compactage régulier, chaque lecture paie l’ouverture de tous ces fichiers (12 à 16 ms au lieu de 112 à 116 ms pour 300 fichiers, mesuré).
+:::
+
+## Exemple réel
+
+**Dremel, le stockage en colonnes chez Google.** Sergey Melnik et six coauteurs de Google ont décrit en 2010 Dremel, un système d’analyse interactive en production depuis 2006 et utilisé par des milliers de personnes chez Google, sur des déploiements de quelques dizaines à quelques milliers de nœuds[^dremel]. Ses usages cités vont de l’analyse des documents explorés par le robot du moteur de recherche au suivi des installations d’applications sur Android Market, aux rapports de plantage des produits Google, aux statistiques d’entrées-sorties de centaines de milliers de disques. Sa contribution principale est un format en colonnes pour des enregistrements imbriqués, qui découpe chaque champ en une colonne et sait réassembler les enregistrements ; c’est l’algorithme que Parquet reprend[^parquet-motivation]. L’article mesure l’effet du rangement en colonnes sur une table de 85 milliards d’enregistrements (87 To). Pour une requête qui ne lit qu’un champ, MapReduce sur 3 000 travailleurs lit 87 To quand les données sont rangées par enregistrement, et environ 0,5 To de données en colonnes compressées ; passer aux colonnes fait gagner un ordre de grandeur (des heures aux minutes), et Dremel, qui agrège en arbre de serveurs au lieu de passer par MapReduce, en fait gagner un autre (des minutes aux secondes)[^dremel].
+
+## Erreurs fréquentes
+
+Servir l’application et l’analyse avec la même base. Une agrégation de 10 millions de lignes prend 1,1 s dans PostgreSQL et ralentit les transactions ; une lecture ponctuelle prend 23 ms sur Parquet.
+
+Écrire du CSV dans un lac. Trois fois plus gros que Parquet Zstd et dix fois plus lent à lire (mesuré).
+
+Écrire les fichiers dans un ordre quelconque. Les minimums et maximums du pied ne servent plus, et 82 groupes sont lus sur 82 au lieu de 2.
+
+Lire un dossier de fichiers pendant qu’on y écrit, sans format de table. Le lecteur voit des lots à moitié écrits.
+
+Laisser s’accumuler les petits fichiers. Une somme sur 300 fichiers de 1 000 lignes prend sept à neuf fois plus de temps que sur un seul fichier compacté.
+
+Oublier le nettoyage d’une table Delta ou Iceberg. Les fichiers retirés du journal restent sur le stockage, et sont facturés, jusqu’au `vacuum`.
+
+Modifier une table de lakehouse ligne par ligne comme une base transactionnelle. Chaque suppression réécrit un fichier entier.
+
+Copier tous les attributs dans une table large sans mesurer. Elle occupe 70 % de place en plus ici, et doit être réécrite quand un attribut change.
+
+Écrire un ETL qui charge toutes les données en mémoire. Il a dépassé ici 6 Go pour 10 millions de lignes ; un ETL travaille par lots.
+
+:::piege[Erreur fréquente : « un lac de données, c’est un dossier de fichiers Parquet »]
+Un dossier de fichiers Parquet est un stockage ; ce n’est pas une table. Rien n’y garantit qu’un lot de plusieurs fichiers apparaisse d’un coup ; dans la mesure, un lecteur a vu 94 états intermédiaires sur 100. Rien n’y dit quelle est la version courante, ni comment revenir à la précédente, ni comment deux écrivains se coordonnent. C’est le rôle d’un format de table, dont le journal transactionnel apporte atomicité, versions et contrôle de concurrence ; il a son propre coût (petits fichiers à compacter, fichiers retirés à nettoyer, modifications ligne à ligne qui réécrivent des fichiers), mais sans lui, un lac donne des résultats faux dès qu’on lit et écrit en même temps.
+:::
+
+:::entretien
+Pour une plateforme d’analyse, séparez la charge transactionnelle (bases en lignes, index, transactions courtes) de la charge analytique (stockage en colonnes, parcours de colonnes, agrégations). Proposez un lakehouse, avec un stockage objet, Parquet, un format de table (Delta Lake ou Iceberg) pour les transactions et les versions, des moteurs qui lisent directement les fichiers. Dites comment les données y arrivent (capture des changements depuis les bases, flux, lots ; ELT plutôt qu’ETL), comment vous les organisez (tri ou partitionnement par date, schéma en étoile, compactage des petits fichiers) et comment vous gardez la cohérence quand on lit et écrit en même temps. Chiffrez le volume en colonnes et ce que lit une requête typique.
+:::
+
+## Exercices
+
+**Question 1.** Une table de 2 milliards de lignes et 40 colonnes est stockée en Parquet, triée par date. Une requête lit 3 colonnes sur une semaine, sur un historique de deux ans. Estimez la fraction des données lue, en supposant des colonnes de tailles voisines. Que devient-elle si le fichier est trié par client ?
+
+**Question 2.** Une équipe stocke ses événements dans un dossier S3 de fichiers Parquet, alimenté toutes les cinq minutes par un traitement qui écrit 40 fichiers. Les tableaux de bord affichent parfois des chiffres qui baissent puis remontent. Expliquez et proposez une correction.
+
+**Question 3.** Un service de facturation doit pouvoir annuler une facture (une ligne) dans une table Delta de 500 millions de lignes, des milliers de fois par jour. Pourquoi est-ce coûteux, et comment organiser les données ou le traitement pour que ce le soit moins ?
+
+**Exercice de conception.** Une chaîne de 800 magasins veut un entrepôt de ses ventes (200 millions de lignes par an), de ses stocks (photo quotidienne de 40 000 produits dans chaque magasin) et de ses clients fidèles (5 millions, données personnelles), alimenté depuis ses bases de caisse PostgreSQL, et utilisé par des tableaux de bord et par une équipe qui entraîne des modèles de prévision. Proposez l’architecture (sources, chargement, stockage, format, moteurs), le modèle en étoile, l’organisation des fichiers, le traitement des données personnelles et la fraîcheur des données ; chiffrez le volume.
+
+## Corrigés
+
+**Question 1.** Trois colonnes sur 40 : environ 7,5 % des octets. Une semaine sur deux ans (104 semaines) : environ 1 % des groupes de lignes, grâce au tri par date. Au total, de l’ordre de 0,07 % des données, soit, pour une table de quelques centaines de gigaoctets, quelques centaines de mégaoctets. Trié par client, les dates d’une semaine sont dispersées dans tous les groupes : plus aucun groupe ne peut être écarté, et la requête lit 7,5 % des données, cent fois plus.
+
+**Question 2.** Le traitement écrit ses 40 fichiers l’un après l’autre, et un tableau de bord qui lit le dossier pendant ce temps voit une partie seulement des fichiers d’un lot ; s’il réécrit aussi des fichiers existants (une correction, un compactage), il peut voir à la fois d’anciens et de nouveaux fichiers, d’où des chiffres qui baissent puis remontent. Correction : passer à un format de table (Delta Lake ou Iceberg), où chaque lot est une transaction validée par l’écriture d’un fichier de journal ; les lecteurs lisent toujours une version complète.
+
+**Question 3.** Chaque annulation réécrit le fichier Parquet qui contient la ligne, soit des centaines de milliers de lignes recopiées pour une seule (559 103 dans la mesure), et crée une version de plus. Trois pistes : enregistrer les annulations comme des faits (une ligne d’annulation qui annule la facture, à la manière d’un journal d’événements, [ch. 43](evenements-cqrs.mdx)) plutôt que de supprimer ; regrouper les annulations et les appliquer par lots, une fois par heure ; et organiser la table (partitionnement par mois, tri par numéro de facture) pour que chaque annulation ne touche qu’un petit fichier.
+
+**Exercice de conception.**
+
+*Chargement.* Capture des changements des bases de caisse ([ch. 37](../partie-3/transactions-distribuees.mdx)) vers Kafka, puis un traitement de flux qui écrit les lignes brutes dans une table Delta ou Iceberg sur stockage objet, toutes les quelques minutes (ELT) ; les transformations (nettoyage, rattachement aux dimensions) se font ensuite en SQL dans le lakehouse.
+
+*Modèle.* Une table de faits « ventes » (jour, magasin, produit, client, quantité, montant, remise) et une table de faits « stocks » (photo quotidienne : jour, magasin, produit, quantité) ; des dimensions jour, magasin (ville, région, surface), produit (marque, rayon, catégorie) et client (segment, ville, sans nom ni adresse).
+
+*Organisation.* Ventes partitionnées par mois et triées par jour et magasin ; compactage quotidien en fichiers de quelques centaines de mégaoctets ; nettoyage hebdomadaire des fichiers retirés.
+
+*Données personnelles.* La table des clients identifiés (nom, courriel) reste dans une zone à accès restreint ; la dimension client des analystes n’a qu’un identifiant pseudonyme et des attributs agrégés. Un droit à l’effacement se traite par la suppression de la ligne du client dans la zone restreinte, et par la réécriture des seuls fichiers qui le concernent.
+
+*Fraîcheur.* Quelques minutes pour les ventes, une fois par jour pour les stocks ; les tableaux de bord lisent les tables, l’équipe de prévision les lit directement en Parquet avec ses propres outils.
+
+*Volume.* 200 millions de ventes par an à environ 40 octets en Parquet Zstd : 8 Go par an. Stocks : $800 \times 40\,000 = 32$ millions de lignes par jour, 11,7 milliards par an, environ 120 Go par an à 10 octets la ligne (les quantités changent peu d’un jour à l’autre et se compressent bien). Quelques centaines de gigaoctets sur plusieurs années : le coût est dans le calcul, et les stocks, plus que les ventes, dimensionnent l’ensemble.
+
+:::fiche
+- OLTP : lire et modifier quelques lignes par clé, en lignes avec index ; OLAP : parcourir des millions de lignes et peu de colonnes, en colonnes.
+- Parquet : groupes de lignes, morceaux de colonnes compressés, pied avec positions, minimums et maximums ; groupes recommandés de 512 Mo à 1 Go.
+- Mesuré : 320 Mo en Parquet Zstd contre 896 Mo en CSV et 1 368 Mo dans PostgreSQL ; agrégation en 68 à 79 ms contre 1,1 s ; lecture ponctuelle 0,15 ms dans PostgreSQL contre 23 ms sur Parquet.
+- Tri par la colonne de filtre : 2 groupes lus sur 82, 7 ms contre 38 ms.
+- Entrepôt (schéma à l’écriture), lac (stockage objet, schéma à la lecture), lac plus entrepôt (deux copies, retard), lakehouse (une copie ouverte avec un format de table) (Armbrust et al., 2021).
+- Format de table (Delta Lake, Iceberg) : journal de versions, écriture conditionnelle du fichier de version suivant, concurrence optimiste, points de contrôle toutes les 10 versions (Armbrust et al., 2020).
+- Mesuré : 6 états complets vus contre 94 états intermédiaires sur 100 ; compactage, 112 à 116 ms puis 12 à 16 ms ; une suppression recopie 559 103 lignes.
+- Étoile : faits (mesures, clés) et dimensions dénormalisées (Kimball) ; mesuré, 18 à 33 ms comme les autres schémas, 111 Mo contre 189 pour la table large.
+- ELT plutôt qu’ETL : 1,1 s contre 12,4 à 13,4 s pour la même table (mesuré).
+:::
+
+[^parquet]: Apache Parquet, « File Format », documentation, consultée le 15 novembre 2026, [parquet.apache.org/docs/file-format](https://parquet.apache.org/docs/file-format/).
+[^parquet-config]: Apache Parquet, « Configurations », documentation, consultée le 15 novembre 2026, [parquet.apache.org/docs/file-format/configurations](https://parquet.apache.org/docs/file-format/configurations/).
+[^parquet-motivation]: Apache Parquet, « Motivation », documentation, consultée le 15 novembre 2026, [parquet.apache.org/docs/overview/motivation](https://parquet.apache.org/docs/overview/motivation/).
+[^lakehouse]: Michael Armbrust, Ali Ghodsi, Reynold Xin et Matei Zaharia, « Lakehouse: A New Generation of Open Platforms that Unify Data Warehousing and Advanced Analytics », *11th Conference on Innovative Data Systems Research (CIDR ’21)*, 2021, section 1, [cidrdb.org/cidr2021/papers/cidr2021_paper17.pdf](https://www.cidrdb.org/cidr2021/papers/cidr2021_paper17.pdf).
+[^delta]: Michael Armbrust, Tathagata Das, Liwen Sun et al., « Delta Lake: High-Performance ACID Table Storage over Cloud Object Stores », *Proceedings of the VLDB Endowment*, vol. 13, no 12, 2020, sections 1 à 3, [vldb.org/pvldb/vol13/p3411-armbrust.pdf](https://www.vldb.org/pvldb/vol13/p3411-armbrust.pdf).
+[^kimball]: Kimball Group, « Star Schemas and OLAP Cubes », *Dimensional Modeling Techniques*, consulté le 15 novembre 2026, [kimballgroup.com](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/star-schema-olap-cube/).
+[^dremel]: Sergey Melnik, Andrey Gubarev, Jing Jing Long, Geoffrey Romer, Shiva Shivakumar, Matt Tolton et Theo Vassilakis, « Dremel: Interactive Analysis of Web-Scale Datasets », *Proceedings of the VLDB Endowment*, vol. 3, no 1, 2010, sections 1 et 7, [research.google/pubs/archive/36632.pdf](https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/36632.pdf).
+[^s3]: AWS, « Amazon S3 Pricing », classe S3 Standard, région US East (N. Virginia), liste de prix publiée le 9 novembre 2026, [aws.amazon.com/s3/pricing](https://aws.amazon.com/s3/pricing/).

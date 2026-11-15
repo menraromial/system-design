@@ -1,0 +1,17 @@
+% Schéma en étoile : une table de faits (les ventes) et ses dimensions.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    t/.style={draw=#1, fill=#1Bg, line width=0.6pt, rounded corners=3pt, align=left, font=\sffamily\scriptsize,
+      inner sep=3pt, text width=32mm},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \node[t=Dblue, text width=38mm] (f) at (0,0) {\textbf{\small faits : ventes}\\10 millions de lignes\\jour, magasin\_id, produit\_id,\\client\_id\\quantité, montant};
+  \node[t=Dteal] (d1) at (-62,22) {\textbf{\small dimension jour}\\730 lignes\\année, trimestre, mois,\\jour de la semaine};
+  \node[t=Dteal] (d2) at (62,22) {\textbf{\small dimension produit}\\50 000 lignes\\produit, marque, catégorie};
+  \node[t=Dteal] (d3) at (-62,-22) {\textbf{\small dimension magasin}\\500 lignes\\magasin, ville, région};
+  \node[t=Dteal] (d4) at (62,-22) {\textbf{\small dimension client}\\1 million de lignes\\segment};
+  \foreach \d in {d1,d2,d3,d4} \draw[Dslate, line width=0.7pt] (f) -- (\d);
+  \node[lab=Dslate, anchor=north, align=center] at (0,-36) {les faits portent les mesures et les clés ; chaque dimension, dénormalisée,\\porte les attributs par lesquels on filtre et on regroupe};
+\end{tikzpicture}
+\end{document}

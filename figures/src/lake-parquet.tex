@@ -1,0 +1,39 @@
+% Stockage en lignes, en colonnes, et organisation d'un fichier Parquet :
+% groupes de lignes, morceaux de colonnes, pied avec minimums et maximums.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    c/.style={draw=#1, fill=#1Bg, line width=0.4pt, minimum width=7mm, minimum height=5mm, inner sep=0pt,
+      font=\sffamily\scriptsize},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  % ---- lignes contre colonnes
+  \node[pillo=Dslate, anchor=west] at (-2,40) {en lignes (PostgreSQL)};
+  \foreach \r in {0,1,2} \foreach \k/\col in {0/Dslate,1/Dblue,2/Dslate,3/Dslate,4/Dslate,5/Dteal,6/Dslate} {
+    \node[c=\col] at (\k*7.4+\r*54,30) {};}
+  \foreach \r in {0,1,2} \node[lab=Dslate, anchor=north] at (22+\r*54,27) {vente \the\numexpr\r+1\relax};
+  \node[lab=Dred, anchor=west] at (164,30) {pour sommer une colonne,\\on lit toutes les lignes};
+  \node[pillo=Dslate, anchor=west] at (-2,16) {en colonnes (Parquet)};
+  \foreach \k/\col/\n in {0/Dblue/jour, 1/Dteal/montant, 2/Dslate/magasin, 3/Dslate/produit, 4/Dslate/client} {
+    \foreach \r in {0,1,2} \node[c=\col] at (\k*32+\r*7.4,6) {};
+    \node[lab=Dslate, anchor=north] at (\k*32+7.4,3) {\n};}
+  \node[lab=Dgreen, anchor=west] at (164,6) {on ne lit que jour et montant :\\27 Mo sur 320 Mo (mesuré)};
+  % ---- fichier Parquet
+  \begin{scope}[yshift=-58mm]
+    \node[pillo=Dslate, anchor=west] at (-2,40) {un fichier Parquet};
+    \node[c=Dslate, minimum width=12mm] at (6,24) {PAR1};
+    \foreach \g/\x/\mi/\ma in {1/20/{1 janv.}/{9 janv.}, 2/62/{9 janv.}/{18 janv.}} {
+      \draw[Dslate, rounded corners=3pt, line width=0.6pt] (\x,14) rectangle (\x+38,34);
+      \node[lab=Dslate, anchor=north west] at (\x,33.5) {groupe de lignes \g};
+      \foreach \k/\col in {0/Dblue,1/Dteal,2/Dslate,3/Dslate} \node[c=\col, minimum width=7mm, minimum height=8mm] at (\x+5+\k*9.2,22) {};
+      \node[lab=Damber, anchor=north, font=\sffamily\scriptsize] at (\x+19,12.5) {jour : \mi\ à \ma};}
+    \node[lab=Dslate] at (110,24) {…};
+    \draw[draw=Damber, fill=DamberBg, line width=0.6pt, rounded corners=3pt] (118,14) rectangle (158,34);
+    \node[lab=Damber, anchor=north west, align=left] at (119,33) {pied du fichier :\\schéma, position de\\chaque morceau,\\min. et max. par colonne};
+    \node[c=Dslate, minimum width=12mm] at (166,24) {PAR1};
+    \node[lab=Dslate, anchor=north west, align=left] at (0,6) {morceau de colonne : les valeurs d’une colonne pour un groupe, compressées ;
+      un lecteur lit d’abord le pied, puis les seuls morceaux utiles ;\\
+      une semaine de mars : 2 groupes lus sur 82 si le fichier est trié par jour, 82 sur 82 sinon (mesuré)};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

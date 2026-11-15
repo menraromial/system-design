@@ -86,7 +86,7 @@ export const PARTIES: Partie[] = [
       {num: 46, titre: 'Multi-région', doc: 'partie-4/multi-region'},
       {num: 47, titre: 'Traitement par lots : MapReduce, Spark', doc: 'partie-4/traitement-lots'},
       {num: 48, titre: 'Traitement de flux : Flink, Lambda, Kappa', doc: 'partie-4/traitement-flux'},
-      {num: 49, titre: 'Entrepôts, lacs, lakehouse'},
+      {num: 49, titre: 'Entrepôts, lacs, lakehouse', doc: 'partie-4/entrepots-lacs'},
     ],
   },
   {

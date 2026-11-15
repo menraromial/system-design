@@ -1,0 +1,40 @@
+% Trois générations de plateformes analytiques (d'après Armbrust et al., CIDR 2021) :
+% entrepôt, lac plus entrepôt, lakehouse.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=30mm, minimum height=10mm, font=\sffamily\small, align=center},
+    lab/.style={font=\sffamily\scriptsize, text=#1, align=center}, lab/.default=Dink]
+  \foreach \x/\t in {0/{1. entrepôt}, 62/{2. lac + entrepôt}, 124/{3. lakehouse}} {
+    \node[pillo=Dslate] at (\x,62) {\t};}
+  % 1. entrepôt
+  \node[b=Dslate] (o1) at (0,46) {bases OLTP};
+  \node[b=Dblue] (w1) at (0,22) {entrepôt\\{\scriptsize schéma à l’écriture}};
+  \node[b=Dteal] (u1) at (0,0) {rapports, BI};
+  \draw[arr=Dslate] (o1) -- node[right, lab=Dslate] {ETL} (w1);
+  \draw[arr=Dteal] (w1) -- (u1);
+  % 2. lac + entrepôt
+  \node[b=Dslate] (o2) at (62,46) {bases OLTP, journaux,\\fichiers, images};
+  \node[b=Damber] (l2) at (62,30) {lac : stockage objet\\{\scriptsize Parquet, schéma à la lecture}};
+  \node[b=Dblue] (w2) at (62,12) {entrepôt\\{\scriptsize copie choisie}};
+  \node[b=Dteal, minimum width=22mm] (u2a) at (50,-6) {BI};
+  \node[b=Dteal, minimum width=22mm] (u2b) at (80,-6) {apprentissage};
+  \draw[arr=Dslate] (o2) -- node[right, lab=Dslate] {ETL} (l2);
+  \draw[arr=Damber] (l2) -- node[right, lab=Damber] {ELT} (w2);
+  \draw[arr=Dteal] (w2) -- (u2a);
+  \draw[arr=Dteal] (l2.east) to[out=-20, in=90] (u2b.north);
+  \node[lab=Dred, anchor=north] at (62,-13) {deux copies à garder cohérentes,\\données de l’entrepôt en retard};
+  % 3. lakehouse
+  \node[b=Dslate] (o3) at (124,46) {bases OLTP, journaux,\\fichiers, images};
+  \node[b=Damber, minimum height=22mm, minimum width=36mm] (l3) at (124,20) {};
+  \node[lab=Damber, font=\sffamily\small] at (124,27) {stockage objet, Parquet};
+  \node[soft=Dpurple, minimum width=30mm, minimum height=7mm, font=\sffamily\scriptsize] at (124,15) {format de table : journal,\\transactions, versions};
+  \node[b=Dteal, minimum width=22mm] (u3a) at (112,-6) {BI, SQL};
+  \node[b=Dteal, minimum width=22mm] (u3b) at (138,-6) {apprentissage};
+  \draw[arr=Dslate] (o3) -- (l3);
+  \draw[arr=Dteal] (l3.south) ++(-8,0) -- (u3a.north);
+  \draw[arr=Dteal] (l3.south) ++(8,0) -- (u3b.north);
+  \node[lab=Dgreen, anchor=north] at (124,-13) {une seule copie, ouverte,\\lue directement par tous les moteurs};
+\end{tikzpicture}
+\end{document}

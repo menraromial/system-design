@@ -1,0 +1,29 @@
+% Une table Delta : fichiers Parquet et journal de transactions ; validation par
+% écriture conditionnelle du fichier de version suivant.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    f/.style={draw=#1, fill=#1Bg, line width=0.5pt, rounded corners=2pt, minimum width=34mm, minimum height=6mm,
+      font=\ttfamily\scriptsize, inner sep=1pt},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \node[pillo=Dslate, anchor=west] at (-2,52) {ventes/ (un dossier, ou un préfixe de stockage objet)};
+  % journal
+  \node[lab=Dpurple, anchor=west, font=\sffamily\small\bfseries] at (0,42) {\_delta\_log/};
+  \foreach \v/\y/\t in {0/34/{00000.json : add a, b, c, d}, 1/26/{00001.json : add e, f, g, h}, 2/18/{00002.json : remove a ; add i}} {
+    \node[f=Dpurple, minimum width=52mm, anchor=west] at (2,\y) {\t};}
+  \node[f=Dpurple, minimum width=52mm, anchor=west, dash pattern=on 2pt off 1pt] (n3) at (2,10) {00003.json : seulement s’il n’existe pas};
+  \node[lab=Dslate, anchor=west, font=\sffamily\scriptsize] at (2,3) {un point de contrôle Parquet résume le journal toutes les 10 versions};
+  % fichiers
+  \node[lab=Dblue, anchor=west, font=\sffamily\small\bfseries] at (78,42) {fichiers Parquet};
+  \foreach \n/\x/\y in {a/80/34, b/100/34, c/120/34, d/140/34, e/80/26, f/100/26, g/120/26, h/140/26, i/80/18} {
+    \node[draw=Dblue, fill=DblueBg, line width=0.5pt, minimum width=16mm, minimum height=6mm, font=\ttfamily\scriptsize, anchor=west] at (\x,\y) {\n.parquet};}
+  \node[draw=Dslate, fill=DslateBg, line width=0.5pt, minimum width=16mm, minimum height=6mm, font=\ttfamily\scriptsize, anchor=west, text=Dslate] at (100,18) {a.parquet};
+  \node[lab=Dslate, anchor=west, font=\sffamily\scriptsize] at (118,18) {retiré, effacé plus tard (vacuum)};
+  % écrivains concurrents
+  \node[lab=Dred, anchor=west, align=left] at (82,7) {deux écrivains tentent tous deux 00003.json :\\un seul réussit, l’autre relit le journal et réessaie,\\ou échoue s’il a lu des lignes que l’autre a changées};
+  % note
+  \node[lab=Dslate, anchor=north west, align=left] at (0,-4) {lire la table = lire le journal jusqu’à la dernière version, puis les seuls fichiers « add » encore actifs ;\\
+    mesuré : un lecteur ne voit jamais un lot à moitié écrit (6 comptes distincts, contre 99 à 100 sur un dossier de Parquet nus)};
+\end{tikzpicture}
+\end{document}
