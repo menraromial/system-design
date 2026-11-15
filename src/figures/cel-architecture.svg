@@ -1,0 +1,759 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 558.34 277.26">
+<defs>
+<g>
+<g id="cel-architecture-glyph-0-0">
+<path d="M 14.53 -0.73 L 8.87 -0.73 C 8.87 -0.28 8.53 0 8.12 0 L 6.70 0 C 6.26 0 5.93 -0.40 5.93 -0.73 L 0.37 -0.73 C 0.17 -0.73 0 -0.57 0 -0.37 L 0 0 C 0 0.82 0.67 1.48 1.48 1.48 L 13.40 1.48 C 14.23 1.48 14.90 0.82 14.90 0 L 14.90 -0.37 C 14.90 -0.57 14.73 -0.73 14.53 -0.73 Z M 13.40 -9.31 C 13.40 -9.93 12.90 -10.43 12.29 -10.43 L 2.60 -10.43 C 1.98 -10.43 1.48 -9.93 1.48 -9.31 L 1.48 -1.48 L 13.40 -1.48 Z M 11.92 -2.98 L 2.98 -2.98 L 2.98 -8.93 L 11.92 -8.93 Z M 11.92 -2.98 "/>
+</g>
+<g id="cel-architecture-glyph-1-0">
+<path d="M 2.46 0.10 C 3.35 0.10 3.95 -0.32 4.25 -0.98 L 3.73 -1.32 C 3.48 -0.79 3.06 -0.53 2.46 -0.53 C 1.62 -0.53 1.18 -1.10 1.18 -1.90 L 1.18 -2.70 C 1.18 -3.5 1.62 -4.07 2.46 -4.07 C 3.03 -4.07 3.43 -3.81 3.60 -3.32 L 4.20 -3.64 C 3.93 -4.26 3.39 -4.71 2.46 -4.71 C 1.18 -4.71 0.42 -3.78 0.42 -2.31 C 0.42 -0.82 1.18 0.10 2.46 0.10 Z M 2.46 0.10 "/>
+</g>
+<g id="cel-architecture-glyph-1-1">
+<path d="M 2.15 0 L 2.15 -0.62 L 1.46 -0.62 L 1.46 -6.60 L 0.76 -6.60 L 0.76 -0.73 C 0.76 -0.31 1.03 0 1.51 0 Z M 2.15 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-2">
+<path d="M 1.12 -5.68 C 1.42 -5.68 1.56 -5.85 1.56 -6.09 L 1.56 -6.21 C 1.56 -6.45 1.42 -6.60 1.12 -6.60 C 0.81 -6.60 0.67 -6.45 0.67 -6.21 L 0.67 -6.09 C 0.67 -5.85 0.81 -5.68 1.12 -5.68 Z M 0.76 0 L 1.46 0 L 1.46 -4.60 L 0.76 -4.60 Z M 0.76 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-3">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 2.5 -4.12 "/>
+</g>
+<g id="cel-architecture-glyph-1-4">
+<path d="M 1.46 0 L 1.46 -3.20 C 1.46 -3.79 2.03 -4.07 2.59 -4.07 C 3.28 -4.07 3.64 -3.65 3.64 -2.82 L 3.64 0 L 4.35 0 L 4.35 -2.95 C 4.35 -4.07 3.76 -4.71 2.81 -4.71 C 2.12 -4.71 1.73 -4.37 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-5">
+<path d="M 2.67 0 L 2.67 -0.62 L 1.73 -0.62 L 1.73 -3.98 L 2.75 -3.98 L 2.75 -4.60 L 1.73 -4.60 L 1.73 -5.89 L 1.09 -5.89 L 1.09 -5.03 C 1.09 -4.71 0.98 -4.60 0.68 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 L 1.01 -0.76 C 1.01 -0.31 1.28 0 1.78 0 Z M 2.67 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-6">
+<path d="M 2.14 0.10 C 3.20 0.10 3.85 -0.43 3.85 -1.32 C 3.85 -2.03 3.45 -2.46 2.43 -2.62 L 2.07 -2.68 C 1.51 -2.76 1.20 -2.95 1.20 -3.39 C 1.20 -3.82 1.51 -4.10 2.09 -4.10 C 2.68 -4.10 3.07 -3.82 3.28 -3.54 L 3.76 -3.98 C 3.39 -4.43 2.89 -4.71 2.15 -4.71 C 1.21 -4.71 0.51 -4.26 0.51 -3.35 C 0.51 -2.5 1.14 -2.15 2 -2.03 L 2.35 -1.96 C 2.96 -1.89 3.15 -1.60 3.15 -1.25 C 3.15 -0.78 2.81 -0.5 2.20 -0.5 C 1.62 -0.5 1.18 -0.76 0.82 -1.20 L 0.32 -0.79 C 0.73 -0.25 1.29 0.10 2.14 0.10 Z M 2.14 0.10 "/>
+</g>
+<g id="cel-architecture-glyph-1-7">
+<path d="M 0.73 -2.78 C 0.73 -1.04 1.46 0.46 2.35 1.21 L 3.03 1.21 C 2.07 0.35 1.40 -1.14 1.40 -2.39 L 1.40 -3.15 C 1.40 -4.42 2.04 -5.90 3.03 -6.79 L 2.35 -6.79 C 1.45 -6.01 0.73 -4.51 0.73 -2.78 Z M 0.73 -2.78 "/>
+</g>
+<g id="cel-architecture-glyph-1-8">
+<path d="M 2.5 0.10 C 3.73 0.10 4.57 -0.84 4.57 -2.31 C 4.57 -3.76 3.73 -4.71 2.5 -4.71 C 1.26 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.96 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.07 2.5 -4.07 C 3.26 -4.07 3.81 -3.60 3.81 -2.64 L 3.81 -1.96 C 3.81 -1 3.26 -0.53 2.5 -0.53 Z M 2.5 -0.53 "/>
+</g>
+<g id="cel-architecture-glyph-1-9">
+<path d="M 4.51 0 L 4.51 -0.62 L 3.98 -0.62 L 3.98 -3.15 C 3.98 -4.14 3.32 -4.71 2.21 -4.71 C 1.39 -4.71 0.82 -4.31 0.57 -3.81 L 1.01 -3.42 C 1.26 -3.82 1.62 -4.10 2.18 -4.10 C 2.90 -4.10 3.26 -3.75 3.26 -3.09 L 3.26 -2.64 L 2.35 -2.64 C 1.01 -2.64 0.39 -2.15 0.39 -1.28 C 0.39 -0.42 0.96 0.10 1.93 0.10 C 2.57 0.10 3.07 -0.18 3.26 -0.75 L 3.31 -0.75 C 3.37 -0.32 3.57 0 4.10 0 Z M 2.06 -0.5 C 1.5 -0.5 1.14 -0.76 1.14 -1.21 L 1.14 -1.40 C 1.14 -1.84 1.51 -2.09 2.32 -2.09 L 3.26 -2.09 L 3.26 -1.34 C 3.26 -0.85 2.76 -0.5 2.06 -0.5 Z M 2.06 -0.5 "/>
+</g>
+<g id="cel-architecture-glyph-1-10">
+<path d="M 1.46 0 L 1.46 -3.12 C 1.46 -3.56 1.93 -3.89 2.70 -3.89 L 3.12 -3.89 L 3.12 -4.60 L 2.84 -4.60 C 2.09 -4.60 1.68 -4.20 1.51 -3.76 L 1.46 -3.76 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-11">
+<path d="M 2.25 -2.78 C 2.25 -4.51 1.54 -6.01 0.64 -6.79 L -0.04 -6.79 C 0.95 -5.90 1.57 -4.42 1.57 -3.15 L 1.57 -2.39 C 1.57 -1.14 0.92 0.35 -0.04 1.21 L 0.64 1.21 C 1.51 0.46 2.25 -1.04 2.25 -2.78 Z M 2.25 -2.78 "/>
+</g>
+<g id="cel-architecture-glyph-1-12">
+<path d="M 3.60 0 L 4.31 0 L 4.31 -4.60 L 3.60 -4.60 L 3.60 -1.42 C 3.60 -0.81 3.04 -0.53 2.48 -0.53 C 1.79 -0.53 1.43 -0.95 1.43 -1.78 L 1.43 -4.60 L 0.71 -4.60 L 0.71 -1.65 C 0.71 -0.53 1.32 0.10 2.26 0.10 C 3.03 0.10 3.39 -0.31 3.56 -0.75 L 3.60 -0.75 Z M 3.60 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-13">
+<path d="M 3.70 0 L 4.42 0 L 4.42 -6.60 L 3.70 -6.60 L 3.70 -3.85 L 3.67 -3.85 C 3.43 -4.43 2.95 -4.71 2.32 -4.71 C 1.17 -4.71 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.70 C 1.21 -3.51 1.71 -4.07 2.51 -4.07 C 3.17 -4.07 3.70 -3.70 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="cel-architecture-glyph-1-14">
+<path d="M 4.89 0 L 4.89 -0.65 L 3.28 -0.65 L 3.28 -6.23 L 2.10 -6.23 L 0.45 -4.68 L 0.89 -4.21 L 2.46 -5.68 L 2.53 -5.68 L 2.53 -0.65 L 0.78 -0.65 L 0.78 0 Z M 4.89 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-15">
+<path d="M 4.76 -0.65 L 1.48 -0.65 L 3.15 -2.17 C 3.95 -2.89 4.53 -3.56 4.53 -4.53 C 4.53 -5.59 3.82 -6.34 2.62 -6.34 C 1.40 -6.34 0.85 -5.60 0.60 -4.87 L 1.28 -4.62 C 1.45 -5.20 1.81 -5.67 2.57 -5.67 C 3.35 -5.67 3.73 -5.20 3.73 -4.51 L 3.73 -4.40 C 3.73 -3.81 3.28 -3.18 2.70 -2.64 L 0.67 -0.76 L 0.67 0 L 4.76 0 Z M 4.76 -0.65 "/>
+</g>
+<g id="cel-architecture-glyph-1-16">
+<path d="M 1.65 -3.59 L 1.65 -2.93 L 2.39 -2.93 C 3.26 -2.93 3.73 -2.51 3.73 -1.78 L 3.73 -1.71 C 3.73 -0.98 3.26 -0.56 2.39 -0.56 C 1.62 -0.56 1.26 -0.89 0.93 -1.39 L 0.37 -0.95 C 0.76 -0.42 1.31 0.10 2.39 0.10 C 3.67 0.10 4.51 -0.64 4.51 -1.70 C 4.51 -2.64 3.87 -3.14 3.20 -3.28 L 3.20 -3.31 C 3.85 -3.48 4.39 -3.96 4.39 -4.76 C 4.39 -5.78 3.56 -6.34 2.5 -6.34 C 1.5 -6.34 0.95 -5.82 0.64 -5.32 L 1.20 -4.89 C 1.45 -5.37 1.84 -5.67 2.48 -5.67 C 3.14 -5.67 3.60 -5.34 3.60 -4.68 L 3.60 -4.62 C 3.60 -4.03 3.17 -3.59 2.32 -3.59 Z M 1.65 -3.59 "/>
+</g>
+<g id="cel-architecture-glyph-1-17">
+<path d="M 4.06 0 L 4.06 -1.21 L 4.96 -1.21 L 4.96 -1.84 L 4.06 -1.84 L 4.06 -6.23 L 2.95 -6.23 L 0.34 -1.89 L 0.34 -1.21 L 3.35 -1.21 L 3.35 0 Z M 3.31 -5.65 L 3.35 -5.65 L 3.35 -1.84 L 1.04 -1.84 Z M 3.31 -5.65 "/>
+</g>
+<g id="cel-architecture-glyph-1-18">
+<path d="M 2.5 0.10 C 3.35 0.10 4.01 -0.32 4.31 -0.95 L 3.81 -1.31 C 3.56 -0.79 3.12 -0.51 2.53 -0.51 C 1.68 -0.51 1.17 -1.12 1.17 -1.90 L 1.17 -2.12 L 4.48 -2.12 L 4.48 -2.46 C 4.48 -3.76 3.73 -4.71 2.5 -4.71 C 1.25 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.25 0.10 2.5 0.10 Z M 2.5 -4.12 C 3.21 -4.12 3.71 -3.57 3.71 -2.76 L 3.71 -2.65 L 1.17 -2.65 L 1.17 -2.71 C 1.17 -3.53 1.71 -4.12 2.5 -4.12 Z M 3.5 -6.65 L 2.84 -6.96 L 2.09 -5.43 L 2.56 -5.23 Z M 3.5 -6.65 "/>
+</g>
+<g id="cel-architecture-glyph-1-19">
+<path d="M 1.01 0 L 1.71 0 L 1.71 -3.98 L 2.71 -3.98 L 2.71 -4.60 L 1.71 -4.60 L 1.71 -5.98 L 2.71 -5.98 L 2.71 -6.60 L 2.01 -6.60 C 1.34 -6.60 1.01 -6.17 1.01 -5.54 L 1.01 -4.60 L 0.26 -4.60 L 0.26 -3.98 L 1.01 -3.98 Z M 1.01 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-20">
+<path d="M 1.46 0 L 1.46 -3.20 C 1.46 -3.79 2.01 -4.07 2.57 -4.07 C 3.25 -4.07 3.56 -3.65 3.56 -2.82 L 3.56 0 L 4.28 0 L 4.28 -3.20 C 4.28 -3.79 4.79 -4.07 5.35 -4.07 C 6.06 -4.07 6.37 -3.64 6.37 -2.82 L 6.37 0 L 7.09 0 L 7.09 -2.95 C 7.09 -4.07 6.53 -4.71 5.59 -4.71 C 4.79 -4.71 4.35 -4.28 4.18 -3.78 L 4.17 -3.78 C 3.92 -4.43 3.35 -4.71 2.75 -4.71 C 2.03 -4.71 1.71 -4.32 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 L 0.76 0 Z M 1.46 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-21">
+<path d="M 2.60 0 L 4.23 -4.60 L 3.54 -4.60 L 2.71 -2.32 L 2.21 -0.75 L 2.18 -0.75 L 1.68 -2.32 L 0.87 -4.60 L 0.15 -4.60 L 1.78 0 Z M 2.60 0 "/>
+</g>
+<g id="cel-architecture-glyph-1-22">
+<path d="M 0.76 1.78 L 1.46 1.78 L 1.46 -0.75 L 1.51 -0.75 C 1.78 -0.17 2.21 0.10 2.85 0.10 C 4.01 0.10 4.73 -0.82 4.73 -2.31 C 4.73 -3.78 4.01 -4.71 2.85 -4.71 C 2.21 -4.71 1.75 -4.43 1.51 -3.85 L 1.46 -3.85 L 1.46 -4.60 L 0.76 -4.60 Z M 2.65 -0.53 C 2.01 -0.53 1.46 -0.87 1.46 -1.46 L 1.46 -3.18 C 1.46 -3.70 2.01 -4.07 2.65 -4.07 C 3.46 -4.07 3.96 -3.51 3.96 -2.70 L 3.96 -1.90 C 3.96 -1.09 3.46 -0.53 2.65 -0.53 Z M 2.65 -0.53 "/>
+</g>
+<g id="cel-architecture-glyph-1-23">
+<path d="M 1.31 0.10 C 1.68 0.10 1.84 -0.10 1.84 -0.40 L 1.84 -0.53 C 1.84 -0.82 1.68 -1.04 1.31 -1.04 C 0.92 -1.04 0.76 -0.82 0.76 -0.53 L 0.76 -0.40 C 0.76 -0.10 0.92 0.10 1.31 0.10 Z M 1.31 -3.56 C 1.68 -3.56 1.84 -3.78 1.84 -4.07 L 1.84 -4.20 C 1.84 -4.5 1.68 -4.71 1.31 -4.71 C 0.92 -4.71 0.76 -4.5 0.76 -4.20 L 0.76 -4.07 C 0.76 -3.78 0.92 -3.56 1.31 -3.56 Z M 1.31 -3.56 "/>
+</g>
+<g id="cel-architecture-glyph-1-24">
+<path d="M 3.70 1.78 L 4.42 1.78 L 4.42 -4.60 L 3.70 -4.60 L 3.70 -3.85 L 3.67 -3.85 C 3.43 -4.43 2.95 -4.71 2.32 -4.71 C 1.17 -4.71 0.45 -3.78 0.45 -2.31 C 0.45 -0.82 1.17 0.10 2.32 0.10 C 2.95 0.10 3.39 -0.17 3.67 -0.75 L 3.70 -0.75 Z M 2.51 -0.53 C 1.71 -0.53 1.21 -1.09 1.21 -1.90 L 1.21 -2.70 C 1.21 -3.51 1.71 -4.07 2.51 -4.07 C 3.17 -4.07 3.70 -3.70 3.70 -3.18 L 3.70 -1.46 C 3.70 -0.87 3.17 -0.53 2.51 -0.53 Z M 2.51 -0.53 "/>
+</g>
+<g id="cel-architecture-glyph-1-25">
+<path d="M 2.5 0.10 C 3.73 0.10 4.57 -0.84 4.57 -2.31 C 4.57 -3.76 3.73 -4.71 2.5 -4.71 C 1.26 -4.71 0.42 -3.76 0.42 -2.31 C 0.42 -0.84 1.26 0.10 2.5 0.10 Z M 2.5 -0.53 C 1.73 -0.53 1.18 -1 1.18 -1.96 L 1.18 -2.64 C 1.18 -3.60 1.73 -4.07 2.5 -4.07 C 3.26 -4.07 3.81 -3.60 3.81 -2.64 L 3.81 -1.96 C 3.81 -1 3.26 -0.53 2.5 -0.53 Z M 2.06 -6.84 L 1.06 -5.56 L 1.45 -5.28 L 2.5 -6.32 L 3.54 -5.28 L 3.93 -5.56 L 2.95 -6.84 Z M 2.06 -6.84 "/>
+</g>
+<g id="cel-architecture-glyph-2-0">
+<path d="M 2.07 0 L 2.07 -0.48 L 1.34 -0.48 L 1.34 -3.09 L 2.14 -3.09 L 2.14 -3.59 L 1.34 -3.59 L 1.34 -4.57 L 0.84 -4.57 L 0.84 -3.92 C 0.84 -3.67 0.76 -3.59 0.53 -3.59 L 0.20 -3.59 L 0.20 -3.09 L 0.79 -3.09 L 0.79 -0.59 C 0.79 -0.25 1 0 1.39 0 Z M 2.07 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-1">
+<path d="M 3.51 0 L 3.51 -0.48 L 3.09 -0.48 L 3.09 -2.46 C 3.09 -3.21 2.59 -3.67 1.71 -3.67 C 1.07 -3.67 0.64 -3.34 0.45 -2.96 L 0.78 -2.65 C 0.98 -2.98 1.26 -3.18 1.70 -3.18 C 2.26 -3.18 2.54 -2.90 2.54 -2.40 L 2.54 -2.04 L 1.82 -2.04 C 0.79 -2.04 0.31 -1.67 0.31 -1 C 0.31 -0.32 0.75 0.07 1.51 0.07 C 2.01 0.07 2.39 -0.14 2.54 -0.57 L 2.57 -0.57 C 2.62 -0.25 2.78 0 3.20 0 Z M 1.59 -0.39 C 1.17 -0.39 0.89 -0.59 0.89 -0.95 L 0.89 -1.09 C 0.89 -1.43 1.17 -1.64 1.81 -1.64 L 2.54 -1.64 L 2.54 -1.04 C 2.54 -0.67 2.15 -0.39 1.59 -0.39 Z M 1.59 -0.39 "/>
+</g>
+<g id="cel-architecture-glyph-2-2">
+<path d="M 0.59 0 L 1.14 0 L 1.14 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.21 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.93 3.12 -3.67 2.21 -3.67 C 1.73 -3.67 1.35 -3.45 1.17 -3 L 1.14 -3 L 1.14 -5.14 L 0.59 -5.14 Z M 2.07 -0.42 C 1.56 -0.42 1.14 -0.68 1.14 -1.14 L 1.14 -2.48 C 1.14 -2.87 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.73 3.09 -2.09 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="cel-architecture-glyph-2-3">
+<path d="M 1.67 0 L 1.67 -0.48 L 1.14 -0.48 L 1.14 -5.14 L 0.59 -5.14 L 0.59 -0.57 C 0.59 -0.25 0.79 0 1.18 0 Z M 1.67 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-4">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.35 -0.73 L 2.96 -1.01 C 2.78 -0.62 2.42 -0.40 1.96 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.51 -3.20 2.89 -2.78 2.89 -2.15 L 2.89 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.32 -3.20 1.93 -3.20 Z M 1.93 -3.20 "/>
+</g>
+<g id="cel-architecture-glyph-2-5">
+<path d="M 1.95 0.07 C 2.90 0.07 3.56 -0.65 3.56 -1.79 C 3.56 -2.93 2.90 -3.67 1.95 -3.67 C 0.98 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.98 0.07 1.95 0.07 Z M 1.95 -0.40 C 1.34 -0.40 0.92 -0.78 0.92 -1.53 L 0.92 -2.04 C 0.92 -2.81 1.34 -3.17 1.95 -3.17 C 2.54 -3.17 2.96 -2.81 2.96 -2.04 L 2.96 -1.53 C 2.96 -0.78 2.54 -0.40 1.95 -0.40 Z M 1.95 -0.40 "/>
+</g>
+<g id="cel-architecture-glyph-2-6">
+<path d="M 1.92 0.07 C 2.60 0.07 3.07 -0.25 3.29 -0.76 L 2.90 -1.03 C 2.70 -0.62 2.37 -0.40 1.92 -0.40 C 1.26 -0.40 0.92 -0.85 0.92 -1.48 L 0.92 -2.09 C 0.92 -2.71 1.26 -3.17 1.92 -3.17 C 2.35 -3.17 2.67 -2.96 2.79 -2.59 L 3.26 -2.82 C 3.06 -3.32 2.64 -3.67 1.92 -3.67 C 0.92 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.64 0.92 0.07 1.92 0.07 Z M 1.92 0.07 "/>
+</g>
+<g id="cel-architecture-glyph-2-7">
+<path d="M 0.87 -4.42 C 1.10 -4.42 1.20 -4.54 1.20 -4.73 L 1.20 -4.82 C 1.20 -5.01 1.10 -5.14 0.87 -5.14 C 0.62 -5.14 0.53 -5.01 0.53 -4.82 L 0.53 -4.73 C 0.53 -4.54 0.62 -4.42 0.87 -4.42 Z M 0.59 0 L 1.14 0 L 1.14 -3.59 L 0.59 -3.59 Z M 0.59 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-8">
+<path d="M 1.14 0 L 1.14 -2.43 C 1.14 -2.78 1.51 -3.03 2.10 -3.03 L 2.43 -3.03 L 2.43 -3.59 L 2.21 -3.59 C 1.64 -3.59 1.31 -3.26 1.18 -2.92 L 1.14 -2.92 L 1.14 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-9">
+<path d="M 2.79 0 L 3.35 0 L 3.35 -3.59 L 2.79 -3.59 L 2.79 -1.10 C 2.79 -0.62 2.37 -0.42 1.93 -0.42 C 1.39 -0.42 1.10 -0.75 1.10 -1.39 L 1.10 -3.59 L 0.56 -3.59 L 0.56 -1.28 C 0.56 -0.42 1.03 0.07 1.76 0.07 C 2.35 0.07 2.64 -0.25 2.78 -0.57 L 2.79 -0.57 Z M 2.79 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-10">
+<path d="M 0.95 -0.81 C 0.65 -0.81 0.51 -0.64 0.51 -0.40 L 0.51 -0.31 C 0.51 -0.12 0.60 0.01 0.79 0.06 C 0.71 0.39 0.54 0.62 0.26 0.92 L 0.73 0.92 C 1.14 0.57 1.37 0.06 1.37 -0.31 L 1.37 -0.40 C 1.37 -0.64 1.23 -0.81 0.95 -0.81 Z M 0.95 -0.81 "/>
+</g>
+<g id="cel-architecture-glyph-2-11">
+<path d="M 1.14 0 L 1.14 -2.48 C 1.14 -2.95 1.57 -3.17 2.01 -3.17 C 2.56 -3.17 2.84 -2.84 2.84 -2.20 L 2.84 0 L 3.39 0 L 3.39 -2.29 C 3.39 -3.17 2.92 -3.67 2.18 -3.67 C 1.65 -3.67 1.34 -3.40 1.17 -3 L 1.14 -3 L 1.14 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-12">
+<path d="M 2.89 0 L 3.43 0 L 3.43 -5.14 L 2.89 -5.14 L 2.89 -3 L 2.85 -3 C 2.67 -3.45 2.29 -3.67 1.81 -3.67 C 0.90 -3.67 0.34 -2.93 0.34 -1.79 C 0.34 -0.64 0.90 0.07 1.81 0.07 C 2.29 0.07 2.64 -0.14 2.85 -0.57 L 2.89 -0.57 Z M 1.95 -0.42 C 1.32 -0.42 0.95 -0.84 0.95 -1.48 L 0.95 -2.09 C 0.95 -2.73 1.32 -3.17 1.95 -3.17 C 2.46 -3.17 2.89 -2.87 2.89 -2.48 L 2.89 -1.14 C 2.89 -0.68 2.46 -0.42 1.95 -0.42 Z M 1.95 -0.42 "/>
+</g>
+<g id="cel-architecture-glyph-2-13">
+<path d="M 0.98 -5.21 C 0.68 -5.21 0.56 -5.04 0.56 -4.81 L 0.56 -4.70 C 0.56 -4.51 0.64 -4.37 0.82 -4.34 C 0.75 -4.01 0.57 -3.76 0.31 -3.48 L 0.76 -3.48 C 1.17 -3.81 1.40 -4.32 1.40 -4.70 L 1.40 -4.81 C 1.40 -5.04 1.26 -5.21 0.98 -5.21 Z M 0.98 -5.21 "/>
+</g>
+<g id="cel-architecture-glyph-2-14">
+<path d="M 1.67 0.07 C 2.48 0.07 3 -0.34 3 -1.03 C 3 -1.57 2.68 -1.92 1.89 -2.04 L 1.62 -2.09 C 1.17 -2.15 0.93 -2.29 0.93 -2.64 C 0.93 -2.98 1.17 -3.20 1.64 -3.20 C 2.09 -3.20 2.40 -2.98 2.56 -2.76 L 2.92 -3.09 C 2.64 -3.45 2.25 -3.67 1.67 -3.67 C 0.95 -3.67 0.39 -3.32 0.39 -2.60 C 0.39 -1.95 0.89 -1.67 1.54 -1.57 L 1.82 -1.53 C 2.31 -1.46 2.46 -1.25 2.46 -0.96 C 2.46 -0.60 2.18 -0.39 1.70 -0.39 C 1.26 -0.39 0.92 -0.59 0.64 -0.93 L 0.25 -0.62 C 0.56 -0.18 1.01 0.07 1.67 0.07 Z M 1.67 0.07 "/>
+</g>
+<g id="cel-architecture-glyph-2-15">
+<path d="M 2.03 0 L 3.29 -3.59 L 2.76 -3.59 L 2.12 -1.81 L 1.73 -0.57 L 1.70 -0.57 L 1.31 -1.81 L 0.68 -3.59 L 0.12 -3.59 L 1.39 0 Z M 2.03 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-16">
+<path d="M 1.93 0.07 C 2.60 0.07 3.12 -0.25 3.35 -0.73 L 2.96 -1.01 C 2.78 -0.62 2.42 -0.40 1.96 -0.40 C 1.31 -0.40 0.90 -0.87 0.90 -1.48 L 0.90 -1.65 L 3.48 -1.65 L 3.48 -1.92 C 3.48 -2.93 2.90 -3.67 1.93 -3.67 C 0.96 -3.67 0.32 -2.93 0.32 -1.79 C 0.32 -0.65 0.96 0.07 1.93 0.07 Z M 1.93 -3.20 C 2.51 -3.20 2.89 -2.78 2.89 -2.15 L 2.89 -2.07 L 0.90 -2.07 L 0.90 -2.12 C 0.90 -2.75 1.32 -3.20 1.93 -3.20 Z M 2.71 -5.17 L 2.21 -5.42 L 1.62 -4.23 L 1.98 -4.06 Z M 2.71 -5.17 "/>
+</g>
+<g id="cel-architecture-glyph-2-17">
+<path d="M 0.59 1.39 L 1.14 1.39 L 1.14 -0.57 L 1.17 -0.57 C 1.39 -0.14 1.73 0.07 2.21 0.07 C 3.12 0.07 3.68 -0.64 3.68 -1.79 C 3.68 -2.93 3.12 -3.67 2.21 -3.67 C 1.73 -3.67 1.35 -3.45 1.17 -3 L 1.14 -3 L 1.14 -3.59 L 0.59 -3.59 Z M 2.07 -0.42 C 1.56 -0.42 1.14 -0.68 1.14 -1.14 L 1.14 -2.48 C 1.14 -2.87 1.56 -3.17 2.07 -3.17 C 2.70 -3.17 3.09 -2.73 3.09 -2.09 L 3.09 -1.48 C 3.09 -0.84 2.70 -0.42 2.07 -0.42 Z M 2.07 -0.42 "/>
+</g>
+<g id="cel-architecture-glyph-2-18">
+<path d="M 1.14 0 L 1.14 -2.48 C 1.14 -2.95 1.56 -3.17 2 -3.17 C 2.53 -3.17 2.78 -2.84 2.78 -2.20 L 2.78 0 L 3.32 0 L 3.32 -2.48 C 3.32 -2.95 3.73 -3.17 4.17 -3.17 C 4.71 -3.17 4.95 -2.84 4.95 -2.20 L 4.95 0 L 5.51 0 L 5.51 -2.29 C 5.51 -3.17 5.07 -3.67 4.34 -3.67 C 3.73 -3.67 3.39 -3.32 3.25 -2.93 L 3.23 -2.93 C 3.04 -3.45 2.60 -3.67 2.14 -3.67 C 1.57 -3.67 1.32 -3.37 1.17 -3 L 1.14 -3 L 1.14 -3.59 L 0.59 -3.59 L 0.59 0 Z M 1.14 0 "/>
+</g>
+<g id="cel-architecture-glyph-2-19">
+<path d="M 3.60 0.39 C 3.60 -0.18 3.23 -0.56 2.34 -0.56 L 1.57 -0.56 C 1.25 -0.56 1.03 -0.60 1.03 -0.82 C 1.03 -1.04 1.26 -1.17 1.5 -1.23 C 1.60 -1.20 1.73 -1.20 1.84 -1.20 C 2.67 -1.20 3.20 -1.70 3.20 -2.43 C 3.20 -2.81 3.04 -3.14 2.79 -3.35 L 2.79 -3.59 L 3.48 -3.59 L 3.48 -4.07 L 2.93 -4.07 C 2.64 -4.07 2.53 -3.87 2.53 -3.59 L 2.53 -3.53 C 2.32 -3.62 2.09 -3.67 1.84 -3.67 C 1.03 -3.67 0.5 -3.15 0.5 -2.43 C 0.5 -1.93 0.75 -1.53 1.17 -1.32 L 1.17 -1.31 C 0.81 -1.21 0.54 -1.04 0.54 -0.68 C 0.54 -0.43 0.67 -0.28 0.87 -0.18 L 0.87 -0.10 C 0.51 0 0.29 0.20 0.29 0.59 C 0.29 1.15 0.76 1.46 1.87 1.46 C 3.03 1.46 3.60 1.14 3.60 0.39 Z M 3.09 0.43 C 3.09 0.82 2.73 1.01 2.10 1.01 L 1.59 1.01 C 1.03 1.01 0.82 0.76 0.82 0.45 C 0.82 0.23 0.92 0.06 1.15 -0.03 L 2.34 -0.03 C 2.90 -0.03 3.09 0.15 3.09 0.43 Z M 1.84 -1.64 C 1.37 -1.64 1.07 -1.85 1.07 -2.34 L 1.07 -2.53 C 1.07 -3 1.37 -3.21 1.84 -3.21 C 2.32 -3.21 2.62 -3 2.62 -2.53 L 2.62 -2.34 C 2.62 -1.85 2.32 -1.64 1.84 -1.64 Z M 1.84 -1.64 "/>
+</g>
+<g id="cel-architecture-glyph-3-0">
+<path d="M 6.39 -1.57 C 5.51 -0.93 5.40 -0.01 5.40 -0.01 C 5.40 0.09 5.46 0.09 5.56 0.09 C 5.68 0.09 5.71 0.09 5.75 -0.03 C 5.79 -0.20 5.90 -0.64 6.26 -1.03 C 6.67 -1.45 7.01 -1.56 7.31 -1.64 C 7.34 -1.65 7.37 -1.70 7.37 -1.73 C 7.37 -1.81 7.32 -1.82 7.25 -1.84 C 6.25 -2.17 5.89 -2.87 5.75 -3.48 C 5.71 -3.57 5.67 -3.57 5.56 -3.57 C 5.46 -3.57 5.40 -3.57 5.40 -3.46 C 5.40 -3.45 5.46 -2.98 5.81 -2.51 C 5.96 -2.28 6.17 -2.07 6.39 -1.90 L 0.81 -1.90 C 0.70 -1.90 0.53 -1.90 0.53 -1.75 C 0.53 -1.57 0.70 -1.57 0.81 -1.57 Z M 6.39 -1.57 "/>
+</g>
+<g id="cel-architecture-glyph-4-0">
+<path d="M 9.32 -5.57 C 9.67 -5.57 9.93 -5.85 9.93 -6.21 L 9.93 -7.45 C 9.93 -7.79 9.67 -8.06 9.32 -8.06 L 0.60 -8.06 C 0.26 -8.06 0 -7.79 0 -7.45 L 0 -6.21 C 0 -5.85 0.26 -5.57 0.60 -5.57 Z M 8.39 -7.29 C 8.64 -7.29 8.85 -7.09 8.85 -6.84 C 8.85 -6.57 8.64 -6.37 8.39 -6.37 C 8.12 -6.37 7.92 -6.57 7.92 -6.84 C 7.92 -7.09 8.12 -7.29 8.39 -7.29 Z M 7.14 -7.29 C 7.40 -7.29 7.60 -7.09 7.60 -6.84 C 7.60 -6.57 7.40 -6.37 7.14 -6.37 C 6.89 -6.37 6.67 -6.57 6.67 -6.84 C 6.67 -7.09 6.89 -7.29 7.14 -7.29 Z M 9.32 -2.48 C 9.67 -2.48 9.93 -2.75 9.93 -3.09 L 9.93 -4.35 C 9.93 -4.70 9.67 -4.96 9.32 -4.96 L 0.60 -4.96 C 0.26 -4.96 0 -4.70 0 -4.35 L 0 -3.09 C 0 -2.75 0.26 -2.48 0.60 -2.48 Z M 8.39 -4.18 C 8.64 -4.18 8.85 -3.98 8.85 -3.73 C 8.85 -3.46 8.64 -3.26 8.39 -3.26 C 8.12 -3.26 7.92 -3.46 7.92 -3.73 C 7.92 -3.98 8.12 -4.18 8.39 -4.18 Z M 7.14 -4.18 C 7.40 -4.18 7.60 -3.98 7.60 -3.73 C 7.60 -3.46 7.40 -3.26 7.14 -3.26 C 6.89 -3.26 6.67 -3.46 6.67 -3.73 C 6.67 -3.98 6.89 -4.18 7.14 -4.18 Z M 9.32 0.60 C 9.67 0.60 9.93 0.34 9.93 0 L 9.93 -1.25 C 9.93 -1.59 9.67 -1.87 9.32 -1.87 L 0.60 -1.87 C 0.26 -1.87 0 -1.59 0 -1.25 L 0 0 C 0 0.34 0.26 0.60 0.60 0.60 Z M 8.39 -1.07 C 8.64 -1.07 8.85 -0.87 8.85 -0.60 C 8.85 -0.35 8.64 -0.15 8.39 -0.15 C 8.12 -0.15 7.92 -0.35 7.92 -0.60 C 7.92 -0.87 8.12 -1.07 8.39 -1.07 Z M 7.14 -1.07 C 7.40 -1.07 7.60 -0.87 7.60 -0.60 C 7.60 -0.35 7.40 -0.15 7.14 -0.15 C 6.89 -0.15 6.67 -0.35 6.67 -0.60 C 6.67 -0.87 6.89 -1.07 7.14 -1.07 Z M 7.14 -1.07 "/>
+</g>
+<g id="cel-architecture-glyph-4-1">
+<path d="M 8.70 -7.28 C 8.70 -8.06 6.75 -8.70 4.35 -8.70 C 1.95 -8.70 0 -8.06 0 -7.28 L 0 -6.39 C 0 -5.60 1.95 -4.96 4.35 -4.96 C 6.75 -4.96 8.70 -5.60 8.70 -6.39 Z M 8.70 -5.28 C 7.76 -4.62 6.04 -4.32 4.35 -4.32 C 2.65 -4.32 0.93 -4.62 0 -5.28 L 0 -3.28 C 0 -2.5 1.95 -1.87 4.35 -1.87 C 6.75 -1.87 8.70 -2.5 8.70 -3.28 Z M 8.70 -2.17 C 7.76 -1.53 6.04 -1.23 4.35 -1.23 C 2.65 -1.23 0.93 -1.53 0 -2.17 L 0 -0.17 C 0 0.60 1.95 1.25 4.35 1.25 C 6.75 1.25 8.70 0.60 8.70 -0.17 Z M 8.70 -2.17 "/>
+</g>
+</g>
+<clipPath id="cel-architecture-clip-0">
+<path clip-rule="nonzero" d="M 0.41 131 L 110 131 L 110 247 L 0.41 247 Z M 0.41 131 "/>
+</clipPath>
+<clipPath id="cel-architecture-clip-1">
+<path clip-rule="nonzero" d="M 421 52 L 557.27 52 L 557.27 123 L 421 123 Z M 421 52 "/>
+</clipPath>
+</defs>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 243.62 199.96 L 153.22 199.96 C 151.57 199.96 150.23 198.62 150.23 196.97 L 150.23 165.85 C 150.23 164.20 151.57 162.87 153.22 162.87 L 243.62 162.87 C 245.27 162.87 246.61 164.20 246.61 165.85 L 246.61 196.97 C 246.61 198.62 245.27 199.96 243.62 199.96 Z M 243.62 199.96 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-0-0" x="197.26" y="22.85"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="167.66" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="172.16" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="174.59" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="176.83" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="181.73" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="186.81" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="189.95" y="36.26"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-7" x="196.42" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="199.41" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-8" x="201.85" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-0" x="206.85" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="211.35" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="216.13" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="219.27" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="224.04" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-10" x="226.28" y="36.26"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="229.51" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="234.42" y="36.26"/>
+<use xlink:href="#cel-architecture-glyph-1-11" x="238.78" y="36.26"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-teal-bg);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 277.64 134.64 L 119.21 134.64 C 117.55 134.64 116.22 133.30 116.22 131.65 L 116.22 106.45 C 116.22 104.80 117.55 103.46 119.21 103.46 L 277.64 103.46 C 279.29 103.46 280.63 104.80 280.63 106.45 L 280.63 131.65 C 280.63 133.30 279.29 134.64 277.64 134.64 Z M 277.64 134.64 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-10" x="167.23" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-8" x="170.47" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="175.48" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="180.56" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="183.66" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="188.57" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-10" x="193.65" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-13" x="199.04" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="204.23" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="211.25" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="215.69" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="220.60" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="222.99" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="225.42" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="230.50" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="232.94" y="84.53"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="237.84" y="84.53"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-0" x="146.75" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="149.20" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-2" x="152.91" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="156.94" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="158.84" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-3" x="164.30" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="166.19" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="170.08" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="173.58" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-0" x="177.30" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="179.74" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="183.45" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="185.19" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="187.71" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-3-0" x="193.17" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-6" x="202.73" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="206.19" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="210.01" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-3" x="211.86" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-9" x="213.75" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="217.71" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="219.60" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-10" x="223.28" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-8" x="226.81" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="229.36" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="231.10" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="234.92" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-12" x="240.51" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-13" x="244.55" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-1" x="246.24" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-9" x="249.95" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-0" x="253.90" y="95.46"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="256.34" y="95.46"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="258.86" y="95.46"/>
+</g>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 198.42 162.37 L 198.42 139.92 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.38 -0.00 L 1.53 2.36 L 3.15 -0.00 L 1.53 -2.35 Z M 6.38 -0.00 " transform="matrix(0, 0.997342, 0.997342, 0, 204.724133, 63.471316)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-z)" fill-opacity="1" d="M 91.33 143.69 L 12.78 143.69 C 9.49 143.69 6.82 146.36 6.82 149.65 L 6.82 228.19 C 6.82 231.49 9.49 234.16 12.78 234.16 L 91.33 234.16 C 94.62 234.16 97.29 231.49 97.29 228.19 L 97.29 149.65 C 97.29 146.36 94.62 143.69 91.33 143.69 Z M 91.33 143.69 "/>
+<g clip-path="url(#cel-architecture-clip-0)">
+<path fill="none" stroke-width="0.89" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-blue)" stroke-opacity="1" stroke-miterlimit="10" d="M 84.73 62.36 L 5.97 62.36 C 2.67 62.36 -0.00 59.68 -0.00 56.38 L -0.00 -22.36 C -0.00 -25.67 2.67 -28.34 5.97 -28.34 L 84.73 -28.34 C 88.03 -28.34 90.70 -25.67 90.70 -22.36 L 90.70 56.38 C 90.70 59.68 88.03 62.36 84.73 62.36 Z M 84.73 62.36 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="11.39" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="15.83" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="20.74" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="23.13" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="25.56" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="30.64" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="33.07" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-14" x="40.09" y="153.46"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 76.38 42.29 L 14.32 42.29 C 12.67 42.29 11.33 40.96 11.33 39.31 L 11.33 11.71 C 11.33 10.06 12.67 8.72 14.32 8.72 L 76.38 8.72 C 78.03 8.72 79.37 10.06 79.37 11.71 L 79.37 39.31 C 79.37 40.96 78.03 42.29 76.38 42.29 Z M 76.38 42.29 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-0" x="47.09" y="177.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-14" x="39.23" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="42.61" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="46.43" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-15" x="49.06" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="52.48" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="54.22" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="57.68" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="61.50" y="191.14"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 76.38 -0.00 L 14.32 -0.00 C 12.67 -0.00 11.33 -1.33 11.33 -2.98 L 11.33 -19.68 C 11.33 -21.33 12.67 -22.67 14.32 -22.67 L 76.38 -22.67 C 78.03 -22.67 79.37 -21.33 79.37 -19.68 L 79.37 -2.98 C 79.37 -1.33 78.03 -0.00 76.38 -0.00 Z M 76.38 -0.00 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-1" x="33.46" y="220.92"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-12" x="43.79" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="47.83" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="51.72" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="55.67" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-16" x="59.62" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="63.44" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="67.26" y="220.92"/>
+</g>
+<path fill="none" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 45.35 8.22 L 45.35 0.49 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-teal)" stroke-opacity="1" stroke-miterlimit="10" d="M 198.42 102.96 L 49.97 64.02 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-teal);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 -0.00 L 1.53 2.35 L 3.14 -0.00 L 1.53 -2.35 Z M 6.39 -0.00 " transform="matrix(-0.964649, 0.253046, 0.253046, 0.964649, 59.442092, 141.30925)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-z);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.89" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 186.78 62.36 L 108.02 62.36 C 104.72 62.36 102.04 59.68 102.04 56.38 L 102.04 -22.36 C 102.04 -25.67 104.72 -28.34 108.02 -28.34 L 186.78 -28.34 C 190.08 -28.34 192.75 -25.67 192.75 -22.36 L 192.75 56.38 C 192.75 59.68 190.08 62.36 186.78 62.36 Z M 186.78 62.36 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="113.16" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="117.61" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="122.52" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="124.90" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="127.34" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="132.41" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="134.85" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-15" x="141.87" y="153.46"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 178.43 42.29 L 116.37 42.29 C 114.72 42.29 113.38 40.96 113.38 39.31 L 113.38 11.71 C 113.38 10.06 114.72 8.72 116.37 8.72 L 178.43 8.72 C 180.07 8.72 181.41 10.06 181.41 11.71 L 181.41 39.31 C 181.41 40.96 180.07 42.29 178.43 42.29 Z M 178.43 42.29 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-0" x="148.86" y="177.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-14" x="141.00" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="144.39" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="148.21" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-15" x="150.83" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="154.25" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="155.99" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="159.45" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="163.27" y="191.14"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 178.43 -0.00 L 116.37 -0.00 C 114.72 -0.00 113.38 -1.33 113.38 -2.98 L 113.38 -19.68 C 113.38 -21.33 114.72 -22.67 116.37 -22.67 L 178.43 -22.67 C 180.07 -22.67 181.41 -21.33 181.41 -19.68 L 181.41 -2.98 C 181.41 -1.33 180.07 -0.00 178.43 -0.00 Z M 178.43 -0.00 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-1" x="135.23" y="220.92"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-12" x="145.57" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="149.60" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="153.50" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="157.45" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-16" x="161.40" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="165.22" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="169.04" y="220.92"/>
+</g>
+<path fill="none" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 147.40 8.22 L 147.40 0.49 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-teal)" stroke-opacity="1" stroke-miterlimit="10" d="M 198.42 102.96 L 151.15 65.76 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-teal);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.36 L 3.14 0.00 L 1.53 -2.36 Z M 6.39 0.00 " transform="matrix(-0.783691, 0.616766, 0.616766, 0.783691, 159.833842, 138.5255)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-z);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.89" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 288.82 62.36 L 210.07 62.36 C 206.77 62.36 204.09 59.68 204.09 56.38 L 204.09 -22.36 C 204.09 -25.67 206.77 -28.34 210.07 -28.34 L 288.82 -28.34 C 292.12 -28.34 294.80 -25.67 294.80 -22.36 L 294.80 56.38 C 294.80 59.68 292.12 62.36 288.82 62.36 Z M 288.82 62.36 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="214.94" y="153.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="219.38" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="224.29" y="153.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="226.68" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="229.11" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="234.19" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="236.62" y="153.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-16" x="243.64" y="153.46"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-red-bg);stroke:var(--fig-red)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 280.47 42.29 L 218.42 42.29 C 216.77 42.29 215.43 40.96 215.43 39.31 L 215.43 11.71 C 215.43 10.06 216.77 8.72 218.42 8.72 L 280.47 8.72 C 282.12 8.72 283.46 10.06 283.46 11.71 L 283.46 39.31 C 283.46 40.96 282.12 42.29 280.47 42.29 Z M 280.47 42.29 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-0" x="250.64" y="177.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-14" x="242.78" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="246.17" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="249.98" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-15" x="252.61" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="256.03" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="257.77" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="261.22" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="265.04" y="191.14"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 280.47 -0.00 L 218.42 -0.00 C 216.77 -0.00 215.43 -1.33 215.43 -2.98 L 215.43 -19.68 C 215.43 -21.33 216.77 -22.67 218.42 -22.67 L 280.47 -22.67 C 282.12 -22.67 283.46 -21.33 283.46 -19.68 L 283.46 -2.98 C 283.46 -1.33 282.12 -0.00 280.47 -0.00 Z M 280.47 -0.00 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-1" x="237.01" y="220.92"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-12" x="247.34" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="251.38" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="255.27" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="259.22" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-16" x="263.18" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="266.99" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="270.81" y="220.92"/>
+</g>
+<path fill="none" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 249.45 8.22 L 249.45 0.49 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-teal)" stroke-opacity="1" stroke-miterlimit="10" d="M 198.42 102.96 L 245.69 65.76 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-teal);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 -0.00 L 1.53 2.35 L 3.14 -0.00 L 1.53 -2.36 Z M 6.39 -0.00 " transform="matrix(0.783691, 0.616766, 0.616766, -0.783691, 249.614434, 138.5255)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-z);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.89" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 390.87 62.36 L 312.12 62.36 C 308.82 62.36 306.14 59.68 306.14 56.38 L 306.14 -22.36 C 306.14 -25.67 308.82 -28.34 312.12 -28.34 L 390.87 -28.34 C 394.17 -28.34 396.85 -25.67 396.85 -22.36 L 396.85 56.38 C 396.85 59.68 394.17 62.36 390.87 62.36 Z M 390.87 62.36 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="316.71" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="321.16" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="326.07" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="328.45" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="330.89" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="335.97" y="153.46"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="338.40" y="153.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-17" x="345.42" y="153.46"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-blue-bg);stroke:var(--fig-blue)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 382.52 42.29 L 320.47 42.29 C 318.81 42.29 317.48 40.96 317.48 39.31 L 317.48 11.71 C 317.48 10.06 318.81 8.72 320.47 8.72 L 382.52 8.72 C 384.17 8.72 385.51 10.06 385.51 11.71 L 385.51 39.31 C 385.51 40.96 384.17 42.29 382.52 42.29 Z M 382.52 42.29 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-0" x="352.41" y="177.73"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-14" x="344.55" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="347.94" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="351.76" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-15" x="354.38" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="357.80" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="359.54" y="191.14"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="363.00" y="191.14"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="366.82" y="191.14"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-slate-bg);stroke:var(--fig-slate)" fill-opacity="1" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 382.52 -0.00 L 320.47 -0.00 C 318.81 -0.00 317.48 -1.33 317.48 -2.98 L 317.48 -19.68 C 317.48 -21.33 318.81 -22.67 320.47 -22.67 L 382.52 -22.67 C 384.17 -22.67 385.51 -21.33 385.51 -19.68 L 385.51 -2.98 C 385.51 -1.33 384.17 -0.00 382.52 -0.00 Z M 382.52 -0.00 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-4-1" x="338.79" y="220.92"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-12" x="349.12" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="353.15" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="357.05" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-11" x="361.00" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-16" x="364.95" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="368.77" y="220.92"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="372.59" y="220.92"/>
+</g>
+<path fill="none" stroke-width="0.49" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-slate)" stroke-opacity="1" stroke-miterlimit="10" d="M 351.50 8.22 L 351.50 0.49 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill="none" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-teal)" stroke-opacity="1" stroke-miterlimit="10" d="M 198.42 102.96 L 346.87 64.02 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-teal);stroke:var(--fig-teal)" fill-opacity="1" stroke-width="1.09" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 6.39 0.00 L 1.53 2.35 L 3.14 0.00 L 1.53 -2.35 Z M 6.39 0.00 " transform="matrix(0.964649, 0.253046, 0.253046, -0.964649, 350.006184, 141.30925)"/>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-13" x="180.94" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-18" x="186.13" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-19" x="191.04" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="193.94" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="198.71" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="200.95" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="203.33" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="205.77" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="210.54" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-0" x="215.62" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="220.07" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-8" x="227.09" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="232.09" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-20" x="239.28" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="247.09" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="251.87" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-21" x="256.95" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-9" x="261.26" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="266.04" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="268.28" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-13" x="274.74" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-18" x="279.93" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-22" x="284.84" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="290.02" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-8" x="292.46" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="297.46" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="299.70" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-20" x="304.61" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="312.42" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="317.33" y="254.53"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="322.40" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-23" x="327.65" y="254.53"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-12" x="209.70" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="214.78" y="265.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-24" x="221.97" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="227.16" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="232.24" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-10" x="237.01" y="265.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-5" x="240.33" y="265.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-13" x="245.58" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="250.77" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="255.68" y="265.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="262.14" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-8" x="264.57" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-0" x="269.58" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="274.08" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="278.85" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="281.99" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="286.77" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-10" x="289.00" y="265.46"/>
+</g>
+<g style="fill:var(--fig-red)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="292.24" y="265.46"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="297.15" y="265.46"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="66.76" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="69.19" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="74.10" y="254.18"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-9" x="80.57" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="85.34" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="90.42" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-10" x="93.56" y="254.18"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="96.80" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="101.71" y="254.18"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="108.17" y="254.18"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-3" x="112.62" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="117.53" y="254.18"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-1" x="119.91" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-12" x="122.35" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="127.43" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="129.86" y="254.18"/>
+<use xlink:href="#cel-architecture-glyph-1-6" x="134.77" y="254.18"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-4" x="75.73" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="80.81" y="265.11"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-21" x="87.83" y="265.11"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-8" x="92.16" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="97.17" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="99.40" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="104.31" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="109.39" y="265.11"/>
+</g>
+<g style="fill:var(--fig-blue)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-10" x="114.64" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-2" x="117.92" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="120.16" y="265.11"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="125.07" y="265.11"/>
+</g>
+<path fill-rule="nonzero" style="fill:var(--fig-amber-bg)" fill-opacity="1" d="M 547.84 66.10 L 438.33 66.10 C 436.69 66.10 435.35 67.43 435.35 69.08 L 435.35 105.21 C 435.35 106.86 436.69 108.19 438.33 108.19 L 547.84 108.19 C 549.49 108.19 550.82 106.86 550.82 105.21 L 550.82 69.08 C 550.82 67.43 549.49 66.10 547.84 66.10 Z M 547.84 66.10 "/>
+<g clip-path="url(#cel-architecture-clip-1)">
+<path fill="none" stroke-width="0.99" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-amber)" stroke-opacity="1" stroke-miterlimit="10" d="M 542.46 140.16 L 432.66 140.16 C 431.01 140.16 429.67 138.82 429.67 137.17 L 429.67 100.93 C 429.67 99.28 431.01 97.95 432.66 97.95 L 542.46 97.95 C 544.11 97.95 545.44 99.28 545.44 100.93 L 545.44 137.17 C 545.44 138.82 544.11 140.16 542.46 140.16 Z M 542.46 140.16 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-22" x="441.31" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="446.50" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-9" x="448.93" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="453.70" y="78.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-13" x="460.89" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="466.08" y="78.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-0" x="473.10" y="78.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-8" x="477.54" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-4" x="482.55" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-5" x="487.63" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-10" x="490.77" y="78.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-1-25" x="494.01" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-1" x="499.02" y="78.90"/>
+<use xlink:href="#cel-architecture-glyph-1-3" x="501.45" y="78.90"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-6" x="441.31" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="444.81" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-16" x="447.33" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="451.14" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-3" x="456.60" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="458.50" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="462.31" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-6" x="467.34" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="470.80" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="474.62" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-3" x="476.47" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-9" x="478.37" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="482.32" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="484.21" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="488.03" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-10" x="491.38" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-17" x="494.91" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="498.95" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="500.84" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="504.55" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="508.01" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="513.47" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-0" x="517.29" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-18" x="521.37" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="527.44" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-19" x="529.18" y="89.83"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="532.85" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="535.37" y="89.83"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-3" x="441.31" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="443.20" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="447.02" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-3" x="452.05" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="453.94" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-6" x="457.83" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="461.33" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-0" x="465.05" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="467.49" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="471.20" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="472.94" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-4" x="475.46" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="479.28" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-10" x="482.63" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-12" x="486.16" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-16" x="490.20" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-17" x="494.02" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="498.05" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-5" x="499.94" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-7" x="503.84" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="505.58" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-17" x="511.04" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="515.07" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-8" x="518.78" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-15" x="522.98" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-1" x="526.34" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-19" x="530.05" y="100.76"/>
+</g>
+<g style="fill:var(--fig-ink)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-9" x="533.70" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="537.65" y="100.76"/>
+<use xlink:href="#cel-architecture-glyph-2-14" x="541.47" y="100.76"/>
+</g>
+<path fill="none" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-amber)" stroke-opacity="1" stroke-dasharray="2.98 1.99" stroke-miterlimit="10" d="M 429.17 119.05 L 284.97 119.05 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-amber);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 5.13 0.00 L 1.12 1.51 L 2.45 0.00 L 1.12 -1.51 Z M 5.13 0.00 " transform="matrix(-0.997342, 0, 0, 0.997342, 293.318996, 87.150692)"/>
+<g style="fill:var(--fig-amber)" fill-opacity="1">
+<use xlink:href="#cel-architecture-glyph-2-0" x="353.08" y="83.40"/>
+<use xlink:href="#cel-architecture-glyph-2-1" x="355.52" y="83.40"/>
+<use xlink:href="#cel-architecture-glyph-2-2" x="359.23" y="83.40"/>
+<use xlink:href="#cel-architecture-glyph-2-3" x="363.26" y="83.40"/>
+<use xlink:href="#cel-architecture-glyph-2-4" x="365.16" y="83.40"/>
+</g>
+<path fill="none" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" style="stroke:var(--fig-amber)" stroke-opacity="1" stroke-dasharray="2.98 1.99" stroke-miterlimit="10" d="M 487.56 97.45 L 487.56 34.01 L 401.15 34.01 " transform="matrix(0.997342, 0, 0, -0.997342, 6.824905, 205.890229)"/>
+<path fill-rule="nonzero" style="fill:var(--fig-amber);stroke:var(--fig-amber)" fill-opacity="1" stroke-width="0.69" stroke-linecap="butt" stroke-linejoin="miter" stroke-opacity="1" stroke-miterlimit="10" d="M 5.13 0.00 L 1.12 1.51 L 2.45 0.00 L 1.12 -1.51 Z M 5.13 0.00 " transform="matrix(-0.997342, 0, 0, 0.997342, 409.181531, 171.964653)"/>
+</svg>

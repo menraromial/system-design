@@ -1,0 +1,42 @@
+% Huit serveurs, un locataire qui envoie une requête empoisonnée : cellules
+% fixes de deux serveurs contre shuffle sharding (deux serveurs tirés par locataire).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    sv/.style={soft=#1, minimum width=11mm, minimum height=8mm, font=\sffamily\small},
+    loc/.style={draw=#1, fill=#1Bg, rounded corners=3pt, line width=0.6pt, minimum height=6mm,
+      inner xsep=3pt, font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  % ---- cellules
+  \node[pillo=Dslate, anchor=west] at (-2,34) {4 cellules de 2 serveurs};
+  \foreach \i in {0,...,7} {
+    \pgfmathtruncatemacro{\c}{\i/2}
+    \ifnum\c=0 \def\coul{Dred}\else\def\coul{Dblue}\fi
+    \node[sv=\coul] (a\i) at (6+\i*14,0) {\i};}
+  \foreach \c in {0,...,3} \draw[Dslate, line width=0.5pt, rounded corners=4pt, dash pattern=on 2pt off 1.5pt]
+    ($(a\the\numexpr2*\c\relax.south west)+(-1.5,-1.5)$) rectangle ($(a\the\numexpr2*\c+1\relax.north east)+(1.5,1.5)$);
+  \node[loc=Dred] (p1) at (13,18) {locataire 0 (poison)};
+  \draw[Dred, line width=0.7pt] (p1.south) -- (a0.north) (p1.south) -- (a1.north);
+  \node[loc=Dred] (x1) at (62,18) {les autres locataires de la cellule};
+  \draw[Dred, line width=0.5pt, dash pattern=on 2pt off 1pt] (x1.south) -- (a0.north) (x1.south) -- (a1.north);
+  \node[lab=Dred, anchor=west] at (114,0) {la cellule tombe :\\25 \% des locataires\\(mesuré : 49 sur 199)};
+  % ---- shuffle sharding
+  \begin{scope}[yshift=-58mm]
+    \node[pillo=Dslate, anchor=west] at (-2,40) {shuffle sharding : 2 serveurs tirés par locataire, 28 paires};
+    \foreach \i in {0,...,7} {
+      \ifnum\i=1 \def\coul{Dred}\else\ifnum\i=3 \def\coul{Dred}\else\def\coul{Dblue}\fi\fi
+      \node[sv=\coul] (b\i) at (6+\i*14,0) {\i};}
+    \node[loc=Dred] (p2) at (6,26) {locataire 0 : 1, 3};
+    \draw[Dred, line width=0.7pt] (p2.south) -- (b1.north) (p2.south) -- (b3.north);
+    \node[loc=Dred] (q1) at (40,30) {même paire : 1, 3};
+    \draw[Dred, line width=0.5pt, dash pattern=on 2pt off 1pt] (q1.south) -- (b1.north) (q1.south) -- (b3.north);
+    \node[loc=Dteal] (q2) at (66,22) {un commun : 3, 5};
+    \draw[Dteal, line width=0.5pt] (q2.south) -- (b3.north) (q2.south) -- (b5.north);
+    \node[loc=Dblue] (q3) at (100,30) {aucun : 6, 7};
+    \draw[Dblue, line width=0.5pt] (q3.south) -- (b6.north) (q3.south) -- (b7.north);
+    \node[lab=Dred, anchor=west] at (114,8) {hors service : 1 paire\\sur 28, 3,6 \%\\(mesuré : 9 sur 199)};
+    \node[lab=Dteal, anchor=west] at (114,-8) {un serveur commun :\\l’autre répond\\(96 locataires servis)};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

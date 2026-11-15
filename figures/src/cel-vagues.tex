@@ -1,0 +1,43 @@
+% Déploiement d'une version défectueuse sur toutes les cellules ou sur une seule,
+% puis d'une version saine cellule par cellule (outils/experiences/ch45/cellules.py).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    lab/.style={font=\sffamily\small, text=#1, align=left}, lab/.default=Dink]
+  \newcommand{\bande}[5]{% #1 y, #2 début, #3 fin, #4 couleur, #5 texte
+    \node[draw=#4, fill=#4Bg, line width=0.5pt, minimum height=4.5mm, inner sep=0pt, anchor=west,
+      minimum width={((#3)-(#2))*1mm}, font=\sffamily\scriptsize] at (#2,#1) {#5};}
+  % ---- version défectueuse : échelle 40 mm par seconde
+  \node[pillo=Dred, anchor=west] at (-30,44) {version défectueuse (20 \% d’erreurs)};
+  \node[note, anchor=east] at (-3,30) {globale};
+  \foreach \c in {1,...,4} {
+    \bande{{36-\c*3}}{0}{48}{Dred}{}
+    \bande{{36-\c*3}}{48}{84}{Dslate}{}}
+  \draw[Dred, line width=1pt] (48,38) -- (48,20);
+  \node[lab=Dred, anchor=south] at (48,38) {alarme, 1,2 s};
+  \node[lab=Dred, anchor=west] at (90,28) {4 cellules exposées\\53 à 67 erreurs\\50 à 57 locataires};
+  \node[note, anchor=east] at (-3,10) {par cellule};
+  \bande{12}{0}{32}{Dred}{}
+  \bande{12}{32}{52}{Dslate}{}
+  \foreach \c in {2,3,4} \bande{{12-(\c-1)*3}}{0}{84}{Dblue}{}
+  \draw[Dred, line width=1pt] (32,15) -- (32,2);
+  \node[lab=Dred, anchor=north] at (32,2) {alarme, 0,8 s};
+  \node[lab=Dred, anchor=west] at (90,8) {cellule 1 seule exposée\\15 à 16 erreurs\\15 à 16 locataires};
+  \foreach \t in {0,1,2} {\draw[ligne] (40*\t,-6) -- (40*\t,-7.5); \node[note, below] at (40*\t,-7.5) {\t\,s};}
+  \draw[ligne] (0,-6) -- (84,-6);
+  \node[lab=Dslate, anchor=west] at (90,-8) {rouge : version 2\\gris : retour à la version 1};
+  % ---- version saine par cellule : échelle 4 mm par seconde
+  \begin{scope}[yshift=-34mm]
+    \node[pillo=Dteal, anchor=west] at (-30,10) {version saine, cellule par cellule : 6 s d’observation par vague};
+    \foreach \c/\d in {1/0, 2/6.6, 3/13.2, 4/19.8} {
+      \node[note, anchor=east] at (-3,{-\c*5}) {cellule \c};
+      \bande{{-\c*5}}{4*\d}{4*\d+24}{Damber}{observation}
+      \bande{{-\c*5}}{4*\d+24}{105.6}{Dteal}{}}
+    \draw[Dteal, line width=1pt] (105.6,-1.5) -- (105.6,-23);
+    \node[lab=Dteal, anchor=west] at (109,-12) {déployée en 26,4 s,\\contre 7,0 à 7,1 s\\sur toutes à la fois};
+    \foreach \t in {0,10,20} {\draw[ligne] (4*\t,-25) -- (4*\t,-26.5); \node[note, below] at (4*\t,-26.5) {\t\,s};}
+    \draw[ligne] (0,-25) -- (106,-25);
+  \end{scope}
+\end{tikzpicture}
+\end{document}

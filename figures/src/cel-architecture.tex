@@ -1,0 +1,29 @@
+% Architecture cellulaire : un routeur mince envoie chaque locataire vers sa
+% cellule ; chaque cellule est une copie complète du service, avec ses données ;
+% le plan de contrôle crée les cellules, place et migre les locataires.
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    b/.style={soft=#1, minimum width=20mm, minimum height=11mm, font=\sffamily\small, align=center},
+    lab/.style={font=\sffamily\small, text=#1, align=center}, lab/.default=Dink]
+  \node[b=Dslate, minimum width=34mm] (cli) at (70,64) {\stack{laptop}{clients (locataires)}};
+  \node[b=Dteal, minimum width=58mm] (rt) at (70,42) {routeur de cellules\\{\scriptsize table locataire $\rightarrow$ cellule, rien d’autre}};
+  \draw[arr=Dslate] (cli) -- (rt);
+  \foreach \c/\x in {1/16, 2/52, 3/88, 4/124} {
+    \ifnum\c=3 \def\coul{Dred}\else\def\coul{Dblue}\fi
+    \node[group=\coul, minimum width=32mm, minimum height=32mm] (g\c) at (\x,6) {};
+    \node[note, anchor=north west, text=\coul, inner sep=2pt] at ($(g\c.north west)+(1,-0.5)$) {cellule \c};
+    \node[b=\coul, minimum width=24mm, minimum height=9mm] (s\c) at (\x,9) {\stack[\normalsize]{server}{\scriptsize services}};
+    \node[soft=Dslate, minimum width=24mm, minimum height=8mm, font=\sffamily\scriptsize] (d\c) at (\x,-4) {\dicon[\normalsize]{database}\ données};
+    \draw[Dslate, line width=0.5pt] (s\c) -- (d\c);
+    \draw[arr=Dteal] (rt.south) -- (g\c.north);
+  }
+  \node[lab=Dred, anchor=north, align=center] at (88,-13.5) {défaillance ou mauvais déploiement :\\un quart des locataires};
+  \node[lab=Dblue, anchor=north, align=center] at (34,-13.5) {les autres cellules\\ne voient rien};
+  % plan de contrôle
+  \node[b=Damber, minimum width=40mm, align=left] (pc) at (172,42) {plan de contrôle\\{\scriptsize crée les cellules, place et migre}\\{\scriptsize les locataires, déploie par vagues}};
+  \draw[Damber, line width=0.7pt, dash pattern=on 3pt off 2pt, -{Stealth}] (pc.west) -- (rt.east) node[midway, above, lab=Damber, font=\sffamily\scriptsize] {table};
+  \draw[Damber, line width=0.7pt, dash pattern=on 3pt off 2pt, -{Stealth}] (pc.south) |- ($(g4.east)+(0,6)$);
+\end{tikzpicture}
+\end{document}

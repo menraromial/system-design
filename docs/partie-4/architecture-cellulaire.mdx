@@ -1,0 +1,258 @@
+---
+title: "Architecture cellulaire"
+sidebar_label: "45. Architecture cellulaire"
+description: "Découper un service en cellules indépendantes pour borner le rayon d'impact d'une panne : cellule, routeur de cellules, plan de contrôle, requête empoisonnée, shuffle sharding, déploiement cellule par cellule ; mesures sur huit serveurs réels qu'une requête fait tomber, et combinatoire des groupes de serveurs."
+partie: 4
+chapitre: 45
+---
+
+import architecture from '@site/src/figures/cel-architecture.svg';
+import melange from '@site/src/figures/cel-melange.svg';
+import vagues from '@site/src/figures/cel-vagues.svg';
+
+Huit serveurs servent 200 locataires. L’un d’eux envoie quatre fois par seconde une requête qui fait tomber le serveur qui la traite, et son client la réessaie ailleurs quand elle échoue. Si tous les serveurs servent tout le monde, la requête les fait tomber les uns après les autres, et seules 47 à 61 % des requêtes des 199 autres locataires aboutissent ; tous sont touchés. Si les serveurs sont groupés en quatre cellules de deux, la cellule du fautif tombe et ses 49 voisins perdent presque tout, mais les 150 autres ne voient rien. Si chaque locataire reçoit deux serveurs tirés au hasard (shuffle sharding), seuls les 9 locataires qui ont tiré exactement la même paire que lui sont hors service. Ce chapitre montre comment découper un service en copies indépendantes, appelées cellules, pour qu’une panne, une requête toxique ou un mauvais déploiement n’atteigne qu’une partie des clients.
+
+Le [ch. 26](../partie-2/partitionnement.mdx) partitionnait les données, le [ch. 39](../partie-3/resilience-protection.mdx) cloisonnait les ressources d’un service (bulkheads) pour qu’une dépendance lente n’épuise pas tout. L’architecture cellulaire applique ce cloisonnement à tout le service, du point d’entrée aux bases de données, et en fait le principe d’organisation de l’exploitation, puisqu’on déploie, surveille et répare cellule par cellule.
+
+Deux scripts ont été écrits pour ce chapitre, dans [`outils/experiences/ch45/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch45). [`cellules.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch45/cellules.py) lance huit vrais serveurs HTTP ([`serveur.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch45/serveur.py)), un superviseur qui les redémarre une seconde après leur chute, et 200 locataires qui envoient chacun 4 requêtes par seconde ; il mesure le rayon d’impact d’une requête empoisonnée, deux façons de déployer, et le coût d’un routeur de cellules. Il a été lancé deux fois. [`melange.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch45/melange.py) calcule la combinatoire du shuffle sharding et la vérifie par tirage.
+
+## Cellule, routeur et plan de contrôle
+
+Le guide d’AWS sur l’architecture cellulaire en donne la définition suivante : une architecture cellulaire utilise plusieurs instances isolées d’une charge de travail, chacune appelée cellule ; chaque cellule est indépendante, ne partage pas d’état avec les autres et traite une partie des requêtes[^aws-cellules]. Une cellule est donc une copie complète du service, avec ses serveurs, ses files, ses caches et ses bases, dimensionnée pour une fraction des clients. Le guide en tire l’arithmétique de base. Si 10 cellules servent 100 requêtes et qu’une cellule tombe, 90 % des requêtes ne sont pas touchées[^aws-cellules].
+
+Le découpage suit une clé de partition, qui doit correspondre au « grain » du service, c’est-à-dire à la façon naturelle de le diviser avec le moins possible d’échanges entre cellules ; le guide cite l’identifiant de client ou de ressource, ou tout paramètre présent dans la plupart des appels[^aws-cellules]. Trois composants complètent les cellules (figure 45.1). Le routeur de cellules envoie chaque requête vers la cellule de sa clé et présente un point d’entrée unique aux clients ; AWS le décrit comme la couche la plus mince possible, chargée de router et de rien d’autre. Le plan de contrôle crée et supprime les cellules, et place ou migre les clients d’une cellule à l’autre[^aws-cellules]. Les cellules, enfin, ne s’appellent pas entre elles sur le chemin d’une requête.
+
+<Figure svg={architecture} num="45.1" alt="En haut, les clients (locataires) envoient leurs requêtes au routeur de cellules, qui ne contient qu’une table locataire vers cellule. Le routeur dirige chaque requête vers l’une des quatre cellules ; chaque cellule contient ses services et ses données. La cellule 3, en rouge, subit une défaillance ou un mauvais déploiement, qui touche un quart des locataires ; les autres cellules ne voient rien. À droite, le plan de contrôle, qui crée les cellules, place et migre les locataires et déploie par vagues, met à jour la table du routeur et agit sur les cellules.">
+Architecture cellulaire : un routeur mince, des cellules complètes, un plan de contrôle.
+</Figure>
+
+Le routeur et le plan de contrôle sont partagés par toutes les cellules ; c’est pourquoi le routeur doit faire le moins de choses possible, et le plan de contrôle rester hors du chemin des requêtes.
+
+Découper n’oblige pas à acheter plus de machines ; le guide note qu’une application de 30 machines peut garder ses 30 machines, réparties entre cellules derrière un routeur[^aws-cellules]. Le surcoût vient du minimum de chaque cellule (deux serveurs pour survivre à la perte d’un, une base avec sa réplique) et de l’exploitation de N copies au lieu d’une.
+
+## Le rayon d’impact d’une requête empoisonnée
+
+Une requête empoisonnée (poison pill) est une requête qui déclenche un défaut dans le code, par exemple une entrée que l’analyseur ne sait pas traiter et qui fait planter le processus. Le guide d’AWS la cite parmi les pannes difficiles à contenir autrement que par des cellules[^aws-cellules]. Ce qui la rend dangereuse, ce sont les nouvelles tentatives du [ch. 38](../partie-3/resilience-tentatives.mdx) : la requête échoue sur un serveur, le client la renvoie à un autre, qui tombe à son tour.
+
+La première partie de `cellules.py` reproduit ce scénario. Le locataire 0 envoie, pendant 15 s, une ou quatre requêtes empoisonnées par seconde ; chaque requête fait sortir le processus serveur qui la reçoit (`os._exit`), et le superviseur le relance une seconde plus tard. Les 199 autres locataires envoient des requêtes normales, et leur client essaie un autre serveur autorisé en cas d’échec. Trois attributions des serveurs sont comparées : la flotte partagée, où chacun peut utiliser les huit serveurs (trois tentatives) ; quatre cellules de deux serveurs, la cellule étant le numéro du locataire modulo 4 ; et le shuffle sharding, où chaque locataire reçoit une paire de serveurs tirée au hasard parmi les 28 possibles. La colonne `touchés` compte les locataires qui ont perdu plus de 1 % de leurs requêtes, `hors svc` ceux qui en ont perdu plus de la moitié, `chutes` les arrêts de serveurs.
+
+```text
+1. requête empoisonnée du locataire 0 pendant 15 s (199 autres locataires)
+   attribution        poison/s réussies  touchés hors svc  chutes
+   flotte partagée           1    96.8%      182        0      34
+   cellules                  1    84.9%       49       49      16
+   shuffle sharding          1    97.2%        9        9      16
+   flotte partagée           4    60.6%      199        7      53
+   cellules                  4    76.0%       49       49       8
+   shuffle sharding          4    95.7%        9        9       8
+   paire du locataire 0 : [1, 3] ; même paire : 9 locataires ;
+   un seul serveur commun : 96 locataires
+   touchés : plus de 1 % d'échecs ; hors svc : plus de 50 % d'échecs
+```
+
+La première passe a donné les mêmes valeurs pour les cellules et le shuffle sharding (84,8 et 75,8 % ; 97,3 et 95,7 %), et 95,9 % puis 47,2 % pour la flotte partagée. Avec une requête empoisonnée par seconde, la flotte partagée tient encore. Chaque requête abat jusqu’à trois serveurs, il en reste assez pour que les nouvelles tentatives des autres aboutissent, et 96 à 97 % des requêtes passent. Mais 182 à 191 locataires sur 199 perdent plus de 1 % de leurs requêtes, puisque tous partagent les mêmes serveurs. À quatre par seconde, les serveurs tombent plus vite que le superviseur ne les relève (40 à 53 chutes en 15 s), et seules 47 à 61 % des requêtes aboutissent. Chaque locataire perd alors 40 à 55 % de ses requêtes, autour du seuil de la colonne `hors svc`, si bien que celle-ci passe de 127 à 7 d’une passe à l’autre sans que la situation diffère vraiment. Les cellules donnent l’image inverse. Quelle que soit l’intensité, les 49 locataires de la cellule du fautif sont hors service, parce que ses deux serveurs sont presque toujours à terre, et les 150 autres ne perdent rien ; la réussite globale, 76 à 85 %, est le prix payé par une seule cellule. Le shuffle sharding ne met hors service que les 9 locataires qui ont tiré la même paire que le fautif ; les 96 qui partagent un seul de ses serveurs passent par l’autre, et la réussite reste de 95,7 à 97,3 %. Les chutes sont moins nombreuses à quatre requêtes par seconde qu’à une, dans ces deux attributions, parce que les requêtes du fautif arrivent sur des serveurs déjà à terre, qui ne peuvent plus tomber.
+
+## Le shuffle sharding
+
+Le shuffle sharding a été décrit par Colm MacCárthaigh, d’AWS, à partir de l’exemple de huit serveurs. Avec des cellules fixes de deux serveurs, un problème qui touche une cellule touche un quart du service ; avec 28 combinaisons de deux serveurs parmi huit, chaque client recevant l’une d’elles, il ne touche plus que 1/28 des clients, soit sept fois moins[^shuffle]. La condition est que les clients sachent contourner un serveur défaillant, par de nouvelles tentatives par exemple ; un client dont un seul serveur est atteint continue alors d’être servi par l’autre[^shuffle]. La figure 45.2 reprend les deux attributions de l’expérience.
+
+<Figure svg={melange} num="45.2" alt="Deux schémas de huit serveurs numérotés de 0 à 7. En haut, quatre cellules fixes de deux serveurs : le locataire 0 (poison) et les autres locataires de sa cellule utilisent les serveurs 0 et 1, qui tombent ; la cellule tombe, soit 25 % des locataires, 49 sur 199 mesurés. En bas, le shuffle sharding : le locataire 0 a la paire 1 et 3, qui tombe ; un locataire qui a la même paire est hors service (1 paire sur 28, 3,6 %, 9 locataires sur 199 mesurés) ; un locataire qui a la paire 3 et 5 n’a qu’un serveur commun et l’autre lui répond (96 locataires servis) ; un locataire qui a la paire 6 et 7 n’est pas concerné.">
+Cellules fixes et shuffle sharding face à un locataire qui fait tomber ses serveurs.
+</Figure>
+
+En haut, les serveurs tombés emportent toute leur cellule ; en bas, seul le locataire qui a la même paire perd tout, et ceux qui n’ont qu’un serveur commun se replient sur l’autre.
+
+Le gain croît très vite avec le nombre de serveurs. Pour Amazon Route 53, MacCárthaigh décrit 2 048 serveurs de noms virtuels, et chaque domaine client reçoit un groupe de quatre d’entre eux, ce qui donne 730 milliards de groupes possibles ; AWS peut ainsi donner un groupe différent à chaque domaine, et même garantir qu’aucun domaine ne partage plus de deux serveurs virtuels avec un autre, si bien qu’une attaque par déni de service sur un domaine ne touche pleinement aucun autre domaine[^shuffle]. `melange.py` calcule ces proportions pour des groupes tirés au hasard (loi hypergéométrique), et les compare au découpage en cellules fixes de même taille.
+
+```text
+un locataire fait tomber ses k serveurs : part des autres locataires
+     N  k           groupes  cellule   même groupe  k-1 communs      ≥ 1
+     8  2                28  25.00 %        3.57 %      42.86 %  46.43 %
+    16  4             1 820  25.00 %        0.05 %       2.64 %  72.80 %
+   100  5        75 287 520   5.00 %     1.3e-06 %    6.3e-04 %  23.04 %
+ 2 048  4   730 862 190 080   0.20 %     1.4e-10 %    1.1e-06 %   0.78 %
+cellule : découpage fixe en N/k cellules de k serveurs ; même groupe :
+shuffle sharding, les k serveurs en commun ; ≥ 1 : au moins un serveur
+commun
+
+vérification par tirage de 1 000 000 de locataires
+     N  k   même groupe   formule      ≥ 1   formule
+     8  2        3.561%    3.571%   46.41%    46.43%
+    16  4        0.056%    0.055%   72.80%    72.80%
+```
+
+Le tirage, à graine fixe, donne la même sortie à chaque exécution, et retrouve les valeurs de la formule à 0,02 point près. Avec 8 serveurs et des groupes de 2, une cellule fixe expose 25 % des locataires et le shuffle sharding 3,57 %, ce que l’expérience a retrouvé (9 locataires sur 199, soit 4,5 %, pour un tirage). Avec 100 serveurs et des groupes de 5, la part des locataires qui perdent tous leurs serveurs tombe à $1{,}3 \times 10^{-6}$ %, quand une cellule fixe de 5 serveurs en expose 5 %. La dernière colonne rappelle le prix, puisque 0,8 à 73 % des locataires, selon la configuration, partagent au moins un serveur avec le fautif, et ne survivent que s’ils réessaient ailleurs. Le shuffle sharding suppose donc des clients qui réessaient sur un autre serveur de leur groupe, des serveurs interchangeables (pas de données propres à un serveur, ou des données répliquées sur tout le groupe), et une capacité suffisante pour que les serveurs restants absorbent la charge des serveurs tombés.
+
+## Le routeur de cellules
+
+Le routeur détermine la cellule d’une requête, puis la lui transmet. Deux méthodes existent. Un hachage de la clé (cellule = hachage modulo N) ne demande aucune table, mais ajouter une cellule déplace des clients, et l’on ne peut pas choisir où placer un client précis. Une table de correspondance, tenue par le plan de contrôle, permet de placer chaque client, d’isoler un gros client dans sa propre cellule et de migrer un client d’une cellule à une autre ; c’est la méthode qui laisse le plus de contrôle, au prix d’une table à distribuer et à garder cohérente.
+
+Le routeur est le seul composant que toutes les requêtes traversent, et une panne du routeur touche toutes les cellules à la fois. D’où la consigne d’AWS de le garder aussi mince que possible[^aws-cellules] : pas de logique métier, pas d’appel à une base à chaque requête, une table chargée en mémoire et rafraîchie par le plan de contrôle, et, si le plan de contrôle est indisponible, la dernière table connue. La troisième partie de `cellules.py` mesure ce qu’ajoute un tel routeur, qui lit la cellule dans une table en mémoire et relaie la requête en HTTP.
+
+```text
+3. routeur de cellules : 3 000 requêtes successives, en ms
+   chemin                  médiane     99e
+   direct                     0.69    0.86
+   par le routeur             1.43    2.10
+```
+
+La première passe a donné 0,69 ms et 1,39 ms. Le saut supplémentaire ajoute 0,70 à 0,74 ms en médiane sur la même machine, un aller-retour HTTP de plus ; entre deux machines d’un même centre de données, il faut y ajouter l’aller-retour réseau ([ch. 9](../partie-1/latence-debit.mdx)). Le routeur peut aussi disparaître du chemin. Le client interroge le plan de contrôle une fois pour connaître l’adresse de sa cellule, la garde en cache, puis s’adresse directement à elle, à la manière d’un nom DNS propre à chaque cellule.
+
+Migrer un client d’une cellule à une autre est le travail le plus délicat du plan de contrôle : copier ses données vers la nouvelle cellule, rattraper les écritures arrivées pendant la copie (par capture des changements, [ch. 37](../partie-3/transactions-distribuees.mdx)), suspendre brièvement ses écritures, basculer l’entrée de la table, puis rouvrir. C’est la même suite d’étapes que le rééquilibrage d’une partition au [ch. 26](../partie-2/partitionnement.mdx), appliquée à tout le service plutôt qu’à une base.
+
+## Déployer cellule par cellule
+
+Les cellules donnent aussi un découpage naturel aux déploiements. Clare Liguori décrit les pipelines d’Amazon : le nouveau code passe d’abord sur une seule machine ou un seul conteneur (one-box), puis par vagues de portée croissante, une région peu chargée d’abord, une zone de disponibilité ou une cellule à la fois dans chaque région ; un pipeline typique attend au moins une heure après chaque étape one-box, au moins 12 heures après la première vague régionale et deux à quatre heures après chacune des suivantes, avec un temps d’observation supplémentaire par région, par zone et par cellule, si bien qu’un changement atteint toutes les régions en quatre ou cinq jours ouvrés. Si une alarme de haute sévérité se déclenche, tous les déploiements en cours de l’équipe dans la région reviennent automatiquement en arrière[^deploiement].
+
+La deuxième partie de `cellules.py` déploie, sur quatre cellules de deux serveurs, une version défectueuse (20 % des requêtes en erreur) puis une version saine, soit sur tous les serveurs d’un coup, soit cellule par cellule avec 6 s d’observation après chaque vague. Une alarme surveille la cellule en cours (ou toutes, pour le déploiement global) et se déclenche si plus de 1 % des requêtes des 2 dernières secondes échouent ; elle ramène alors les serveurs concernés à la version 1 et arrête le déploiement. Chaque serveur est remplacé l’un après l’autre dans sa cellule, et le client réessaie l’autre serveur de la cellule, si bien qu’un remplacement ne cause aucune erreur par lui-même (figure 45.3).
+
+```text
+2. déploiement en 4 cellules de 2 serveurs (alarme : plus de 1 % d'erreurs
+   sur 2 s ; observation de 6 s après chaque vague)
+   version     stratégie   erreurs  touchés  alarme   durée  issue
+   défectueuse globale          67       57   1.2 s    2.1s  retour à v1
+   défectueuse par cellule       15       15   0.8 s    1.3s  retour à v1
+   saine       globale           0        0            7.1s  déployée
+   saine       par cellule        0        0           26.4s  déployée
+   erreurs : requêtes échouées après deux tentatives ; touchés : locataires
+   ayant reçu au moins une erreur ; alarme et durée : depuis le début
+```
+
+<Figure svg={vagues} num="45.3" alt="En haut, une version défectueuse à 20 % d’erreurs. Déploiement global : les quatre cellules passent en version 2 (rouge) dès le début, l’alarme se déclenche à 1,2 s et toutes reviennent à la version 1 (gris) ; 53 à 67 erreurs, 50 à 57 locataires touchés. Déploiement par cellule : seule la cellule 1 passe en version 2, l’alarme se déclenche à 0,8 s et la cellule revient à la version 1 ; les cellules 2 à 4 restent intactes ; 15 à 16 erreurs, 15 à 16 locataires. En bas, une version saine déployée cellule par cellule, avec 6 s d’observation par vague : la cellule 1 à 0 s, la 2 à 6,6 s, la 3 à 13,2 s, la 4 à 19,8 s ; le déploiement se termine à 26,4 s, contre 7,0 à 7,1 s sur toutes les cellules à la fois.">
+Une version défectueuse déployée partout ou sur une cellule, et une version saine déployée cellule par cellule.
+</Figure>
+
+En haut, les bandes rouges sont le temps passé par chaque cellule avec la version défectueuse ; en bas, chaque vague attend la fin de l’observation de la précédente.
+
+La première passe a donné 53 erreurs et 50 locataires pour le déploiement global, 16 et 16 pour le déploiement par cellule, et les mêmes durées. Le même défaut cause 3,5 à 4 fois moins d’erreurs quand il n’atteint qu’une cellule sur quatre. L’alarme se déclenche même plus tôt (0,8 s au lieu de 1,2 s) : tant qu’un serveur d’une cellule reste en version 1, la nouvelle tentative y réussit et le défaut ne se voit pas, et le déploiement global doit remplacer huit serveurs au lieu de deux avant que les erreurs apparaissent. La version saine montre le prix de la prudence, avec 26,4 s pour quatre vagues suivies chacune de son observation, contre 7,0 à 7,1 s pour un seul passage suivi de la même observation. Avec des heures d’observation par vague, cet écart devient les quatre ou cinq jours ouvrés que cite Liguori ; c’est le délai accepté pour qu’un défaut qui a passé les tests n’atteigne qu’une cellule.
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| Flotte partagée | simplicité, capacité mise en commun | une panne ou une requête toxique peut tout atteindre | 47 à 61 % de réussite, 199 locataires touchés | petits services, équipe réduite |
+| Cellules fixes | rayon d’impact de 1/N, déploiement et diagnostic par cellule | minimum de redondance par cellule, routeur, plan de contrôle, migrations | 49 locataires sur 199, les autres intacts | services multi-clients importants |
+| Shuffle sharding | rayon d’impact de $1/\binom{N}{k}$ pour qui perd tout | clients qui réessaient, serveurs interchangeables, marge de capacité | 9 locataires sur 199 hors service | flottes sans état devant beaucoup de clients |
+| Déploiement global | rapide | une erreur touche tout le monde jusqu’au retour arrière | 53 à 67 erreurs, 50 à 57 locataires | jamais en production pour un service critique |
+| Déploiement par cellule | une erreur ne touche qu’une cellule | déploiement lent, tâche du pipeline | 15 à 16 erreurs ; 26,4 s au lieu de 7 s | par défaut |
+| Routeur de cellules | point d’entrée unique, placement libre des clients | un saut de plus, composant partagé par toutes les cellules | +0,70 à 0,74 ms | table de correspondance, sans état |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : combien de cellules ?]
+Hypothèses : la charge demande 30 serveurs et 1 base de 4 To ; une cellule doit avoir au moins 2 serveurs et une base avec sa réplique ; 600 000 clients répartis uniformément.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| 5 cellules | 30 / 5 serveurs, 4 To / 5 | 6 serveurs et 0,8 To par cellule, 20 % des clients exposés |
+| 15 cellules | 30 / 15 serveurs | 2 serveurs par cellule, 6,7 % des clients exposés, 15 bases |
+| 30 cellules | minimum 2 serveurs par cellule | 60 serveurs (deux fois la charge), 3,3 % exposés, 30 bases |
+| Clients par cellule, à 15 cellules | 600 000 / 15 | 40 000 |
+
+Conclusion : le rayon d’impact baisse comme 1/N, mais sous une certaine taille de cellule, le minimum de redondance coûte plus que la charge elle-même. On choisit le plus grand N pour lequel chaque cellule reste au-dessus de ce minimum, ici une quinzaine.
+:::
+
+:::calcul[Calcul : shuffle sharding d’une flotte de 100 serveurs]
+Hypothèses : 100 serveurs sans état ; chaque client reçoit 5 serveurs tirés au hasard ; 10 000 clients ; un client fait tomber ses 5 serveurs.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Groupes possibles | $\binom{100}{5}$ | 75 287 520 |
+| Clients qui perdent leurs 5 serveurs | $10\,000 / 75\,287\,520$ | 0,000 13, donc aucun |
+| Clients qui perdent 4 serveurs sur 5 | $10\,000 \times 6{,}3 \times 10^{-6}$ | 0,06, donc aucun |
+| Clients qui ont au moins un serveur commun | 23 % de 10 000 | 2 300, servis par leurs autres serveurs |
+| Capacité perdue | 5 / 100 | 5 %, à absorber par les 95 autres |
+
+Conclusion : avec des clients qui réessaient sur un autre serveur de leur groupe, un client toxique ne met hors service personne d’autre ; ce qu’il coûte se mesure en capacité (5 %) et en latence des nouvelles tentatives pour 23 % des clients.
+:::
+
+:::calcul[Calcul : la durée d’un déploiement par vagues]
+Hypothèses : 20 cellules ; une heure d’observation après chaque vague ; une heure pour détecter et défaire une version défectueuse.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Une cellule par vague | 20 × 1 h | 20 h de déploiement |
+| Vagues de 1, 1, 2, 4, 6, 6 cellules | 6 × 1 h | 6 h, exposition maximale 6/20 à la dernière vague |
+| Clients exposés à un défaut détecté dans la première vague | 1 / 20 | 5 % pendant une heure |
+| Même défaut, déploiement global | 20 / 20 | 100 % pendant une heure |
+
+Conclusion : les premières vagues petites limitent l’exposition aux défauts les plus fréquents, ceux qui se voient tout de suite ; les dernières, plus larges, rendent la durée totale acceptable une fois la version éprouvée sur plusieurs cellules.
+:::
+
+## Exemple réel
+
+**Slack et ses zones de disponibilité.** Cooper Bethea, ingénieur chez Slack, a décrit en 2023 la migration de Slack vers une architecture cellulaire[^slack]. Le point de départ est un incident du 30 juin 2021. À 11 h 45 (heure du Pacifique), un lien réseau reliant une zone de disponibilité de la région us-east-1 à plusieurs autres connaît des défaillances intermittentes ; le fournisseur le retire du service à 12 h 33, le remet en service, puis le retire définitivement à 17 h 31 après une seconde série de défaillances. La revue d’incident se demande pourquoi la panne d’une seule zone a été visible des utilisateurs. La réponse est une défaillance grise : les systèmes de la zone touchée voyaient leurs dépendances de la même zone en bonne santé, ceux des autres zones les voyaient en panne, et chaque service devait accumuler des échecs avant d’écarter un serveur défaillant. Slack a choisi de faire de chaque zone une cellule. Tous les services existent dans chaque zone, et chacun ne reçoit et n’envoie de trafic qu’à l’intérieur de sa zone (le cloisonnement, « siloing »). Une zone peut alors être vidée. Les équilibreurs de charge Envoy de la périphérie, configurés par le plan de contrôle maison Rotor, baissent à zéro le poids de la zone ; la consigne se propage en quelques secondes, les requêtes en cours se terminent, le poids se règle par pas de 1 %, et l’objectif est de retirer l’essentiel du trafic d’une zone en 5 minutes, ce qu’impose un engagement de disponibilité de 99,99 %, soit moins d’une heure d’indisponibilité par an. Le mécanisme de vidage ne dépend d’aucune ressource de la zone vidée, et le plan de contrôle est répliqué hors de toute zone unique[^slack].
+
+## Erreurs fréquentes
+
+Découper les serveurs en cellules mais garder une base, un cache ou une file communs. La ressource partagée redevient le point par lequel une panne atteint toutes les cellules.
+
+Laisser les cellules s’appeler entre elles sur le chemin des requêtes. Une cellule malade contamine alors celles qui l’appellent.
+
+Mettre de la logique dans le routeur (authentification complète, transformation, appel à une base par requête). Le seul composant que traversent toutes les requêtes devient le plus complexe.
+
+Réessayer une requête qui fait tomber les serveurs sur toute la flotte. Avec une flotte partagée et trois tentatives, quatre requêtes empoisonnées par seconde ont fait chuter les serveurs 40 à 53 fois en 15 s (mesuré).
+
+Adopter le shuffle sharding sans clients qui réessaient sur un autre serveur de leur groupe. Un client dont un seul serveur tombe devient alors un client en panne, et le gain disparaît.
+
+Déployer partout à la fois parce que la version est passée en préproduction. 53 à 67 erreurs contre 15 à 16 pour le même défaut déployé sur une cellule (mesuré).
+
+Faire des cellules trop petites. Le minimum de redondance de chaque cellule finit par coûter plus que la charge.
+
+Oublier la migration des clients. Sans elle, un client qui grossit sature sa cellule et l’on ne peut ni le déplacer ni rééquilibrer.
+
+:::piege[Erreur fréquente : « la redondance suffit, inutile de découper »]
+La redondance protège d’une panne indépendante d’un serveur : un serveur tombe, les autres prennent le relais. Elle ne protège pas d’une panne corrélée, qui touche toutes les copies pour la même raison : une requête empoisonnée réessayée sur chaque serveur, une version défectueuse déployée partout, une configuration erronée poussée d’un coup. Dans la mesure, huit serveurs redondants ont tous été abattus par un seul locataire, et 47 à 61 % seulement des requêtes des autres ont abouti. Les cellules, le shuffle sharding et le déploiement par vagues bornent justement ces pannes corrélées, en faisant en sorte qu’une même cause n’atteigne qu’une partie des copies.
+:::
+
+:::entretien
+Si l’on vous parle d’isolation entre clients ou de rayon d’impact, proposez une architecture cellulaire : une clé de partition alignée sur le grain du service (client, compte, ressource), des cellules complètes qui ne partagent pas d’état, un routeur mince à table de correspondance, un plan de contrôle qui place et migre les clients. Chiffrez la taille des cellules (rayon d’impact 1/N contre minimum de redondance), dites comment vous traitez les gros clients (cellule dédiée) et les opérations qui traversent les cellules (rapports globaux à partir de copies, jamais sur le chemin des requêtes). Mentionnez le shuffle sharding pour les flottes sans état, avec sa condition (des clients qui réessaient), et le déploiement cellule par cellule avec observation et retour arrière automatique.
+:::
+
+## Exercices
+
+**Question 1.** Un service de 600 000 clients est découpé en 12 cellules. Une version défectueuse rend 30 % des requêtes en erreur ; elle est détectée 10 minutes après son arrivée dans une cellule, et défaite en 5 minutes. Combien de clients sont exposés, et pendant combien de temps, avec un déploiement global et avec un déploiement qui commence par une seule cellule ?
+
+**Question 2.** Une flotte de 12 serveurs sans état sert des milliers de clients. Comparez quatre cellules fixes de 3 serveurs et un shuffle sharding de 3 serveurs par client : nombre de groupes, part des clients qui perdent tous leurs serveurs quand un client toxique fait tomber les siens, part de ceux qui en perdent au moins un.
+
+**Question 3.** Une équipe a placé dans son routeur de cellules la vérification des jetons, un appel à la base des comptes pour trouver la cellule de chaque client, et la journalisation détaillée des requêtes. Quels risques cela crée-t-il ? Proposez une conception du routeur et de la table de correspondance.
+
+**Exercice de conception.** Un logiciel de facturation en ligne sert 50 000 entreprises ; l’une d’elles représente 10 % du trafic, et le volume double chaque année. Chaque entreprise a ses factures, ses clients et ses paiements ; la direction veut un tableau de bord global de l’activité. Proposez un découpage en cellules : clé de partition, nombre et taille des cellules, placement du gros client, routeur et table, plan de contrôle et migration d’un client, déploiement, et façon de produire le tableau de bord sans faire dépendre les cellules les unes des autres.
+
+## Corrigés
+
+**Question 1.** Un défaut actif pendant 15 minutes (10 de détection, 5 de retour arrière). Déploiement global : les 600 000 clients sont exposés 15 minutes, soit 9 millions de minutes-client, et 30 % de leurs requêtes échouent pendant ce temps. Première vague d’une cellule : $600\,000 / 12 = 50\,000$ clients exposés 15 minutes, soit 750 000 minutes-client, douze fois moins ; les onze autres cellules ne reçoivent jamais la version.
+
+**Question 2.** Cellules fixes : 4 groupes ; quand une cellule tombe, 25 % des clients perdent tous leurs serveurs, et aucun autre n’en perd. Shuffle sharding : $\binom{12}{3} = 220$ groupes ; la part des clients qui ont exactement le même groupe est $1/220 \approx 0{,}45$ % ; la part de ceux qui partagent au moins un serveur est $1 - \binom{9}{3}/\binom{12}{3} = 1 - 84/220 \approx 62$ %, mais ceux-là gardent au moins un serveur sain et sont servis s’ils réessaient. Le shuffle sharding divise par 55 la part des clients mis hors service, au prix d’une part plus grande de clients qui subissent un échec avant de réussir.
+
+**Question 3.** Chaque fonction ajoutée au routeur est une cause de panne commune à toutes les cellules : un défaut dans la vérification des jetons, une base des comptes lente ou indisponible, un disque saturé par les journaux arrêtent tout le service, alors que les cellules sont précisément là pour éviter une panne globale. L’appel à la base par requête ajoute en outre de la latence et met une base partagée sur le chemin critique. Le routeur ne doit garder que la lecture d’une clé dans la requête et la consultation d’une table en mémoire. La table est produite par le plan de contrôle, distribuée aux routeurs (fichier versionné ou flux de mises à jour), et chaque routeur garde la dernière version reçue si le plan de contrôle est indisponible. La vérification des jetons se fait dans la cellule, et la journalisation détaillée aussi.
+
+**Exercice de conception.**
+
+*Clé et cellules.* La clé est l’identifiant de l’entreprise, si bien que factures, clients et paiements d’une entreprise restent dans sa cellule, sans échange entre cellules. Huit cellules au départ, chacune avec deux serveurs d’application au moins et sa base PostgreSQL avec une réplique ; chaque cellule porte environ un huitième des 90 % de trafic des petites entreprises.
+
+*Gros client.* L’entreprise qui fait 10 % du trafic reçoit une cellule dédiée, pour qu’elle ne sature pas une cellule partagée et qu’une panne qu’elle provoque ne touche qu’elle. C’est l’intérêt de la table de correspondance plutôt que d’un hachage.
+
+*Routeur et table.* Le routeur lit l’identifiant de l’entreprise dans le chemin ou le jeton, consulte une table en mémoire (50 000 entrées, quelques mégaoctets) et relaie ; la table est publiée par le plan de contrôle et versionnée.
+
+*Plan de contrôle et migration.* Pour suivre le doublement annuel, le plan de contrôle crée de nouvelles cellules et y place les nouveaux clients ; il migre un client trop gros ou rééquilibre en copiant ses données, en rattrapant les écritures par capture des changements, en suspendant ses écritures quelques secondes, en basculant l’entrée de la table, puis en rouvrant.
+
+*Déploiement.* Une cellule interne ou peu chargée d’abord, puis une cellule, puis des vagues croissantes, avec observation et retour arrière automatique sur alarme ; la cellule du gros client passe en dernier.
+
+*Tableau de bord.* Chaque cellule publie ses événements de facturation dans un journal ([ch. 43](evenements-cqrs.mdx)) ou laisse un entrepôt lire ses changements ; l’agrégation globale se fait hors des cellules, dans un entrepôt de données. Une panne de l’entrepôt retarde le tableau de bord, sans toucher à la facturation.
+
+:::fiche
+- Cellule : copie complète et indépendante du service, sans état partagé, servant une partie des clients ; une cellule perdue sur 10 laisse 90 % des requêtes intactes (guide AWS).
+- Clé de partition alignée sur le grain du service (client, ressource) ; routeur le plus mince possible ; plan de contrôle qui crée les cellules et place ou migre les clients.
+- Requête empoisonnée réessayée sur une flotte partagée : 47 à 61 % de réussite, 199 locataires sur 199 touchés ; en cellules : 49 locataires hors service, les autres intacts (mesuré).
+- Shuffle sharding : k serveurs tirés par client, $\binom{N}{k}$ groupes ; 8 serveurs et paires, 1/28 = 3,6 % au lieu de 25 % (MacCárthaigh) ; mesuré : 9 locataires sur 199 ; suppose des clients qui réessaient.
+- Route 53 : 2 048 serveurs virtuels, groupes de 4, 730 milliards de groupes, jamais plus de deux serveurs en commun entre deux domaines.
+- Déploiement par vagues : one-box, puis une cellule ou une zone à la fois, observation, retour arrière automatique (Liguori) ; mesuré : 15 à 16 erreurs au lieu de 53 à 67, mais 26,4 s au lieu de 7 s.
+- Routeur : +0,70 à 0,74 ms par saut (mesuré) ; table en mémoire, dernière version gardée si le plan de contrôle tombe.
+- Taille des cellules : rayon d’impact 1/N contre minimum de redondance par cellule.
+:::
+
+[^aws-cellules]: AWS, « What is a cell-based architecture? », *Reducing the Scope of Impact with Cell-Based Architecture*, AWS Well-Architected, consulté le 15 novembre 2026, [docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/what-is-a-cell-based-architecture.html](https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/what-is-a-cell-based-architecture.html).
+[^shuffle]: Colm MacCárthaigh, « Workload isolation using shuffle-sharding », *Amazon Builders’ Library*, 2019, [builder.aws.com/content/3F06NpJ8YeoIGP8VHTw4n81pFn8/workload-isolation-using-shuffle-sharding](https://builder.aws.com/content/3F06NpJ8YeoIGP8VHTw4n81pFn8/workload-isolation-using-shuffle-sharding).
+[^deploiement]: Clare Liguori, « Automating safe, hands-off deployments », *Amazon Builders’ Library*, [builder.aws.com/content/3ErTKQOTKc5NIw031UePBPxTQ6I/automating-safe-hands-off-deployments](https://builder.aws.com/content/3ErTKQOTKc5NIw031UePBPxTQ6I/automating-safe-hands-off-deployments).
+[^slack]: Cooper Bethea, « Slack’s Migration to a Cellular Architecture », *Engineering at Slack*, 22 août 2023, [slack.engineering/slacks-migration-to-a-cellular-architecture](https://slack.engineering/slacks-migration-to-a-cellular-architecture/).
