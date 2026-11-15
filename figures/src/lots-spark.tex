@@ -1,0 +1,37 @@
+% Plan de la jointure Spark découpé en étapes par les échanges, et découpage de
+% la partition déséquilibrée par l'exécution adaptative (outils/experiences/ch47).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    et/.style={draw=#1, fill=#1Bg, line width=0.6pt, rounded corners=3pt, minimum width=30mm,
+      minimum height=10mm, font=\sffamily\small, align=center},
+    lab/.style={font=\sffamily\small, text=#1, align=center}, lab/.default=Dink]
+  % ---- plan
+  \node[pillo=Dslate, anchor=west] at (-18,44) {plan exécuté : une étape entre deux échanges};
+  \node[et=Dslate] (s1) at (0,26) {lecture des accès\\{\scriptsize 8 tâches}};
+  \node[et=Dslate] (s2) at (0,4) {table des pages\\{\scriptsize en cache}};
+  \node[et=Dblue] (j) at (62,15) {jointure tri-fusion\\{\scriptsize 16 partitions, clé : page}};
+  \node[et=Dteal] (a) at (118,15) {somme par catégorie\\{\scriptsize puis résultat}};
+  \draw[arr=Dred, line width=0.9pt] (s1.east) -- node[above, lab=Dred, sloped] {échange 187 à 188 Mo} (j.west);
+  \draw[arr=Dred, line width=0.9pt] (s2.east) -- node[below, lab=Dred, sloped] {échange} (j.west);
+  \draw[arr=Dred, line width=0.9pt] (j) -- node[above, lab=Dred] {échange} (a);
+  \node[lab=Dslate, anchor=north, align=center] at (62,6) {rien ne s’exécute avant l’action collect() ;\\le filtre éventuel est poussé dans la lecture};
+  % ---- partitions
+  \begin{scope}[yshift=-62mm]
+    \node[pillo=Dslate, anchor=west] at (-18,44) {étape de jointure : durée des tâches (schéma)};
+    \node[note, anchor=west] at (-18,34) {skew join désactivé};
+    \foreach \i/\h in {0/11,1/12,2/11,3/13,4/12,5/11,6/12,7/11,8/12,9/13,10/11,11/12,12/12,13/11,14/12,15/18} {
+      \ifnum\i=15 \def\coul{Dred}\else\def\coul{Dblue}\fi
+      \draw[draw=\coul, fill=\coul Bg, line width=0.4pt] (\i*4.2,8) rectangle ++(3.4,\h);}
+    \node[lab=Dred, anchor=south] at (64.7,30) {partition chaude};
+    \node[lab=Dblue, anchor=north west, align=left] at (-2,6) {16 tâches ; la plus longue 2,46 à 2,52 s,\\médiane 1,60 à 1,77 s ; total 8,3 à 8,8 s};
+    \node[note, anchor=west] at (82,34) {skew join activé};
+    \foreach \i/\h in {0/6,1/7,2/6,3/7,4/7,5/6,6/7,7/6,8/7,9/7,10/6,11/7,12/7,13/6,14/7} {
+      \draw[draw=Dblue, fill=DblueBg, line width=0.4pt] (100+\i*4.2,8) rectangle ++(3.4,\h);}
+    \foreach \k in {0,...,4} \draw[draw=Damber, fill=DamberBg, line width=0.4pt] (100+15*4.2+\k*4.2,8) rectangle ++(3.4,11);
+    \draw[accol] (163,21) -- (184,21) node[midway, above=2pt, lab=Damber] {partition découpée};
+    \node[lab=Dblue, anchor=north west, align=left] at (98,6) {20 tâches ; la plus longue 1,54 à 1,73 s,\\médiane 0,84 à 0,88 s ; total 6,9 à 7,0 s};
+  \end{scope}
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,275 @@
+---
+title: "Traitement par lots : MapReduce, Spark"
+sidebar_label: "47. Traitement par lots"
+description: "Traiter de gros volumes de données en lots : modèle MapReduce, échange (shuffle), combineur, tolérance aux pannes par réexécution, retardataires et tâches de secours, Spark (RDD, DataFrame, évaluation paresseuse), partitionnement et déséquilibre ; mesures sur un MapReduce écrit pour le chapitre et sur PySpark, et calcul du temps de traitement de 10 To."
+partie: 4
+chapitre: 47
+---
+
+import flux from '@site/src/figures/lots-mapreduce.svg';
+import spark from '@site/src/figures/lots-spark.svg';
+
+Seize processus comptent les accès et les octets de chaque page dans 16 millions de lignes de journaux (619 Mo) en 1,5 à 1,7 s ; un seul processus met 14 s. Sans combinaison locale, ils échangent 276 Mo de données intermédiaires ; en additionnant d’abord dans chaque tâche, 21 Mo. Tuer un processus au milieu de sa tâche ne coûte que 0,2 s et ne change pas le résultat, parce que la tâche est simplement relancée ; une tâche cinq fois plus lente que les autres fait passer le travail de 1,6 à 7,3 s, et une copie de secours lancée sur un autre processus le ramène à 3,4 s. Avec Spark, la même agrégation écrite en DataFrame prend 3,2 à 3,3 s contre 6,3 s en RDD, et une jointure dont une clé concentre 13,5 % des lignes passe de 8,3 à 8,8 s à 6,9 à 7,0 s quand Spark découpe la partition déséquilibrée. Ce chapitre traite du traitement par lots, qui applique un calcul à un grand volume de données au repos et produit un résultat complet. Il décrit le modèle MapReduce, ce qui le rend tolérant aux pannes, ce que Spark y a changé, et ce qui ralentit un travail en pratique.
+
+Le traitement de flux (ch. 48) et les entrepôts de données (ch. 49) s’appuient sur ces mécanismes. Le partitionnement par hachage vient du [ch. 26](../partie-2/partitionnement.mdx), le stockage objet où vivent souvent les données d’entrée du [ch. 29](../partie-2/stockage-objet.mdx).
+
+Trois scripts ont été écrits pour ce chapitre, dans [`outils/experiences/ch47/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch47). [`donnees.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch47/donnees.py) génère 16 fichiers de journaux d’accès d’un million de lignes chacun, dont les pages suivent une loi de Zipf (exposant 1,1 sur 100 000 pages ; la page la plus demandée reçoit 13,5 % des accès). [`mapreduce.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch47/mapreduce.py) est un MapReduce minimal où chaque tâche est un processus, avec un maître qui relance les tâches mortes et peut doubler les tâches lentes. [`spark_lots.py`](https://github.com/menraromial/system-design/blob/main/outils/experiences/ch47/spark_lots.py) fait le même travail avec PySpark 4.3 en mode local à 8 cœurs. Les deux derniers ont été lancés deux fois, sur un poste de 16 cœurs.
+
+## Le modèle MapReduce
+
+Jeffrey Dean et Sanjay Ghemawat ont décrit en 2004 le modèle que Google utilisait depuis 2003 pour ses calculs sur de gros volumes[^mapreduce]. Le programmeur écrit deux fonctions. La fonction map reçoit un enregistrement d’entrée et émet des paires clé-valeur intermédiaires ; la fonction reduce reçoit une clé et toutes les valeurs émises pour elle, et produit le résultat de cette clé. La bibliothèque se charge du reste : découper l’entrée en M morceaux (16 à 64 Mo chacun, d’après l’article), lancer M tâches map sur des machines proches des données, répartir les paires intermédiaires en R partitions par une fonction de partitionnement, par défaut `hash(clé) mod R`, faire lire à chacune des R tâches reduce sa partition chez toutes les tâches map, et écrire R fichiers de sortie (figure 47.1). L’article cite des travaux courants à M = 200 000 et R = 5 000 sur 2 000 machines[^mapreduce].
+
+<Figure svg={flux} num="47.1" alt="Six colonnes. Entrée : fichiers 1 à M. Map : chaque fichier est lu par une tâche map, qui émet des paires (page, accès, octets). Partitions locales : chaque map écrit ses paires en R partitions sur son disque local, selon hash(page) mod R, représentées par des carrés de trois couleurs. Échange : chaque tâche reduce lit la partition de sa couleur chez tous les maps, ce qui croise toutes les flèches. Reduce : reduce 1 à R additionnent par page. Sortie : un fichier par reduce. Note : mesuré sur 16 fichiers (619 Mo en tout), 276 Mo échangés sans combineur, 21 Mo avec un combineur qui additionne déjà dans chaque map ; le maître relance une tâche dont le processus meurt, et double une tâche trop lente.">
+Déroulement d’un travail MapReduce.
+</Figure>
+
+Le croisement des flèches entre les partitions locales et les tâches reduce est l’échange (shuffle), où chaque tâche reduce doit attendre la fin de toutes les tâches map, puis lire un morceau chez chacune.
+
+L’échange est l’étape la plus coûteuse, parce que toutes les données intermédiaires passent par le disque et par le réseau. Quand la fonction reduce est commutative et associative (une somme, un maximum), l’article propose une fonction de combinaison (combiner) qui fait une première réduction dans chaque tâche map, avant l’écriture ; l’exemple donné est le comptage de mots, dont les fréquences suivent une loi de Zipf, si bien que chaque tâche map produirait des milliers de paires `<the, 1>` vers une même tâche reduce[^mapreduce]. La première partie de `mapreduce.py` mesure ce gain sur le comptage des accès par page, avec 16 processus.
+
+```text
+entrée : 16 fichiers, 619 Mo ; M = 16, R = 16
+
+1. travail complet, 16 processus
+                     map s  reduce s  total s  intermédiaire
+   sans combineur      1.2       1.0      2.3         276 Mo
+   avec combineur      1.5       0.1      1.6          21 Mo
+   99 985 pages ; la plus demandée : /page/0, 2 155 048 accès
+```
+
+La première passe a donné les mêmes durées à 0,1 s près. Le combineur divise par 13 le volume échangé (276 Mo contre 21 Mo, pour 619 Mo d’entrée) et la durée de la phase reduce par 10, au prix d’une phase map un peu plus longue (1,5 s contre 1,2 s), qui tient un dictionnaire par partition. Ici, tout reste sur un disque local ; sur une grappe, ces 255 Mo de moins sont autant de trafic réseau en moins.
+
+La deuxième partie fait varier le nombre de processus.
+
+```text
+2. passage à l'échelle (avec combineur)
+   processus  total s  accélération
+           1     14.0          1.0x
+           2      7.5          1.9x
+           4      3.6          3.9x
+           8      2.4          5.9x
+          16      1.7          8.4x
+```
+
+La première passe a donné 13,7 s et une accélération de 8,7 à 16 processus. L’accélération est presque parfaite jusqu’à 4 processus, puis s’infléchit, avec 5,9 à 6,0 à 8 processus, 8,4 à 8,7 à 16. Trois raisons y contribuent, que l’on retrouve à toute échelle. Il n’y a que 16 tâches map, donc une seule vague à 16 processus, et la plus lente fixe la fin de la phase. Le démarrage des processus et l’attente de la dernière tâche sont des parties séquentielles (la loi d’Amdahl, [ch. 10](../partie-1/passer-echelle.mdx)). Et les 16 cœurs du poste n’ont pas tous la même vitesse.
+
+## Tolérance aux pannes par réexécution
+
+Sur des milliers de machines, il y a toujours une machine qui tombe pendant un travail ; l’article compte en moyenne 1,2 mort de processus travailleur par travail sur les travaux d’août 2004[^mapreduce]. MapReduce traite ces pannes sans réplication ni journal, par réexécution. Le maître interroge périodiquement les travailleurs, et une tâche dont le travailleur ne répond plus est relancée ailleurs. Les tâches map terminées sur une machine perdue sont relancées elles aussi, parce que leurs sorties étaient sur son disque local ; les tâches reduce terminées ne le sont pas, leurs sorties étant dans le système de fichiers global. La réexécution n’est correcte que si les fonctions map et reduce sont déterministes ; chaque tâche écrit dans un fichier temporaire, puis le renomme de façon atomique à la fin, si bien qu’une tâche exécutée deux fois ne laisse qu’un résultat[^mapreduce]. `mapreduce.py` suit les mêmes règles ; la troisième partie tue le processus de la tâche map 3 à la moitié de sa durée habituelle.
+
+```text
+3. panne : processus de la tâche map 3 tué à mi-parcours (0.7 s)
+   sans panne : 1.7 s ; avec panne : 1.9 s ; tâches relancées : 1
+   résultat identique : True
+```
+
+La première passe a donné 1,6 et 1,8 s. La panne coûte 0,2 s, la moitié de tâche perdue plus sa relance, et le résultat (nombre de pages et page la plus demandée) est identique à celui d’une exécution sans panne. L’article rapporte la même chose à grande échelle, avec un tri d’un téraoctet où 200 des 1 746 processus travailleurs ont été tués au bout de quelques minutes, et qui s’est terminé en 933 s, 5 % de plus que l’exécution normale[^mapreduce].
+
+### Les retardataires
+
+Une machine peut aussi être lente sans être en panne, à cause d’un disque qui corrige des erreurs ou d’un autre travail qui se partage le processeur. L’article cite un défaut d’initialisation qui désactivait les caches du processeur et ralentissait les calculs d’un facteur cent[^mapreduce]. Comme une phase ne finit qu’avec sa dernière tâche, une seule tâche lente retarde tout le travail. Le remède décrit est la tâche de secours (backup task) : vers la fin d’une phase, le maître relance une copie des tâches encore en cours, et retient la première copie qui termine ; sans ce mécanisme, le tri d’un téraoctet de l’article prend 44 % de temps en plus (1 283 s au lieu de 891 s)[^mapreduce]. La quatrième partie de `mapreduce.py` ralentit la tâche map 5 d’un facteur cinq, la lenteur tenant au processus et non à la tâche ; avec les secours, le maître double une tâche qui dure plus de deux fois la médiane des tâches terminées.
+
+```text
+4. retardataire : tâche map 5 cinq fois plus lente
+   sans tâches de secours : map 7.2 s, total 7.3 s, copies lancées : 0
+   avec tâches de secours : map 3.4 s, total 3.5 s, copies lancées : 1
+```
+
+La première passe a donné 7,4 et 3,4 s. Sans secours, le travail attend la tâche lente, et dure 7,3 à 7,4 s au lieu de 1,6 à 1,7 s. Avec secours, une copie est lancée quand la tâche a duré deux fois la médiane, termine en une durée normale, et le travail finit en 3,4 à 3,5 s ; le seuil de déclenchement fixe ce qui reste de retard, et le prix est une tâche exécutée deux fois.
+
+## Le déséquilibre des partitions
+
+La fonction de partitionnement répartit les clés, pas les volumes. Si une clé concentre une grande part des données, sa partition est plus grosse que les autres, et la tâche reduce qui la traite finit après toutes les autres. Dans les journaux de l’expérience, la page la plus demandée reçoit 13,5 % des accès, plus que la part moyenne d’une partition sur 16 (6,25 %). La cinquième partie mesure, sans combineur, la taille des partitions et la durée des tâches reduce, puis recommence avec une clé salée. Chaque page est éclatée en 16 sous-clés (`page#0` à `page#15`), réparties dans des partitions différentes, et une seconde agrégation, minuscule, réunit les sous-clés.
+
+```text
+5. déséquilibre des partitions (sans combineur)
+                  part. max  médiane  rapport  reduce max   méd.
+   clé = page         46 Mo    14 Mo      3.2      1.11 s  0.48 s
+   salage             22 Mo    20 Mo      1.1      1.00 s  0.91 s
+```
+
+La première passe a donné les mêmes tailles et 1,10 s contre 0,43 s, puis 0,97 s contre 0,82 s. La partition de la page chaude pèse 46 Mo, 3,2 fois la médiane, et sa tâche reduce dure 1,10 à 1,11 s quand les autres durent 0,43 à 0,48 s. Avec le salage, la plus grosse partition ne dépasse la médiane que de 10 %, et les durées se resserrent (1,00 s au plus, 0,82 à 0,91 s en médiane). Le gain sur la durée maximale reste faible ici, parce que le salage multiplie par 16 le nombre de clés distinctes que chaque tâche reduce doit tenir ; il devient décisif quand une clé représente une part bien plus grande que 1/R, ou quand R grandit et que la part moyenne d’une partition rétrécit. Avec un combineur, le problème disparaît presque pour une somme, puisque chaque tâche map n’envoie qu’une ligne par page ; il reste entier pour une jointure, où les lignes doivent toutes arriver au même endroit.
+
+## Spark : garder les données en mémoire
+
+MapReduce écrit tout sur disque entre deux travaux, ce qui est lent pour les algorithmes itératifs (apprentissage, graphes) et pour l’analyse interactive, qui relisent les mêmes données plusieurs fois. Matei Zaharia et ses coauteurs ont présenté en 2012 les ensembles de données distribués résilients (resilient distributed datasets, RDD), le modèle de Spark[^rdd]. Un RDD est une collection partitionnée et immuable, construite par des transformations à gros grain (map, filter, join) appliquées à toute la collection. Pour la tolérance aux pannes, Spark ne réplique pas les données ; il garde la lignée (lineage) de chaque RDD, c’est-à-dire la suite de transformations qui l’a produit, et recalcule une partition perdue à partir de ses parents. Le programmeur peut demander de garder un RDD en mémoire pour le réutiliser. Les transformations sont paresseuses, car Spark ne calcule un RDD qu’à la première action qui en a besoin (count, collect, save), ce qui lui permet d’enchaîner les transformations sans écrire les résultats intermédiaires. Les auteurs mesurent jusqu’à 20 fois plus vite que Hadoop sur des applications itératives[^rdd].
+
+Spark découpe ensuite le calcul en étapes séparées par les échanges. À l’intérieur d’une étape, les transformations s’enchaînent dans la même tâche ; entre deux étapes, les données sont redistribuées par clé, comme entre map et reduce. Au-dessus des RDD, l’API DataFrame décrit les données par un schéma et les calculs par des opérations relationnelles, que Spark peut réordonner avant de les exécuter, en poussant par exemple les filtres vers la lecture. La première partie de `spark_lots.py` compare trois écritures de la même agrégation.
+
+```text
+1. agrégation par page (accès et octets), 16 millions de lignes
+   (durée à chaud : seconde de deux exécutions)
+   écriture                    durée s     échange
+   RDD, groupByKey                 6.6     59.8 Mo
+   RDD, reduceByKey                6.3     16.2 Mo
+   DataFrame, groupBy              3.3      5.1 Mo
+   pages distinctes : 99985
+```
+
+La première passe a donné 6,6, 6,3 et 3,2 s, et les mêmes volumes. `groupByKey` envoie toutes les paires à travers l’échange avant de les regrouper (59,8 Mo) ; `reduceByKey` combine d’abord dans chaque partition, comme le combineur de MapReduce (16,2 Mo). Les deux passent chaque ligne par une fonction Python, et sont limitées par cet aller-retour entre la machine virtuelle Java et Python (6,3 à 6,6 s). Le DataFrame reste dans la machine virtuelle Java, agrège partiellement avant l’échange dans un format binaire (5,1 Mo échangés), et va deux fois plus vite.
+
+La deuxième partie mesure la paresse et la mise en cache.
+
+```text
+2. évaluation paresseuse
+   définir lecture, filtre et regroupement : 62 ms, travaux lancés : 0
+   action (5 pages les plus en erreur) : 2.8 s, travaux lancés : 2
+   filtre poussé dans la lecture (PushedFilters) : True
+   deux agrégations sur les lignes 404, sans cache : 2.6 s puis 2.9 s
+   avec cache : 4.2 s (lecture et mise en cache) puis 0.7 s
+```
+
+La première passe a donné 58 ms, 2,9 s, et la même suite pour le cache, à 0,4 s près. Définir la lecture, le filtre et le regroupement prend 58 à 67 ms et ne lance aucun travail ; l’action en lance deux, dont l’un trie le résultat. Le plan exécuté montre le filtre `statut = 404` poussé dans la lecture du fichier. Sans cache, deux agrégations sur les mêmes lignes relisent et refiltrent tout à chaque fois (2,6 puis 2,8 à 2,9 s) ; avec un cache, la première paie la lecture et le remplissage (4,2 à 4,6 s), la seconde ne prend plus que 0,7 s. Le cache ne paie donc qu’à partir de la deuxième utilisation, et il occupe de la mémoire que Spark devra peut-être reprendre.
+
+### Jointures et déséquilibre
+
+Une jointure entre une grande table et une petite peut éviter l’échange si Spark envoie la petite table entière à chaque tâche (diffusion, broadcast join), par défaut quand elle fait moins de 10 Mo[^aqe]. Sinon, il redistribue les deux tables par la clé de jointure et joint chaque partition par tri-fusion (sort-merge join), et une clé fréquente produit une partition énorme. Depuis Spark 3.2, l’exécution adaptative des requêtes (adaptive query execution, AQE) est activée par défaut ; Spark mesure la taille réelle des partitions après l’échange et peut réoptimiser le plan. Son traitement des jointures déséquilibrées (skew join) découpe une partition qui dépasse à la fois 256 Mo et 5 fois la médiane, avec les réglages par défaut[^aqe]. La troisième partie de `spark_lots.py` joint les 16 millions d’accès à une table de 100 000 pages, par diffusion, puis par tri-fusion sans et avec ce traitement ; les seuils sont abaissés à 16 Mo et 2 fois la médiane, à la mesure de ce petit jeu de données (figure 47.2).
+
+```text
+3. jointure des 16 millions d'accès avec 100 000 pages (catégorie)
+   stratégie                  durée s  échange tâches     max   méd.
+   diffusion (broadcast)          3.9     0 Mo     16  0.02 s 0.02 s
+   tri-fusion, skew join off      8.3   187 Mo     16  2.52 s 1.60 s
+   tri-fusion, skew join on       7.0   188 Mo     20  1.54 s 0.88 s
+   colonnes 3 à 6 : l'étape qui lit le plus de données d'échange
+   (la jointure, ou l'agrégation finale quand la table des pages est
+   diffusée)
+```
+
+La première passe a donné 3,9, 8,8 et 6,9 s, et les mêmes nombres de tâches. La diffusion supprime l’échange de la grande table et fait le travail en 3,9 s. En tri-fusion, la grande table passe par l’échange (187 à 188 Mo), et la partition de la page chaude fait la tâche la plus longue, 2,46 à 2,52 s pour une médiane de 1,60 à 1,77 s, et 8,3 à 8,8 s en tout. Avec le traitement du déséquilibre, Spark découpe cette partition en morceaux (20 tâches au lieu de 16), chacun joint à une copie de la partition correspondante de la petite table ; la tâche la plus longue tombe à 1,54 à 1,73 s et le travail à 6,9 à 7,0 s.
+
+<Figure svg={spark} num="47.2" alt="En haut, le plan exécuté de la jointure : la lecture des accès (8 tâches) et la table des pages en cache passent chacune par un échange (187 à 188 Mo pour les accès) vers la jointure par tri-fusion à 16 partitions, clé page, puis un échange vers la somme par catégorie et le résultat ; rien ne s’exécute avant l’action collect(), et un filtre éventuel est poussé dans la lecture. En bas, un schéma de la durée des tâches de l’étape de jointure. Skew join désactivé : 16 barres, dont une rouge beaucoup plus haute, la partition chaude ; la plus longue 2,46 à 2,52 s, médiane 1,60 à 1,77 s, total 8,3 à 8,8 s. Skew join activé : 15 barres plus basses et 5 barres orange, la partition découpée ; 20 tâches, la plus longue 1,54 à 1,73 s, médiane 0,84 à 0,88 s, total 6,9 à 7,0 s.">
+Plan d’une jointure Spark et découpage de la partition déséquilibrée.
+</Figure>
+
+En haut, chaque flèche rouge est un échange, qui sépare deux étapes ; en bas, les hauteurs des barres sont proportionnelles aux durées maximale et médiane mesurées, la répartition des autres barres étant schématique.
+
+## Compromis
+
+| Choix | Ce qu’il apporte | Ce qu’il coûte | Mesuré ici | À employer |
+|---|---|---|---|---|
+| MapReduce (disque entre étapes) | simplicité, reprise par réexécution, volumes supérieurs à la mémoire | écriture de tout sur disque, lent pour les calculs itératifs | 14 s à 1 processus, 1,6 à 1,7 s à 16 | gros travaux en une passe |
+| Combineur ou `reduceByKey` | échange divisé | fonction associative et commutative obligatoire | 276 Mo contre 21 Mo ; 59,8 Mo contre 16,2 Mo | sommes, comptages, maximums |
+| Tâches de secours | retardataires neutralisés | calcul doublé pour les dernières tâches | 7,3 à 7,4 s contre 3,4 à 3,5 s | toujours sur une grande grappe |
+| RDD Spark | contrôle fin, code arbitraire | sérialisation entre la JVM et Python, pas d’optimiseur | 6,3 à 6,6 s | traitements non relationnels |
+| DataFrame Spark | optimiseur, code compilé, filtres poussés | expressivité limitée aux opérations relationnelles | 3,2 à 3,3 s, 5,1 Mo échangés | par défaut |
+| Cache | réutilisation en mémoire | mémoire occupée, premier calcul plus lent | 4,2 à 4,6 s puis 0,7 s | données relues plusieurs fois |
+| Diffusion d’une petite table | aucun échange de la grande table | la petite table copiée partout | 3,9 s contre 8,3 à 8,8 s | dimension de quelques Mo |
+| Salage ou skew join | partition chaude découpée | clés multipliées, seconde agrégation | partitions 3,2 fois puis 1,1 fois la médiane ; 8,3 à 8,8 s contre 6,9 à 7,0 s | clés très fréquentes |
+
+## Ordres de grandeur
+
+:::calcul[Calcul : traiter 10 To]
+Hypothèses : 10 To de journaux compressés dans un stockage objet ; une grappe de 50 machines de 32 cœurs ; chaque cœur lit et analyse 25 Mo/s (le DataFrame de l’expérience a traité 619 Mo en 3,2 à 3,3 s sur 8 cœurs, environ 24 Mo/s par cœur) ; chaque machine lit 1,5 Go/s depuis le stockage ; l’agrégation échange 5 % de l’entrée.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Débit d’analyse de la grappe | 50 × 32 × 25 Mo/s | 40 Go/s |
+| Débit de lecture de la grappe | 50 × 1,5 Go/s | 75 Go/s, donc l’analyse limite |
+| Phase de lecture et de map | 10 000 Go / 40 Go/s | 250 s |
+| Échange | 500 Go, écrits puis lus, réseau à 1,25 Go/s par machine | 500 / 62,5 Go/s = 8 s de réseau, quelques dizaines de secondes avec les disques |
+| Morceaux de 128 Mo | 10 To / 128 Mo | 78 000 tâches, 49 vagues de 1 600 |
+| Avec une tâche retardataire par vague sans secours | 49 vagues × un retard de 2 tâches | jusqu’à deux fois plus long |
+
+Conclusion : environ 5 minutes si tout se passe bien, dominées par l’analyse des données ; les retardataires, le déséquilibre et le démarrage des tâches décident de l’écart entre ces 5 minutes et la réalité.
+:::
+
+:::calcul[Calcul : la taille de l’échange]
+Hypothèses : 2 milliards de lignes ; 100 millions de clés distinctes ; chaque paire intermédiaire fait 30 octets ; 2 000 tâches map d’un million de lignes, qui voient chacune 200 000 clés distinctes si les clés suivent une loi de Zipf.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Sans combineur | 2 × 10⁹ × 30 octets | 60 Go |
+| Avec combineur, clés toutes différentes dans chaque tâche | une ligne par paire | 60 Go, aucun gain |
+| Avec combineur, clés selon Zipf | 2 000 × 200 000 × 30 octets | 12 Go |
+
+Conclusion : le combineur gagne d’autant plus que les clés se répètent dans chaque tâche ; sur des clés presque uniques (identifiants de transaction), il ne gagne rien et coûte la mémoire d’un dictionnaire.
+:::
+
+:::calcul[Calcul : le poids d’une clé chaude]
+Hypothèses : 1 milliard de lignes ; R = 400 partitions ; une clé représente 2 % des lignes ; une tâche traite 1 million de lignes par seconde.
+
+| Grandeur | Calcul | Résultat |
+|---|---|---|
+| Partition moyenne | 10⁹ / 400 | 2,5 millions de lignes, 2,5 s |
+| Partition de la clé chaude | 2 % de 10⁹ + 2,5 millions | 22,5 millions de lignes, 22,5 s |
+| Rapport | 22,5 / 2,5 | 9 fois la médiane |
+| Avec un sel de 16 | 20 millions / 16 + 2,5 millions | 3,75 millions de lignes, 3,8 s |
+
+Conclusion : une clé qui pèse plus que 1/R des données fixe à elle seule la durée de l’étape ; augmenter R n’y change rien, il faut découper la clé (sel, skew join) ou la traiter à part.
+:::
+
+## Exemple réel
+
+**Le record de tri de Spark en 2014.** Le concours Sort Benchmark mesure, dans sa catégorie Daytona GraySort, le temps pour trier 100 To avec un programme généraliste. En 2014, l’équipe de Databricks (Reynold Xin, Parviz Deyhim, Xiangrui Meng, Ali Ghodsi et Matei Zaharia) a trié 100 To avec Spark en 1 406 s, soit 4,27 To par minute, sur 207 machines virtuelles i2.8xlarge d’Amazon EC2 (32 cœurs virtuels, 244 Go de mémoire, 8 disques SSD de 800 Go chacune), et partage le record avec TritonSort, de l’université de Californie à San Diego, qui a trié la même quantité en 1 378 s sur 186 machines ; le record précédent, établi par Yahoo! avec Hadoop MapReduce en 2013, était de 102,5 To en 4 328 s sur 2 100 machines[^sortbenchmark]. Reynold Xin résume le résultat en trois fois plus vite avec dix fois moins de machines, et précise que le tri s’est fait entièrement sur disque, sans le cache en mémoire de Spark ; l’équipe l’attribue à trois changements de Spark : un échange fondé sur le tri plutôt que sur le hachage, un transport réseau fondé sur Netty, et un service d’échange externe qui sert les fichiers intermédiaires indépendamment des exécuteurs. Spark a ensuite trié 1 Po en 234 minutes sur 190 machines[^databricks]. L’exemple montre où se joue la performance d’un traitement par lots à cette échelle, moins dans le calcul que dans l’échange, ses écritures, ses lectures et son réseau.
+
+## Erreurs fréquentes
+
+Utiliser `groupByKey` pour une somme. Tout passe par l’échange avant d’être additionné, 59,8 Mo contre 16,2 Mo avec `reduceByKey` (mesuré).
+
+Écrire en RDD Python ce qu’un DataFrame exprime. Deux fois plus lent ici, sans optimiseur ni filtres poussés.
+
+Croire qu’une transformation s’exécute quand on la définit. Elle ne s’exécute qu’à l’action ; une erreur dans le code n’apparaît alors qu’à ce moment, et une boucle d’actions relance tout le calcul à chaque tour si rien n’est mis en cache.
+
+Mettre en cache un résultat utilisé une seule fois. Le premier calcul est plus lent (4,2 à 4,6 s contre 2,6 s sans cache) et la mémoire est occupée pour rien.
+
+Écrire des fonctions map ou reduce non déterministes (date courante, tirage aléatoire sans graine, appel à un service externe). Une tâche réexécutée après une panne produit alors un autre résultat.
+
+Ignorer le déséquilibre. Une clé qui pèse plus que 1/R des données fixe la durée de l’étape, quel que soit le nombre de machines.
+
+Laisser Spark échanger une petite table qu’il pourrait diffuser, parce que ses statistiques la jugent trop grosse ou parce que le seuil de diffusion a été désactivé.
+
+Choisir des morceaux d’entrée trop gros ou trop peu nombreux. Avec autant de tâches que de cœurs, une seule tâche lente retarde toute la vague.
+
+:::piege[Erreur fréquente : « deux fois plus de machines, deux fois plus vite »]
+L’accélération mesurée ici passe de 3,7 à 3,9 à 4 processus à 8,4 à 8,7 à 16, pour un travail sans réseau. Les parties séquentielles (démarrage, attente de la dernière tâche), l’échange qui doit attendre la fin de toutes les tâches map, les retardataires (une tâche lente fait passer le travail de 1,6 à 7,3 s) et les partitions déséquilibrées (une partition de 3,2 fois la médiane) ne se divisent pas par le nombre de machines. Avant d’ajouter des machines, on regarde la durée de la tâche la plus longue de chaque étape et la taille des partitions.
+:::
+
+:::entretien
+Pour un traitement de gros volume, demandez la taille des données, la fréquence du traitement et le délai acceptable. Décrivez le découpage en tâches et les échanges, puis chiffrez la lecture (débit par cœur et nombre de cœurs), l’échange (volume, combineur) et l’écriture. Citez la tolérance aux pannes par réexécution (tâches déterministes, sorties renommées de façon atomique), les tâches de secours contre les retardataires, et le déséquilibre des clés avec ses remèdes (combineur, sel, diffusion, skew join). Préférez les DataFrame aux RDD, et dites pourquoi.
+:::
+
+## Exercices
+
+**Question 1.** Écrivez, en pseudo-code map et reduce, le calcul du nombre d’utilisateurs distincts par page à partir des journaux du chapitre. Peut-on utiliser un combineur ? Que change une estimation par HyperLogLog ([ch. 40](../partie-3/structures-probabilistes.mdx)) ?
+
+**Question 2.** Un travail de 2 000 tâches map de 60 s chacune tourne sur 500 cœurs. Quelle est sa durée minimale ? Si 1 % des tâches tombent sur une machine dix fois plus lente, que devient la durée sans tâches de secours, et avec des copies lancées quand une tâche dépasse deux fois la médiane ?
+
+**Question 3.** Une jointure entre des commandes (2 milliards de lignes) et des clients (50 millions de lignes, 4 Go) est lente, et l’interface de Spark montre une tâche de 40 minutes quand la médiane est de 2 minutes. Expliquez la cause probable et proposez trois corrections.
+
+**Exercice de conception.** Une entreprise de livraison veut calculer chaque nuit, à partir de 3 To de positions GPS de la journée (une ligne par livreur et par seconde), la distance parcourue par livreur, le temps passé à l’arrêt et des statistiques par quartier. Le résultat doit être prêt à 6 h ; les données arrivent jusqu’à 1 h. Proposez le découpage en étapes, les clés de partitionnement, la gestion du déséquilibre (certains quartiers concentrent les livraisons), le dimensionnement de la grappe et la reprise en cas de panne, et chiffrez la durée.
+
+## Corrigés
+
+**Question 1.** Map : pour chaque ligne, émettre la clé `(page, utilisateur)` avec une valeur vide. Reduce, première étape : chaque clé `(page, utilisateur)` arrive une fois, émettre `(page, 1)`. Seconde étape : additionner par page. Un combineur peut supprimer les doublons `(page, utilisateur)` dans chaque tâche map, mais il ne peut pas compter les utilisateurs distincts par page avant l’échange, puisqu’un même utilisateur peut apparaître dans plusieurs tâches. Avec HyperLogLog, chaque tâche map construit un petit sketch par page (quelques kilo-octets), le combineur les fusionne, et la tâche reduce fusionne les sketches reçus : une seule étape, un échange réduit à un sketch par page et par tâche, au prix d’une erreur d’environ 1 %.
+
+**Question 2.** Durée minimale : $2\,000 / 500 = 4$ vagues de 60 s, soit 240 s. Avec 1 % de tâches dix fois plus lentes (20 tâches de 600 s), la dernière vague contient presque sûrement au moins une tâche lente, et le travail dure environ $180 + 600 = 780$ s. Avec des copies lancées à 120 s, une tâche lente est doublée et sa copie termine 60 s plus tard, vers 180 s après son début : le travail dure environ $180 + 180 = 360$ s, au prix de 20 tâches exécutées deux fois.
+
+**Question 3.** La cause probable est une clé de jointure très fréquente, par exemple un client fictif utilisé pour les commandes anonymes ou un identifiant nul, qui envoie une grande part des commandes dans une seule partition. Première correction, diffuser la table des clients si elle tient en mémoire (4 Go, avec un seuil de diffusion relevé et assez de mémoire par exécuteur), ce qui supprime l’échange des commandes. Deuxième correction, activer le traitement adaptatif des jointures déséquilibrées et vérifier que les seuils (256 Mo, 5 fois la médiane) détectent bien cette partition. Troisième correction, traiter la clé chaude à part : filtrer ses commandes, les joindre par diffusion avec l’unique client concerné, puis réunir avec le reste ; ou saler la clé des deux côtés.
+
+**Exercice de conception.**
+
+*Étapes.* Première étape, lire les positions, les filtrer (points aberrants), et redistribuer par livreur ; dans chaque partition, trier par livreur puis par instant, et calculer distance et temps à l’arrêt d’une ligne à la suivante. Le tri par livreur et par instant à l’intérieur de chaque partition évite de regrouper toutes les positions d’un livreur en mémoire. Seconde étape, rattacher chaque position à un quartier (jointure par diffusion avec la table des quartiers, quelques mégaoctets) et agréger par quartier, avec combinaison partielle avant l’échange.
+
+*Déséquilibre.* Le partitionnement par livreur est équilibré (chaque livreur produit au plus 86 400 lignes par jour). L’agrégation par quartier est déséquilibrée, mais une somme se combine avant l’échange, donc les quartiers chargés n’envoient qu’une ligne par tâche.
+
+*Dimensionnement.* 3 To à 25 Mo/s par cœur : 120 000 secondes-cœur pour l’analyse, plus le tri et l’échange de la première étape (3 To écrits et relus) ; avec 400 cœurs, environ 5 minutes d’analyse et une quinzaine de minutes pour l’échange et le tri, soit moins d’une demi-heure. Avec la fenêtre de 1 h à 6 h, une grappe de 400 cœurs laisse de quoi relancer le travail entier deux fois.
+
+*Reprise.* Tâches déterministes, sorties écrites dans des fichiers temporaires renommés à la fin, tâches de secours activées ; écrire le résultat de la première étape (par livreur) avant la seconde, pour pouvoir reprendre à partir de lui si la seconde échoue.
+
+:::fiche
+- MapReduce : map émet des paires clé-valeur, reduce reçoit toutes les valeurs d’une clé ; M tâches map, R partitions par `hash(clé) mod R`, échange entre les deux (Dean et Ghemawat, 2004).
+- Combineur : réduction partielle dans chaque map si la fonction est associative et commutative ; mesuré, 276 Mo échangés contre 21 Mo.
+- Pannes : réexécution des tâches perdues, fonctions déterministes, sorties renommées de façon atomique ; mesuré, +0,2 s et résultat identique ; 200 travailleurs tués sur 1 746, +5 % (article).
+- Retardataires : tâches de secours, première copie qui termine gagne ; mesuré, 7,3 à 7,4 s contre 3,4 à 3,5 s ; sans elles, +44 % sur le tri d’un téraoctet (article).
+- Déséquilibre : une clé de plus de 1/R des données fixe la durée de l’étape ; mesuré, partition de 3,2 fois la médiane ; remèdes : combineur, sel, diffusion, skew join.
+- Spark : RDD immuables, lignée pour recalculer les partitions perdues, transformations paresseuses jusqu’à l’action, cache explicite (Zaharia et al., 2012).
+- Mesuré : DataFrame 3,2 à 3,3 s contre 6,3 à 6,6 s en RDD Python ; définir un plan, 58 à 67 ms et aucun travail ; cache, 0,7 s à la deuxième utilisation.
+- Jointures : diffusion sous 10 Mo par défaut (3,9 s) ; tri-fusion avec échange (8,3 à 8,8 s), découpée par AQE au-delà de 256 Mo et 5 fois la médiane (6,9 à 7,0 s).
+:::
+
+[^mapreduce]: Jeffrey Dean et Sanjay Ghemawat, « MapReduce: Simplified Data Processing on Large Clusters », *6th Symposium on Operating Systems Design and Implementation (OSDI ’04)*, 2004, sections 3 à 6, [usenix.org/legacy/events/osdi04/tech/full_papers/dean/dean.pdf](https://www.usenix.org/legacy/events/osdi04/tech/full_papers/dean/dean.pdf).
+[^rdd]: Matei Zaharia, Mosharaf Chowdhury, Tathagata Das, Ankur Dave, Justin Ma, Murphy McCauley, Michael J. Franklin, Scott Shenker et Ion Stoica, « Resilient Distributed Datasets: A Fault-Tolerant Abstraction for In-Memory Cluster Computing », *9th USENIX Symposium on Networked Systems Design and Implementation (NSDI ’12)*, 2012, [usenix.org/system/files/conference/nsdi12/nsdi12-final138.pdf](https://www.usenix.org/system/files/conference/nsdi12/nsdi12-final138.pdf).
+[^aqe]: Apache Spark, « Performance Tuning », section « Adaptive Query Execution », documentation de Spark, consultée le 15 novembre 2026, [spark.apache.org/docs/latest/sql-performance-tuning.html](https://spark.apache.org/docs/latest/sql-performance-tuning.html).
+[^sortbenchmark]: Sort Benchmark, résultats de la catégorie Daytona GraySort, consultés le 15 novembre 2026, [sortbenchmark.org](https://sortbenchmark.org/).
+[^databricks]: Reynold Xin, « Spark Officially Sets a New Record in Large-Scale Sorting », *Databricks Blog*, 5 novembre 2014, [databricks.com/blog/2014/11/05/spark-officially-sets-a-new-record-in-large-scale-sorting.html](https://www.databricks.com/blog/2014/11/05/spark-officially-sets-a-new-record-in-large-scale-sorting.html).

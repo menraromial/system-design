@@ -72,6 +72,7 @@ Les dépendances Python de chaque chapitre sont dans son `requirements.txt`. Les
 | 44 | [`ch44/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch44) | runtime Python officiel d’AWS Lambda (image de base et émulateur RIE) : démarrage à froid selon la mémoire et les imports, processeur proportionnel à la mémoire et coût, dépassement de délai et de mémoire ; plateforme de fonctions en processus : démarrages à froid selon le débit et le maintien en vie, rafales et limite de concurrence, connexions à PostgreSQL 18 directes ou par PgBouncer ; point de bascule de coût contre des machines | Docker, `docker build -t cours-sd-ch44-fonction .` pour `froid.py` ; images `postgres:18-alpine` et `edoburu/pgbouncer` pour `plateforme.py` ; Python seul pour `cout.py` ; `pip install -r requirements.txt` | `python3 froid.py`, `plateforme.py`, `cout.py` |
 | 45 | [`ch45/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch45) | huit serveurs aiohttp réels et un superviseur : requête empoisonnée réessayée sur une flotte partagée, des cellules ou du shuffle sharding (rayon d’impact) ; déploiement d’une version défectueuse ou saine sur toutes les cellules ou cellule par cellule, avec alarme et retour arrière ; coût d’un routeur de cellules ; combinatoire du shuffle sharding vérifiée par tirage | Python seul ; `pip install -r requirements.txt` | `python3 cellules.py`, `melange.py` |
 | 46 | [`ch46/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch46) | trois régions simulées (un espace réseau par région, délais `netem` réglés sur les médianes publiées par Azure) : allers-retours et connexions neuves, PostgreSQL 18 en actif-passif (asynchrone, synchrone, écriture lointaine, lecture locale), retard des répliques, perte de la région primaire, actif-actif par réplication logique (divergence), volume et prix de la réplication | Docker, `docker build -t cours-sd-ch46-region .`, image `postgres:18-alpine` ; `pip install -r requirements.txt` | `python3 regions.py` |
+| 47 | [`ch47/`](https://github.com/menraromial/system-design/tree/main/outils/experiences/ch47) | journaux d’accès générés (16 millions de lignes, pages selon Zipf) ; MapReduce minimal en processus : combineur, passage à l’échelle, panne et réexécution, retardataire et tâches de secours, déséquilibre et salage ; PySpark local : RDD et DataFrame, évaluation paresseuse et cache, jointure par diffusion ou tri-fusion avec et sans AQE skew join | Python, Java 17 ou plus pour PySpark ; `pip install -r requirements.txt` ; données dans `~/.cache/cours-sd-ch47` (0,6 Go) | `python3 donnees.py`, `mapreduce.py`, `spark_lots.py` |
 
 Les résultats s’affichent sur la sortie standard. Les fichiers de travail (configurations de Caddy, certificats du [ch. 6](partie-1/tls.mdx)) vont dans le dossier temporaire du système, sauf les cent petits fichiers que `ch05/mesurer.sh` crée dans `ch05/site/` ; `ch09/latences` crée un fichier de 1 Gio pour mesurer le disque et le supprime à la fin ; les scripts du [ch. 20](partie-2/moteurs-stockage.mdx) écrivent dans `~/.cache/cours-sd-ch20`, sur le disque et non dans un dossier temporaire qui peut être en mémoire, et le suppriment à la fin.
 
@@ -120,8 +121,10 @@ docker rm -f -v cours-sd-ch42-pg
 docker rm -f -v cours-sd-ch43-pg
 docker rm -f -v cours-sd-ch44-pg cours-sd-ch44-pgb
 docker rm -f -v cours-sd-ch46-paris cours-sd-ch46-virginie cours-sd-ch46-singapour cours-sd-ch46-pg-paris cours-sd-ch46-pg-virginie cours-sd-ch46-pg-singapour cours-sd-ch46-pg-paris-5433 cours-sd-ch46-pg-virginie-5433
-docker network rm cours-sd-ch46-reseau
 docker rmi cours-sd-ch44-fonction
+docker network rm cours-sd-ch46-reseau
+docker rmi cours-sd-ch46-region
+rm -rf ~/.cache/cours-sd-ch47
 rm -rf ~/.cache/cours-sd-ch20                # données du ch. 20 si moteurs.py a été interrompu
 pgrep -af "caddy run"                         # Caddy lancés par les scripts
 ```

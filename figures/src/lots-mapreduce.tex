@@ -1,0 +1,39 @@
+% Déroulement d'un travail MapReduce : M tâches map, écriture partitionnée sur
+% disque local, échange (shuffle), R tâches reduce (outils/experiences/ch47).
+\documentclass[border=6pt]{standalone}
+\usepackage{sd}
+\begin{document}
+\begin{tikzpicture}[x=1mm, y=1mm, note/.append style={font=\sffamily\small},
+    bl/.style={draw=#1, fill=#1Bg, line width=0.6pt, rounded corners=2pt, minimum width=20mm,
+      minimum height=7mm, font=\sffamily\small, align=center},
+    pt/.style={draw=#1, fill=#1Bg, line width=0.4pt, minimum width=4mm, minimum height=4mm, inner sep=0pt,
+      font=\sffamily\scriptsize},
+    lab/.style={font=\sffamily\small, text=#1, align=center}, lab/.default=Dink]
+  % colonnes
+  \foreach \x/\t in {0/entrée, 34/map, 72/{partitions locales}, 112/{échange}, 146/reduce, 178/sortie} {
+    \node[lab=Dslate, font=\sffamily\small\bfseries] at (\x,52) {\t};}
+  % entrées et maps
+  \foreach \i/\y in {1/40, 2/28, 3/16, M/0} {
+    \node[bl=Dslate, minimum width=16mm] (e\i) at (0,\y) {fichier \i};
+    \node[bl=Dblue] (m\i) at (34,\y) {map \i};
+    \draw[arr=Dslate] (e\i) -- (m\i);
+    \foreach \r/\c in {0/Damber, 1/Dteal, 2/Dpurple} {
+      \node[pt=\c] (p\i\r) at (64+\r*8,\y) {};}
+    \draw[Dslate, line width=0.5pt] (m\i.east) -- (p\i0.west);}
+  \node[lab=Dslate] at (17,8) {$\vdots$};
+  \node[lab=Dslate] at (72,8) {$\vdots$};
+  % reduces
+  \foreach \r/\c/\y in {0/Damber/36, 1/Dteal/20, 2/Dpurple/4} {
+    \ifnum\r=2 \def\nom{R}\else\edef\nom{\the\numexpr\r+1\relax}\fi
+    \node[bl=\c] (r\r) at (146,\y) {reduce \nom};
+    \node[bl=Dslate, minimum width=16mm] (s\r) at (178,\y) {sortie \nom};
+    \draw[arr=Dslate] (r\r) -- (s\r);
+    \foreach \i in {1,2,3,M} \draw[\c, line width=0.5pt, -{Stealth[length=2mm]}] (p\i\r.east) to[out=0, in=180] (r\r.west);}
+  % annotations
+  \node[lab=Dblue, anchor=north, align=center] at (34,-7) {lit son fichier, émet\\(page, accès, octets)};
+  \node[lab=Damber, anchor=north, align=center] at (72,-7) {hash(page) mod R\\sur le disque local};
+  \node[lab=Dred, anchor=north, align=center] at (112,-7) {chaque reduce lit sa\\partition chez tous les maps};
+  \node[lab=Dteal, anchor=north, align=center] at (146,-7) {additionne\\par page};
+  \node[note, anchor=north west, align=left] at (-8,-20) {mesuré sur 16 fichiers (619 Mo en tout) : 276 Mo échangés sans combineur, 21 Mo avec un combineur qui additionne\\déjà dans chaque map ; le maître relance une tâche dont le processus meurt, et double une tâche trop lente.};
+\end{tikzpicture}
+\end{document}
